@@ -570,6 +570,7 @@ bool CvPolicyEntry::CacheResults(Database::Results& kResults, CvDatabaseUtility&
 #endif
 
 	m_iInstantFoodThresholdPercent = kResults.GetInt("InstantFoodThresholdPercent");
+	m_iInstantFoodKeptPercent = kResults.GetInt("InstantFoodKeptPercent");
 
 	m_eCaptureCityResistanceTurnsChangeFormula = static_cast<LuaFormulaTypes>(GC.getInfoTypeForString(kResults.GetText("CaptureCityResistanceTurnsChangeFormula")));
 
@@ -3006,6 +3007,10 @@ int CvPolicyEntry::GetIdeologyUnhappinessModifier() const
 int CvPolicyEntry::GetInstantFoodThresholdPercent() const
 {
 	return m_iInstantFoodThresholdPercent;
+}
+int CvPolicyEntry::GetInstantFoodKeptPercent() const
+{
+	return m_iInstantFoodKeptPercent;
 }
 
 LuaFormulaTypes CvPolicyEntry::GetCaptureCityResistanceTurnsChangeFormula() const

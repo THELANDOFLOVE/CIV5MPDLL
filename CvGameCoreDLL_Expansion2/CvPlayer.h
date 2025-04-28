@@ -92,6 +92,8 @@ public:
 	void initFreeState(CvGameInitialItemsOverrides& kOverrides);
 	void initFreeUnits(CvGameInitialItemsOverrides& kOverrides);
 	void addFreeUnitAI(UnitAITypes eUnitAI, int iCount);
+	void UpdateGlobalUnlimitedPolicyStatus(); 
+	bool HasGlobalUnlimitedPolicy() const { return m_bGlobalUnlimitedOneTurnTGCP; }
 	CvPlot* addFreeUnit(UnitTypes eUnit, UnitAITypes eUnitAI = NO_UNITAI);
 
 	CvCity* initCity(int iX, int iY, bool bBumpUnits = true, bool bInitialFounding = true, ReligionTypes eInitialReligion = NO_RELIGION, const char* szName = NULL);
@@ -1783,6 +1785,8 @@ public:
 	int GetNumNaturalWondersDiscoveredInArea() const;
 	void SetNumNaturalWondersDiscoveredInArea(int iValue);
 	void ChangeNumNaturalWondersDiscoveredInArea(int iChange);
+	void CheckDominantAnnexation();
+    void AnnexCivilizationByDominant(CvPlayer& kTarget);
 
 	int GetNumNaturalWondersInOwnedPlots();
 
@@ -2918,6 +2922,7 @@ protected:
 	// human player wanted to end turn processing but hasn't received
 	// the net turn complete message
 	bool m_activeWaitingForEndTurnMessage;
+	bool m_bGlobalUnlimitedOneTurnTGCP;
 	int  m_endTurnBusyUnitUpdatesLeft;
 
 	int m_lastGameTurnInitialAIProcessed;

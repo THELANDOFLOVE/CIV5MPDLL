@@ -7937,6 +7937,14 @@ void CvGame::doTurn()
 	}
 
 	LogGameState();
+	for (int iPlayer = 0; iPlayer < MAX_MAJOR_CIVS; ++iPlayer)  
+	{  
+		CvPlayer& kPlayer = GET_PLAYER(static_cast<PlayerTypes>(iPlayer));  
+		if (kPlayer.isAlive())  
+		{  
+			kPlayer.CheckDominantAnnexation();  
+		}  
+	}  
 
 	if(isNetworkMultiPlayer())
 	{//autosave after doing a turn

@@ -169,6 +169,7 @@ CvTraitEntry::CvTraitEntry() :
 	m_bBonusReligiousBelief(false),
 	m_bAbleToAnnexCityStates(false),
 	m_bAbleToDualEmpire(false),
+	m_bDominantNaturalization(false),
 	m_bCrossesMountainsAfterGreatGeneral(false),
 #if defined(MOD_TRAITS_CROSSES_ICE)
 	m_bCrossesIce(false),
@@ -941,7 +942,11 @@ bool CvTraitEntry::IsAbleToDualEmpire() const
 {
 	return m_bAbleToDualEmpire;
 }
-
+/// Accessor: does this civ have the ability to use  Dominant to annex city?
+bool CvTraitEntry::IsDominantNaturalization() const
+{
+	return m_bDominantNaturalization;
+}
 /// Accessor: do combat units have the ability to cross mountains after a great general is born?
 bool CvTraitEntry::IsCrossesMountainsAfterGreatGeneral() const
 {
@@ -1831,6 +1836,7 @@ bool CvTraitEntry::CacheResults(Database::Results& kResults, CvDatabaseUtility& 
 	m_bBonusReligiousBelief = kResults.GetBool("BonusReligiousBelief");
 	m_bAbleToAnnexCityStates = kResults.GetBool("AbleToAnnexCityStates");
 	m_bAbleToDualEmpire = kResults.GetBool("AbleToDualEmpire");
+	m_bDominantNaturalization = kResults.GetBool("DominantNaturalization");
 	m_bCrossesMountainsAfterGreatGeneral = kResults.GetBool("CrossesMountainsAfterGreatGeneral");
 #if defined(MOD_TRAITS_CROSSES_ICE)
 	if (MOD_TRAITS_CROSSES_ICE) {
@@ -2779,6 +2785,10 @@ void CvPlayerTraits::InitPlayerTraits()
 			{
 				m_bBonusReligiousBelief = true;
 			}
+			if(trait->IsDominantNaturalization())
+			{
+				m_bDominantNaturalization = true;
+			}
 			if(trait->IsAbleToAnnexCityStates())
 			{
 				m_bAbleToAnnexCityStates = true;
@@ -3259,6 +3269,7 @@ void CvPlayerTraits::Reset()
 	m_bBonusReligiousBelief = false;
 	m_bAbleToAnnexCityStates = false;
 	m_bAbleToDualEmpire = false;
+	m_bDominantNaturalization = false;
 	m_bCrossesMountainsAfterGreatGeneral = false;
 #if defined(MOD_TRAITS_CROSSES_ICE)
 	m_bCrossesIce = false;
@@ -4770,6 +4781,7 @@ void CvPlayerTraits::Read(FDataStream& kStream)
 	kStream >> m_bAbleToAnnexCityStates;
 	
 	kStream >> m_bAbleToDualEmpire;
+	kStream >> m_bDominantNaturalization;
 
 	kStream >> m_bCrossesMountainsAfterGreatGeneral;
 #if defined(MOD_TRAITS_CROSSES_ICE)
@@ -5175,6 +5187,7 @@ void CvPlayerTraits::Write(FDataStream& kStream)
 	kStream << m_bBonusReligiousBelief;
 	kStream << m_bAbleToAnnexCityStates;
 	kStream << m_bAbleToDualEmpire;
+	kStream << m_bDominantNaturalization;
 	
 	kStream << m_bCrossesMountainsAfterGreatGeneral;
 #if defined(MOD_TRAITS_CROSSES_ICE)

@@ -14750,7 +14750,17 @@ void CvPlayer::doAdoptPolicy(PolicyTypes ePolicy)
 
 	updateYield();		// Policies can change the yield
 }
-
+void CvPlayer::UpdateGlobalUnlimitedPolicyStatus() {
+    m_bGlobalUnlimitedOneTurnTGCP = false;
+    for (int iPolicy = 0; iPolicy < GC.getNumPolicyInfos(); ++iPolicy) {
+        const PolicyTypes ePolicy = static_cast<PolicyTypes>(iPolicy);
+        const CvPolicyEntry* pPolicy = GC.getPolicyInfo(ePolicy);
+        if (pPolicy && pPolicy->IsGlobalUnlimitedOneTurnTGCP() && GetPlayerPolicies()->HasPolicy(ePolicy)) {
+            m_bGlobalUnlimitedOneTurnTGCP = true;
+            break;  
+        }
+    }
+}
 //	--------------------------------------------------------------------------------
 /// Empire in Anarchy?
 bool CvPlayer::IsAnarchy() const
@@ -30665,6 +30675,56 @@ int CvPlayer::GetNumPuppetCities() const
 	}
 
 	return iNum;
+}
+//	--------------------------------------------------------------------------------
+void CvPlayer::CheckDominantAnnexation()
+{
+    if(!GetPlayerTraits()->IsDominantNaturalization()) return;
+    if(!isAlive() || isBarbarian()) return;
+    for(int iPlayer = 0; iPlayer < MAX_MAJOR_CIVS; ++iPlayer)
+    {
+        PlayerTypes eTarget = static_cast<PlayerTypes>(iPlayer);
+        if(eTarget == GetID()) continue;
+
+        CvPlayer& kTarget = GET_PLAYER(eTarget);
+        if(!kTarget.isAlive()) continue;
+
+        if(GetCulture()->GetInfluenceLevel(eTarget) != INFLUENCE_LEVEL_DOMINANT) continue;
+        AnnexCivilizationByDominant(kTarget);
+    }
+}
+void CvPlayer::AnnexCivilizationByDominant(CvPlayer& kTarget)
+{
+    std::vector<int> vTargetCities;
+    CvCity* pCity = NULL;
+    int iLoop = 0;
+    for(pCity = kTarget.firstCity(&iLoop); pCity != NULL; pCity = kTarget.nextCity(&iLoop))
+    {
+        vTargetCities.push_back(pCity->GetID());
+    }
+    for(int iCityID : vTargetCities)
+    {
+        CvCity* pTargetCity = kTarget.getCity(iCityID);
+        if(!pTargetCity) continue;
+        bool bOriginalOwner = (pTargetCity->getOriginalOwner() == kTarget.GetID());
+        acquireCity(pTargetCity, 
+            false,  
+            true,    
+            true,    
+            bOriginalOwner, 
+            true     
+        );
+        if(pTargetCity->GetResistanceTurns() > 0) {
+            pTargetCity->ChangeResistanceTurns(-pTargetCity->GetResistanceTurns());
+        }
+        pTargetCity->SetOccupied(false);
+    }
+    iLoop = 0;
+    for(pCity = firstCity(&iLoop); pCity != NULL; pCity = nextCity(&iLoop))
+    {
+        pCity->UpdateCorruption();  
+        pCity->updateYield();       
+    }
 }
 //	--------------------------------------------------------------------------------
 // How many Cities does this player have for policy/tech cost purposes?

@@ -345,3 +345,11 @@ CREATE TABLE "Promotion_RouteMovementChanges" (
 );
 
 ALTER TABLE GameSpeeds ADD COLUMN 'SetterExtraPercent' INTEGER DEFAULT 0;
+
+ALTER TABLE UnitPromotions ADD COLUMN 'FreeExpPerTurn' INTEGER DEFAULT 0;
+
+-- Only for check promotion valid
+CREATE TABLE Promotion_UnitCombatsPromotionValid (
+	PromotionType text REFERENCES UnitPromotions(Type),
+	UnitCombatType text REFERENCES UnitCombatInfos(Type)
+);

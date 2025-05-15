@@ -243,6 +243,7 @@ CvUnit::CvUnit() :
 	, m_iRangedAttackModifier("CvUnit::m_iRangedAttackModifier", m_syncArchive)
 	, m_iRangeSuppressModifier("CvUnit::m_iRangeSuppressModifier", m_syncArchive)
 	, m_iPromotionMaintenanceCost("CvUnit::m_iPromotionMaintenanceCost", m_syncArchive)
+	, m_iFreeExpPerTurn("CvUnit::m_iFreeExpPerTurn", m_syncArchive)
 	, m_iInterceptionDamageMod("CvUnit::m_iInterceptionDamageMod", m_syncArchive)
 	, m_iAirSweepDamageMod("CvUnit::m_iAirSweepDamageMod", m_syncArchive)
 	, m_iInterceptionCombatModifier("CvUnit::m_iInterceptionCombatModifier", m_syncArchive)
@@ -1246,6 +1247,7 @@ void CvUnit::reset(int iID, UnitTypes eUnit, PlayerTypes eOwner, bool bConstruct
 	m_iRangedAttackModifier = 0;
 	m_iRangeSuppressModifier = 0;
 	m_iPromotionMaintenanceCost = 0;
+	m_iFreeExpPerTurn = 0;
 	m_iInterceptionDamageMod = 0;
 	m_iAirSweepDamageMod = 0;
 	m_iInterceptionCombatModifier = 0;
@@ -1847,6 +1849,7 @@ void CvUnit::uninitInfos()
 	m_extraUnitCombatModifier.clear();
 	m_unitClassModifier.clear();
 	m_piGetPromotionBuilds.clear();
+	m_mapUnitCombatsPromotionValid.clear();
 
 	m_aiNumTimesAttackedThisTurn.clear();
 	m_iCombatModPerAdjacentUnitCombatModifier.clear();
@@ -2925,6 +2928,7 @@ void CvUnit::doTurn()
 				if (itempexp > 0) iTotalxp += itempexp;
 			}
 			iTotalxp += GET_PLAYER(getOwner()).GetDomainFreeExperiencesPerTurnGlobal(getDomainType());
+			iTotalxp += GetFreeExpPerTurn();
 		}
 		if (iTotalxp > 0)
 		{
@@ -6705,6 +6709,23 @@ bool CvUnit::IsPromotionBuilds(BuildTypes eIndex) const
 	auto it = m_piGetPromotionBuilds.find(eIndex);
 	if (it != m_piGetPromotionBuilds.end()) return it->second > 0;
 	else return false;
+}
+
+//	--------------------------------------------------------------------------------
+void CvUnit::ChangeUnitCombatsPromotionValid(UnitCombatTypes eIndex,int iChange)
+{
+	CvAssertMsg(eIndex < GC.getNumUnitCombatClassInfos(), "Index out of bounds");
+	CvAssertMsg(eIndex > -1, "Index out of bounds");
+	m_mapUnitCombatsPromotionValid[eIndex] += iChange;
+	if (m_mapUnitCombatsPromotionValid[eIndex] == 0)
+	{
+		m_mapUnitCombatsPromotionValid.erase(eIndex);
+	}
+}
+/// This unitcombat provided by its promotions?
+const std::tr1::unordered_map<int, int>& CvUnit::GetUnitCombatsPromotionValid() const
+{
+	return m_mapUnitCombatsPromotionValid;
 }
 
 //	--------------------------------------------------------------------------------
@@ -19210,6 +19231,23 @@ void CvUnit::ChangePromotionMaintenanceCost(int iValue)
 	}
 }
 
+/// Get extra exp per turn from promotions
+int CvUnit::GetFreeExpPerTurn() const
+{
+	VALIDATE_OBJECT
+	return m_iFreeExpPerTurn;
+}
+
+/// Change extra exp per turn from promotions
+void CvUnit::ChangeFreeExpPerTurn(int iValue)
+{
+	VALIDATE_OBJECT
+	if(iValue != 0)
+	{
+		m_iFreeExpPerTurn += iValue;
+	}
+}
+
 //	--------------------------------------------------------------------------------
 int CvUnit::GetInterceptionDamageMod() const
 {
@@ -26026,7 +26064,7 @@ bool CvUnit::isPromotionValid(PromotionTypes ePromotion) const
 		return false;
 	}
 
-	if(!::isPromotionValid(ePromotion, getUnitType(), true))
+	if(!::isPromotionValid(ePromotion, getUnitType(), true, false, this))
 		return false;
 
 	// Insta-heal - must be damaged
@@ -26458,6 +26496,7 @@ void CvUnit::setHasPromotion(PromotionTypes eIndex, bool bNewValue)
 		ChangeRangedAttackModifier(thisPromotion.GetRangedAttackModifier() * iChange);
 		ChangeRangeSuppressModifier(thisPromotion.GetRangeSuppressModifier() * iChange);
 		if(thisPromotion.GetMaintenanceCost() > 0) ChangePromotionMaintenanceCost(thisPromotion.GetMaintenanceCost() * iChange);
+		ChangeFreeExpPerTurn(thisPromotion.GetFreeExpPerTurn() * iChange);
 		ChangeInterceptionCombatModifier(thisPromotion.GetInterceptionCombatModifier() * iChange);
 		ChangeInterceptionDamageMod(thisPromotion.GetInterceptionDamageMod() * iChange);
 		ChangeAirSweepDamageMod(thisPromotion.GetAirSweepDamageMod() * iChange);
@@ -26773,6 +26812,10 @@ void CvUnit::setHasPromotion(PromotionTypes eIndex, bool bNewValue)
 				ChangePromotionBuilds((BuildTypes)i, iChange);
 			}
 		}
+		for(auto iCombatType : thisPromotion.GetUnitCombatsPromotionValid())
+		{
+			ChangeUnitCombatsPromotionValid((UnitCombatTypes)iCombatType, iChange);
+		}
 
 #if defined(MOD_API_UNIT_CANNOT_BE_RANGED_ATTACKED)
 		if (MOD_API_UNIT_CANNOT_BE_RANGED_ATTACKED)
@@ -26983,6 +27026,7 @@ void CvUnit::read(FDataStream& kStream)
 
 	SERIALIZE_READ_UNORDERED_MAP(kStream, m_unitClassModifier);
 	SERIALIZE_READ_UNORDERED_MAP(kStream, m_piGetPromotionBuilds);
+	kStream >> m_mapUnitCombatsPromotionValid;
 
 	kStream >> m_bIgnoreDangerWakeup;
 
@@ -27408,6 +27452,7 @@ void CvUnit::write(FDataStream& kStream) const
 
 	SERIALIZE_WRITE_UNORDERED_MAP(kStream, m_unitClassModifier);
 	SERIALIZE_WRITE_UNORDERED_MAP(kStream, m_piGetPromotionBuilds);
+	kStream << m_mapUnitCombatsPromotionValid;
 
 	// slewis - move to autovariable when saves are broken
 	kStream << m_bIgnoreDangerWakeup;

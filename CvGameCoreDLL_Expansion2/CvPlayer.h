@@ -2170,6 +2170,7 @@ public:
 
 	int GetCorruptionScoreModifierFromPolicy() const;
 	void ChangeCorruptionScoreModifierFromPolicy(int change);
+	int GetCorruptionScoreChangeGlobalFromBuilding() const;
 	int GetCorruptionLevelReduceByOneRC() const;
 	bool IsCorruptionLevelReduceByOne() const;
 	void ChangeCorruptionLevelReduceByOneRC(int change);
@@ -2969,6 +2970,7 @@ protected:
 
 #ifdef MOD_GLOBAL_CORRUPTION
 	int m_iCorruptionScoreModifierFromPolicy = 0;
+	int m_iCorruptionScoreChangeGlobalFromBuilding = 0;
 	int m_iCorruptionLevelReduceByOneRC = 0;
 	int m_iCorruptionPolicyCostModifier = 0;
 

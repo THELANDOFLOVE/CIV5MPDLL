@@ -1258,6 +1258,7 @@ void CvPlayer::uninit()
 #endif
 #ifdef MOD_GLOBAL_CORRUPTION
 	m_iCorruptionScoreModifierFromPolicy = 0;
+	m_iCorruptionScoreChangeGlobalFromBuilding = 0;
 	m_iCorruptionLevelReduceByOneRC = 0;
 	m_iCorruptionPolicyCostModifier = 0;
 #endif
@@ -28766,6 +28767,7 @@ void CvPlayer::Read(FDataStream& kStream)
 
 #ifdef MOD_GLOBAL_CORRUPTION
 	kStream >> m_iCorruptionScoreModifierFromPolicy;
+	kStream >> m_iCorruptionScoreChangeGlobalFromBuilding;
 	kStream >> m_iCorruptionLevelReduceByOneRC;
 	kStream >> m_iCorruptionPolicyCostModifier;
 	
@@ -29467,6 +29469,7 @@ void CvPlayer::Write(FDataStream& kStream) const
 
 #ifdef MOD_GLOBAL_CORRUPTION
 	kStream << m_iCorruptionScoreModifierFromPolicy;
+	kStream << m_iCorruptionScoreChangeGlobalFromBuilding;
 	kStream << m_iCorruptionLevelReduceByOneRC;
 	kStream << m_iCorruptionPolicyCostModifier;
 
@@ -33317,6 +33320,10 @@ int CvPlayer::GetCorruptionScoreModifierFromPolicy() const
 void CvPlayer::ChangeCorruptionScoreModifierFromPolicy(int change)
 {
 	m_iCorruptionScoreModifierFromPolicy += change;
+}
+int CvPlayer::GetCorruptionScoreChangeGlobalFromBuilding() const
+{
+	return m_iCorruptionScoreChangeGlobalFromBuilding;
 }
 
 int CvPlayer::GetCorruptionLevelReduceByOneRC() const

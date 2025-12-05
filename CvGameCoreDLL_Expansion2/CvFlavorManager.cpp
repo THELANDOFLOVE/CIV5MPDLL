@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -247,7 +247,6 @@ void CvFlavorManager::Read(FDataStream& kStream)
 	// Version number to maintain backwards compatibility
 	uint uiVersion;
 	kStream >> uiVersion;
-	MOD_SERIALIZE_INIT_READ(kStream);
 
 	CvAssertMsg(GC.getNumFlavorTypes() > 0, "Number of flavors to serialize is expected to greater than 0)");
 
@@ -267,7 +266,6 @@ void CvFlavorManager::Write(FDataStream& kStream)
 	// Current version number
 	uint uiVersion = 1;
 	kStream << uiVersion;
-	MOD_SERIALIZE_INIT_WRITE(kStream);
 
 	CvAssertMsg(GC.getNumFlavorTypes() > 0, "Number of flavors to serialize is expected to greater than 0)");
 	kStream << GC.getNumFlavorTypes();
@@ -304,28 +302,6 @@ void CvFlavorManager::RemoveFlavorRecipient(CvFlavorRecipient* pTargetObject)
 		iter++;
 	}
 }
-
-#if defined(MOD_API_EXTENSIONS)
-void CvFlavorManager::ChangeLeader(LeaderHeadTypes eOldLeader, LeaderHeadTypes eNewLeader)
-{
-	CvLeaderHeadInfo* pkOldLeaderHeadInfo = GC.getLeaderHeadInfo(eOldLeader);
-	CvLeaderHeadInfo* pkNewLeaderHeadInfo = GC.getLeaderHeadInfo(eNewLeader);
-	
-	if(pkOldLeaderHeadInfo && pkNewLeaderHeadInfo)
-	{
-		int* m_aiTempFlavors = FNEW(int[GC.getNumFlavorTypes()], c_eCiv5GameplayDLL, 0);
-		
-		for(int iI = 0; iI < GC.getNumFlavorTypes(); iI++)
-		{
-			m_aiTempFlavors[iI] = pkNewLeaderHeadInfo->getFlavorValue(iI) - pkOldLeaderHeadInfo->getFlavorValue(iI);
-		}
-		
-		ChangeFlavors(m_aiTempFlavors, true);
-
-		SAFE_DELETE_ARRAY(m_aiTempFlavors);
-	}
-}
-#endif
 
 /// Update to a new set of flavors
 void CvFlavorManager::ChangeFlavors(int* piDeltaFlavorValues, bool	bPlayerLevelUpdate)
@@ -490,13 +466,6 @@ int CvFlavorManager::GetAdjustedValue(int iOriginalValue, int iPlusMinus, int iM
 {
 	int iAdjust;
 	int iRtnValue;
-
-#if defined(MOD_BUGFIX_MINOR)
-	if (iPlusMinus < 0)
-	{
-		iPlusMinus = -iPlusMinus;
-	}
-#endif
 
 	iAdjust = GC.getGame().getJonRandNum((iPlusMinus * 2 + 1), "Adjusting Personality Flavor");
 	iRtnValue = iOriginalValue + iAdjust - iPlusMinus;

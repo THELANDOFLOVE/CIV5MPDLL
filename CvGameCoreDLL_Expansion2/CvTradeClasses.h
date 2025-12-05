@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -40,9 +40,6 @@ struct TradeConnection
 	int m_iCircuitsCompleted;
 	int m_iCircuitsToComplete;
 	int m_iTurnRouteComplete;
-#if defined(MOD_API_TRADEROUTES)
-	bool m_bTradeUnitRecalled;
-#endif
 	int m_aiOriginYields[NUM_YIELD_TYPES];
 	int m_aiDestYields[NUM_YIELD_TYPES];
 };
@@ -93,16 +90,11 @@ public:
 	bool IsTradeRouteIndexEmpty (int iIndex);
 	bool EmptyTradeRoute (int iIndex);
 
-#if defined(MOD_BUGFIX_MINOR)
-	void ClearAllCityTradeRoutes (CvPlot* pPlot, bool bIncludeTransits = false); // called when a city is captured or traded
-#else
 	void ClearAllCityTradeRoutes (CvPlot* pPlot); // called when a city is captured or traded
-#endif
 	void ClearAllCivTradeRoutes (PlayerTypes ePlayer); // called from world congress code
 	void ClearAllCityStateTradeRoutes (void); // called from world congress code
 	void CancelTradeBetweenTeams (TeamTypes eTeam1, TeamTypes eTeam2);
-	void ClearTradePlayerToPlayer(PlayerTypes ePlayer, PlayerTypes eToPlayer); // called from world congress code
-	void ClearAllCityStateTradeRoutesSpecial(void); // called from world congress code
+
 	void DoAutoWarPlundering(TeamTypes eTeam1, TeamTypes eTeam2); // when war is declared, both sides plunder each others trade routes for cash!
 
 	int GetNumTradeRoutesInPlot (CvPlot* pPlot);
@@ -123,11 +115,6 @@ public:
 
 	void CreateVis (int iIndex); // Create the trade unit vis unit
 	CvUnit* GetVis(int iIndex);
-#if defined(MOD_API_TRADEROUTES)
-	bool IsRecalledUnit (int iIndex); // has the unit been recalled
-	void RecallUnit (int iIndex, bool bImmediate = false); // recall a trade unit
-	void EndTradeRoute (int iIndex); // end a trade route
-#endif
 	// trade unit movement
 	bool MoveUnit (int iIndex); // move a trade unit along its path for all its movement points
 	bool StepUnit (int iIndex); // move a trade unit a single step along its path (called by MoveUnit)
@@ -181,8 +168,6 @@ public:
 	int GetTradeConnectionExclusiveValueTimes100(const TradeConnection& kTradeConnection, YieldTypes eYield);
 	int GetTradeConnectionPolicyValueTimes100(const TradeConnection& kTradeConnection, YieldTypes eYield);
 	int GetTradeConnectionOtherTraitValueTimes100(const TradeConnection& kTradeConnection, YieldTypes eYield, bool bAsOriginPlayer);
-	int GetTradeConnectionTraitValueTimes100(const TradeConnection& kTradeConnection, YieldTypes eYield, bool bAsOriginPlayer);
-
 	int GetTradeConnectionDomainValueModifierTimes100(const TradeConnection& kTradeConnection, YieldTypes eYield);
 	int GetTradeConnectionRiverValueModifierTimes100(const TradeConnection& kTradeConnection, YieldTypes eYield, bool bAsOriginPlayer);
 	int GetTradeConnectionValueTimes100 (const TradeConnection& kTradeConnection, YieldTypes eYield, bool bAsOriginPlayer);
@@ -219,11 +204,7 @@ public:
 	std::vector<int> GetEnemyTradePlotsAtPlot(const CvPlot* pPlot, bool bFailAtFirstFound); // returns the ID of trade connections that go through that plot
 	bool ContainsEnemyTradePlot(const CvPlot* pPlot);
 
-#if defined(MOD_API_EXTENSIONS)
-	bool PlunderTradeRoute(int iTradeConnectionID, CvUnit* pUnit);
-#else
 	bool PlunderTradeRoute(int iTradeConnectionID);
-#endif
 
 	int GetTradeRouteRange (DomainTypes eDomain, CvCity* pOriginCity);
 	int GetTradeRouteSpeed (DomainTypes eDomain);
@@ -238,11 +219,7 @@ public:
 	void AddTradeConnectionWasPlundered(const TradeConnection kTradeConnection);
 	bool CheckTradeConnectionWasPlundered(const TradeConnection& kTradeConnection);
 
-#if defined(MOD_BUGFIX_UNITCLASS_NOT_UNIT)
-	static UnitTypes GetTradeUnit (DomainTypes eDomain, CvPlayer* pPlayer);
-#else
 	static UnitTypes GetTradeUnit (DomainTypes eDomain);
-#endif
 
 	std::vector<CvString> GetPlotToolTips (CvPlot* pPlot);
 	std::vector<CvString> GetPlotMouseoverToolTips (CvPlot* pPlot);
@@ -272,9 +249,6 @@ public:
 	int	ScoreInternationalTR (const TradeConnection& kTradeConnection);
 	int ScoreFoodTR(const TradeConnection& kTradeConnection, CvCity* pSmallestCity);
 	int ScoreProductionTR (const TradeConnection& kTradeConnection, std::vector<CvCity*> aTargetCityList);
-#if defined(MOD_TRADE_WONDER_RESOURCE_ROUTES)
-	int ScoreWonderTR (const TradeConnection& kTradeConnection, std::vector<CvCity*> aTargetCityList);
-#endif
 
 	bool ChooseTradeUnitTargetPlot(CvUnit* pUnit, int& iOriginPlotIndex, int& iDestPlotIndex, TradeConnectionType& eTradeConnectionType, bool& bDisband, const TradeConnectionList& aTradeConnections);
 

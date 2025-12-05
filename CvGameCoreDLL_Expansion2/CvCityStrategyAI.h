@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -226,11 +226,7 @@ private:
 
 	CvWeightedVector<CvCityBuildable, (SAFE_ESTIMATE_NUM_BUILDINGS + SAFE_ESTIMATE_NUM_UNITS), true> m_Buildables;
 
-#if defined(MOD_GLOBAL_CITY_WORKING)
-	static unsigned char  m_acBestYields[NUM_YIELD_TYPES][MAX_CITY_PLOTS];
-#else
 	static unsigned char  m_acBestYields[NUM_YIELD_TYPES][NUM_CITY_PLOTS];
-#endif
 	unsigned short m_asBestYieldAverageTimes100[NUM_YIELD_TYPES];
 	short m_asYieldDeltaTimes100[NUM_YIELD_TYPES];
 	YieldTypes m_eFocusYield;
@@ -265,10 +261,7 @@ bool IsTestCityStrategy_FirstGoldBuilding(CvCity* pCity);
 bool IsTestCityStrategy_FirstFaithBuilding(CvCity* pCity);
 bool IsTestCityStrategy_FirstProductionBuilding(CvCity* pCity);
 bool IsTestCityStrategy_UnderBlockade(CvCity* pCity);
-
-//bool IsTestCityStrategy_IsPuppet(CvCity* pCity);
-bool IsTestCityStrategy_IsPuppet(const CvCity* pCity);
-
+bool IsTestCityStrategy_IsPuppet(CvCity* pCity);
 bool IsTestCityStrategy_MediumCityHighDifficulty(CvCity* pCity);
 bool IsTestCityStrategy_OriginalCapital(CvCity* pCity);
 bool IsTestCityStrategy_RiverCity(CvCity* pCity);

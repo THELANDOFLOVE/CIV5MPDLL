@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -12,10 +12,6 @@
 #include "CvDiplomacyAI.h"
 #include "CvTypes.h"
 #include "CvGameCoreUtils.h"
-
-#include "NetworkMessageUtil.h"
-
-using namespace FunctionPointers;
 
 CvDllNetMessageHandler::CvDllNetMessageHandler()
 {
@@ -105,19 +101,11 @@ void CvDllNetMessageHandler::ResponseChangeWar(PlayerTypes ePlayer, TeamTypes eR
 
 	if(bWar)
 	{
-#if defined(MOD_EVENTS_WAR_AND_PEACE)
-		kTeam.declareWar(eRivalTeam, false, ePlayer);
-#else
 		kTeam.declareWar(eRivalTeam);
-#endif
 	}
 	else
 	{
-#if defined(MOD_EVENTS_WAR_AND_PEACE)
-		kTeam.makePeace(eRivalTeam, true, false, ePlayer);
-#else
 		kTeam.makePeace(eRivalTeam);
-#endif
 	}
 }
 //------------------------------------------------------------------------------
@@ -250,11 +238,8 @@ void CvDllNetMessageHandler::ResponseDiploVote(PlayerTypes ePlayer, PlayerTypes 
 //------------------------------------------------------------------------------
 void CvDllNetMessageHandler::ResponseDoCommand(PlayerTypes ePlayer, int iUnitID, CommandTypes eCommand, int iData1, int iData2, bool bAlt)
 {
-	PlayerTypes player = ePlayer;
-
 	CvPlayerAI& kPlayer = GET_PLAYER(ePlayer);
 	CvUnit* pkUnit = kPlayer.getUnit(iUnitID);
-
 
 	if(pkUnit != NULL)
 	{
@@ -300,11 +285,7 @@ void CvDllNetMessageHandler::ResponseFoundPantheon(PlayerTypes ePlayer, BeliefTy
 			CvGameReligions::FOUNDING_RESULT eResult = pkGameReligions->CanCreatePantheon(ePlayer, true);
 			if(eResult == CvGameReligions::FOUNDING_OK)
 			{
-#if defined(MOD_TRAITS_ANY_BELIEF)
-				if(pkGameReligions->IsPantheonBeliefAvailable(eBelief, ePlayer))
-#else
 				if(pkGameReligions->IsPantheonBeliefAvailable(eBelief))
-#endif
 				{
 					pkGameReligions->FoundPantheon(ePlayer, eBelief);
 				}
@@ -329,9 +310,7 @@ void CvDllNetMessageHandler::ResponseFoundPantheon(PlayerTypes ePlayer, BeliefTy
 		}
 	}
 }
-
 //------------------------------------------------------------------------------
-// Use this method for customized operations.
 void CvDllNetMessageHandler::ResponseFoundReligion(PlayerTypes ePlayer, ReligionTypes eReligion, const char* szCustomName, BeliefTypes eBelief1, BeliefTypes eBelief2, BeliefTypes eBelief3, BeliefTypes eBelief4, int iCityX, int iCityY)
 {
 	CvGame& kGame(GC.getGame());
@@ -356,11 +335,7 @@ void CvDllNetMessageHandler::ResponseFoundReligion(PlayerTypes ePlayer, Religion
 				{
 					CvString strBuffer = GetLocalizedText("TXT_KEY_NOTIFICATION_FOUND_RELIGION");
 					CvString strSummary = GetLocalizedText("TXT_KEY_NOTIFICATION_SUMMARY_FOUND_RELIGION");
-#if defined(MOD_API_EXTENSIONS)
-					pNotifications->Add(NOTIFICATION_FOUND_RELIGION, strBuffer, strSummary, iCityX, iCityY, eReligion, pkCity->GetID());
-#else
 					pNotifications->Add(NOTIFICATION_FOUND_RELIGION, strBuffer, strSummary, iCityX, iCityY, -1, pkCity->GetID());
-#endif
 				}
 				kPlayer.GetReligions()->SetFoundingReligion(true);
 			}
@@ -389,11 +364,7 @@ void CvDllNetMessageHandler::ResponseEnhanceReligion(PlayerTypes ePlayer, Religi
 			{
 				CvString strBuffer = GetLocalizedText("TXT_KEY_NOTIFICATION_ENHANCE_RELIGION");
 				CvString strSummary = GetLocalizedText("TXT_KEY_NOTIFICATION_SUMMARY_ENHANCE_RELIGION");
-#if defined(MOD_API_EXTENSIONS)
-				pNotifications->Add(NOTIFICATION_ENHANCE_RELIGION, strBuffer, strSummary, iCityX, iCityY, eReligion, pkCity->GetID());
-#else
 				pNotifications->Add(NOTIFICATION_ENHANCE_RELIGION, strBuffer, strSummary, iCityX, iCityY, -1, pkCity->GetID());
-#endif
 			}
 			kPlayer.GetReligions()->SetFoundingReligion(true);
 		}
@@ -643,11 +614,7 @@ void CvDllNetMessageHandler::ResponseMinorCivGiftTileImprovement(PlayerTypes eMa
 //------------------------------------------------------------------------------
 void CvDllNetMessageHandler::ResponseMinorCivBuyout(PlayerTypes eMajor, PlayerTypes eMinor)
 {
-#if defined(MOD_GLOBAL_CS_MARRIAGE_KEEPS_RESOURCES)
-	GET_PLAYER(eMinor).GetMinorCivAI()->DoBuyout(eMajor, MOD_GLOBAL_CS_MARRIAGE_KEEPS_RESOURCES);
-#else
 	GET_PLAYER(eMinor).GetMinorCivAI()->DoBuyout(eMajor);
-#endif
 }
 //------------------------------------------------------------------------------
 void CvDllNetMessageHandler::ResponseMinorNoUnitSpawning(PlayerTypes ePlayer, PlayerTypes eMinor, bool bValue)
@@ -661,11 +628,7 @@ void CvDllNetMessageHandler::ResponsePlayerDealFinalized(PlayerTypes eFromPlayer
 	PlayerTypes eActivePlayer = game.getActivePlayer();
 
 	// is the deal valid?
-#if defined(MOD_AI_MP_DIPLOMACY)
-	if(!game.GetGameDeals()->FinalizeDeal(eFromPlayer, eToPlayer, bAccepted, true))
-#else
 	if(!game.GetGameDeals()->FinalizeDeal(eFromPlayer, eToPlayer, bAccepted))
-#endif
 	{
 		Localization::String strMessage;
 		Localization::String strSummary = Localization::Lookup("TXT_KEY_DEAL_EXPIRED");
@@ -782,7 +745,7 @@ void CvDllNetMessageHandler::ResponseFaithGreatPersonChoice(PlayerTypes ePlayer,
 	CvCity* pCity = kPlayer.GetGreatPersonSpawnCity(eGreatPersonUnit);
 	if(pCity)
 	{
-		pCity->GetCityCitizens()->DoSpawnGreatPerson(eGreatPersonUnit, true, true, false);
+		pCity->GetCityCitizens()->DoSpawnGreatPerson(eGreatPersonUnit, true, true);
 	}
 	kPlayer.ChangeNumFaithGreatPeople(-1);
 }
@@ -810,87 +773,6 @@ void CvDllNetMessageHandler::ResponseIdeologyChoice(PlayerTypes ePlayer, PolicyB
 //------------------------------------------------------------------------------
 void CvDllNetMessageHandler::ResponseRenameCity(PlayerTypes ePlayer, int iCityID, const char* szName)
 {
-	bool isLua = false;
-	if (iCityID < 0) {
-		isLua = true;
-		char* senderFileName = nullptr;
-		auto senderFileLine = -1;
-		iCityID = -iCityID;
-		auto str = std::string(szName, iCityID);
-		if (NetworkMessageUtil::ReceiveLargeArgContainer.ParseFromString(str)) {
-			if (InvokeRecorder::getInvokeExist(str)) {
-				NetworkMessageUtil::ReceiveLargeArgContainer.Clear();
-				return;
-			}
-			auto L = luaL_newstate();
-			auto msgSize = NetworkMessageUtil::ReceiveLargeArgContainer.args_size();
-#ifdef LUA_NETWORKMSG_DEBUG
-			msgSize--;
-			auto& debugArg = NetworkMessageUtil::ReceiveLargeArgContainer.args().Get(msgSize);
-			if (msgSize >= 0 && debugArg.argtype() == "LuaNetworkDebugMsg") {
-				senderFileName = (char*)debugArg.longmessage().c_str();
-				senderFileLine = debugArg.identifier1();
-			}
-			else {
-				msgSize++;
-			}
-#endif
-			for (int i = 0; i < msgSize; i++) {
-				auto& arg = NetworkMessageUtil::ReceiveLargeArgContainer.args().Get(i);
-				auto& type = arg.argtype();
-				if (type == "int") {
-					lua_pushinteger(L, arg.identifier1());
-				}
-				else if (type == "string") {
-					lua_pushstring(L, arg.longmessage().c_str());
-				}
-				else if (type == "bool") {
-					lua_pushboolean(L, arg.identifier1());
-				}
-				else if (type == "nil") {
-					lua_pushnil(L);
-				}
-				else if (type == "LuaNetworkDebugMsg");//do nothing with debug message
-				else {
-					auto& name = type + "::PushToLua";
-					auto basicArgPtr = (BasicArguments*)&arg;
-					try {
-						staticFunctions.ExecuteFunction<void>((name), L, basicArgPtr);
-					}
-					catch (NoSuchMethodException e) {
-						CUSTOMLOG("Received an unknown fuction call with message: %s, sent at line %d, file %s", 
-							e.what(), senderFileLine, senderFileName ? senderFileName : "Unknown");
-						NetworkMessageUtil::ReceiveLargeArgContainer.Clear();
-						lua_close(L);
-						return;
-					}
-					catch (NetworkMessageNullPointerExceptopn e) {
-						CUSTOMLOG("Received a null pointer fuction call with message: %s, sent at line %d, file %s",
-							e.what(), senderFileLine, senderFileName ? senderFileName : "Unknown");
-						NetworkMessageUtil::ReceiveLargeArgContainer.Clear();
-						lua_close(L);
-						return;
-					}
-					//finally?
-				}
-			}
-			auto& funcName = NetworkMessageUtil::ReceiveLargeArgContainer.functiontocall();
-			//CUSTOMLOG("Try to execute received fuction call with function name: %s", funcName);
-			try {
-				staticFunctions.ExecuteFunction<void>(funcName, L);
-			}
-			catch (NoSuchMethodException e) {
-				CUSTOMLOG("Received an unknown fuction call with message: %s, sent at line %d, file %s",
-					e.what(), senderFileLine, senderFileName ? senderFileName : "Unknown");
-			}
-			lua_close(L);
-			NetworkMessageUtil::ReceiveLargeArgContainer.Clear();
-			return;
-		}
-		NetworkMessageUtil::ReceiveLargeArgContainer.Clear();
-		//return;
-	}
-
 	CvPlayerAI& kPlayer = GET_PLAYER(ePlayer);
 	CvCity* pkCity = kPlayer.getCity(iCityID);
 	if(pkCity)
@@ -898,7 +780,6 @@ void CvDllNetMessageHandler::ResponseRenameCity(PlayerTypes ePlayer, int iCityID
 		CvString strName = szName;
 		pkCity->setName(strName);
 	}
-
 }
 //------------------------------------------------------------------------------
 void CvDllNetMessageHandler::ResponseRenameUnit(PlayerTypes ePlayer, int iUnitID, const char* szName)
@@ -988,11 +869,6 @@ void CvDllNetMessageHandler::ResponseSellBuilding(PlayerTypes ePlayer, int iCity
 	{
 		pCity->GetCityBuildings()->DoSellBuilding(eBuilding);
 
-#if defined(MOD_EVENTS_CITY)
-		if (MOD_EVENTS_CITY) {
-			GAMEEVENTINVOKE_HOOK(GAMEEVENT_CitySoldBuilding, ePlayer, iCityID, eBuilding);
-		} else {
-#endif
 		ICvEngineScriptSystem1* pkScriptSystem = gDLL->GetScriptSystem();
 		if (pkScriptSystem) 
 		{
@@ -1004,9 +880,6 @@ void CvDllNetMessageHandler::ResponseSellBuilding(PlayerTypes ePlayer, int iCity
 			bool bResult;
 			LuaSupport::CallHook(pkScriptSystem, "CitySoldBuilding", args.get(), bResult);
 		}
-#if defined(MOD_EVENTS_CITY)
-		}
-#endif
 	}
 }
 //------------------------------------------------------------------------------
@@ -1101,6 +974,7 @@ void CvDllNetMessageHandler::ResponseUpdatePolicies(PlayerTypes ePlayer, bool bN
 		else
 		{
 			kPlayer.setHasPolicy(ePolicy, bValue);
+			kPlayer.DoUpdateHappiness();
 		}
 	}
 	// Policy Branch Update

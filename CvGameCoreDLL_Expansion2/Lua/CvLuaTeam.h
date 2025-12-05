@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -21,7 +21,6 @@
 class CvLuaTeam : public CvLuaScopedInstance<CvLuaTeam, CvTeam>
 {
 public:
-	static void RegistStaticFunctions();
 	//! Push all player instances to Lua
 	static void Register(lua_State* L);
 
@@ -82,9 +81,6 @@ protected:
 	static int lIsHuman(lua_State* L);
 	static int lIsBarbarian(lua_State* L);
 
-#if defined(MOD_API_LUA_EXTENSIONS)
-	LUAAPIEXTN(IsMajorCiv, bool);
-#endif
 	static int lIsMinorCiv(lua_State* L);
 	static int lIsMinorCivWarmonger(lua_State* L);
 
@@ -136,16 +132,6 @@ protected:
 	static int lGetPermanentAllianceTradingCount(lua_State* L);
 	static int lIsPermanentAllianceTrading(lua_State* L);
 	static int lChangePermanentAllianceTradingCount(lua_State* L);
-#if defined(MOD_API_LUA_EXTENSIONS) && defined(MOD_TECHS_CITY_WORKING)
-	LUAAPIEXTN(GetCityWorkingChange, int);
-	LUAAPIEXTN(IsCityWorkingChange, bool);
-	LUAAPIEXTN(ChangeCityWorkingChange, void, iChange);
-#endif
-#if defined(MOD_API_LUA_EXTENSIONS) && defined(MOD_TECHS_CITY_AUTOMATON_WORKERS)
-	LUAAPIEXTN(GetCityAutomatonWorkersChange, int);
-	LUAAPIEXTN(IsCityAutomatonWorkersChange, bool);
-	LUAAPIEXTN(ChangeCityAutomatonWorkersChange, void, iChange);
-#endif
 	static int lGetBridgeBuildingCount(lua_State* L);
 	static int lIsBridgeBuilding(lua_State* L);
 	static int lChangeBridgeBuildingCount(lua_State* L);
@@ -181,9 +167,6 @@ protected:
 	static int lGetKilledByTeam(lua_State* L);
 
 	static int lHasEmbassyAtTeam(lua_State* L);
-#if defined(MOD_API_LUA_EXTENSIONS)
-	LUAAPIEXTN(HasSpyAtTeam, bool, iTeam);
-#endif
 	static int lIsAllowsOpenBordersToTeam(lua_State* L);
 	static int lIsForcePeace(lua_State* L);
 	static int lIsDefensivePact(lua_State* L);
@@ -206,7 +189,6 @@ protected:
 	static int lIsObsoleteBuilding(lua_State* L);
 
 	static int lIsHasResearchAgreement(lua_State* L);
-	static int lGetResearchAgreementStartTurn(lua_State* L);
 	static int lIsHasTradeAgreement(lua_State* L);
 
 	static int lIsHasTech(lua_State* L);
@@ -230,6 +212,33 @@ protected:
 	static int lSetCurrentEra(lua_State* L);
 
 	static int lUpdateEmbarkGraphics(lua_State* L);
+
+#if defined(MOD_DIPLOMACY_CIV4_FEATURES)
+	static int lIsVassal(lua_State* L);
+	static int lCanBecomeVassal(lua_State* L);
+	static int lCanMakeVassal(lua_State* L);
+	static int lCanEndVassal(lua_State* L);
+	static int lCanEndAllVassal(lua_State* L);
+	static int lIsVassalageTradingAllowed(lua_State* L);
+	static int lGetNumTurnsIsVassal(lua_State* L);
+	static int lGetNumTurnsSinceVassalEnded(lua_State* L);
+	static int lIsTooSoonForVassal(lua_State* L);
+	static int lIsVassalOfSomeone(lua_State* L);
+	static int lIsVassalLockedIntoWar(lua_State* L);
+	static int lGetMaster(lua_State* L);
+	static int lIsVoluntaryVassal(lua_State* L);
+	static int lDoBecomeVassal(lua_State* L);
+	static int lDoEndVassal(lua_State* L);
+	static int lGetNumCitiesWhenVassalMade(lua_State* L);
+	static int lGetTotalPopulationWhenVassalMade(lua_State* L);
+	static int lCanLiberateVassal(lua_State* L);
+	static int lDoLiberateVassal(lua_State* L);
+	static int lDoApplyVassalTax(lua_State* L);
+	static int lCanSetVassalTax(lua_State* L);
+	static int lGetVassalTax(lua_State* L);
+	static int lGetNumTurnsSinceVassalTaxSet(lua_State* L);
+	static int lGetNumVassals(lua_State* L);
+#endif
 };
 
 #endif //CVLUATEAM_H

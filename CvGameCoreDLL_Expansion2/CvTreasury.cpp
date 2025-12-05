@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -28,6 +28,9 @@ CvTreasury::CvTreasury():
 	m_iBaseBuildingGoldMaintenance(0),
 	m_iBaseImprovementGoldMaintenance(0),
 	m_iLifetimeGrossGoldIncome(0),
+#if defined(MOD_DIPLOMACY_CIV4_FEATURES)
+	m_iExpensePerTurnFromVassalTax(0),
+#endif
 	m_pPlayer(NULL)
 {
 
@@ -53,6 +56,10 @@ void CvTreasury::Init(CvPlayer* pPlayer)
 	m_iBaseBuildingGoldMaintenance = 0;
 	m_iBaseImprovementGoldMaintenance = 0;
 	m_iLifetimeGrossGoldIncome = 0;
+
+#if defined(MOD_DIPLOMACY_CIV4_FEATURES)
+	m_iExpensePerTurnFromVassalTax = 0;
+#endif
 
 	m_GoldBalanceForTurnTimes100.clear();
 	m_GoldBalanceForTurnTimes100.reserve(750);
@@ -105,7 +112,6 @@ void CvTreasury::DoGold()
 		m_GoldChangeForTurnTimes100.push_back(iGoldChange);
 	}
 
-#if !defined(NO_ACHIEVEMENTS)
 	if (m_pPlayer->isHuman() && !GC.getGame().isGameMultiPlayer())
 	{
 		int iGoldDelta = (GetGoldFromCitiesTimes100(false) - GetGoldFromCitiesTimes100(true)) / 100;
@@ -114,7 +120,6 @@ void CvTreasury::DoGold()
 			gDLL->UnlockAchievement(ACHIEVEMENT_XP2_32);
 		}
 	}
-#endif
 }
 
 /// Returns current balance in treasury
@@ -295,14 +300,7 @@ void CvTreasury::DoUpdateCityConnectionGold()
 /// How much of a percent bonus do we get for Trade Routes
 int CvTreasury::GetCityConnectionTradeRouteGoldModifier() const
 {
-	int tmp = 0;
-#ifdef MOD_RESOURCE_EXTRA_BUFF
-	if (MOD_RESOURCE_EXTRA_BUFF)
-	{
-		tmp += m_pPlayer->GetCityConnectionTradeRouteGoldModifierFromResource();
-	}
-#endif
-	return m_iCityConnectionTradeRouteGoldModifier + tmp;
+	return m_iCityConnectionTradeRouteGoldModifier;
 }
 
 /// Changes how much of a percent bonus do we get for Trade Routes
@@ -334,11 +332,7 @@ void CvTreasury::ChangeCityConnectionTradeRouteGoldChange(int iChange)
 }
 
 /// Returns the route-type between two cities
-#if defined(MOD_EVENTS_CITY_CONNECTIONS)
-bool CvTreasury::HasCityConnectionRouteBetweenCities(CvCity* pFirstCity, CvCity* pSecondCity) const
-#else
 bool CvTreasury::HasCityConnectionRouteBetweenCities(CvCity* pFirstCity, CvCity* pSecondCity, bool bBestRoute) const
-#endif
 {
 	CvCityConnections* pCityConnections = m_pPlayer->GetCityConnections();
 	FASSERT(pCityConnections, "m_pCityConnections is null");
@@ -392,13 +386,11 @@ bool CvTreasury::HasCityConnectionRouteBetweenCities(CvCity* pFirstCity, CvCity*
 	CvCityConnections::RouteInfo* pRouteInfo = pCityConnections->GetRouteInfo(iFirstCityIndex, iSecondCityIndex);
 	if(pRouteInfo)
 	{
-#if !defined(MOD_EVENTS_CITY_CONNECTIONS)
 		if(bBestRoute)
 		{
 			return pRouteInfo->m_cRouteState & CvCityConnections::HAS_BEST_ROUTE;
 		}
 		else
-#endif
 		{
 			return pRouteInfo->m_cRouteState & CvCityConnections::HAS_ANY_ROUTE;
 		}
@@ -433,9 +425,6 @@ int CvTreasury::GetGoldPerTurnFromReligion() const
 {
 	int iGoldFromReligion = 0;
 
-#if defined(MOD_API_UNIFIED_YIELDS)
-	iGoldFromReligion += m_pPlayer->GetYieldPerTurnFromReligion(YIELD_GOLD);
-#else
 	CvGameReligions* pReligions = GC.getGame().GetGameReligions();
 
 	// Founder beliefs
@@ -455,7 +444,6 @@ int CvTreasury::GetGoldPerTurnFromReligion() const
 			}
 		}
 	}
-#endif
 
 	return iGoldFromReligion;
 }
@@ -485,6 +473,16 @@ int CvTreasury::CalculateGrossGoldTimes100()
 
 	// International trade
 	iNetGold += GetGoldPerTurnFromTraits() * 100;
+
+#if defined(MOD_DIPLOMACY_CIV4_FEATURES)
+	if (MOD_DIPLOMACY_CIV4_FEATURES) {
+		// We're a master of someone, we get x% of their gold
+		//iNetGold += (m_pPlayer->GetYieldPerTurnFromVassals(YIELD_GOLD) * 100);
+		
+		// We now get gold from taxes
+		iNetGold += GetMyShareOfVassalTaxes();
+	}
+#endif
 
 	return iNetGold;
 }
@@ -523,90 +521,62 @@ int CvTreasury::CalculateUnitCost(int& iFreeUnits, int& iPaidUnits, int& iBaseUn
 	}
 
 	int iSupport = 0;
-	iBaseUnitCost = 0;
 
 	CvHandicapInfo& playerHandicap = m_pPlayer->getHandicapInfo();
-	if(m_pPlayer->getGoldPerUnitTimes100() != 0)
+	iFreeUnits = playerHandicap.getGoldFreeUnits();
+
+	// Defined in XML by unit info type
+	iFreeUnits += m_pPlayer->GetNumMaintenanceFreeUnits();
+	iFreeUnits += m_pPlayer->getBaseFreeUnits();
+
+	iPaidUnits = max(0, m_pPlayer->getNumUnits() - iFreeUnits);
+
+	iBaseUnitCost = iPaidUnits * m_pPlayer->getGoldPerUnitTimes100();
+
+	// Discount on land unit maintenance?
+	int iLandUnitMod = m_pPlayer->GetPlayerTraits()->GetLandUnitMaintenanceModifier();
+	if(iLandUnitMod != 0)
 	{
-		iFreeUnits = playerHandicap.getGoldFreeUnits();
+		int iLandUnits = m_pPlayer->GetNumUnitsWithDomain(DOMAIN_LAND, true /*bMilitaryOnly*/);
+		int iFreeLandUnits = m_pPlayer->GetNumMaintenanceFreeUnits(DOMAIN_LAND, true);
+		int iPaidLandUnits = iLandUnits - iFreeLandUnits;
+		iBaseUnitCost += (iLandUnitMod * iPaidLandUnits * m_pPlayer->getGoldPerUnitTimes100()) / 100;
+	}
 
-		// Defined in XML by unit info type
-		iFreeUnits += m_pPlayer->GetNumMaintenanceFreeUnits();
-		iFreeUnits += m_pPlayer->getBaseFreeUnits();
+	// Discount on naval unit maintenance?
+	int iNavalUnitMod = m_pPlayer->GetPlayerTraits()->GetNavalUnitMaintenanceModifier();
+	if(iNavalUnitMod != 0)
+	{
+		int iNavalUnits = m_pPlayer->GetNumUnitsWithDomain(DOMAIN_SEA, true /*bMilitaryOnly*/);
+		int iFreeNavalUnits = m_pPlayer->GetNumMaintenanceFreeUnits(DOMAIN_SEA, true);
+		int iPaidNavalUnits = iNavalUnits - iFreeNavalUnits;
+		iBaseUnitCost += (iNavalUnitMod * iPaidNavalUnits * m_pPlayer->getGoldPerUnitTimes100()) / 100;
+	}
 
-		iPaidUnits = max(0, m_pPlayer->getNumUnits() - iFreeUnits);
-
-		iBaseUnitCost = iPaidUnits * m_pPlayer->getGoldPerUnitTimes100();
-
-		// Discount on land unit maintenance?
-		int iLandUnitMod = m_pPlayer->GetPlayerTraits()->GetLandUnitMaintenanceModifier();
-		if(iLandUnitMod != 0)
+	// Discounts for units of certain UnitCombat classes
+	for(int iI = 0; iI < GC.getNumUnitCombatClassInfos(); iI++)
+	{
+		const UnitCombatTypes eUnitCombatClass = static_cast<UnitCombatTypes>(iI);
+		CvBaseInfo* pkUnitCombatClassInfo = GC.getUnitCombatClassInfo(eUnitCombatClass);
+		if(pkUnitCombatClassInfo)
 		{
-			int iLandUnits = m_pPlayer->GetNumUnitsWithDomain(DOMAIN_LAND, true /*bMilitaryOnly*/);
-			int iFreeLandUnits = m_pPlayer->GetNumMaintenanceFreeUnits(DOMAIN_LAND, true);
-			int iPaidLandUnits = iLandUnits - iFreeLandUnits;
-			iBaseUnitCost += (iLandUnitMod * iPaidLandUnits * m_pPlayer->getGoldPerUnitTimes100()) / 100;
-		}
-
-		// Discount on naval unit maintenance?
-		int iNavalUnitMod = m_pPlayer->GetPlayerTraits()->GetNavalUnitMaintenanceModifier();
-		if(iNavalUnitMod != 0)
-		{
-			int iNavalUnits = m_pPlayer->GetNumUnitsWithDomain(DOMAIN_SEA, true /*bMilitaryOnly*/);
-			int iFreeNavalUnits = m_pPlayer->GetNumMaintenanceFreeUnits(DOMAIN_SEA, true);
-			int iPaidNavalUnits = iNavalUnits - iFreeNavalUnits;
-			iBaseUnitCost += (iNavalUnitMod * iPaidNavalUnits * m_pPlayer->getGoldPerUnitTimes100()) / 100;
-		}
-
-		// Discounts for units of certain UnitCombat classes
-		for(int iI = 0; iI < GC.getNumUnitCombatClassInfos(); iI++)
-		{
-			const UnitCombatTypes eUnitCombatClass = static_cast<UnitCombatTypes>(iI);
-			CvBaseInfo* pkUnitCombatClassInfo = GC.getUnitCombatClassInfo(eUnitCombatClass);
-			if(pkUnitCombatClassInfo)
+			int iModifier = m_pPlayer->GetPlayerTraits()->GetMaintenanceModifierUnitCombat(eUnitCombatClass);
+			if (iModifier != 0)
 			{
-				int iModifier = m_pPlayer->GetPlayerTraits()->GetMaintenanceModifierUnitCombat(eUnitCombatClass);
-				if (iModifier != 0)
-				{
-					int iNumUnits = m_pPlayer->GetNumUnitsWithUnitCombat(eUnitCombatClass);
-					int iCost = iNumUnits * m_pPlayer->getGoldPerUnitTimes100(); 
-					int iModifiedCost = iNumUnits * m_pPlayer->getGoldPerUnitTimes100() * (100 + iModifier) / 100; 
-					
-					// Reduce cost based on difference
-					iBaseUnitCost += (iModifiedCost - iCost);
-				}
+				int iNumUnits = m_pPlayer->GetNumUnitsWithUnitCombat(eUnitCombatClass);
+				int iCost = iNumUnits * m_pPlayer->getGoldPerUnitTimes100(); 
+				int iModifiedCost = iNumUnits * m_pPlayer->getGoldPerUnitTimes100() * (100 + iModifier) / 100; 
+				
+				// Reduce cost based on difference
+				iBaseUnitCost += (iModifiedCost - iCost);
 			}
 		}
 	}
-	
 
 	iExtraCost = m_pPlayer->getExtraUnitCost() * 100;	// In hundreds to avoid rounding errors
 
 	iSupport = iBaseUnitCost + iExtraCost;
 
-#if defined(MOD_UNIT_COST_DONOT_INCTEASE_WITH_TURN)
-	double dFinalCost = 0.00f;
-	if(MOD_UNIT_COST_DONOT_INCTEASE_WITH_TURN)
-	{
-		dFinalCost += iSupport;
-		dFinalCost /= 100;
-	}
-	else
-	{
-		// Game progress factor ranges from 0.0 to 1.0 based on how far into the game we are
-		double fGameProgressFactor = double(GC.getGame().getElapsedGameTurns()) / GC.getGame().getDefaultEstimateEndTurn();
-
-		// Multiplicative increase - helps scale costs as game goes on - the HIGHER this number the more is paid
-		double fMultiplyFactor = 1.0 + (fGameProgressFactor* /*8*/ GC.getUNIT_MAINTENANCE_GAME_MULTIPLIER());
-		// Exponential increase - this one really punishes those with a HUGE military - the LOWER this number the more is paid
-		double fExponentialFactor = 1.0 + (fGameProgressFactor / /*7*/ GC.getUNIT_MAINTENANCE_GAME_EXPONENT_DIVISOR());
-
-		double fTempCost = fMultiplyFactor * iSupport;
-		fTempCost /= 100;	// Take this out of hundreds now
-
-		dFinalCost += pow(fTempCost, fExponentialFactor);
-	}
-#else
 	// Game progress factor ranges from 0.0 to 1.0 based on how far into the game we are
 	double fGameProgressFactor = double(GC.getGame().getElapsedGameTurns()) / GC.getGame().getDefaultEstimateEndTurn();
 
@@ -619,7 +589,6 @@ int CvTreasury::CalculateUnitCost(int& iFreeUnits, int& iPaidUnits, int& iBaseUn
 	fTempCost /= 100;	// Take this out of hundreds now
 
 	double dFinalCost = pow(fTempCost, fExponentialFactor);
-#endif
 
 	// A mod at the player level? (Policies, etc.)
 	if(m_pPlayer->GetUnitGoldMaintenanceMod() != 0)
@@ -641,6 +610,21 @@ int CvTreasury::CalculateUnitCost(int& iFreeUnits, int& iPaidUnits, int& iBaseUn
 		dFinalCost /= 100;
 	}
 
+#if defined(MOD_DIPLOMACY_CIV4_FEATURES)
+	if (MOD_DIPLOMACY_CIV4_FEATURES) {
+		// Vassal bonus for unit maintenance costs
+		for(int iI = 0; iI < MAX_TEAMS; iI++)
+		{
+			// Are we the vassal of team?
+			if(GET_TEAM(m_pPlayer->getTeam()).IsVassal((TeamTypes)iI))
+			{
+				dFinalCost *= (100 - /*40*/GC.getVASSALAGE_VASSAL_UNIT_MAINT_COST_PERCENT());
+				dFinalCost /= 100;
+			}
+		}
+	}
+#endif
+
 	//iFinalCost /= 100;
 
 	return std::max(0, int(dFinalCost));
@@ -649,7 +633,6 @@ int CvTreasury::CalculateUnitCost(int& iFreeUnits, int& iPaidUnits, int& iBaseUn
 /// Compute unit supply for the turn (returns component info)
 int CvTreasury::CalculateUnitSupply(int& iPaidUnits, int& iBaseSupplyCost)
 {
-	if(GC.getINITIAL_OUTSIDE_UNIT_GOLD_PERCENT() == 0) return 0;
 	int iSupply;
 
 	iPaidUnits = std::max(0, (m_pPlayer->getNumOutsideUnits() - /*3*/ GC.getINITIAL_FREE_OUTSIDE_UNITS()));
@@ -673,26 +656,6 @@ int CvTreasury::CalculateUnitSupply(int& iPaidUnits, int& iBaseSupplyCost)
 		iSupply /= 100;
 	}
 
-#if defined(MOD_UNIT_COST_DONOT_INCTEASE_WITH_TURN)
-	int iFinalCost;
-	if(MOD_UNIT_COST_DONOT_INCTEASE_WITH_TURN)
-	{
-		iFinalCost = iSupply;
-	}
-	else
-	{
-		// Game progress factor ranges from 0.0 to 1.0 based on how far into the game we are
-		double fGameProgressFactor = float(GC.getGame().getElapsedGameTurns()) / GC.getGame().getEstimateEndTurn();
-
-		// Multiplicative increase - helps scale costs as game goes on - the HIGHER this number the more is paid
-		double fMultiplyFactor = 1.0 + (fGameProgressFactor* /*8*/ GC.getUNIT_MAINTENANCE_GAME_MULTIPLIER());
-		// Exponential increase - this one really punishes those with a HUGE military - the LOWER this number the more is paid
-		double fExponentialFactor = 1.0 + (fGameProgressFactor / /*7*/ GC.getUNIT_MAINTENANCE_GAME_EXPONENT_DIVISOR());
-
-		double fTempCost = fMultiplyFactor * iSupply;
-		iFinalCost = (int) pow(fTempCost, fExponentialFactor);
-	}
-#else
 	// Game progress factor ranges from 0.0 to 1.0 based on how far into the game we are
 	double fGameProgressFactor = float(GC.getGame().getElapsedGameTurns()) / GC.getGame().getEstimateEndTurn();
 
@@ -703,8 +666,6 @@ int CvTreasury::CalculateUnitSupply(int& iPaidUnits, int& iBaseSupplyCost)
 
 	double fTempCost = fMultiplyFactor * iSupply;
 	int iFinalCost = (int) pow(fTempCost, fExponentialFactor);
-#endif
-	
 
 	// A mod at the player level? (Policies, etc.)
 	if(m_pPlayer->GetUnitSupplyMod() != 0)
@@ -736,6 +697,13 @@ int CvTreasury::CalculatePreInflatedCosts()
 	iTotalCosts += m_iExpensePerTurnUnitSupply;
 	iTotalCosts += GetBuildingGoldMaintenance();
 	iTotalCosts += GetImprovementGoldMaintenance();
+
+#if defined(MOD_DIPLOMACY_CIV4_FEATURES)
+	if (MOD_DIPLOMACY_CIV4_FEATURES) {
+		iTotalCosts += GetVassalGoldMaintenance();
+		iTotalCosts += GetExpensePerTurnFromVassalTaxes();
+	}
+#endif
 
 	return iTotalCosts;
 }
@@ -1076,7 +1044,6 @@ void CvTreasury::Read(FDataStream& kStream)
 	uint uiVersion;
 
 	kStream >> uiVersion;
-	MOD_SERIALIZE_INIT_READ(kStream);
 
 	kStream >> m_iGold;
 	kStream >> m_iGoldPerTurnFromDiplomacy;
@@ -1090,6 +1057,9 @@ void CvTreasury::Read(FDataStream& kStream)
 	kStream >> m_GoldBalanceForTurnTimes100;
 	kStream >> m_GoldChangeForTurnTimes100;
 	kStream >> m_iLifetimeGrossGoldIncome;
+#if defined(MOD_DIPLOMACY_CIV4_FEATURES)
+	kStream >> m_iExpensePerTurnFromVassalTax;
+#endif
 }
 
 /// Serialization write
@@ -1098,7 +1068,6 @@ void CvTreasury::Write(FDataStream& kStream)
 	// Current version number
 	uint uiVersion = 1;
 	kStream << uiVersion;
-	MOD_SERIALIZE_INIT_WRITE(kStream);
 
 	kStream << m_iGold;
 	kStream << m_iGoldPerTurnFromDiplomacy;
@@ -1112,6 +1081,9 @@ void CvTreasury::Write(FDataStream& kStream)
 	kStream << m_GoldBalanceForTurnTimes100;
 	kStream << m_GoldChangeForTurnTimes100;
 	kStream << m_iLifetimeGrossGoldIncome;
+#if defined(MOD_DIPLOMACY_CIV4_FEATURES)
+	kStream << m_iExpensePerTurnFromVassalTax;
+#endif
 }
 
 void TreasuryHelpers::AppendToLog(CvString& strHeader, CvString& strLog, CvString strHeaderValue, CvString strValue)
@@ -1139,3 +1111,117 @@ void TreasuryHelpers::AppendToLog(CvString& strHeader, CvString& strLog, CvStrin
 	str.Format("%.2f,", fValue);
 	strLog += str;
 }
+
+#if defined(MOD_DIPLOMACY_CIV4_FEATURES)
+// What are our gold maintenance costs because of Vassals?
+int CvTreasury::GetVassalGoldMaintenance() const
+{
+	int iRtnValue = 0;
+	// We have a vassal
+	for(int iI = 0; iI < MAX_MAJOR_CIVS; iI++)
+	{
+		if(!GET_PLAYER((PlayerTypes)iI).isMinorCiv()
+			&& !GET_PLAYER((PlayerTypes)iI).isBarbarian()
+			&& GET_PLAYER((PlayerTypes)iI).isAlive())
+		{
+			int iLoop, iCityPop;
+			// This player is our vassal
+			if(GET_TEAM(GET_PLAYER((PlayerTypes)iI).getTeam()).IsVassal(m_pPlayer->getTeam()))
+			{
+				// Loop through our vassal's cities
+				for(CvCity* pLoopCity = GET_PLAYER((PlayerTypes)iI).firstCity(&iLoop); pLoopCity != NULL; pLoopCity = GET_PLAYER((PlayerTypes)iI).nextCity(&iLoop))
+				{
+					iCityPop = pLoopCity->getPopulation();
+					iRtnValue += std::max(0, (int)(pow((double)iCityPop, (double)/*0.6*/ GC.getVASSALAGE_VASSAL_CITY_POP_EXPONENT())));
+				}
+
+				iRtnValue += std::max(0, (GET_PLAYER((PlayerTypes)iI).GetTreasury()->GetExpensePerTurnUnitMaintenance() * /*10*/GC.getVASSALAGE_VASSAL_UNIT_MAINT_COST_PERCENT() / 100));
+			}
+		}
+	}
+
+	// Modifier for vassal maintenance?
+	iRtnValue *= (100 + m_pPlayer->GetVassalGoldMaintenanceMod());
+	iRtnValue /= 100;
+
+	return iRtnValue;
+}
+
+// Calculate how much we owe this turn due to taxes
+void CvTreasury::CalculateExpensePerTurnFromVassalTaxes()
+{
+	TeamTypes eMaster = GET_TEAM(m_pPlayer->getTeam()).GetMaster();
+	if(eMaster == NO_TEAM) {
+		if(GetExpensePerTurnFromVassalTaxes() != 0)
+			SetExpensePerTurnFromVassalTaxesTimes100(0);
+		return;
+	}
+	int iNet = CalculateGrossGoldTimes100();
+	int iTax = iNet * GET_TEAM(eMaster).GetVassalTax(m_pPlayer->GetID()) / 100;
+
+	SetExpensePerTurnFromVassalTaxesTimes100(iTax);
+}
+
+// Set how much we owe this turn due to taxes
+void CvTreasury::SetExpensePerTurnFromVassalTaxesTimes100(int iValue)
+{
+	m_iExpensePerTurnFromVassalTax = iValue;
+}
+
+// Get how much we owe this turn due to taxes
+int CvTreasury::GetExpensePerTurnFromVassalTaxesTimes100() const
+{
+	return m_iExpensePerTurnFromVassalTax;
+}
+
+// Get how much we owe this turn due to taxes
+int CvTreasury::GetExpensePerTurnFromVassalTaxes() const
+{
+	return GetExpensePerTurnFromVassalTaxesTimes100() / 100;
+}
+
+// What percent of vassal taxes am I owed?
+int CvTreasury::GetMyShareOfVassalTaxes() const
+{
+	int iNumTeamMembers = GET_TEAM(m_pPlayer->getTeam()).getAliveCount();
+	if(iNumTeamMembers == 0)
+		return 0;
+
+	int iTotalTaxes = 0;
+	PlayerTypes eLoopPlayer;
+	for(int iPlayerLoop = 0; iPlayerLoop < MAX_MAJOR_CIVS; iPlayerLoop++)
+	{
+		eLoopPlayer = (PlayerTypes) iPlayerLoop;
+		if(GET_TEAM(GET_PLAYER(eLoopPlayer).getTeam()).GetMaster() == m_pPlayer->getTeam())
+		{
+			iTotalTaxes += GET_PLAYER(eLoopPlayer).GetTreasury()->GetExpensePerTurnFromVassalTaxesTimes100();
+		}
+	}
+
+	// What is my share of these taxes?
+	return (iTotalTaxes / iNumTeamMembers);
+}
+
+// How much is ePlayer contributing to my vassal tax revenue (note: this doesn't actually set anything, for pure UI purposes)
+int CvTreasury::GetVassalTaxContributionTimes100(PlayerTypes ePlayer) const
+{
+	int iNumTeamMembers = GET_TEAM(m_pPlayer->getTeam()).getAliveCount();
+	if(iNumTeamMembers == 0)
+		return 0;
+
+	int iAmount = 0;
+	
+	if(GET_TEAM(GET_PLAYER(ePlayer).getTeam()).GetMaster() == m_pPlayer->getTeam())
+	{
+		iAmount += GET_PLAYER(ePlayer).GetTreasury()->GetExpensePerTurnFromVassalTaxesTimes100();
+	}
+
+	return iAmount  / iNumTeamMembers;
+}
+
+int CvTreasury::GetVassalTaxContribution(PlayerTypes ePlayer) const
+{
+	return GetVassalTaxContributionTimes100(ePlayer) / 100;
+}
+
+#endif

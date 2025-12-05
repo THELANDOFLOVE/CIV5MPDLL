@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -520,7 +520,6 @@ bool CvReplayInfo::read(FDataStream& kStream)
 
 	int iVersion;
 	kStream >> iVersion;
-	MOD_SERIALIZE_INIT_READ(kStream);
 
 	kStream >> m_iActivePlayer;
 	kStream >> m_strMapScriptName;
@@ -570,7 +569,6 @@ bool CvReplayInfo::read(FDataStream& kStream)
 void CvReplayInfo::write(FDataStream& kStream) const
 {
 	kStream << REPLAY_VERSION;
-	MOD_SERIALIZE_INIT_WRITE(kStream);
 	kStream << m_iActivePlayer;
 	kStream << m_strMapScriptName;
 	kStream << m_eWorldSize;

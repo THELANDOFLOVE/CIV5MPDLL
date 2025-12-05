@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -183,9 +183,6 @@ public:
 		m_eArmyTypeBeingBuilt =  NO_ARMY_TYPE;
 	}
 	void DoTurn();
-#if defined(MOD_API_EXTENSIONS)
-	void UseStrategy(MilitaryAIStrategyTypes eStrategy, bool bUsingStrategy);
-#endif
 
 	DefenseState GetLandDefenseState() const
 	{
@@ -259,9 +256,6 @@ public:
 	};
 	UnitTypes GetUnitForArmy(CvCity* pCity) const;
 	bool WillAirUnitRebase(CvUnit* pUnit) const;
-#if defined(MOD_AI_SMART_V3)
-	int GetMaxPossibleInterceptions(CvPlot* pCenterPlot, bool bCountPercents = false) const;
-#endif
 	int GetNumEnemyAirUnitsInRange(CvPlot* pCenterPlot, int iRange, bool bCountFighters, bool bCountBombers) const;
 	CvPlot *GetBestAirSweepTarget(CvUnit* pFighter) const;
 

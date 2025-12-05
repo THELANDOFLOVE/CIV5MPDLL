@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -56,9 +56,6 @@ struct CvPathNodeCacheData
 	bool bPlotVisibleToTeam:1;
 	bool bIsMountain:1;
 	bool bIsWater:1;
-#if defined(MOD_PATHFINDER_TERRAFIRMA)
-	bool bIsTerraFirma:1;
-#endif
 	bool bCanEnterTerrain:1;
 	bool bIsRevealedToTeam:1;
 	bool bContainsOtherFriendlyTeamCity:1;
@@ -66,13 +63,6 @@ struct CvPathNodeCacheData
 	bool bContainsVisibleEnemy:1;
 	bool bContainsVisibleEnemyDefender:1;
 	int	iNumFriendlyUnitsOfType;
-#if defined(MOD_GLOBAL_STACKING_RULES)
-	int	iUnitPlotLimit;
-#endif
-
-#ifdef MOD_TRAITS_CAN_FOUND_MOUNTAIN_CITY
-	bool bIsCity:1;
-#endif
 };
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

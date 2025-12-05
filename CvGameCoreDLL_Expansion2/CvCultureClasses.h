@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -74,10 +74,6 @@ public:
 	CvString GetGreatWorkEraShort(int iIndex) const;
 	PlayerTypes GetGreatWorkCreator (int iIndex) const;
 	PlayerTypes GetGreatWorkController(int iIndex) const;
-#if defined(MOD_API_EXTENSIONS)
-	bool IsGreatWorkCreated(GreatWorkType eType) const;
-	CvCity* GetGreatWorkCity(int iIndex) const;
-#endif
 	int GetGreatWorkCurrentThemingBonus (int iIndex) const;
 
 	bool SwapGreatWorks (PlayerTypes ePlayer1, int iWork1, PlayerTypes ePlayer2, int iWork2);
@@ -156,10 +152,6 @@ public:
 	BuildingTypes m_eBuilding;
 	bool m_bThemed;
 	bool m_bEndangered;
-#if defined(MOD_GLOBAL_GREATWORK_YIELDTYPES) || defined(MOD_API_UNIFIED_YIELDS)
-	bool m_bPuppet;
-	YieldTypes m_eYieldType;
-#endif
 };
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -183,25 +175,16 @@ public:
 	bool HasAvailableGreatWorkSlot(GreatWorkSlotType eGreatWorkSlot);
 	int GetNumAvailableGreatWorkSlots(GreatWorkSlotType eGreatWorkSlot) const;
 	CvCity *GetClosestAvailableGreatWorkSlot(int iX, int iY, GreatWorkSlotType eGreatWorkSlot, BuildingClassTypes *eBuildingClass, int *iSlot) const;
-	int GetNumGreatWorks(bool bIncludeArtifact = true, bool bIncludeGreatWork = true) const;
+	int GetNumGreatWorks() const;
 	int GetNumGreatWorkSlots() const;
 	int GetNumGreatWorkSlots(GreatWorkSlotType eGreatWorkSlot) const;
 	bool ControlsGreatWork (int iIndex);
 	bool GetGreatWorkLocation(int iGreatWorkIndex, int &iCityID, BuildingTypes &eBuilding, int &iSlot);
 
-#if defined(MOD_GLOBAL_GREATWORK_YIELDTYPES)
-	void DoSwapGreatWorks(YieldTypes eFocusYield);
-	void MoveWorks (GreatWorkSlotType eType, vector<CvGreatWorkBuildingInMyEmpire> &buildings, vector<CvGreatWorkInMyEmpire> &works1, vector<CvGreatWorkInMyEmpire> &works2, YieldTypes eFocusYield);
-#else
 	void DoSwapGreatWorks();
 	void MoveWorks (GreatWorkSlotType eType, vector<CvGreatWorkBuildingInMyEmpire> &buildings, vector<CvGreatWorkInMyEmpire> &works1, vector<CvGreatWorkInMyEmpire> &works2);
-#endif
 	bool ThemeBuilding(vector<CvGreatWorkBuildingInMyEmpire>::const_iterator it, vector<CvGreatWorkInMyEmpire> &works1, vector<CvGreatWorkInMyEmpire> &works2, bool bConsiderOtherPlayers);
 	bool ThemeEqualArtArtifact(CvGreatWorkBuildingInMyEmpire kBldg, int iThemingBonusIndex, int iNumSlots, vector<CvGreatWorkInMyEmpire> &works1, vector<CvGreatWorkInMyEmpire> &works2, bool bConsiderOtherPlayers);
-#if defined(MOD_GLOBAL_GREATWORK_YIELDTYPES)
-	//void MoveSingleWorks(vector<CvGreatWorkBuildingInMyEmpire> &buildings, vector<CvGreatWorkInMyEmpire> &works1, vector<CvGreatWorkInMyEmpire> &works2, YieldTypes eFocusYield);
-	bool MoveSingleWorks(vector<CvGreatWorkBuildingInMyEmpire>& buildings, vector<CvGreatWorkInMyEmpire>& works1, vector<CvGreatWorkInMyEmpire>& works2, YieldTypes eFocusYield, bool bPuppet);
-#endif
 	bool FillBuilding(vector<CvGreatWorkBuildingInMyEmpire>::const_iterator it, vector<CvGreatWorkInMyEmpire> &works1, vector<CvGreatWorkInMyEmpire> &works2);
 	void MoveWorkIntoSlot (CvGreatWorkInMyEmpire kWork, int iCityID, BuildingTypes eBuilding, int iSlot);
 	int GetSwappableWritingIndex() const;
@@ -232,9 +215,6 @@ public:
 	void SetLastTurnLifetimeCulture(int iValue);
 	int GetInfluenceOn(PlayerTypes ePlayer) const;
 	void ChangeInfluenceOn(PlayerTypes ePlayer, int iValue);
-#if defined(MOD_API_EXTENSIONS)
-	void ChangeInfluenceOn(PlayerTypes eOtherPlayer, int iBaseInfluence, bool bApplyModifiers, bool bModifyForGameSpeed);
-#endif
 	int GetLastTurnInfluenceOn(PlayerTypes ePlayer) const;
 	int GetInfluencePerTurn(PlayerTypes ePlayer) const;
 	InfluenceLevelTypes GetInfluenceLevel(PlayerTypes ePlayer) const;
@@ -255,6 +235,9 @@ public:
 	int GetTourismModifierSharedReligion() const;
 	int GetTourismModifierTradeRoute() const;
 	int GetTourismModifierOpenBorders() const;
+#if defined(MOD_DIPLOMACY_CIV4_FEATURES)
+	int GetTourismModifierVassal() const;
+#endif
 	PublicOpinionTypes GetPublicOpinionType() const;
 	PolicyBranchTypes GetPublicOpinionPreferredIdeology() const;
 	CvString GetPublicOpinionTooltip() const;
@@ -328,18 +311,14 @@ public:
 
 	void Init(CvCity* m_pCity);
 
-#if defined(MOD_GLOBAL_GREATWORK_YIELDTYPES)
-#endif
-	int GetNumGreatWorks(bool bIgnoreYield = true, bool bIncludeArtifact = true, bool bIncludeGreatWork = true) const;
-
+	int GetNumGreatWorks() const;
 	int GetNumGreatWorkSlots() const;
 	int GetNumAvailableGreatWorkSlots(GreatWorkSlotType eSlotType) const;
 	void ClearGreatWorks();
 	GreatWorkSlotType GetSlotTypeFirstAvailableCultureBuilding() const;
 
-	void CalculateBaseTourismBeforeModifiers(CvString& toolTipSink);
-	int CalculateBaseTourism(CvString& toolTipSink);
-
+	int GetBaseTourismBeforeModifiers();
+	int GetBaseTourism();
 	int GetTourismMultiplier(PlayerTypes ePlayer, bool bIgnoreReligion, bool bIgnoreOpenBorders, bool bIgnoreTrade, bool bIgnorePolicies, bool bIgnoreIdeologies) const;
 
 	CvString GetTourismTooltip();
@@ -352,11 +331,7 @@ public:
 
 	int GetCultureFromWonders() const;
 	int GetCultureFromNaturalWonders() const;
-#if defined(MOD_API_UNIFIED_YIELDS)
-	int GetYieldFromImprovements(YieldTypes eYield) const;
-#else
 	int GetCultureFromImprovements() const;
-#endif
 
 	void LogGreatWorks (FILogFile* pLog);
 

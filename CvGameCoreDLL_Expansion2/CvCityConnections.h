@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -52,12 +52,8 @@ public:
 	typedef enum RouteState
 	{
 	    HAS_ANY_ROUTE   = 0x1,
-#if defined(MOD_EVENTS_CITY_CONNECTIONS)
-	    HAS_INDIRECT_ROUTE = 0x2,
-#else
 	    HAS_WATER_ROUTE = 0x2,
 	    HAS_BEST_ROUTE  = 0x4,
-#endif
 	};
 
 	struct RouteInfo

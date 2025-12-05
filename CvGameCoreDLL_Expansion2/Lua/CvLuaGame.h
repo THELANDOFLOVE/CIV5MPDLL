@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -22,10 +22,8 @@
 class CvLuaGame : public CvLuaStaticInstance<CvLuaGame, CvGame>
 {
 public:
-	static void RegistStaticFunctions();
 	//! Returns the name of the static instance.
 	static const char* GetInstanceName();
-	static const char* GetInstanceNameCv();
 
 	//! Returns the static instance
 	static CvGame* GetInstance(lua_State* L = NULL, int idx = 0);
@@ -37,12 +35,6 @@ protected:
 
 	static int lCanHandleAction(lua_State* L);
 	static int lHandleAction(lua_State* L);
-#ifdef MOD_API_MP_PLOT_SIGNAL
-	static int lHandleMultiplayerTeamSignal(lua_State* L);
-	static int lHandleMultiplayerTeamSignalImpl(lua_State* L);
-#endif // MOD_API_MP_PLOT_SIGNAL
-
-	
 
 	static int lUpdateScore(lua_State* L);
 	static int lCycleCities(lua_State* L);
@@ -100,9 +92,6 @@ protected:
 	static int lGetTurnYear(lua_State* L);
 	static int lGetGameTurnYear(lua_State* L);
 	static int lGetTurnString(lua_State* L);
-#if defined(MOD_API_LUA_EXTENSIONS)
-	LUAAPIEXTN(GetDateString, char*, iTurn);
-#endif
 
 	static int lGetElapsedGameTurns(lua_State* L);
 	static int lGetMaxTurns(lua_State* L);
@@ -244,7 +233,6 @@ protected:
 	static int lSetName(lua_State* L);
 	static int lGetName(lua_State* L);
 	static int lRand(lua_State* L);
-	static int lGetAuthenticatedSeed(lua_State* L);
 	static int lCalculateSyncChecksum(lua_State* L);
 	static int lCalculateOptionsChecksum(lua_State* L);
 
@@ -258,7 +246,6 @@ protected:
 	static int lAddPlayer(lua_State* L);
 
 	static int lSetPlotExtraYield(lua_State* L);
-	static int lSetPlotExtraYieldSync(lua_State* L);
 	static int lChangePlotExtraCost(lua_State* L);
 
 	static int lIsCivEverActive(lua_State* L);
@@ -330,9 +317,6 @@ protected:
 	static int lGetMinimumFaithNextPantheon(lua_State* L);
 	static int lSetMinimumFaithNextPantheon(lua_State* L);
 
-#if defined(MOD_API_LUA_EXTENSIONS) && defined(MOD_API_RELIGION)
-	LUAAPIEXTN(IsInSomeReligion, bool, iBelief, iPlayer);
-#endif
 	static int lGetAvailablePantheonBeliefs(lua_State* L);
 	static int lGetAvailableFounderBeliefs(lua_State* L);
 	static int lGetAvailableFollowerBeliefs(lua_State* L);
@@ -351,25 +335,14 @@ protected:
 	static int lGetFounderBenefitsReligion(lua_State* L);
 
 	static int lFoundPantheon(lua_State* L);
-#if defined(MOD_API_LUA_EXTENSIONS) && defined(MOD_API_RELIGION)
-	LUAAPIEXTN(EnhancePantheon, void, iPlayer, iBelief);
-#endif
 	static int lFoundReligion(lua_State* L);
 	static int lEnhanceReligion(lua_State* L);
-#if defined(MOD_API_LUA_EXTENSIONS)
-	LUAAPIEXTN(AddReformation, void, iPlayer, iReligion, iBelief);
-#endif
 	static int lSetHolyCity(lua_State* L);
 	static int lGetFounder(lua_State* L);
 	static int lSetFounder(lua_State* L);
 
 	static int lGetTurnsBetweenMinorCivElections(lua_State* L);
 	static int lGetTurnsUntilMinorCivElection(lua_State* L);
-	
-#if defined(MOD_API_LUA_EXTENSIONS)
-	LUAAPIEXTN(IsAchievementUnlocked, bool, iAchievement);
-	LUAAPIEXTN(GetSteamStat, int, iSteamStat);
-#endif
 
 	static int lGetNumActiveLeagues(lua_State* L);
 	static int lGetNumLeaguesEverFounded(lua_State* L);
@@ -378,9 +351,6 @@ protected:
 	
 	static int lIsProcessingMessages(lua_State* L);
 
-#if defined(MOD_API_LUA_EXTENSIONS)
-	LUAAPIEXTN(CreateGreatWork, int, iGreatWorkType, iOwningPlayer, iEra, sCreator);
-#endif
 	static int lGetGreatWorkTooltip(lua_State* L);
 	static int lGetGreatWorkName(lua_State* L);
 	static int lGetGreatWorkType(lua_State* L);
@@ -398,9 +368,6 @@ protected:
 
 	static int lGetLongestCityConnectionPlots(lua_State* L);
 
-#if defined(MOD_API_LUA_EXTENSIONS) && defined(MOD_API_TRADEROUTES)
-	LUAAPIEXTN(GetTradeRoute, table, iRouteIndex);
-#endif
 	static int lSelectedUnit_SpeculativePopupTradeRoute_Display(lua_State* L);
 	static int lSelectedUnit_SpeculativePopupTradeRoute_Hide(lua_State* L);
 
@@ -409,57 +376,16 @@ protected:
 	static int lGetNumArchaeologySites(lua_State *L);
 	static int lGetNumHiddenArchaeologySites(lua_State *L);
 
-	static int lGetHappinessFromHandicap(lua_State* L);
-	static int lGetImmigrationRegressand(lua_State* L);
-
-#if defined(MOD_API_LUA_EXTENSIONS) && defined(MOD_API_EXTENSIONS)
-	LUAAPIEXTN(ExitLeaderScreen, void);
+#if defined(MOD_DIPLOMACY_CIV4_FEATURES)
+	static int lGetMinimumVoluntaryVassalTurns(lua_State* L);
+	static int lGetMinimumVassalTurns(lua_State* L);
+	static int lGetNumTurnsBetweenVassals(lua_State* L);
+	static int lGetMinimumVassalTax(lua_State* L);
+	static int lGetMaximumVassalTax(lua_State* L);
+	static int lGetMinimumVassalLiberateTurns(lua_State* L);
+	static int lGetMinimumVassalTaxTurns(lua_State* L);
+	static int lGetVassalageEnabledEra(lua_State* L);
 #endif
-
-#if defined(MOD_API_LUA_EXTENSIONS)
-	LUAAPIEXTN(GetDllGuid, char*);
-	LUAAPIEXTN(ReloadGameDataDefines, void);
-	LUAAPIEXTN(ReloadCustomModOptions, void);
-	LUAAPIEXTN(IsCustomModOption, bool, sOption);
-	LUAAPIEXTN(GetCustomModOption, int, sOption);
-	LUAAPIEXTN(SpewTestEvents, int, iLimit); // returns iSeconds, iMilliSeconds, iValue
-#endif
-
-#if defined(MOD_API_LUA_EXTENSIONS)
-	LUAAPIEXTN(AnyoneHasBelief, bool, iBeliefType);
-	LUAAPIEXTN(AnyoneHasBuilding, bool, iBuildingType);
-	LUAAPIEXTN(AnyoneHasBuildingClass, bool, iBuildingClassType);
-	LUAAPIEXTN(AnyoneHasAnyWonder, bool);
-	LUAAPIEXTN(AnyoneHasWonder, bool, iBuildingType);
-	LUAAPIEXTN(GetCivilizationPlayer, int, iCivilizationType);
-	LUAAPIEXTN(AnyoneIsInEra, bool, iEraType);
-	LUAAPIEXTN(AnyoneHasReachedEra, bool, iEraType);
-	LUAAPIEXTN(AnyoneHasAnyNaturalWonder, bool);
-	LUAAPIEXTN(AnyoneHasNaturalWonder, bool, iFeatureType);
-	LUAAPIEXTN(AnyoneHasPolicy, bool, iPolicyType);
-	LUAAPIEXTN(AnyoneHasTenet, bool, iPolicyType);
-	LUAAPIEXTN(AnyoneHasPolicyBranch, bool, iPolicyBranchType);
-	LUAAPIEXTN(AnyoneHasIdeology, bool, iPolicyBranchType);
-	LUAAPIEXTN(AnyoneHasProject, bool, iProjectType);
-	LUAAPIEXTN(AnyoneHasPantheon, bool);
-	LUAAPIEXTN(AnyoneHasAnyReligion, bool);
-	LUAAPIEXTN(AnyoneHasReligion, bool, iReligionType);
-	LUAAPIEXTN(IsResolutionPassed, bool, iResolutionType, iChoice);
-	LUAAPIEXTN(AnyoneHasTech, bool, iTechType);
-	LUAAPIEXTN(AnyoneHasUnit, bool, iUnitType);
-	LUAAPIEXTN(AnyoneHasUnitClass, bool, iUnitClassType);
-#endif
-#if defined(MOD_NUCLEAR_WINTER_FOR_SP)
-	LUAAPIEXTN(GetNuclearWinterProcess, int);
-	LUAAPIEXTN(ChangeNuclearWinterProcess, void, iChange, bUpdate, bAllowLevelReduce);
-	LUAAPIEXTN(GetNuclearWinterNaturalReduction, int);
-	LUAAPIEXTN(ChangeNuclearWinterNaturalReduction, void, iChange);
-#endif
-#if defined(MOD_GLOBAL_MAX_PLOT_BUILD)
-	LUAAPIEXTN(IsPlotExceedMaxBuild, PlayerTypes, int);
-#endif
-	LUAAPIEXTN(DoOptionalUCCode, void);
-	LUAAPIEXTN(CheckDllVersion, bool, iVersion);
 };
 
 #endif //CVLUAGAME_H

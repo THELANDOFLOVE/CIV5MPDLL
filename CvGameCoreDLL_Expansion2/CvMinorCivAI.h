@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -68,7 +68,7 @@ enum MinorCivQuestTypes
     MINOR_CIV_QUEST_SPREAD_RELIGION,
 	MINOR_CIV_QUEST_TRADE_ROUTE,
 
-	NUM_MINOR_CIV_QUEST_TYPES,
+    NUM_MINOR_CIV_QUEST_TYPES,
 };
 FDataStream& operator<<(FDataStream&, const MinorCivQuestTypes&);
 FDataStream& operator>>(FDataStream&, MinorCivQuestTypes&);
@@ -108,9 +108,6 @@ public:
 	int GetStartTurn() const;
 	int GetEndTurn() const;
 	int GetTurnsRemaining(int iCurrentTurn) const;
-#if defined(MOD_EVENTS_QUESTS)
-	int GetTurnsDuration() const;
-#endif
 	int GetPrimaryData() const;
 	int GetSecondaryData() const;
 	int GetInfluenceReward() const;
@@ -119,11 +116,6 @@ public:
 	int GetContestValueForPlayer(PlayerTypes ePlayer);
 	int GetContestValueForLeader();
 	CivsList GetContestLeaders();
-
-#if defined(MOD_EVENTS_QUESTS)
-	bool UseEvents() const;
-	bool IsInternal() const;
-#endif
 
 	// Quest status for assigned player
 	bool IsContestLeader(PlayerTypes ePlayer = NO_PLAYER);
@@ -148,9 +140,6 @@ public:
 	int m_iData1;
 	int m_iData2;
 	bool m_bHandled;
-#if defined(MOD_EVENTS_QUESTS)
-	CvQuestInfo* m_pQuestInfo;
-#endif
 };
 FDataStream& operator>>(FDataStream&, CvMinorCivQuest&);
 FDataStream& operator<<(FDataStream&, const CvMinorCivQuest&);
@@ -191,9 +180,6 @@ public:
 	MinorCivTypes GetMinorCivType() const;
 
 	MinorCivPersonalityTypes GetPersonality() const;
-#if defined(MOD_API_EXTENSIONS)
-	void SetPersonality(MinorCivPersonalityTypes ePersonality);
-#endif
 	void DoPickPersonality();
 
 	MinorCivTraitTypes GetTrait() const;
@@ -214,19 +200,12 @@ public:
 	void DoFirstContactWithMajor(TeamTypes eTeam, bool bSuppressMessages);
 
 	void DoTestEndWarsVSMinors(PlayerTypes eOldAlly, PlayerTypes eNewAlly);
-#if defined(MOD_GLOBAL_CS_NO_ALLIED_SKIRMISHES)
-	void DoTestEndSkirmishes(PlayerTypes eNewAlly);
-#endif
 
 	void DoTurnStatus();
 	MinorCivStatusTypes GetStatus() const;
 
 	void DoAddStartingResources(CvPlot* pCityPlot);
-#if defined(MOD_GLOBAL_VENICE_KEEPS_RESOURCES) ||  defined(MOD_GLOBAL_CS_MARRIAGE_KEEPS_RESOURCES)
-	void DoRemoveStartingResources(CvPlot* pCityPlot, bool bKeepResources);
-#else
 	void DoRemoveStartingResources(CvPlot* pCityPlot);
-#endif
 
 	void AddNotification(CvString sString, CvString sSummaryString, PlayerTypes ePlayer, int iX = -1, int iY = -1);
 	void AddQuestNotification(CvString sString, CvString sSummaryString, PlayerTypes ePlayer, int iX = -1, int iY = -1, bool bNewQuest = false);
@@ -319,9 +298,6 @@ public:
 	int GetQuestData1(PlayerTypes ePlayer, MinorCivQuestTypes eType) const;
 	int GetQuestData2(PlayerTypes ePlayer, MinorCivQuestTypes eType) const;
 	int GetQuestTurnsRemaining(PlayerTypes ePlayer, MinorCivQuestTypes eType, int iGameTurn) const;
-#if defined(MOD_EVENTS_QUESTS)
-	int GetQuestTurnsDuration(PlayerTypes ePlayer, MinorCivQuestTypes eType) const;
-#endif
 	bool IsContestLeader(PlayerTypes ePlayer, MinorCivQuestTypes eType);
 	int GetContestValueForLeader(MinorCivQuestTypes eType);
 	int GetContestValueForPlayer(PlayerTypes ePlayer, MinorCivQuestTypes eType);
@@ -469,11 +445,7 @@ public:
 	bool IsUnitSpawningAllowed(PlayerTypes ePlayer);
 	bool IsUnitSpawningDisabled(PlayerTypes ePlayer) const;
 	void SetUnitSpawningDisabled(PlayerTypes ePlayer, bool bValue);
-#if defined(MOD_GLOBAL_CS_GIFTS)
-	CvUnit* DoSpawnUnit(PlayerTypes eMajor, bool bLocal = false, bool bExplore = false);
-#else
 	void DoSpawnUnit(PlayerTypes eMajor);
-#endif
 	void DoUnitSpawnTurn();
 	int GetSpawnBaseTurns(PlayerTypes ePlayer);
 	int GetCurrentSpawnEstimate(PlayerTypes ePlayer);
@@ -484,17 +456,9 @@ public:
 	void SetMajorBoughtOutBy(PlayerTypes eMajor);
 	bool CanMajorBuyout(PlayerTypes eMajor);
 	int GetBuyoutCost(PlayerTypes eMajor);
-#if defined(MOD_GLOBAL_CS_MARRIAGE_KEEPS_RESOURCES)
-	void DoBuyout(PlayerTypes eMajor, bool bKeepResources = false);
-#else
 	void DoBuyout(PlayerTypes eMajor);
-#endif
 
-#if defined(MOD_GLOBAL_VENICE_KEEPS_RESOURCES) ||  defined(MOD_GLOBAL_CS_MARRIAGE_KEEPS_RESOURCES)
-	void DoAcquire(PlayerTypes eMajor, int& iNumUnits, int& iCapitalX, int& iCapitalY, bool bKeepResources = false);
-#else
 	void DoAcquire(PlayerTypes eMajor, int& iNumUnits, int& iCapitalX, int& iCapitalY);
-#endif
 
 	// ************************************
 	// ***** Bullying *****
@@ -503,8 +467,6 @@ public:
 	int GetBullyGoldAmount(PlayerTypes eBullyPlayer);
 
 	int CalculateBullyMetric(PlayerTypes eBullyPlayer, bool bForUnit, CvString* sTooltipSink = NULL);
-
-	int GetBullyInfluenceLoss(PlayerTypes eBullyPlayer, int iOriginalLoss);
 
 	bool CanMajorBullyGold(PlayerTypes ePlayer);
 	bool CanMajorBullyGold(PlayerTypes ePlayer, int iSpecifiedBullyMetric);
@@ -578,9 +540,6 @@ public:
 	TechTypes GetGoodTechPlayerDoesntHave(PlayerTypes ePlayer, int iRoughTechValue) const;
 
 	bool IsSameReligionAsMajor(PlayerTypes eMajor);
-#if defined(MOD_BELIEF_NEW_EFFECT_FOR_SP)
-	int GetSameReligionRecoveryModifier(PlayerTypes eMajor);
-#endif
 
 	CvString GetStatusChangeDetails(PlayerTypes ePlayer, bool bAdd, bool bFriends, bool bAllies);
 	pair<CvString, CvString> GetStatusChangeNotificationStrings(PlayerTypes ePlayer, bool bAdd, bool bFriends, bool bAllies, PlayerTypes eOldAlly, PlayerTypes eNewAlly);

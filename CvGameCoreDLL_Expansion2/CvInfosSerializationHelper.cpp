@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -244,9 +244,6 @@ IMPLEMENT_SERIALIZATION_INFO_TYPE_HELPER(BuildingTypes, getBuildingInfo, NO_BUIL
 IMPLEMENT_SERIALIZATION_INFO_TYPE_HELPER(PromotionTypes, getPromotionInfo, NO_PROMOTION);
 IMPLEMENT_SERIALIZATION_INFO_TYPE_HELPER(UnitTypes, getUnitInfo, NO_UNIT);
 IMPLEMENT_SERIALIZATION_INFO_TYPE_HELPER(FeatureTypes, getFeatureInfo, NO_FEATURE);
-#if defined(MOD_API_UNIFIED_YIELDS) && defined(MOD_API_PLOT_YIELDS)
-IMPLEMENT_SERIALIZATION_INFO_TYPE_HELPER(PlotTypes, getPlotInfo, NO_PLOT);
-#endif
 IMPLEMENT_SERIALIZATION_INFO_TYPE_HELPER(TerrainTypes, getTerrainInfo, NO_TERRAIN);
 IMPLEMENT_SERIALIZATION_INFO_TYPE_HELPER(AICityStrategyTypes, getAICityStrategyInfo, NO_AICITYSTRATEGY);
 IMPLEMENT_SERIALIZATION_INFO_TYPE_HELPER(SmallAwardTypes, getSmallAwardInfo, NO_SMALLAWARD);

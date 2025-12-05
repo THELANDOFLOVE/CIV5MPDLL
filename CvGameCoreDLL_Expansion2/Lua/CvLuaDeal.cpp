@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -9,7 +9,6 @@
 #include "CvGameCoreDLLPCH.h"
 #include "CvLuaSupport.h"
 #include "CvLuaDeal.h"
-#include "NetworkMessageUtil.h"
 
 //Utility macro for registering methods
 #define Method(Name)			\
@@ -20,26 +19,9 @@
 using namespace CvLuaArgs;
 TradedItemList::iterator CvLuaDeal::m_iterator;
 
-void CvLuaDeal::RegistStaticFunctions() {
-	REGIST_STATIC_FUNCTION(CvLuaDeal::lSetFromPlayer);
-	REGIST_STATIC_FUNCTION(CvLuaDeal::lSetToPlayer);
-	REGIST_STATIC_FUNCTION(CvLuaDeal::lSetSurrenderingPlayer);
-	REGIST_STATIC_FUNCTION(CvLuaDeal::lSetDemandingPlayer);
-	REGIST_STATIC_FUNCTION(CvLuaDeal::lSetRequestingPlayer);
-	REGIST_STATIC_FUNCTION(CvLuaDeal::lChangeGoldTrade);
-	REGIST_STATIC_FUNCTION(CvLuaDeal::lChangeGoldPerTurnTrade);
-	REGIST_STATIC_FUNCTION(CvLuaDeal::lChangeResourceTrade);
-	REGIST_STATIC_FUNCTION(CvLuaDeal::lChangeThirdPartyWarDuration);
-	REGIST_STATIC_FUNCTION(CvLuaDeal::lChangeThirdPartyPeaceDuration);
-	REGIST_STATIC_FUNCTION(CvLuaDeal::lChangeThirdPartyEmbargoDuration);
-}
-
 //------------------------------------------------------------------------------
 void CvLuaDeal::PushMethods(lua_State* L, int t)
 {
-	Method(SendAndExecuteLuaFunction);
-	Method(SendAndExecuteLuaFunctionPostpone);
-
 	Method(ClearItems);
 	Method(GetNumItems);
 
@@ -88,8 +70,6 @@ void CvLuaDeal::PushMethods(lua_State* L, int t)
 	Method(AddThirdPartyEmbargo);
 	Method(AddDeclarationOfFriendship);
 	Method(AddVoteCommitment);
-	Method(AddDiplomaticMarriage);
-	Method(AddDualEmpireTreaty);
 
 	Method(RemoveByType);
 	Method(RemoveResourceTrade);
@@ -99,8 +79,6 @@ void CvLuaDeal::PushMethods(lua_State* L, int t)
 	Method(RemoveThirdPartyWar);
 	Method(RemoveThirdPartyEmbargo);
 	Method(RemoveVoteCommitment);
-	Method(RemoveDiplomaticMarriage);
-	Method(RemoveDualEmpireTreaty);
 
 	Method(ChangeGoldTrade);
 	Method(ChangeGoldPerTurnTrade);
@@ -108,6 +86,13 @@ void CvLuaDeal::PushMethods(lua_State* L, int t)
 	Method(ChangeThirdPartyWarDuration);
 	Method(ChangeThirdPartyPeaceDuration);
 	Method(ChangeThirdPartyEmbargoDuration);
+
+#if defined(MOD_DIPLOMACY_CIV4_FEATURES)
+	Method(AddTechTrade);
+	Method(AddVassalageTrade);
+	Method(AddRevokeVassalageTrade);
+	Method(RemoveTechTrade);
+#endif
 }
 
 //------------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -234,11 +234,8 @@ private:
 	void PlotHealMoves();
 	void PlotMovesToSafety();
 	void PlotMobileReserveMoves();
-#if defined(MOD_AI_SECONDARY_SETTLERS)
-	void PlotOpportunisticSettlementMoves();
-#endif
 	void PlotSentryMoves();
-	void PlotWorkerMoves(bool bSecondary = false);
+	void PlotWorkerMoves();
 	void PlotWorkerSeaMoves();
 	void PlotPatrolMoves();
 	void PlotUpgradeMoves();
@@ -266,7 +263,7 @@ private:
 	// Routines to execute homeland moves
 	void ExecuteFirstTurnSettlerMoves();
 	void ExecuteExplorerMoves();
-	void ExecuteWorkerMoves(bool bSecondary = false);
+	void ExecuteWorkerMoves();
 	bool ExecuteWorkerSeaMoves(CvHomelandTarget target, CvPlot* pTarget);
 	void ExecuteMovesToSafestPlot();
 	void ExecuteHeals();
@@ -286,9 +283,6 @@ private:
 	void ExecuteSSPartAdds();
 	void ExecuteSSPartMoves();
 	void ExecuteTreasureMoves();
-#if defined(MOD_AI_SMART_V3)
-	void ExecuteAircraftInterceptions();
-#endif
 	void ExecuteAircraftMoves();
 	void ExecuteTradeUnitMoves();
 	void ExecuteArchaeologistMoves();
@@ -300,16 +294,12 @@ private:
 	bool FindUnitsForThisMove(AIHomelandMove eMove, bool bFirstTime);
 	CvPlot* FindPatrolTarget(CvUnit* pUnit);
 	bool GetBestUnitToReachTarget(CvPlot* pTarget, int iMaxTurns);
-#if defined(MOD_AI_SECONDARY_WORKERS)
-	bool MoveCivilianToSafety(CvUnit* pUnit, bool bIgnoreUnits = false, bool bSecondary = false);
-#else
 	bool MoveCivilianToSafety(CvUnit* pUnit, bool bIgnoreUnits = false);
-#endif
 	bool MoveToEmptySpaceNearTarget(CvUnit* pUnit, CvPlot* pTarget, bool bLand=true);
 	CvCity* ChooseBestFreeWonderCity(BuildingTypes eWonder, UnitHandle pEngineer);
 	CvPlot* FindArchaeologistTarget(CvUnit *pUnit);
 	void UnitProcessed(int iID);
-	bool ExecuteWorkerMove(CvUnit* pUnit, bool bSecondary = false);
+	bool ExecuteWorkerMove(CvUnit* pUnit);
 	bool ExecuteCultureBlast(CvUnit* pUnit);
 	bool ExecuteGoldenAgeMove(CvUnit* pUnit);
 	bool IsValidExplorerEndTurnPlot(const CvUnit* pUnit, CvPlot* pPlot) const;
@@ -323,7 +313,6 @@ private:
 	// Class data
 	CvPlayer* m_pPlayer;
 	std::list<int> m_CurrentTurnUnits;
-	std::list<CvPlot*> m_lPlayerPlots;
 
 	MoveUnitsArray m_CurrentMoveUnits;
 	MoveUnitsArray m_CurrentMoveHighPriorityUnits;

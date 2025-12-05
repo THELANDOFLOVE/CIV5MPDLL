@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -51,9 +51,6 @@ void CvBuilderTaskingAI::Init(CvPlayer* pPlayer)
 	m_bKeepMarshes = false;
 	// special case code so Brazil doesn't remove jungle
 	m_bKeepJungle = false;
-	m_bKeepForest = false;
-	m_vKeepAdjacentFeatures.clear();
-	m_vKeepAdjacentFeatures.resize(GC.getNumFeatureInfos(), false);
 
 	for(int i = 0; i < GC.getNumBuildInfos(); i++)
 	{
@@ -81,17 +78,13 @@ void CvBuilderTaskingAI::Init(CvPlayer* pPlayer)
 			CivilizationTypes eCiv = pkImprovementInfo->GetRequiredCivilization();
 			if(eCiv == pPlayer->getCivilizationType())
 			{
-				if(pkImprovementInfo->GetFeatureMakesValid(FEATURE_MARSH) || pkImprovementInfo->GetFeaturesNeeded(FEATURE_MARSH))
+				if(pkImprovementInfo->GetFeatureMakesValid(FEATURE_MARSH))
 				{
 					m_bKeepMarshes = true;
 				}
-				if (pkImprovementInfo->GetFeatureMakesValid(FEATURE_JUNGLE) || pkImprovementInfo->GetFeaturesNeeded(FEATURE_JUNGLE))
+				else if (pkImprovementInfo->GetFeatureMakesValid(FEATURE_JUNGLE))
 				{
 					m_bKeepJungle = true;
-				}
-				if (pkImprovementInfo->GetFeatureMakesValid(FEATURE_FOREST) || pkImprovementInfo->GetFeaturesNeeded(FEATURE_FOREST))
-				{
-					m_bKeepForest = true;
 				}
 			}
 		}
@@ -106,7 +99,6 @@ void CvBuilderTaskingAI::Uninit(void)
 	m_bLogging = false;
 	m_iNumCities = -1;
 	m_pTargetPlot = NULL;
-	m_vKeepAdjacentFeatures.clear();
 }
 
 /// Serialization read
@@ -115,7 +107,6 @@ void CvBuilderTaskingAI::Read(FDataStream& kStream)
 	// Version number to maintain backwards compatibility
 	uint uiVersion;
 	kStream >> uiVersion;
-	MOD_SERIALIZE_INIT_READ(kStream);
 
 	kStream >> m_eRepairBuild;
 
@@ -139,8 +130,7 @@ void CvBuilderTaskingAI::Read(FDataStream& kStream)
 	{
 		m_bKeepJungle = false;
 	}
-	kStream >> m_bKeepForest;
-	kStream >> m_vKeepAdjacentFeatures;
+		
 	m_iNumCities = -1; //Force everyone to do an CvBuilderTaskingAI::Update() after loading
 	m_pTargetPlot = NULL;		//Force everyone to recalculate current yields after loading.
 }
@@ -151,7 +141,6 @@ void CvBuilderTaskingAI::Write(FDataStream& kStream)
 	// Current version number
 	uint uiVersion = 2;
 	kStream << uiVersion;
-	MOD_SERIALIZE_INIT_WRITE(kStream);
 
 	kStream << m_eRepairBuild;
 
@@ -164,8 +153,6 @@ void CvBuilderTaskingAI::Write(FDataStream& kStream)
 
 	kStream << m_bKeepMarshes;
 	kStream << m_bKeepJungle;
-	kStream << m_bKeepForest;
-	kStream << m_vKeepAdjacentFeatures;
 }
 
 /// Update
@@ -228,12 +215,6 @@ void CvBuilderTaskingAI::Update(void)
 					break;
 				case YIELD_FAITH:
 					strYield = "faith      ";
-					break;
-				case YIELD_TOURISM:
-					strYield = "tourism    ";
-					break;
-				case YIELD_GOLDEN_AGE_POINTS:
-					strYield = "goldenage  ";
 					break;
 				}
 
@@ -639,27 +620,20 @@ void CvBuilderTaskingAI::UpdateRoutePlots(void)
 	}
 }
 
-void CvBuilderTaskingAI::UpdateKeepFeatures(CvPlayer* pPlayer)
+int CorrectWeight(int iWeight)
 {
-	for(uint ui = 0; ui < NUM_YIELD_TYPES; ui++)
+	if(iWeight < -1000)
 	{
-		YieldTypes eYield = (YieldTypes)ui;
-		for(int iJ = 0; iJ < GC.getNumFeatureInfos(); iJ++)
-		{
-			FeatureTypes eFeature = (FeatureTypes)iJ;
-			if(pPlayer->GetPlayerTraits()->GetCityYieldModifierFromAdjacentFeature(eFeature, eYield) > 0) m_vKeepAdjacentFeatures[eFeature] = true;
-			else if(pPlayer->GetPlayerTraits()->GetCityYieldPerAdjacentFeature(eFeature, eYield) > 0) m_vKeepAdjacentFeatures[eFeature] = true;
-		}
+		return MAX_INT;
+	}
+	else
+	{
+		return iWeight;
 	}
 }
 
-int CorrectWeight(int iWeight)
-{
-	return min(iWeight,0x7FFFFF);
-}
-
 /// Use the flavor settings to determine what the worker should do
-bool CvBuilderTaskingAI::EvaluateBuilder(CvUnit* pUnit, BuilderDirective* paDirectives, UINT uaDirectives, std::list<CvPlot*>& lPlayerPlots, bool bOnlyKeepBest, bool bOnlyEvaluateWorkersPlot, bool bLimit)
+bool CvBuilderTaskingAI::EvaluateBuilder(CvUnit* pUnit, BuilderDirective* paDirectives, UINT uaDirectives, bool bOnlyKeepBest, bool bOnlyEvaluateWorkersPlot)
 {
 	// number of cities has changed mid-turn, so we need to re-evaluate what workers should do
 	if(m_pPlayer->getNumCities() != m_iNumCities)
@@ -689,12 +663,45 @@ bool CvBuilderTaskingAI::EvaluateBuilder(CvUnit* pUnit, BuilderDirective* paDire
 		return true;
 	}
 
-	// go through all the plots the player has under their control
-	for(auto *pPlot : lPlayerPlots)
+	m_aiPlots.clear();
+	if(bOnlyEvaluateWorkersPlot)
 	{
+		// can't build on plots others own
+		PlayerTypes eOwner = pUnit->plot()->getOwner();
+		if(eOwner == m_pPlayer->GetID())
+		{
+			m_aiPlots.push_back(pUnit->plot()->GetPlotIndex());
+		}
+	}
+	else
+	{
+		m_aiPlots = m_pPlayer->GetPlots();
+	}
+
+	// go through all the plots the player has under their control
+	for(uint uiPlotIndex = 0; uiPlotIndex < m_aiPlots.size(); uiPlotIndex++)
+	{
+		// when we encounter the first plot that is invalid, the rest of the list will be invalid
+		if(m_aiPlots[uiPlotIndex] == -1)
+		{
+			if(m_bLogging)
+			{
+				CvString strLog = "end of plot list";
+				LogInfo(strLog, m_pPlayer);
+			}
+			break;
+		}
+
+		CvPlot* pPlot = GC.getMap().plotByIndex(m_aiPlots[uiPlotIndex]);
+
+		if(!ShouldBuilderConsiderPlot(pUnit, pPlot))
+		{
+			continue;
+		}
+
 		// distance weight
 		// find how many turns the plot is away
-		int iMoveTurnsAway = FindTurnsAway(pUnit, pPlot, bLimit);
+		int iMoveTurnsAway = FindTurnsAway(pUnit, pPlot);
 		if(iMoveTurnsAway < 0)
 		{
 			if(m_bLogging)
@@ -707,11 +714,6 @@ bool CvBuilderTaskingAI::EvaluateBuilder(CvUnit* pUnit, BuilderDirective* paDire
 			continue;
 		}
 
-		if(!ShouldBuilderConsiderPlot(pUnit, pPlot))
-		{
-			continue;
-		}
-
 		UpdateCurrentPlotYields(pPlot);
 
 		//AddRepairDirectives(pUnit, pPlot, iMoveTurnsAway);
@@ -721,10 +723,10 @@ bool CvBuilderTaskingAI::EvaluateBuilder(CvUnit* pUnit, BuilderDirective* paDire
 		AddChopDirectives(pUnit, pPlot, iMoveTurnsAway);
 		AddScrubFalloutDirectives(pUnit, pPlot, iMoveTurnsAway);
 		// only AIs have permission to remove roads
-		/*if(!m_pPlayer->isHuman())
+		if(!m_pPlayer->isHuman())
 		{
 			//AddRemoveUselessRoadDirectives(pUnit, pPlot, iMoveTurnsAway);
-		}*/
+		}
 	}
 
 	// we need to evaluate the tiles outside of our territory to build roads
@@ -744,9 +746,14 @@ bool CvBuilderTaskingAI::EvaluateBuilder(CvUnit* pUnit, BuilderDirective* paDire
 			}
 		}
 
+		if(!ShouldBuilderConsiderPlot(pUnit, pPlot))
+		{
+			continue;
+		}
+
 		// distance weight
 		// find how many turns the plot is away
-		int iMoveTurnsAway = FindTurnsAway(pUnit, pPlot, bLimit);
+		int iMoveTurnsAway = FindTurnsAway(pUnit, pPlot);
 		if(iMoveTurnsAway < 0)
 		{
 			if(m_bLogging)
@@ -756,11 +763,6 @@ bool CvBuilderTaskingAI::EvaluateBuilder(CvUnit* pUnit, BuilderDirective* paDire
 				LogInfo(strLog, m_pPlayer);
 			}
 
-			continue;
-		}
-
-		if(!ShouldBuilderConsiderPlot(pUnit, pPlot))
-		{
 			continue;
 		}
 
@@ -963,12 +965,11 @@ void CvBuilderTaskingAI::AddImprovingResourcesDirectives(CvUnit* pUnit, CvPlot* 
 		iWeight = CorrectWeight(iWeight);
 
 		UpdateProjectedPlotYields(pPlot, eBuild);
-		int iScore = ScorePlot(eImprovement, eExistingPlotImprovement);
+		int iScore = ScorePlot();
 		if(iScore > 0)
 		{
-			long long i64Value = (long long)iWeight;
-			i64Value *= iScore;
-			iWeight = (int)std::min((long long)0x6FFFFFFF, i64Value);
+			iWeight *= iScore;
+			iWeight = CorrectWeight(iWeight);
 		}
 
 		{
@@ -987,7 +988,6 @@ void CvBuilderTaskingAI::AddImprovingResourcesDirectives(CvUnit* pUnit, CvPlot* 
 			}
 		}
 
-		// if we're going backward, bail out!
 		if(iWeight <= 0)
 		{
 			continue;
@@ -1063,18 +1063,18 @@ void CvBuilderTaskingAI::AddImprovingPlotsDirectives(CvUnit* pUnit, CvPlot* pPlo
 	BuildTypes eBuild;
 	BuildTypes eOriginalBuildType;
 	int iBuildIndex;
-	for (iBuildIndex = 0; iBuildIndex < GC.getNumBuildInfos(); iBuildIndex++)
+	for(iBuildIndex = 0; iBuildIndex < GC.getNumBuildInfos(); iBuildIndex++)
 	{
 		eBuild = (BuildTypes)iBuildIndex;
 		eOriginalBuildType = eBuild;
 		CvBuildInfo* pkBuild = GC.getBuildInfo(eBuild);
-		if (pkBuild == NULL)
+		if(pkBuild == NULL)
 		{
 			continue;
 		}
 
 		ImprovementTypes eImprovement = (ImprovementTypes)pkBuild->getImprovement();
-		if (eImprovement == NO_IMPROVEMENT)
+		if(eImprovement == NO_IMPROVEMENT)
 		{
 			continue;
 		}
@@ -1088,11 +1088,11 @@ void CvBuilderTaskingAI::AddImprovingPlotsDirectives(CvUnit* pUnit, CvPlot* pPlo
 		//}
 
 		// for bonus resources, check to see if this is the improvement that connects it
-		if (eResource != NO_RESOURCE)
+		if(eResource != NO_RESOURCE)
 		{
-			if (!pImprovement->IsImprovementResourceTrade(eResource))
+			if(!pImprovement->IsImprovementResourceTrade(eResource))
 			{
-				if (m_bLogging) {
+				if(m_bLogging){
 					CvString strTemp;
 					strTemp.Format("Weight,!pImprovement->IsImprovementResourceTrade(eResource),%s,%i,,,%i, %i", GC.getBuildInfo(eBuild)->GetType(), eResource, pPlot->getX(), pPlot->getY());
 					LogInfo(strTemp, m_pPlayer);
@@ -1101,15 +1101,15 @@ void CvBuilderTaskingAI::AddImprovingPlotsDirectives(CvUnit* pUnit, CvPlot* pPlo
 			}
 		}
 
-		if (eImprovement == pPlot->getImprovementType())
+		if(eImprovement == pPlot->getImprovementType())
 		{
-			if (pPlot->IsImprovementPillaged())
+			if(pPlot->IsImprovementPillaged())
 			{
 				eBuild = m_eRepairBuild;
 			}
 			else
 			{
-				if (m_bLogging) {
+				if(m_bLogging){
 					CvString strTemp;
 					strTemp.Format("Weight,eImprovement == pPlot->getImprovementType(),%s,%i,,,%i, %i", GC.getBuildInfo(eBuild)->GetType(), eImprovement, pPlot->getX(), pPlot->getY());
 					LogInfo(strTemp, m_pPlayer);
@@ -1124,7 +1124,7 @@ void CvBuilderTaskingAI::AddImprovingPlotsDirectives(CvUnit* pUnit, CvPlot* pPlo
 			{
 				if (pPlot->HasSpecialImprovement() || GET_PLAYER(pUnit->getOwner()).isOption(PLAYEROPTION_SAFE_AUTOMATION))
 				{
-					if (m_bLogging) {
+					if(m_bLogging){
 						CvString strTemp;
 						strTemp.Format("Weight,Improvement Type Blocked by Special Improvement,%s,,,,%i, %i", GC.getBuildInfo(eBuild)->GetType(), pPlot->getX(), pPlot->getY());
 						LogInfo(strTemp, m_pPlayer);
@@ -1135,9 +1135,9 @@ void CvBuilderTaskingAI::AddImprovingPlotsDirectives(CvUnit* pUnit, CvPlot* pPlo
 		}
 
 		// Only check to make sure our unit can build this after possibly switching this to a repair build in the block of code above
-		if (!pUnit->canBuild(pPlot, eBuild))
+		if(!pUnit->canBuild(pPlot, eBuild))
 		{
-			if (m_bLogging) {
+			if(m_bLogging){
 				CvString strTemp;
 				strTemp.Format("Weight,!pUnit->canBuild(),%s,,,,%i, %i", GC.getBuildInfo(eBuild)->GetType(), pPlot->getX(), pPlot->getY());
 				LogInfo(strTemp, m_pPlayer);
@@ -1147,9 +1147,9 @@ void CvBuilderTaskingAI::AddImprovingPlotsDirectives(CvUnit* pUnit, CvPlot* pPlo
 
 		bool bWillRemoveForestOrJungle = false;
 		FeatureTypes eFeature = pPlot->getFeatureType();
-		if (eFeature == FEATURE_FOREST || eFeature == FEATURE_JUNGLE)
+		if(eFeature == FEATURE_FOREST || eFeature == FEATURE_JUNGLE)
 		{
-			if (pkBuild->isFeatureRemove(eFeature))
+			if(pkBuild->isFeatureRemove(eFeature))
 			{
 				bWillRemoveForestOrJungle = true;
 			}
@@ -1160,7 +1160,7 @@ void CvBuilderTaskingAI::AddImprovingPlotsDirectives(CvUnit* pUnit, CvPlot* pPlo
 		{
 			if (pkBuild->isFeatureRemove(FEATURE_MARSH))
 			{
-				if (m_bLogging) {
+				if(m_bLogging){
 					CvString strTemp;
 					strTemp.Format("Weight,Marsh Remove,%s,,,,%i, %i", GC.getBuildInfo(eBuild)->GetType(), pPlot->getX(), pPlot->getY());
 					LogInfo(strTemp, m_pPlayer);
@@ -1174,7 +1174,7 @@ void CvBuilderTaskingAI::AddImprovingPlotsDirectives(CvUnit* pUnit, CvPlot* pPlo
 		{
 			if (pkBuild->isFeatureRemove(FEATURE_JUNGLE))
 			{
-				if (m_bLogging) {
+				if(m_bLogging){
 					CvString strTemp;
 					strTemp.Format("Weight,Jungle Remove,%s,,,,%i, %i", GC.getBuildInfo(eBuild)->GetType(), pPlot->getX(), pPlot->getY());
 					LogInfo(strTemp, m_pPlayer);
@@ -1186,45 +1186,13 @@ void CvBuilderTaskingAI::AddImprovingPlotsDirectives(CvUnit* pUnit, CvPlot* pPlo
 			}
 		}
 
-		if(m_bKeepForest && eFeature == FEATURE_FOREST)
+		if(GET_PLAYER(pUnit->getOwner()).isOption(PLAYEROPTION_LEAVE_FORESTS))
 		{
-			if (pkBuild->isFeatureRemove(FEATURE_FOREST))
+			if(eFeature != NO_FEATURE)
 			{
-				if (m_bLogging) {
-					CvString strTemp;
-					strTemp.Format("Weight,Forest Remove,%s,,,,%i, %i", GC.getBuildInfo(eBuild)->GetType(), pPlot->getX(), pPlot->getY());
-					LogInfo(strTemp, m_pPlayer);
-				}
-				if (pPlot->getResourceType(m_pPlayer->getTeam()) == NO_RESOURCE)
+				if(pkBuild->isFeatureRemove(eFeature))
 				{
-					continue;
-				}
-			}
-		}
-
-		if(eFeature != NO_FEATURE && m_vKeepAdjacentFeatures[eFeature] && pkBuild->isFeatureRemove(eFeature))
-		{
-			if (pPlot->GetAdjacentCity())
-			{
-				if (m_bLogging) {
-					CvString strTemp;
-					strTemp.Format("Weight,Adjacent City Features Remove,%s,,,,%i, %i", GC.getBuildInfo(eBuild)->GetType(), pPlot->getX(), pPlot->getY());
-					LogInfo(strTemp, m_pPlayer);
-				}
-				if (pPlot->getResourceType(m_pPlayer->getTeam()) == NO_RESOURCE)
-				{
-					continue;
-				}
-			}
-		}
-
-		if (GET_PLAYER(pUnit->getOwner()).isOption(PLAYEROPTION_LEAVE_FORESTS))
-		{
-			if (eFeature != NO_FEATURE)
-			{
-				if (pkBuild->isFeatureRemove(eFeature))
-				{
-					if (m_bLogging) {
+					if(m_bLogging){
 						CvString strTemp;
 						strTemp.Format("Weight,Keep Forests,%s,,,,%i, %i", GC.getBuildInfo(eBuild)->GetType(), pPlot->getX(), pPlot->getY());
 						LogInfo(strTemp, m_pPlayer);
@@ -1235,15 +1203,12 @@ void CvBuilderTaskingAI::AddImprovingPlotsDirectives(CvUnit* pUnit, CvPlot* pPlo
 		}
 
 		UpdateProjectedPlotYields(pPlot, eBuild);
-		int iScore = ScorePlot(eImprovement, eExistingImprovement);
-		//if this plot already has a improvement, reduce the iScore
-		if (eExistingImprovement != NO_IMPROVEMENT) iScore -= 150;
-		if (pkBuild->isFeatureRemove(FEATURE_ICE)) iScore += 600;
+		int iScore = ScorePlot();
 
 		// if we're going backward, bail out!
-		if (iScore <= 0)
+		if(iScore <= 0)
 		{
-			if (m_bLogging) {
+			if(m_bLogging){
 				CvString strTemp;
 				strTemp.Format("Weight,Negative Score,%s,%i,,,%i, %i", GC.getBuildInfo(eBuild)->GetType(), iScore, pPlot->getX(), pPlot->getY());
 				LogInfo(strTemp, m_pPlayer);
@@ -1253,13 +1218,21 @@ void CvBuilderTaskingAI::AddImprovingPlotsDirectives(CvUnit* pUnit, CvPlot* pPlo
 
 		BuilderDirective::BuilderDirectiveType eDirectiveType = BuilderDirective::BUILD_IMPROVEMENT;
 		int iWeight = GC.getBUILDER_TASKING_BASELINE_BUILD_IMPROVEMENTS();
-		if (eBuild == m_eRepairBuild)
+		if(eBuild == m_eRepairBuild)
 		{
 			eDirectiveType = BuilderDirective::REPAIR;
 			iWeight = GC.getBUILDER_TASKING_BASELINE_REPAIR();
 		}
+		else if(pImprovement->GetYieldChange(YIELD_CULTURE) > 0)
+		{
+			iWeight = GC.getBUILDER_TASKING_BASELINE_ADDS_CULTURE() * GC.getImprovementInfo(eImprovement)->GetYieldChange(YIELD_CULTURE);
+			int iAdjacentCulture = pImprovement->GetCultureAdjacentSameType();
 
-		min(iScore, 0x7FFF);
+			if(iAdjacentCulture > 0)
+			{
+				iScore *= (1 + pPlot->ComputeCultureFromAdjacentImprovement(*pImprovement, eImprovement));
+			}
+		}
 
 		iWeight = GetBuildCostWeight(iWeight, pPlot, eBuild);
 		int iBuildTimeWeight = GetBuildTimeWeight(pUnit, pPlot, eBuild, DoesBuildHelpRush(pUnit, pPlot, eBuild), iMoveTurnsAway);
@@ -1534,24 +1507,11 @@ void CvBuilderTaskingAI::AddChopDirectives(CvUnit* pUnit, CvPlot* pPlot, int iMo
 				}
 				break;
 			case YIELD_FAITH:
+				//if (GC.getFlavorTypes((FlavorTypes)iFlavorLoop) == "FLAVOR_SCIENCE")
+				//{
+				//	iYieldDifferenceWeight += iDeltaYield * pFlavorManager->GetPersonalityIndividualFlavor((FlavorTypes)iFlavorLoop) * GC.getBUILDER_TASKING_PLOT_EVAL_MULTIPLIER_SCIENCE();
+				//}
 				break;
-			case YIELD_TOURISM:
-				break;
-			case YIELD_GOLDEN_AGE_POINTS:
-				break;
-
-#if defined(MOD_API_UNIFIED_YIELDS_MORE)
-			case YIELD_GREAT_GENERAL_POINTS:
-			case YIELD_GREAT_ADMIRAL_POINTS:
-			case YIELD_HEALTH:
-			case YIELD_DISEASE:
-			case YIELD_CRIME:
-			case YIELD_LOYALTY:
-			case YIELD_SOVEREIGNTY:
-			case YIELD_VIOLENCE:
-			case YIELD_HERESY:
-				break;
-#endif
 			}
 		}
 	}
@@ -1718,20 +1678,30 @@ void CvBuilderTaskingAI::AddScrubFalloutDirectives(CvUnit* pUnit, CvPlot* pPlot,
 /// Evaluates all the circumstances to determine if the builder can and should evaluate the given plot
 bool CvBuilderTaskingAI::ShouldBuilderConsiderPlot(CvUnit* pUnit, CvPlot* pPlot)
 {
+	// if plot is impassable, bail!
+	if(pPlot->isImpassable() || pPlot->isMountain())
+	{
+		if(m_bLogging)
+		{
+			CvString strLog;
+			strLog.Format("x: %d y: %d,,Impassable tile. Toss out", pPlot->getX(), pPlot->getY());
+			LogInfo(strLog, m_pPlayer);
+		}
+		return false;
+	}
+
 	// can't build on plots others own (unless inside a minor)
 	PlayerTypes eOwner = pPlot->getOwner();
 	if(eOwner != NO_PLAYER && eOwner != m_pPlayer->GetID() && !GET_PLAYER(eOwner).isMinorCiv())
 	{
 		return false;
 	}
-	
+
 	// workers should not be able to work in plots that do not match their default domain
 	switch(pUnit->getDomainType())
 	{
 	case DOMAIN_LAND:
-		// As embarked workers can now build fishing boats, we need to consider plots adjacent to land
-		// For SP, we only use workers
-		if(!MOD_SP_SMART_AI && pPlot->isWater() && !pPlot->isAdjacentToLand())
+		if(pPlot->isWater())
 		{
 			return false;
 		}
@@ -1803,11 +1773,19 @@ bool CvBuilderTaskingAI::ShouldBuilderConsiderPlot(CvUnit* pUnit, CvPlot* pPlot)
 		}
 	}
 
-#if defined(MOD_GLOBAL_STACKING_RULES)
-	if(!pUnit->atPlot(*pPlot) && pPlot->getNumFriendlyUnitsOfType(pUnit) >= pPlot->getUnitLimit())
-#else
+	if(m_pPlayer->GetPlotDanger(*pPlot) > 0)
+	{
+		if(m_bLogging)
+		{
+			CvString strLog;
+			strLog.Format("plotX: %d plotY: %d, danger: %d,, bailing due to danger", pPlot->getX(), pPlot->getY(), m_pPlayer->GetPlotDanger(*pPlot));
+			LogInfo(strLog, m_pPlayer, true);
+		}
+
+		return false;
+	}
+
 	if(!pUnit->atPlot(*pPlot) && pPlot->getNumFriendlyUnitsOfType(pUnit) >= GC.getPLOT_UNIT_LIMIT())
-#endif
 	{
 		if(m_bLogging)
 		{
@@ -1823,7 +1801,7 @@ bool CvBuilderTaskingAI::ShouldBuilderConsiderPlot(CvUnit* pUnit, CvPlot* pPlot)
 }
 
 /// Determines if the builder can get to the plot. Returns -1 if no path can be found, otherwise it returns the # of turns to get there
-int CvBuilderTaskingAI::FindTurnsAway(CvUnit* pUnit, CvPlot* pPlot, bool bLimit)
+int CvBuilderTaskingAI::FindTurnsAway(CvUnit* pUnit, CvPlot* pPlot)
 {
 	// If this plot is far away, we'll just use its distance as an estimate of the time to get there (to avoid hitting the path finder)
 	// We'll be sure to check later to make sure we have a real path before we execute this
@@ -1833,29 +1811,6 @@ int CvBuilderTaskingAI::FindTurnsAway(CvUnit* pUnit, CvPlot* pPlot, bool bLimit)
 	}
 
 	int iPlotDistance = plotDistance(pUnit->getX(), pUnit->getY(), pPlot->getX(), pPlot->getY());
-
-#if defined(MOD_UNITS_LOCAL_WORKERS) || defined(MOD_AI_SECONDARY_WORKERS)
-	if (bLimit) {
-		int iLimit = iPlotDistance;
-		
-#if defined(MOD_UNITS_LOCAL_WORKERS)
-		if (MOD_UNITS_LOCAL_WORKERS) {
-			iLimit = (pUnit->getDomainType() == DOMAIN_SEA) ? gCustomMods.getOption("UNITS_LOCAL_WORKERS_WATERLIMIT", 10) : gCustomMods.getOption("UNITS_LOCAL_WORKERS_LANDLIMIT", 10);
-		}
-#endif
-
-#if defined(MOD_AI_SECONDARY_WORKERS)
-		if (MOD_AI_SECONDARY_WORKERS && pUnit->IsCombatUnit()) {
-			iLimit = gCustomMods.getOption("UNITS_LOCAL_WORKERS_COMBATLIMIT", 3);
-		}
-#endif
-
-		if (iPlotDistance > iLimit) {
-			return -1;
-		}
-	}
-#endif
-
 #if 1
 	// Always return the raw distance
 	return iPlotDistance;
@@ -1908,8 +1863,13 @@ int CvBuilderTaskingAI::GetBuildTimeWeight(CvUnit* pUnit, CvPlot* pPlot, BuildTy
 	}
 
 	int iBuildTimeNormal = pPlot->getBuildTime(eBuild, m_pPlayer->GetID());
-	int iBuildTurnsLeft = pPlot->getBuildTurnsLeft(eBuild, m_pPlayer->GetID(), pUnit->workRate(true, eBuild), pUnit->workRate(true, eBuild));
+	int iBuildTurnsLeft = pPlot->getBuildTurnsLeft(eBuild, m_pPlayer->GetID(), pUnit->workRate(true), pUnit->workRate(true));
 	int iBuildTime = min(iBuildTimeNormal, iBuildTurnsLeft);
+	if(iBuildTime <= 0)
+	{
+		iBuildTime = 1;
+	}
+
 	if(bIgnoreFeatureTime)
 	{
 		if(pPlot->getFeatureType() != NO_FEATURE)
@@ -1917,12 +1877,9 @@ int CvBuilderTaskingAI::GetBuildTimeWeight(CvUnit* pUnit, CvPlot* pPlot, BuildTy
 			iBuildTime -= GC.getBuildInfo(eBuild)->getFeatureTime(pPlot->getFeatureType());
 		}
 	}
+
 	iBuildTime += iAdditionalTime;
 
-	if(iBuildTime <= 0)
-	{
-		iBuildTime = 1;
-	}
 	return 10000 / iBuildTime;
 }
 
@@ -2014,6 +1971,18 @@ bool CvBuilderTaskingAI::IsImprovementBeneficial(CvPlot* pPlot, const CvBuildInf
 {
 	const ImprovementTypes eImprovement = (ImprovementTypes)kBuild.getImprovement();
 
+	const FeatureTypes eFeature = pPlot->getFeatureType();
+
+	bool bFeatureNeedsRemove = false;
+
+	if(eFeature != NO_FEATURE)
+	{
+		if(kBuild.isFeatureRemove(eFeature))
+		{
+			bFeatureNeedsRemove = true;
+		}
+	}
+
 	CvImprovementEntry* pkImprovementInfo = NULL;
 	if(eImprovement != NO_IMPROVEMENT)
 	{
@@ -2045,12 +2014,6 @@ bool CvBuilderTaskingAI::IsImprovementBeneficial(CvPlot* pPlot, const CvBuildInf
 		return true;
 	}
 
-	const FeatureTypes eFeature = pPlot->getFeatureType();
-	bool bFeatureNeedsRemove = (eFeature != NO_FEATURE && kBuild.isFeatureRemove(eFeature));
-
-	const ResourceTypes eResource = pPlot->getResourceType();
-	bool bResourceNeedsRemove = (eResource != NO_RESOURCE && kBuild.isResourceRemove(eResource));
-
 	for(uint ui = 0; ui < NUM_YIELD_TYPES; ui++)
 	{
 		// calculate natural yields
@@ -2060,7 +2023,13 @@ bool CvBuilderTaskingAI::IsImprovementBeneficial(CvPlot* pPlot, const CvBuildInf
 		// calculate improvement yields
 		aiImprovedYieldTypes[ui] = 0;
 
-		aiImprovedYieldTypes[ui] = pPlot->calculateNatureYield((YieldTypes)ui, m_pPlayer->getTeam(), bFeatureNeedsRemove, bResourceNeedsRemove);
+		bool bIgnoreFeature = false;
+		if(bFeatureNeedsRemove)
+		{
+			bIgnoreFeature = true;
+		}
+
+		aiImprovedYieldTypes[ui] = pPlot->calculateNatureYield((YieldTypes)ui, m_pPlayer->getTeam(), bIgnoreFeature);
 		if(pkPlotRouteInfo)
 		{
 			aiImprovedYieldTypes[ui] += pkPlotRouteInfo->getYieldChange(ui);
@@ -2166,26 +2135,31 @@ bool CvBuilderTaskingAI::DoesBuildHelpRush(CvUnit* pUnit, CvPlot* pPlot, BuildTy
 	return true;
 }
 
-int CvBuilderTaskingAI::ScorePlot(ImprovementTypes eImprovement, ImprovementTypes eExistingImprovement)
+int CvBuilderTaskingAI::ScorePlot()
 {
-	if(!m_pTargetPlot) return -1;
+	if(!m_pTargetPlot)
+	{
+		return -1;
+	}
 
 	CvCity* pCity = m_pTargetPlot->getWorkingCity();
-	if(!pCity) return -1;
+	if(!pCity)
+	{
+		return -1;
+	}
 
 	CvCityStrategyAI* pCityStrategy = pCity->GetCityStrategyAI();
-	if(!pCityStrategy) return -1;
-
-	CvImprovementEntry* pImprovement = GC.getImprovementInfo(eImprovement);
-	if(!pImprovement) return -1;
+	if(!pCityStrategy)
+	{
+		return -1;
+	}
 
 	int iScore = 0;
 	bool bAnyNegativeMultiplier = false;
 	YieldTypes eFocusYield = pCityStrategy->GetFocusYield();
 	for(uint ui = 0; ui < NUM_YIELD_TYPES; ui++)
 	{
-		YieldTypes eYield = (YieldTypes) ui;
-		int iMultiplier = pCityStrategy->GetYieldDeltaTimes100(eYield);
+		int iMultiplier = pCityStrategy->GetYieldDeltaTimes100((YieldTypes)ui);
 		int iAbsMultiplier = abs(iMultiplier);
 		int iYieldDelta = m_aiProjectedPlotYields[ui] - m_aiCurrentPlotYields[ui];
 
@@ -2213,10 +2187,6 @@ int CvBuilderTaskingAI::ScorePlot(ImprovementTypes eImprovement, ImprovementType
 				iScore += iYieldDelta * iAbsMultiplier;
 			}
 		}
-
-#if defined(MOD_API_VP_ADJACENT_YIELD_BOOST)
-		iScore += (100 * m_pTargetPlot->ComputeYieldToOtherAdjacentImprovement(*pImprovement, eYield));
-#endif
 	}
 
 	if(!bAnyNegativeMultiplier && eFocusYield != NO_YIELD)
@@ -2226,15 +2196,6 @@ int CvBuilderTaskingAI::ScorePlot(ImprovementTypes eImprovement, ImprovementType
 		{
 			iScore += m_aiProjectedPlotYields[eFocusYield] * 100;
 		}
-	}
-
-	//special define in XML
-	iScore += pImprovement->GetExtraScore();
-	if(m_bKeepJungle && pImprovement->GetNewFeature() == FEATURE_JUNGLE) iScore += 2 * pImprovement->GetExtraScore();
-	if(m_bKeepForest && pImprovement->GetNewFeature() == FEATURE_FOREST) iScore += 2 * pImprovement->GetExtraScore();
-	if(eExistingImprovement != NO_IMPROVEMENT && GC.getImprovementInfo(eExistingImprovement))
-	{
-		iScore -= GC.getImprovementInfo(eExistingImprovement)->GetExtraScore();
 	}
 
 	if (pCity->isCapital()) // this is our capital and needs emphasis

@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -21,8 +21,6 @@
 class CvLuaPlot : public CvLuaScopedInstance<CvLuaPlot, CvPlot>
 {
 public:
-	static void RegistStaticFunctions();
-
 	//! Push CvPlot methods into table t
 	static void PushMethods(lua_State* L, int t);
 
@@ -43,23 +41,14 @@ protected:
 	//! (LUA) CvPlot::GetTerrainType.
 	static int lGetTerrainType(lua_State* L);
 
-#if defined(MOD_API_LUA_EXTENSIONS) && defined(MOD_API_PLOT_BASED_DAMAGE)
-	LUAAPIEXTN(GetTurnDamage, int, bIgnoreTerrainDamage, bIgnoreFeatureDamage, bExtraTerrainDamage, bExtraFeatureDamage);
-#endif
-
 	//! (LUA) CvPlot::IsRiver.
 	static int lIsRiver(lua_State* L);
 
 	//! (LUA) CvPlot::IsWater.
 	static int lIsWater(lua_State* L);
 
-#if defined(MOD_API_LUA_EXTENSIONS) && defined(MOD_GLOBAL_ADJACENT_BLOCKADES)
-	LUAAPIEXTN(IsBlockaded, bool, iPlayer);
-#endif
-
 	//! (LUA) CvPlot::SetFeatureType.
 	static int lSetFeatureType(lua_State* L);
-	static int lSetFeatureTypeSync(lua_State* L);
 
 	//! (LUA) CvPlot::SetTerrainType.
 	static int lSetTerrainType(lua_State* L);
@@ -77,9 +66,6 @@ protected:
 	static int lShareAdjacentArea(lua_State* L);
 	static int lIsAdjacentToLand(lua_State* L);
 	static int lIsAdjacentToShallowWater(lua_State* L);
-#if defined(MOD_API_LUA_EXTENSIONS) && defined(MOD_PROMOTIONS_CROSS_ICE)
-	LUAAPIEXTN(IsAdjacentToIce, bool);
-#endif
 	static int lIsCoastalLand(lua_State* L);
 
 	static int lIsWithinTeamCityRadius(lua_State* L);
@@ -138,9 +124,6 @@ protected:
 
 	static int lIsCity(lua_State* L);
 	static int lIsFriendlyCity(lua_State* L);
-#if defined(MOD_API_LUA_EXTENSIONS) && defined(MOD_GLOBAL_PASSABLE_FORTS)
-	LUAAPIEXTN(IsFriendlyCityOrPassableImprovement, bool, pUnit, bCheckImprovement);
-#endif
 	static int lIsEnemyCity(lua_State* L);
 	static int lIsBeingWorked(lua_State* L);
 
@@ -150,14 +133,9 @@ protected:
 	static int lGetNumVisibleEnemyDefenders(lua_State* L);
 	static int lGetNumVisiblePotentialEnemyDefenders(lua_State* L);
 	static int lIsVisibleEnemyUnit(lua_State* L);
-	static int lIsVisibleEnemyUnitFromUnit(lua_State* L);
 	static int lIsVisibleOtherUnit(lua_State* L);
 	static int lGetNumFriendlyUnitsOfType(lua_State* L);
 	static int lIsFighting(lua_State* L);
-
-#if defined(MOD_API_LUA_EXTENSIONS) && defined(MOD_GLOBAL_STACKING_RULES)
-	LUAAPIEXTN(GetUnitLimit, int);
-#endif
 
 	static int lIsRoute(lua_State* L);
 	static int lIsTradeRoute(lua_State* L);
@@ -165,16 +143,8 @@ protected:
 	static int lIsValidDomainForAction(lua_State* L);
 	static int lIsImpassable(lua_State* L);
 
-#if defined(MOD_API_LUA_EXTENSIONS)
-	LUAAPIEXTN(GetNumTradeRoutes, int);
-#endif
-
 	static int lGetX(lua_State* L);
 	static int lGetY(lua_State* L);
-#if defined(MOD_API_LUA_EXTENSIONS)
-	LUAAPIEXTN(GetXY, int); // Returns int X, int Y
-	LUAAPIEXTN(GetIndex, int);
-#endif
 	static int lAt(lua_State* L);
 	static int lGetPlotIndex(lua_State* L);
 	static int lGetLatitude(lua_State* L);
@@ -222,9 +192,6 @@ protected:
 	static int lGetPlotType(lua_State* L);
 	static int lIsFlatlands(lua_State* L);
 	static int lIsHills(lua_State* L);
-#if defined(MOD_API_LUA_EXTENSIONS) && defined(MOD_PATHFINDER_TERRAFIRMA)
-	LUAAPIEXTN(IsTerraFirma, bool, pUnit);
-#endif
 	static int lIsOpenGround(lua_State* L);
 	static int lIsRoughGround(lua_State* L);
 	static int lIsMountain(lua_State* L);
@@ -233,34 +200,16 @@ protected:
 	static int lGetResourceType(lua_State* L);
 	static int lGetNonObsoleteResourceType(lua_State* L);
 	static int lSetResourceType(lua_State* L);
-	static int lSetResourceTypeSync(lua_State* L);
 	static int lGetNumResource(lua_State* L);
 	static int lSetNumResource(lua_State* L);
 	static int lChangeNumResource(lua_State* L);
-	static int lChangeNumResourceSync(lua_State* L);
 
 	static int lGetImprovementType(lua_State* L);
 	static int lSetImprovementType(lua_State* L);
-	static int lSetImprovementTypeSync(lua_State* L);
 	static int lSetImprovementPillaged(lua_State* L);
 	static int lGetRouteType(lua_State* L);
 	static int lSetRouteType(lua_State* L);
-	static int lSetRouteTypeSync(lua_State* L);
 	static int lIsRoutePillaged(lua_State* L);
-#if defined(MOD_API_LUA_EXTENSIONS)
-	LUAAPIEXTN(SetRoutePillaged, void, bPillage);
-#endif
-
-#if defined(MOD_API_LUA_EXTENSIONS)
-	LUAAPIEXTN(GetPlayerThatBuiltImprovement, int);
-	LUAAPIEXTN(SetPlayerThatBuiltImprovement, void, iPlayer);
-	LUAAPIEXTN(GetPlayerResponsibleForImprovement, int);
-	LUAAPIEXTN(SetPlayerResponsibleForImprovement, void, iPlayer);
-	LUAAPIEXTN(GetPlayerResponsibleForRoute, int);
-	LUAAPIEXTN(SetPlayerResponsibleForRoute, void, iPlayer);
-	LUAAPIEXTN(GetPlayerThatClearedBarbCampHere, int);
-	LUAAPIEXTN(SetPlayerThatClearedBarbCampHere, void, iPlayer);
-#endif
 
 	static int lGetPlotCity(lua_State* L);
 	static int lGetWorkingCity(lua_State* L);
@@ -295,12 +244,10 @@ protected:
 
 	static int lIsRevealed(lua_State* L);
 	static int lSetRevealed(lua_State* L);
-	static int lSetRevealedSync(lua_State* L);
 	static int lGetRevealedImprovementType(lua_State* L);
 	static int lGetRevealedRouteType(lua_State* L);
 	static int lGetBuildProgress(lua_State* L);
 	static int lChangeBuildProgress(lua_State* L);
-	static int lChangeBuildProgressSync(lua_State* L);
 
 	static int lGetCultureRangeCities(lua_State* L);
 	static int lIsCultureRangeCity(lua_State* L);
@@ -329,10 +276,6 @@ protected:
 
 	static int lIsBuildRemovesFeature(lua_State* L);
 
-#if defined(MOD_API_LUA_EXTENSIONS)
-	LUAAPIEXTN(SetArchaeologicalRecord, void, iArtifactClass, iEra, iPlayer1, iPlayer2);
-	LUAAPIEXTN(AddArchaeologicalRecord, void, iArtifactClass, iEra, iPlayer1, iPlayer2);
-#endif
 	static int lGetArchaeologyArtifactType(lua_State* L);
 	static int lGetArchaeologyArtifactEra(lua_State* L);
 	static int lGetArchaeologyArtifactPlayer1(lua_State* L);
@@ -342,73 +285,5 @@ protected:
 
 	static int lGetCityPurchaseID(lua_State* L);
 	static int lSetCityPurchaseID(lua_State* L);
-
-#ifdef MOD_IMPROVEMENTS_UPGRADE
-	static int lGetXP(lua_State* L);
-	static int lGetXPGrowth(lua_State* L);
-	static int lSetXP(lua_State* L);
-	static int lChangeXP(lua_State* L);
-#endif
-
-#if defined(MOD_API_LUA_EXTENSIONS)
-	LUAAPIEXTN(AddMessage, void, sMessage, iNotifyPlayer);
-	LUAAPIEXTN(AddPopupMessage, void, sMessage, fDelay, iNotifyPlayer);
-#endif
-
-#if defined(MOD_API_LUA_EXTENSIONS)
-	LUAAPIEXTN(IsCivilization, bool, iCivilizationType);
-	LUAAPIEXTN(HasFeature, bool, iFeatureType);
-	LUAAPIEXTN(IsNaturalWonder, bool);
-	LUAAPIEXTN(HasAnyNaturalWonder, bool);
-	LUAAPIEXTN(HasNaturalWonder, bool, iFeatureType);
-	LUAAPIEXTN(IsFeatureIce, bool);
-	LUAAPIEXTN(IsFeatureJungle, bool);
-	LUAAPIEXTN(IsFeatureMarsh, bool);
-	LUAAPIEXTN(IsFeatureOasis, bool);
-	LUAAPIEXTN(IsFeatureFloodPlains, bool);
-	LUAAPIEXTN(IsFeatureForest, bool);
-	LUAAPIEXTN(IsFeatureFallout, bool);
-	LUAAPIEXTN(IsFeatureAtoll, bool);
-	LUAAPIEXTN(IsFeatureLake, bool);
-	LUAAPIEXTN(IsFeatureRiver, bool);
-	LUAAPIEXTN(HasImprovement, bool, iImprovementType);
-	LUAAPIEXTN(HasPlotType, bool, iPlotType);
-	LUAAPIEXTN(IsPlotMountain, bool);
-	LUAAPIEXTN(IsPlotMountains, bool);
-	LUAAPIEXTN(IsPlotHill, bool);
-	LUAAPIEXTN(IsPlotHills, bool);
-	LUAAPIEXTN(IsPlotLand, bool);
-	LUAAPIEXTN(IsPlotOcean, bool);
-	LUAAPIEXTN(HasResource, bool, iResourceType);
-	LUAAPIEXTN(HasRoute, bool, iRouteType);
-	LUAAPIEXTN(IsRouteRoad, bool);
-	LUAAPIEXTN(IsRouteRailroad, bool);
-	LUAAPIEXTN(HasTerrain, bool, iTerrainType);
-	LUAAPIEXTN(IsTerrainGrass, bool);
-	LUAAPIEXTN(IsTerrainPlains, bool);
-	LUAAPIEXTN(IsTerrainDesert, bool);
-	LUAAPIEXTN(IsTerrainTundra, bool);
-	LUAAPIEXTN(IsTerrainSnow, bool);
-	LUAAPIEXTN(IsTerrainCoast, bool);
-	LUAAPIEXTN(IsTerrainOcean, bool);
-	LUAAPIEXTN(IsTerrainMountain, bool);
-	LUAAPIEXTN(IsTerrainMountains, bool);
-	LUAAPIEXTN(IsTerrainHill, bool);
-	LUAAPIEXTN(IsTerrainHills, bool);
-	LUAAPIEXTN(IsAdjacentToFeature, bool, iFeatureType);
-	LUAAPIEXTN(IsWithinDistanceOfFeature, bool, iFeatureType, iDistance);
-	LUAAPIEXTN(IsAdjacentToImprovement, bool, iImprovementType);
-	LUAAPIEXTN(IsWithinDistanceOfImprovement, bool, iImprovementType, iDistance);
-	LUAAPIEXTN(IsAdjacentToPlotType, bool, iPlotType);
-	LUAAPIEXTN(IsWithinDistanceOfPlotType, bool, iPlotType, iDistance);
-	LUAAPIEXTN(IsAdjacentToResource, bool, iResourceType);
-	LUAAPIEXTN(IsWithinDistanceOfResource, bool, iResourceType, iDistance);
-	LUAAPIEXTN(IsAdjacentToTerrain, bool, iTerrainType);
-	LUAAPIEXTN(IsWithinDistanceOfTerrain, bool, iTerrainType, iDistance);
-#endif
-
-#ifdef MOD_GLOBAL_PROMOTIONS_REMOVAL
-	LUAAPIEXTN(ClearUnitPromotions, void);
-#endif
 };
 #endif

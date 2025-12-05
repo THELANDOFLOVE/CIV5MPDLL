@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -130,7 +130,7 @@ public:
 	int GetNumSpecialistsAllowedByBuilding(const CvBuildingEntry& kBuilding);
 
 	int GetSpecialistUpgradeThreshold(UnitClassTypes eUnitClass);
-	void DoSpawnGreatPerson(UnitTypes eUnit, bool bIncrementCount, bool bCountAsProphet, bool bIsFree = MOD_GLOBAL_TRULY_FREE_GP);
+	void DoSpawnGreatPerson(UnitTypes eUnit, bool bIncrementCount, bool bCountAsProphet);
 
 private:
 
@@ -146,13 +146,8 @@ private:
 	CityAIFocusTypes m_eCityAIFocusTypes;
 	bool m_bForceAvoidGrowth;
 
-#if defined(MOD_GLOBAL_CITY_WORKING)
-	bool m_pabWorkingPlot[MAX_CITY_PLOTS];
-	bool m_pabForcedWorkingPlot[MAX_CITY_PLOTS];
-#else
 	bool m_pabWorkingPlot[NUM_CITY_PLOTS];
 	bool m_pabForcedWorkingPlot[NUM_CITY_PLOTS];
-#endif
 
 	int m_iNumDefaultSpecialists;
 	int m_iNumForcedDefaultSpecialists;

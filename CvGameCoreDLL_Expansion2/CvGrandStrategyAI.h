@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -54,11 +54,7 @@ public:
 	void SetGrandStrategyPriority(AIGrandStrategyTypes eGrandStrategy, int iValue);
 	void ChangeGrandStrategyPriority(AIGrandStrategyTypes eGrandStrategy, int iChange);
 
-#if defined(MOD_AI_SMART_V3)
-	int GetPersonalityAndGrandStrategy(FlavorTypes eFlavorType, bool bBoostGSMainFlavor = false);
-#else
 	int GetPersonalityAndGrandStrategy(FlavorTypes eFlavorType);
-#endif
 
 	// **********
 	// Stuff relating to guessing what other Players are up to

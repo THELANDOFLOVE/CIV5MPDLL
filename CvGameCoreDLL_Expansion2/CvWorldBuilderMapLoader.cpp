@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -751,11 +751,7 @@ void SetupUnit(const CvWorldBuilderMap::Unit& kSavedUnit, int iPlotX, int iPlotY
 				pkGameplayUnit->setDamage(iMaxHitPoints - iHitPoints);
 			}
 
-#if defined(MOD_UNITS_XP_TIMES_100)
-			pkGameplayUnit->setExperienceTimes100(((int)kSavedUnit.m_uiExperience) * 100);
-#else
 			pkGameplayUnit->setExperience((int)kSavedUnit.m_uiExperience);
-#endif
 
 			const int iPromotionTypeCount = GC.getNumPromotionInfos();
 			for(int iPromotion = 0; iPromotion < iPromotionTypeCount; ++iPromotion)
@@ -1139,13 +1135,8 @@ bool CvWorldBuilderMapLoader::InitMap()
 
 			if(sg_kSave.m_kTeamsAtWar.Get(uiTeam1, uiTeam2))
 			{
-#if defined(MOD_EVENTS_WAR_AND_PEACE)
-				kTeam1.setAtWar(eTeam2, true, true);
-				kTeam2.setAtWar(eTeam1, true, true);
-#else
 				kTeam1.setAtWar(eTeam2, true);
 				kTeam2.setAtWar(eTeam1, true);
-#endif
 			}
 
 			if(sg_kSave.m_kTeamsAtPermanentWarOrPeace.Get(uiTeam1, uiTeam2))
@@ -1357,7 +1348,7 @@ bool CvWorldBuilderMapLoader::Save(const wchar_t* wszFilename, const char* szMap
 		else
 		{
 			CvFeatureInfo* pkFeatureInfo = GC.getFeatureInfo(eFeatureType);
-			if (pkFeatureInfo != NULL && pkFeatureInfo->IsNaturalWonder(true))
+			if(pkFeatureInfo != NULL && pkFeatureInfo->IsNaturalWonder())
 			{
 				kPlotData.SetFeatureType(CvWorldBuilderMap::PlotMapData::InvalidFeature);
 				kPlotData.SetNaturalWonderType((byte)eFeatureType);

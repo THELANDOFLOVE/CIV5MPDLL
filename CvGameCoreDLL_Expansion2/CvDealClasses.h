@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -11,9 +11,6 @@
 #define CV_DEAL_CLASSES_H
 
 #include "CvDiplomacyAIEnums.h"
-#if defined(MOD_AI_MP_DIPLOMACY)
-#include "CvWeightedVector.h"
-#endif
 
 enum TradeableItems
 {
@@ -38,9 +35,12 @@ enum TradeableItems
     TRADE_ITEM_ALLOW_EMBASSY,
 	TRADE_ITEM_DECLARATION_OF_FRIENDSHIP,	// Only "traded" between human players
 	TRADE_ITEM_VOTE_COMMITMENT,
-	TRADE_ITEM_DIPLOMATIC_MARRIAGE,
-	TRADE_ITEM_DUAL_EMPIRE_TREATY,
-	NUM_TRADEABLE_ITEMS,
+#if defined(MOD_DIPLOMACY_CIV4_FEATURES)
+	TRADE_ITEM_TECHS,
+	TRADE_ITEM_VASSALAGE,
+	TRADE_ITEM_VASSALAGE_REVOKE,
+#endif
+    NUM_TRADEABLE_ITEMS,
 };
 FDataStream& operator>>(FDataStream&, TradeableItems&);
 FDataStream& operator<<(FDataStream&, const TradeableItems&);
@@ -83,7 +83,7 @@ typedef FFastList< CvTradedItem, c_eMPoolTypeGame, 0 > TradedItemList;
 //!  - Also stores the players involved and the turn the deal ends (if any)
 //!  - Populated through calls to a group of methods that each create and add a CvTradedItem
 //!  - These methods to create CvTradedItems have customized parameters so the external caller
-//!    doesn need to know how the data is stored internally
+//!    doesn’t need to know how the data is stored internally
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 class CvDeal
 {
@@ -166,10 +166,6 @@ public:
 
 	int GetGoldAvailable(PlayerTypes ePlayer, TradeableItems eItemToBeChanged);
 
-#if defined(MOD_AI_MP_DIPLOMACY)
-	bool AreAllTradeItemsValid();
-#endif
-
 	bool IsPossibleToTradeItem(PlayerTypes ePlayer, PlayerTypes eToPlayer, TradeableItems eItem, int iData1 = -1, int iData2 = -1, int iData3 = -1, bool bFlag1 = false, bool bCheckOtherPlayerValidity = true, bool bFinalizing = false);
 	int GetNumResource(PlayerTypes ePlayer, ResourceTypes eResource);
 
@@ -194,8 +190,18 @@ public:
 	void AddThirdPartyEmbargo(PlayerTypes eFrom, PlayerTypes eThirdParty, int iDuration);
 	void AddDeclarationOfFriendship(PlayerTypes eFrom);
 	void AddVoteCommitment(PlayerTypes eFrom, int iResolutionID, int iVoteChoice, int iNumVotes, bool bRepeal);
-	void AddDiplomaticMarriage(PlayerTypes eFrom, int iDuration);
-	void AddDualEmpireTreaty(PlayerTypes eFrom);
+#if defined(MOD_DIPLOMACY_CIV4_FEATURES)
+	void AddTechTrade(PlayerTypes eFrom, TechTypes eTech);
+	void AddVassalageTrade(PlayerTypes eFrom);
+	void AddRevokeVassalageTrade(PlayerTypes eFrom);
+
+	void RemoveTechTrade(TechTypes eTech);
+
+	bool IsMapTrade(PlayerTypes eFrom);
+	bool IsTechTrade(PlayerTypes eFrom, TechTypes eTech);
+	bool IsVassalageTrade(PlayerTypes eFrom);
+	bool IsRevokeVassalageTrade(PlayerTypes eFrom);
+#endif
 
 	int GetGoldTrade(PlayerTypes eFrom);
 	bool ChangeGoldTrade(PlayerTypes eFrom, int iNewAmount);
@@ -219,9 +225,6 @@ public:
 	bool IsThirdPartyPeaceTrade(PlayerTypes eFrom, TeamTypes eThirdPartyTeam);
 	bool IsThirdPartyWarTrade(PlayerTypes eFrom, TeamTypes eThirdPartyTeam);
 	bool IsVoteCommitmentTrade(PlayerTypes eFrom);
-	bool IsDiplomaticMarriage(PlayerTypes eFrom);
-	bool IsDualEmpireTreaty(PlayerTypes eFrom);
-
 	static DealRenewStatus GetItemTradeableState(TradeableItems eItem);
 	bool IsPotentiallyRenewable();
 
@@ -233,8 +236,6 @@ public:
 	void RemoveThirdPartyWar(PlayerTypes eFrom, TeamTypes eThirdPartyTeam);
 	void RemoveThirdPartyEmbargo(PlayerTypes eFrom, PlayerTypes eThirdParty);
 	void RemoveVoteCommitment(PlayerTypes eFrom, int iResolutionID, int iVoteChoice, int iNumVotes, bool bRepeal);
-	void RemoveDiplomaticMarriage(PlayerTypes eFrom);
-	void RemoveDualEmpireTreaty(PlayerTypes eFrom);
 
 	bool ContainsItemType(TradeableItems eItemType, PlayerTypes eFrom = NO_PLAYER);
 };
@@ -262,13 +263,6 @@ public:
 	void Init();
 
 	void AddProposedDeal(CvDeal kDeal);
-#if defined(MOD_AI_MP_DIPLOMACY)
-	bool RemoveProposedDeal(PlayerTypes eFromPlayer, PlayerTypes eToPlayer, CvDeal* pDealOut, bool latest);
-	bool FinalizeDeal(CvDeal kDeal, bool bAccepted);
-	bool FinalizeDeal(PlayerTypes eFromPlayer, PlayerTypes eToPlayer, bool bAccepted, bool latest);
-	void FinalizeDealValidAndAccepted(PlayerTypes eFromPlayer, PlayerTypes eToPlayer, CvDeal& kDeal, bool bAccepted, CvWeightedVector<TeamTypes, MAX_CIV_TEAMS, true>& veNowAtPeacePairs);
-	void FinalizeDealNotify(PlayerTypes eFromPlayer, PlayerTypes eToPlayer, CvWeightedVector<TeamTypes, MAX_CIV_TEAMS, true>& veNowAtPeacePairs);
-#endif
 	bool FinalizeDeal(PlayerTypes eFromPlayer, PlayerTypes eToPlayer, bool bAccepted);
 	void DoTurn();
 
@@ -279,11 +273,7 @@ public:
 
 	PlayerTypes HasMadeProposal(PlayerTypes eFromPlayer);
 	bool ProposedDealExists(PlayerTypes eFromPlayer, PlayerTypes eToPlayer);
-#if defined(MOD_AI_MP_DIPLOMACY)
-	CvDeal* GetProposedDeal(PlayerTypes eFromPlayer, PlayerTypes eToPlayer, bool latest = false);
-#else
 	CvDeal* GetProposedDeal(PlayerTypes eFromPlayer, PlayerTypes eToPlayer);
-#endif
 
 	CvDeal* GetCurrentDeal(PlayerTypes ePlayer, uint index);
 	CvDeal* GetHistoricDeal(PlayerTypes ePlayer, uint indx);
@@ -297,11 +287,7 @@ public:
 	void DoCancelDealsBetweenTeams(TeamTypes eTeam1, TeamTypes eTeam2);
 	void DoCancelDealsBetweenPlayers(PlayerTypes eFromPlayer, PlayerTypes eToPlayer);
 	void DoCancelAllDealsWithPlayer(PlayerTypes eCancelPlayer);
-#if defined(MOD_AI_MP_DIPLOMACY)
-	void DoCancelAllProposedDealsWithPlayer(PlayerTypes eCancelPlayer, DiplomacyPlayerType eTargetPlayers);
-#else
 	void DoCancelAllProposedDealsWithPlayer(PlayerTypes eCancelPlayer);
-#endif
 	void DoEndTradedItem(CvTradedItem* pItem, PlayerTypes eToPlayer, bool bCancelled);
 
 	int GetTradeItemGoldCost(TradeableItems eItem, PlayerTypes ePlayer1, PlayerTypes ePlayer2) const;
@@ -315,9 +301,6 @@ public:
 
 protected:
 	void LogDealComplete(CvDeal* pDeal);
-#if defined(MOD_AI_MP_DIPLOMACY)
-	void LogDealFailed(CvDeal* pDeal, bool bNoRenew, bool bNotAccepted, bool bNotValid);
-#endif
 
 	CvDeal m_TempDeal;
 

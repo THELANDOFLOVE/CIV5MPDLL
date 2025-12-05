@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -89,11 +89,6 @@ void CvDllGameDeals::AddProposedDeal(ICvDeal1* pDeal)
 //------------------------------------------------------------------------------
 bool CvDllGameDeals::FinalizeDeal(PlayerTypes eFromPlayer, PlayerTypes eToPlayer, bool bAccepted)
 {
-#if defined(MOD_AI_MP_DIPLOMACY)
-	if (MOD_AI_MP_DIPLOMACY)
-		return m_pGameDeals->FinalizeDeal(eFromPlayer, eToPlayer, bAccepted, true);
-	else
-#endif
 	return m_pGameDeals->FinalizeDeal(eFromPlayer, eToPlayer, bAccepted);
 }
 //------------------------------------------------------------------------------
@@ -116,21 +111,12 @@ PlayerTypes CvDllGameDeals::HasMadeProposal(PlayerTypes eFromPlayer)
 //------------------------------------------------------------------------------
 bool CvDllGameDeals::ProposedDealExists(PlayerTypes eFromPlayer, PlayerTypes eToPlayer)
 {
-#if defined(MOD_AI_MP_DIPLOMACY)
-	if (MOD_AI_MP_DIPLOMACY)
-		return m_pGameDeals->GetProposedDeal(eFromPlayer, eToPlayer, 0) != NULL;
-	else
-#endif
 	return m_pGameDeals->ProposedDealExists(eFromPlayer, eToPlayer);
 }
 //------------------------------------------------------------------------------
 ICvDeal1* CvDllGameDeals::GetProposedDeal(PlayerTypes eFromPlayer, PlayerTypes eToPlayer)
 {
-#if defined(MOD_AI_MP_DIPLOMACY)
-	CvDeal* pDeal = m_pGameDeals->GetProposedDeal(eFromPlayer, eToPlayer, 0);
-#else
 	CvDeal* pDeal = m_pGameDeals->GetProposedDeal(eFromPlayer, eToPlayer);
-#endif
 	return (NULL != pDeal)? new CvDllDeal(pDeal) : NULL;
 }
 //------------------------------------------------------------------------------

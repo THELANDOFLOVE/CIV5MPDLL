@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -16,40 +16,12 @@
 #include "CvLuaSupport.h"
 #include "CvLuaTeam.h"
 #include "CvLuaTeamTech.h"
-#include "NetworkMessageUtil.h"
 
 //Utility macro for registering methods
 #define Method(Name)			\
 	lua_pushcclosure(L, l##Name, 0);	\
 	lua_setfield(L, t, #Name);
 
-void CvLuaTeam::RegistStaticFunctions() {
-	REGIST_STATIC_FUNCTION(CvLuaTeam::lSetMapCentering);
-	REGIST_STATIC_FUNCTION(CvLuaTeam::lSetPermanentWarPeace);
-	REGIST_STATIC_FUNCTION(CvLuaTeam::lSetProjectDefaultArtType);
-	REGIST_STATIC_FUNCTION(CvLuaTeam::lSetProjectArtType);
-	REGIST_STATIC_FUNCTION(CvLuaTeam::lSetHasTech);
-	REGIST_STATIC_FUNCTION(CvLuaTeam::lSetCurrentEra);
-	REGIST_STATIC_FUNCTION(CvLuaTeam::lChangeNukeInterception);
-	REGIST_STATIC_FUNCTION(CvLuaTeam::lChangeForceTeamVoteEligibilityCount);
-	REGIST_STATIC_FUNCTION(CvLuaTeam::lChangeExtraWaterSeeFromCount);
-	REGIST_STATIC_FUNCTION(CvLuaTeam::lChangeMapTradingCount);
-	REGIST_STATIC_FUNCTION(CvLuaTeam::lChangeTechTradingCount);
-	REGIST_STATIC_FUNCTION(CvLuaTeam::lChangeGoldTradingCount);
-	REGIST_STATIC_FUNCTION(CvLuaTeam::lChangeAllowEmbassyTradingAllowedCount);
-	REGIST_STATIC_FUNCTION(CvLuaTeam::lChangeOpenBordersTradingAllowedCount);
-	REGIST_STATIC_FUNCTION(CvLuaTeam::lChangeDefensivePactTradingAllowedCount);
-	REGIST_STATIC_FUNCTION(CvLuaTeam::lChangePermanentAllianceTradingCount);
-	REGIST_STATIC_FUNCTION(CvLuaTeam::lChangeBridgeBuildingCount);
-	REGIST_STATIC_FUNCTION(CvLuaTeam::lChangeWaterWorkCount);
-	REGIST_STATIC_FUNCTION(CvLuaTeam::lChangeBorderObstacleCount);
-	REGIST_STATIC_FUNCTION(CvLuaTeam::lChangeTechShareCount);
-	REGIST_STATIC_FUNCTION(CvLuaTeam::lChangeExtraMoves);
-	REGIST_STATIC_FUNCTION(CvLuaTeam::lChangeRouteChange);
-	REGIST_STATIC_FUNCTION(CvLuaTeam::lChangeProjectCount);
-	REGIST_STATIC_FUNCTION(CvLuaTeam::lChangeImprovementYieldChange);
-	REGIST_STATIC_FUNCTION(CvLuaTeam::lChangeVictoryPoints);
-}
 //------------------------------------------------------------------------------
 void CvLuaTeam::Register(lua_State* L)
 {
@@ -63,9 +35,6 @@ void CvLuaTeam::HandleMissingInstance(lua_State* L)
 //------------------------------------------------------------------------------
 void CvLuaTeam::PushMethods(lua_State* L, int t)
 {
-	Method(SendAndExecuteLuaFunction);
-	Method(SendAndExecuteLuaFunctionPostpone);
-
 	Method(IsNone);
 
 	Method(AddTeam);
@@ -107,9 +76,6 @@ void CvLuaTeam::PushMethods(lua_State* L, int t)
 	Method(IsHuman);
 	Method(IsBarbarian);
 
-#if defined(MOD_API_LUA_EXTENSIONS)
-	Method(IsMajorCiv);
-#endif
 	Method(IsMinorCiv);
 	Method(IsMinorCivWarmonger);
 
@@ -160,16 +126,6 @@ void CvLuaTeam::PushMethods(lua_State* L, int t)
 	Method(GetPermanentAllianceTradingCount);
 	Method(IsPermanentAllianceTrading);
 	Method(ChangePermanentAllianceTradingCount);
-#if defined(MOD_API_LUA_EXTENSIONS) && defined(MOD_TECHS_CITY_WORKING)
-	Method(GetCityWorkingChange);
-	Method(IsCityWorkingChange);
-	Method(ChangeCityWorkingChange);
-#endif
-#if defined(MOD_API_LUA_EXTENSIONS) && defined(MOD_TECHS_CITY_AUTOMATON_WORKERS)
-	Method(GetCityAutomatonWorkersChange);
-	Method(IsCityAutomatonWorkersChange);
-	Method(ChangeCityAutomatonWorkersChange);
-#endif
 	Method(GetBridgeBuildingCount);
 	Method(IsBridgeBuilding);
 	Method(ChangeBridgeBuildingCount);
@@ -205,9 +161,6 @@ void CvLuaTeam::PushMethods(lua_State* L, int t)
 	Method(GetKilledByTeam);
 
 	Method(HasEmbassyAtTeam);
-#if defined(MOD_API_LUA_EXTENSIONS)
-	Method(HasSpyAtTeam);
-#endif
 	Method(IsAllowsOpenBordersToTeam);
 	Method(IsForcePeace);
 	Method(IsDefensivePact);
@@ -230,7 +183,6 @@ void CvLuaTeam::PushMethods(lua_State* L, int t)
 	Method(IsObsoleteBuilding);
 
 	Method(IsHasResearchAgreement);
-	Method(GetResearchAgreementStartTurn);
 	Method(IsHasTradeAgreement);
 
 	Method(IsHasTech);
@@ -254,6 +206,33 @@ void CvLuaTeam::PushMethods(lua_State* L, int t)
 	Method(SetCurrentEra);
 
 	Method(UpdateEmbarkGraphics);
+
+#if defined(MOD_DIPLOMACY_CIV4_FEATURES)
+	Method(IsVassal);
+	Method(CanBecomeVassal);
+	Method(CanMakeVassal);
+	Method(CanEndVassal);
+	Method(CanEndAllVassal);
+	Method(IsVassalageTradingAllowed);
+	Method(GetNumTurnsIsVassal);
+	Method(GetNumTurnsSinceVassalEnded);
+	Method(IsTooSoonForVassal);
+	Method(IsVassalOfSomeone);
+	Method(IsVassalLockedIntoWar);
+	Method(GetMaster);
+	Method(IsVoluntaryVassal);
+	Method(DoBecomeVassal);
+	Method(DoEndVassal);
+	Method(GetNumCitiesWhenVassalMade);
+	Method(GetTotalPopulationWhenVassalMade);
+	Method(CanLiberateVassal);
+	Method(DoLiberateVassal);
+	Method(CanSetVassalTax);
+	Method(GetVassalTax);
+	Method(GetNumTurnsSinceVassalTaxSet);
+	Method(DoApplyVassalTax);
+	Method(GetNumVassals);
+#endif
 }
 //------------------------------------------------------------------------------
 const char* CvLuaTeam::GetTypeName()
@@ -318,52 +297,21 @@ int CvLuaTeam::lCanChangeWarPeace(lua_State* L)
 //bool canDeclareWar(TeamTypes eTeam);
 int CvLuaTeam::lCanDeclareWar(lua_State* L)
 {
-#if defined(MOD_EVENTS_WAR_AND_PEACE)
-	CvTeam* pkTeam = GetInstance(L);
-	TeamTypes eOtherTeam = (TeamTypes)lua_tointeger(L, 2);
-	PlayerTypes eOriginatingPlayer = (PlayerTypes)luaL_optint(L, 3, -1);
-
-	const bool bCanDeclareWar = pkTeam->canDeclareWar(eOtherTeam, eOriginatingPlayer);
-	lua_pushboolean(L, bCanDeclareWar);
-	return 1;
-#else
 	return BasicLuaMethod(L, &CvTeam::canDeclareWar);
-#endif
 }
 
 //------------------------------------------------------------------------------
 //void declareWar(TeamTypes eTeam);
 int CvLuaTeam::lDeclareWar(lua_State* L)
 {
-#if defined(MOD_EVENTS_WAR_AND_PEACE)
-	CvTeam* pkTeam = GetInstance(L);
-	TeamTypes eOtherTeam = (TeamTypes)lua_tointeger(L, 2);
-	const bool bDefensivePact = luaL_optbool(L, 3, false);
-	PlayerTypes eOriginatingPlayer = (PlayerTypes)luaL_optint(L, 4, -1);
-
-	pkTeam->declareWar(eOtherTeam, bDefensivePact, eOriginatingPlayer);
-	return 0;
-#else
 	return BasicLuaMethod(L, &CvTeam::declareWar);
-#endif
 }
 
 //------------------------------------------------------------------------------
 //void makePeace(TeamTypes eTeam);
 int CvLuaTeam::lMakePeace(lua_State* L)
 {
-#if defined(MOD_EVENTS_WAR_AND_PEACE)
-	CvTeam* pkTeam = GetInstance(L);
-	TeamTypes eOtherTeam = (TeamTypes)lua_tointeger(L, 2);
-	const bool bBumpUnits = luaL_optbool(L, 3, true);
-	const bool bSuppressNotification = luaL_optbool(L, 4, false);
-	PlayerTypes eOriginatingPlayer = (PlayerTypes)luaL_optint(L, 5, -1);
-
-	pkTeam->makePeace(eOtherTeam, bBumpUnits, bSuppressNotification, eOriginatingPlayer);
-	return 0;
-#else
 	return BasicLuaMethod(L, &CvTeam::makePeace);
-#endif
 }
 
 //------------------------------------------------------------------------------
@@ -552,15 +500,6 @@ int CvLuaTeam::lIsBarbarian(lua_State* L)
 {
 	return BasicLuaMethod(L, &CvTeam::isBarbarian);
 }
-
-#if defined(MOD_API_LUA_EXTENSIONS)
-//------------------------------------------------------------------------------
-//bool isMajorCiv();
-int CvLuaTeam::lIsMajorCiv(lua_State* L)
-{
-	return BasicLuaMethod(L, &CvTeam::isMajorCiv);
-}
-#endif
 
 //------------------------------------------------------------------------------
 //bool isMinorCiv();
@@ -894,52 +833,6 @@ int CvLuaTeam::lChangePermanentAllianceTradingCount(lua_State* L)
 	return BasicLuaMethod(L, &CvTeam::changePermanentAllianceTradingCount);
 }
 
-#if defined(MOD_API_LUA_EXTENSIONS) && defined(MOD_TECHS_CITY_WORKING)
-//------------------------------------------------------------------------------
-//int getCityWorkingChange();
-int CvLuaTeam::lGetCityWorkingChange(lua_State* L)
-{
-	return BasicLuaMethod(L, &CvTeam::GetCityWorkingChange);
-}
-
-//------------------------------------------------------------------------------
-//bool isCityWorkingChange();
-int CvLuaTeam::lIsCityWorkingChange(lua_State* L)
-{
-	return BasicLuaMethod(L, &CvTeam::isCityWorkingChange);
-}
-
-//------------------------------------------------------------------------------
-//void changeCityWorkingChange(int iChange);
-int CvLuaTeam::lChangeCityWorkingChange(lua_State* L)
-{
-	return BasicLuaMethod(L, &CvTeam::changeCityWorkingChange);
-}
-#endif
-
-#if defined(MOD_API_LUA_EXTENSIONS) && defined(MOD_TECHS_CITY_AUTOMATON_WORKERS)
-//------------------------------------------------------------------------------
-//int getCityAutomatonWorkersChange();
-int CvLuaTeam::lGetCityAutomatonWorkersChange(lua_State* L)
-{
-	return BasicLuaMethod(L, &CvTeam::GetCityAutomatonWorkersChange);
-}
-
-//------------------------------------------------------------------------------
-//bool isCityAutomatonWorkersChange();
-int CvLuaTeam::lIsCityAutomatonWorkersChange(lua_State* L)
-{
-	return BasicLuaMethod(L, &CvTeam::isCityAutomatonWorkersChange);
-}
-
-//------------------------------------------------------------------------------
-//void changeCityAutomatonWorkersChange(int iChange);
-int CvLuaTeam::lChangeCityAutomatonWorkersChange(lua_State* L)
-{
-	return BasicLuaMethod(L, &CvTeam::changeCityAutomatonWorkersChange);
-}
-#endif
-
 //------------------------------------------------------------------------------
 //int getBridgeBuildingCount();
 int CvLuaTeam::lGetBridgeBuildingCount(lua_State* L)
@@ -1118,13 +1011,6 @@ int CvLuaTeam::lHasEmbassyAtTeam(lua_State* L)
 {
 	return BasicLuaMethod(L, &CvTeam::HasEmbassyAtTeam);
 }
-#if defined(MOD_API_LUA_EXTENSIONS)
-//------------------------------------------------------------------------------
-int CvLuaTeam::lHasSpyAtTeam(lua_State* L)
-{
-	return BasicLuaMethod(L, &CvTeam::HasSpyAtTeam);
-}
-#endif
 //------------------------------------------------------------------------------
 //bool isAllowsOpenBordersToTeam(TeamTypes eIndex);
 int CvLuaTeam::lIsAllowsOpenBordersToTeam(lua_State* L)
@@ -1273,12 +1159,6 @@ int CvLuaTeam::lIsHasResearchAgreement(lua_State* L)
 }
 
 //------------------------------------------------------------------------------
-//int GetResearchAgreementStartTurn(TeamTypes eTeam);
-int CvLuaTeam::lGetResearchAgreementStartTurn(lua_State* L)
-{
-	return BasicLuaMethod(L, &CvTeam::GetResearchAgreementStartTurn);
-}
-//------------------------------------------------------------------------------
 //bool IsHasTradeAgreement(TeamTypes eTeam);
 int CvLuaTeam::lIsHasTradeAgreement(lua_State* L)
 {
@@ -1304,20 +1184,8 @@ int CvLuaTeam::lSetHasTech(lua_State* L)
 	const TechTypes eIndex = (TechTypes)lua_tointeger(L, 2);
 	const bool bNewValue = lua_toboolean(L, 3);
 	const PlayerTypes ePlayer = (PlayerTypes)lua_tointeger(L, 4);
-
-#if defined(MOD_BUGFIX_LUA_API)
-	bool bFirst = lua_toboolean(L, 4);
-	bool bAnnounce = lua_toboolean(L, 5);
-
-	if (lua_gettop(L) == 6)
-	{
-		bFirst = lua_toboolean(L, 5);
-		bAnnounce = lua_toboolean(L, 6);
-	}
-#else
 	const bool bFirst = lua_toboolean(L, 4);
 	const bool bAnnounce = lua_toboolean(L, 5);
-#endif
 
 	pkTeam->setHasTech(eIndex, bNewValue, ePlayer, bFirst, bAnnounce);
 	return 0;
@@ -1410,3 +1278,154 @@ int CvLuaTeam::lUpdateEmbarkGraphics(lua_State* L)
 {
 	return BasicLuaMethod(L, &CvTeam::UpdateEmbarkGraphics);
 }
+
+#if defined(MOD_DIPLOMACY_CIV4_FEATURES)
+//------------------------------------------------------------------------------
+//int GetNumTurnsIsVassal(TeamTypes eIndex) const;
+int CvLuaTeam::lGetNumTurnsIsVassal(lua_State* L)
+{
+	return BasicLuaMethod(L, &CvTeam::GetNumTurnsIsVassal);
+}
+//------------------------------------------------------------------------------
+//int GetNumTurnsSinceVassalEnded(TeamTypes eIndex) const;
+int CvLuaTeam::lGetNumTurnsSinceVassalEnded(lua_State* L)
+{
+	return BasicLuaMethod(L, &CvTeam::GetNumTurnsSinceVassalEnded);
+}
+//------------------------------------------------------------------------------
+//bool IsTooSoonForVassal(TeamTypes eIndex) const;
+int CvLuaTeam::lIsTooSoonForVassal(lua_State* L)
+{
+	return BasicLuaMethod(L, &CvTeam::IsTooSoonForVassal);
+}
+//------------------------------------------------------------------------------
+//bool IsVassal(TeamTypes eIndex) const;
+int CvLuaTeam::lIsVassal(lua_State* L)
+{
+	return BasicLuaMethod(L, &CvTeam::IsVassal);
+}
+//------------------------------------------------------------------------------
+// bool CanBecomeVassal(TeamTypes eIndex, bool bIgnoreAlreadyVassal) const;
+int CvLuaTeam::lCanBecomeVassal(lua_State* L)
+{
+	return BasicLuaMethod(L, &CvTeam::canBecomeVassal);
+}
+//------------------------------------------------------------------------------
+// bool CanMakeVassal(TeamTypes eIndex, bool bIgnoreAlreadyVassal) const;
+int CvLuaTeam::lCanMakeVassal(lua_State* L)
+{
+	return BasicLuaMethod(L, &CvTeam::CanMakeVassal);
+}
+//------------------------------------------------------------------------------
+// bool canEndVassal(TeamTypes eIndex) const;
+int CvLuaTeam::lCanEndVassal(lua_State* L)
+{
+	return BasicLuaMethod(L, &CvTeam::canEndVassal);
+}
+// bool canEndVassal(TeamTypes eIndex) const;
+int CvLuaTeam::lCanEndAllVassal(lua_State* L)
+{
+	return BasicLuaMethod(L, &CvTeam::canEndAllVassal);
+}
+//------------------------------------------------------------------------------
+// bool IsVassalageTradingAllowed() const;
+int CvLuaTeam::lIsVassalageTradingAllowed(lua_State* L)
+{
+	return BasicLuaMethod(L, &CvTeam::IsVassalageTradingAllowed);
+}
+//------------------------------------------------------------------------------
+// bool IsVassalOfSomeone() const;
+int CvLuaTeam::lIsVassalOfSomeone(lua_State* L)
+{
+	return BasicLuaMethod(L, &CvTeam::IsVassalOfSomeone);
+}
+//------------------------------------------------------------------------------
+// bool IsVassalLockedIntoWar() const;
+int CvLuaTeam::lIsVassalLockedIntoWar(lua_State* L)
+{
+	return BasicLuaMethod(L, &CvTeam::IsVassalLockedIntoWar);
+}
+//------------------------------------------------------------------------------
+// TeamTypes GetMaster() const;
+int CvLuaTeam::lGetMaster(lua_State* L)
+{
+	return BasicLuaMethod(L, &CvTeam::GetMaster);
+}
+//------------------------------------------------------------------------------
+// bool IsVoluntaryVassal(TeamTypes eTeam) const;
+int CvLuaTeam::lIsVoluntaryVassal(lua_State* L)
+{
+	return BasicLuaMethod(L, &CvTeam::IsVoluntaryVassal);
+}
+// ---------------------------------------------------------------------
+// void DoBecomeVassal(TeamTypes eTeam, bool bVoluntary)
+int CvLuaTeam::lDoBecomeVassal(lua_State *L)
+{
+	CvTeam* pkTeam = GetInstance(L);
+	const TeamTypes eTeam = (TeamTypes) lua_tointeger(L, 2);
+	const bool bVoluntary = luaL_optbool(L, 3, false);
+
+	pkTeam->DoBecomeVassal(eTeam, bVoluntary);
+	return 0;
+}
+// ---------------------------------------------------------------------
+// void DoEndVassal(TeamTypes eTeam, bool bPeaceful, bool bSuppressNotification)
+int CvLuaTeam::lDoEndVassal(lua_State *L)
+{
+	return BasicLuaMethod(L, &CvTeam::DoEndVassal);
+}
+// ---------------------------------------------------------------------
+// int GetNumCitiesWhenVassalMade()
+int CvLuaTeam::lGetNumCitiesWhenVassalMade(lua_State *L)
+{
+	return BasicLuaMethod(L, &CvTeam::getNumCitiesWhenVassalMade);
+}
+// ---------------------------------------------------------------------
+// int GetTotalPopulationWhenVassalMade()
+int CvLuaTeam::lGetTotalPopulationWhenVassalMade(lua_State *L)
+{
+	return BasicLuaMethod(L, &CvTeam::getTotalPopulationWhenVassalMade);
+}
+// ---------------------------------------------------------------------
+// bool CanLiberateVassal()
+int CvLuaTeam::lCanLiberateVassal(lua_State *L)
+{
+	return BasicLuaMethod(L, &CvTeam::CanLiberateVassal);
+}
+// ---------------------------------------------------------------------
+// void DoLiberateVassal()
+int CvLuaTeam::lDoLiberateVassal(lua_State *L)
+{
+	return BasicLuaMethod(L, &CvTeam::DoLiberateVassal);
+}
+// ---------------------------------------------------------------------
+// bool CanSetVassalTax(PlayerTypes ePlayer)
+int CvLuaTeam::lCanSetVassalTax(lua_State *L)
+{
+	return BasicLuaMethod(L, &CvTeam::CanSetVassalTax);
+}
+// ---------------------------------------------------------------------
+// int GetVassalTax(PlayerTypes ePlayer)
+int CvLuaTeam::lGetVassalTax(lua_State *L)
+{
+	return BasicLuaMethod(L, &CvTeam::GetVassalTax);
+}
+// ---------------------------------------------------------------------
+// void GetNumTurnsSinceVassalTaxSet(PlayerTypes ePlayer)
+int CvLuaTeam::lGetNumTurnsSinceVassalTaxSet(lua_State *L)
+{
+	return BasicLuaMethod(L, &CvTeam::GetNumTurnsSinceVassalTaxSet);
+}
+// ---------------------------------------------------------------------
+// void DoApplyVassalTax(PlayerTypes ePlayer, int iAmount)
+int CvLuaTeam::lDoApplyVassalTax(lua_State *L)
+{
+	return BasicLuaMethod(L, &CvTeam::DoApplyVassalTax);
+}
+// ---------------------------------------------------------------------
+// int GetNumVassals()
+int CvLuaTeam::lGetNumVassals(lua_State *L)
+{
+	return BasicLuaMethod(L, &CvTeam::GetNumVassals);
+}
+#endif

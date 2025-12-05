@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -69,25 +69,20 @@ public:
 	bool IsTechTrading() const;
 	bool IsGoldTrading() const;
 	bool IsAllowEmbassyTradingAllowed() const;
-	bool IsBombardIndirect() const;
-	int GetBombardRange() const;
 	bool IsOpenBordersTradingAllowed() const;
 	bool IsDefensivePactTradingAllowed() const;
 	bool IsResearchAgreementTradingAllowed() const;
 	bool IsTradeAgreementTradingAllowed() const;
 	bool IsPermanentAllianceTrading() const;
-#if defined(MOD_TECHS_CITY_WORKING)
-	int GetCityWorkingChange() const;
-#endif
-#if defined(MOD_TECHS_CITY_AUTOMATON_WORKERS)
-	int GetCityAutomatonWorkersChange() const;
-#endif
 	bool IsBridgeBuilding() const;
 	bool IsWaterWork() const;
-	bool IsCitySplashDamage() const;
 	int IsFreePromotion(int i) const;
 	bool IsTriggersArchaeologicalSites() const;
 	bool IsAllowsWorldCongress() const;
+
+#if defined(MOD_DIPLOMACY_CIV4_FEATURES)
+	bool IsVassalageTradingAllowed() const;
+#endif
 
 	std::string pyGetQuote()
 	{
@@ -107,15 +102,6 @@ public:
 	int GetPrereqOrTechs(int i) const;
 	int GetPrereqAndTechs(int i) const;
 
-	int GetRazeSpeedModifier() const;
-	int GetFreePromotionRemoved() const;
-	bool IsRemoveCurrentPromotion() const;
-	bool IsRemoveOceanImpassableCivilian() const;
-
-#if defined(MOD_ROG_CORE)
-	int GetTechYieldChanges(int i, int j) const;
-#endif
-
 private:
 	int m_iAIWeight;
 	int m_iAITradeModifier;
@@ -129,7 +115,6 @@ private:
 	int m_iFirstFreeUnitClass;
 	int m_iFirstFreeTechs;
 	int m_iEmbarkedMoveChange;
-	int m_iBombardRange;
 	int m_iInternationalTradeRoutesChange;
 	int m_iInfluenceSpreadModifier;
 	int m_iExtraVotesPerDiplomat;
@@ -153,37 +138,20 @@ private:
 	bool m_bTechTrading;
 	bool m_bGoldTrading;
 	bool m_bAllowEmbassyTradingAllowed;
-	bool m_bBombardIndirect;
 	bool m_bOpenBordersTradingAllowed;
 	bool m_bDefensivePactTradingAllowed;
 	bool m_bResearchAgreementTradingAllowed;
 	bool m_bTradeAgreementTradingAllowed;
 	bool m_bPermanentAllianceTrading;
-#if defined(MOD_TECHS_CITY_WORKING)
-	int m_iCityWorkingChange;
-#endif
-#if defined(MOD_TECHS_CITY_AUTOMATON_WORKERS)
-	int m_iCityAutomatonWorkersChange;
-#endif
 	bool m_bBridgeBuilding;
 	bool m_bWaterWork;
-	bool m_bCitySplashDamage;
 	bool m_bTriggersArchaeologicalSites;
 	bool m_bAllowsWorldCongress;
-
-	int m_iRazeSpeedModifier = 0;
-	int m_iFreePromotionRemoved = NO_PROMOTION;
-	bool m_bRemoveCurrentPromotion = false;
-	bool m_bRemoveOceanImpassableCivilian = false;
 
 	CvString m_strQuoteKey;
 	CvString m_wstrQuote;
 	CvString m_strSound;
 	CvString m_strSoundMP;
-
-#if defined(MOD_ROG_CORE)
-	int** m_ppiTechYieldChanges;
-#endif
 
 	// Arrays
 	int* m_piDomainExtraMoves;
@@ -192,6 +160,10 @@ private:
 	int* m_piPrereqOrTechs;
 	int* m_piPrereqAndTechs;
 	bool* m_pabFreePromotion;
+
+#if defined(MOD_DIPLOMACY_CIV4_FEATURES)
+	bool m_bVassalageTradingAllowed;
+#endif
 };
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -272,7 +244,7 @@ public:
 	int GetResearchTurnsLeftTimes100(TechTypes eTech, bool bOverflow) const;
 	int GetNumTechsCanBeResearched() const;
 	CvTechXMLEntries* GetTechs() const;
-	long long GetResearchCost(TechTypes eTech) const;
+	int GetResearchCost(TechTypes eTech) const;
 	int GetResearchProgress(TechTypes eTech) const;
 	int GetMedianTechResearch() const;
 
@@ -303,16 +275,9 @@ private:
 //!  - One instance for each team of civs
 //!  - Accessed by any class that needs to check technology ownership
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-class CvTeamTechs : public CvGameObjectExtractable
+class CvTeamTechs
 {
 public:
-
-	void ExtractToArg(BasicArguments* arg);
-	static void PushToLua(lua_State* L, BasicArguments* arg);
-	static void RegistInstanceFunctions();
-	static void RegistStaticFunctions();
-	static CvTeamTechs* Provide(TeamTypes team);
-
 	CvTeamTechs(void);
 	~CvTeamTechs(void);
 	void Init(CvTechXMLEntries* pTechs, CvTeam* pTeam);
@@ -329,8 +294,6 @@ public:
 	void SetLastTechAcquired(TechTypes eTech);
 
 	int GetNumTechsKnown() const;
-	void ChangeNumTechsKnown(int iChange);
-
 	bool HasResearchedAllTechs() const;
 
 	void SetNoTradeTech(TechTypes eIndex, bool bNewValue);
@@ -338,11 +301,11 @@ public:
 	void IncrementTechCount(TechTypes eIndex);
 	int GetTechCount(TechTypes eIndex) const;
 	void SetResearchProgress(TechTypes eIndex, int iNewValue, PlayerTypes ePlayer);
-	void SetResearchProgressTimes100(TechTypes eIndex, int iNewValue, PlayerTypes ePlayer, long long iPlayerOverflow = 0, int iPlayerOverflowDivisorTimes100 = 100);
+	void SetResearchProgressTimes100(TechTypes eIndex, int iNewValue, PlayerTypes ePlayer);
 	int GetResearchProgress(TechTypes eIndex) const;
 	int GetResearchProgressTimes100(TechTypes eIndex) const;
 	void ChangeResearchProgress(TechTypes eIndex, int iChange, PlayerTypes ePlayer);
-	void ChangeResearchProgressTimes100(TechTypes eIndex, long long iChange, PlayerTypes ePlayer, long long iPlayerOverflow = 0, int iPlayerOverflowDivisorTimes100 = 100);
+	void ChangeResearchProgressTimes100(TechTypes eIndex, int iChange, PlayerTypes ePlayer);
 	int ChangeResearchProgressPercent(TechTypes eIndex, int iPercent, PlayerTypes ePlayer);
 	int GetResearchCost(TechTypes eTech) const;
 	int GetResearchLeft(TechTypes eTech) const;
@@ -352,7 +315,6 @@ private:
 	int GetMaxResearchOverflow(TechTypes eTech, PlayerTypes ePlayer) const;
 
 	TechTypes m_eLastTechAcquired;
-	int m_iNumTechsKnown;
 
 	bool* m_pabHasTech;
 	bool* m_pabNoTradeTech;

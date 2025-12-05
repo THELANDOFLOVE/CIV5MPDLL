@@ -137,8 +137,7 @@ public:
 	/// Sort this stuff from highest to lowest
 	void SortItems ()
 	{
-		//std::sort(m_pItems.begin(), m_pItems.end());
-		StableSortItems();
+		std::sort(m_pItems.begin(), m_pItems.end());
 	}
 
 	void StableSortItems()
@@ -233,33 +232,11 @@ public:
 		int iChoice;
 		int iTotalTopChoicesWeight = 0;
 
-		int iRandLogging = GC.getRandLogging();
-		FILogFile* pLog = LOGFILEMGR.GetLog("RandCalls.csv", FILogFile::kDontTimeStamp);
-		string msg = "";
-		char buffer[1024] = { 0 };
-		if (iRandLogging > 0 && pLog && iNumChoices <= 5) {
-			msg += "Processing ChooseFromTopChoices: ";
-		}
-
 		// Get the total weight
 		for (i = 0; i < iNumChoices; i++)
 		{
 			elem = m_pItems[i];
-			if (iRandLogging > 0 && pLog && iNumChoices <= 5) {
-				msg += " Element: ";
-				_itoa_s(i, buffer, 10);
-				msg += buffer;
-				msg += " Weight: ";
-				_itoa_s(elem.m_iWeight, buffer, 10);
-				msg += buffer;
-			}
 			iTotalTopChoicesWeight += elem.m_iWeight;
-		}
-
-		if (iRandLogging > 0 && pLog && iNumChoices <= 5) {
-			char buffer[1024] = { 0 };
-			pLog->Msg(msg.c_str());
-			pLog->Msg("\n");
 		}
 
 		// Random roll up to total weight

@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -110,9 +110,6 @@ bool                                       isHotSeatGame();
 bool                                       isHuman(PlayerTypes p);
 bool                                       isInternetGame();
 bool                                       isMinorCiv(PlayerTypes p);
-#if defined(MOD_API_EXTENSIONS)
-bool                                       isReallyNetworkMultiPlayer();
-#endif
 bool                                       isNetworkMultiplayerGame();
 bool                                       isPitBoss();
 bool                                       isPlayable(PlayerTypes p);
@@ -214,10 +211,6 @@ bool										 SetGameOptions(const std::vector<CustomOption>& gameOptions);
 void                                       setGameType(GameTypes g);
 void                                       setGameType(GameTypes g, GameStartTypes eStartType);
 void                                       setGameType(const CvString& g);
-#if defined(MOD_API_EXTENSIONS)
-void                                       pushGameType(GameTypes g);
-void                                       popGameType();
-#endif
 void                                       setGameStartType(GameStartTypes g);
 void                                       setGameUpdateTime(int updateTime);                 // setupdata
 void                                       setHandicap(PlayerTypes p, HandicapTypes h);

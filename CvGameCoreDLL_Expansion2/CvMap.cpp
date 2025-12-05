@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -163,7 +163,6 @@ void CvLandmass::read(FDataStream& kStream)
 	// Version number to maintain backwards compatibility
 	uint uiVersion;
 	kStream >> uiVersion;
-	MOD_SERIALIZE_INIT_READ(kStream);
 
 	kStream >> m_iID;
 	kStream >> m_iNumTiles;
@@ -182,7 +181,6 @@ void CvLandmass::write(FDataStream& kStream) const
 	// Current version number
 	uint uiVersion = 1;
 	kStream << uiVersion;
-	MOD_SERIALIZE_INIT_WRITE(kStream);
 
 	kStream << m_iID;
 	kStream << m_iNumTiles;
@@ -538,11 +536,7 @@ void CvMap::setRevealedPlots(TeamTypes eTeam, bool bNewValue, bool bTerrainOnly)
 
 	for(iI = 0; iI < numPlots(); iI++)
 	{
-#if defined(MOD_API_EXTENSIONS)
-		plotByIndexUnchecked(iI)->setRevealed(eTeam, bNewValue, NULL, bTerrainOnly);
-#else
 		plotByIndexUnchecked(iI)->setRevealed(eTeam, bNewValue, bTerrainOnly);
-#endif
 	}
 }
 
@@ -1365,7 +1359,6 @@ void CvMap::Read(FDataStream& kStream)
 	// Version number to maintain backwards compatibility
 	uint uiVersion;
 	kStream >> uiVersion;
-	MOD_SERIALIZE_INIT_READ(kStream);
 
 	kStream >> m_iGridWidth;
 	kStream >> m_iGridHeight;
@@ -1412,12 +1405,6 @@ void CvMap::Read(FDataStream& kStream)
 	updateAdjacency();
 
 	gDLL->DoMapSetup(numPlots());
-
-#if defined(MOD_EVENTS_TERRAFORMING)
-	if (MOD_EVENTS_TERRAFORMING) {
-		GAMEEVENTINVOKE_HOOK(GAMEEVENT_TerraformingMap, TERRAFORMINGEVENT_LOAD, 1);
-	}
-#endif
 }
 
 //	--------------------------------------------------------------------------------
@@ -1429,7 +1416,6 @@ void CvMap::Write(FDataStream& kStream) const
 	// Current version number
 	uint uiVersion = 1;
 	kStream << uiVersion;
-	MOD_SERIALIZE_INIT_WRITE(kStream);
 
 	kStream << m_iGridWidth;
 	kStream << m_iGridHeight;
@@ -1588,7 +1574,7 @@ void CvMap::DoPlaceNaturalWonders()
 	{
 		eFeature = (FeatureTypes) iFeatureLoop;
 		CvFeatureInfo* feature = GC.getFeatureInfo(eFeature);
-		if (feature && feature->IsNaturalWonder(true))
+		if(feature && feature->IsNaturalWonder())
 		{
 			eNWFeature = eFeature;
 
@@ -1783,7 +1769,7 @@ void CvMap::DoPlaceNaturalWonders()
 
 				if(pLoopPlot != NULL)
 				{
-					if(pLoopPlot->IsNaturalWonder(true))
+					if(pLoopPlot->IsNaturalWonder())
 					{
 						// Found a NW too close
 						bValid = false;
@@ -2201,11 +2187,7 @@ int CvMap::Validate()
 				{
 					if(pOriginPlot->getPlotCity() == NULL)
 					{
-#if defined(MOD_BUGFIX_MINOR)
-						pGameTrade->ClearAllCityTradeRoutes(pOriginPlot, true);
-#else
 						pGameTrade->ClearAllCityTradeRoutes(pOriginPlot);
-#endif
 						continue;
 					}
 				}
@@ -2215,11 +2197,7 @@ int CvMap::Validate()
 				{
 					if(pDestPlot->getPlotCity() == NULL)
 					{
-#if defined(MOD_BUGFIX_MINOR)
-						pGameTrade->ClearAllCityTradeRoutes(pDestPlot, true);
-#else
 						pGameTrade->ClearAllCityTradeRoutes(pDestPlot);
-#endif
 						continue;
 					}
 				}

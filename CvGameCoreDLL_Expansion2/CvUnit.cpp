@@ -470,6 +470,7 @@ CvUnit::CvUnit() :
 	, m_iMilitaryMightMod(0)
 	, m_iExtraMoveTimesXX(0)
 	, m_iRangeAttackCostModifier(100)
+	, m_iSetUpCostModifier(100)
 	, m_iOriginalCapitalDamageFix(0)
 	, m_iOriginalCapitalSpecialDamageFix(0)
 	, m_iMultipleInitExperence(0)
@@ -1477,6 +1478,7 @@ void CvUnit::reset(int iID, UnitTypes eUnit, PlayerTypes eOwner, bool bConstruct
 	m_iMilitaryMightMod = 0;
 	m_iExtraMoveTimesXX = 0;
 	m_iRangeAttackCostModifier = 100;
+	m_iSetUpCostModifier = 100;
 	m_iOriginalCapitalDamageFix = 0;
 	m_iOriginalCapitalSpecialDamageFix = 0;
 	m_iMultipleInitExperence = 0;
@@ -5866,7 +5868,7 @@ void CvUnit::setSetUpForRangedAttack(bool bValue)
 
 		if(bValue)
 		{
-			changeMoves(-GC.getMOVE_DENOMINATOR());
+			changeMoves(-GC.getMOVE_DENOMINATOR() * GetSetUpCostModifier() / 100);
 		}
 	}
 }
@@ -7270,6 +7272,15 @@ void CvUnit::ChangeRangeAttackCostModifier(int iValue)
 const int CvUnit::GetRangeAttackCostModifier() const
 {
 	return m_iRangeAttackCostModifier;
+}
+//	--------------------------------------------------------------------------------
+void CvUnit::ChangeSetUpCostModifier(int iValue)
+{
+	m_iSetUpCostModifier += iValue;
+}
+const int CvUnit::GetSetUpCostModifier() const
+{
+	return m_iSetUpCostModifier;
 }
 //	--------------------------------------------------------------------------------
 void CvUnit::ChangeOriginalCapitalDamageFix(int iValue)
@@ -16757,8 +16768,21 @@ int CvUnit::GetAirCombatDamage(const CvUnit* pDefender, CvCity* pCity, bool bInc
 	// Unit is Defender
 	if(pCity == NULL)
 	{
+		// If this is a defenseless unit, do a fixed amount of damage
+		if(!pDefender->IsCanDefend())
+		{
+			//can assassinate any civilian with one missile hit
+			if (AI_getUnitAIType() == UNITAI_MISSILE_AIR)
+				return pDefender->GetCurrHitPoints();
+			else
+				return /*4*/ GC.getNONCOMBAT_UNIT_RANGED_DAMAGE();;
+		}
+		if (pDefender->isEmbarked())
+		{
+			iDefenderStrength = pDefender->GetEmbarkedUnitDefense();;
+		}
 		// Use Ranged combat value for defender, UNLESS it's a boat
-		if(pDefender->GetMaxRangedCombatStrength(this, /*pCity*/ NULL, false, /*bForRangedAttack*/ false) > 0 && !pDefender->getDomainType() == DOMAIN_SEA  && !pDefender->isRangedSupportFire())
+		else if(!pDefender->isRangedSupportFire() && pDefender->getDomainType() != DOMAIN_SEA && pDefender->GetMaxRangedCombatStrength(this, /*pCity*/ NULL, false, /*bForRangedAttack*/ false) > 0)
 		{
 			iDefenderStrength = pDefender->GetMaxRangedCombatStrength(this, /*pCity*/ NULL, false, /*bForRangedAttack*/ false);
 		}
@@ -16865,13 +16889,17 @@ int CvUnit::GetRangeCombatDamage(const CvUnit* pDefender, CvCity* pCity, bool bI
 	{
 		// If this is a defenseless unit, do a fixed amount of damage
 		if(!pDefender->IsCanDefend())
-			return /*4*/ GC.getNONCOMBAT_UNIT_RANGED_DAMAGE();
-
+		{
+			//can assassinate any civilian with one missile hit
+			if (AI_getUnitAIType() == UNITAI_MISSILE_AIR)
+				return pDefender->GetCurrHitPoints();
+			else
+				return /*4*/ GC.getNONCOMBAT_UNIT_RANGED_DAMAGE();;
+		}
 		if (pDefender->isEmbarked())
 		{
 			iDefenderStrength = pDefender->GetEmbarkedUnitDefense();;
 		}
-
 		// Use Ranged combat value for defender, UNLESS it's a boat or an Impi (ranged support)
 		else if(!pDefender->isRangedSupportFire() && pDefender->getDomainType() != DOMAIN_SEA && pDefender->GetMaxRangedCombatStrength(this, /*pCity*/ NULL, false, false) > 0)
 		{
@@ -26269,6 +26297,7 @@ void CvUnit::setHasPromotion(PromotionTypes eIndex, bool bNewValue)
 		ChangeMilitaryMightMod((thisPromotion.GetMilitaryMightMod()) * iChange);
 		ChangeExtraMoveTimesXX((thisPromotion.GetExtraMoveTimesXX()) * iChange);
 		ChangeRangeAttackCostModifier((thisPromotion.GetRangeAttackCostModifier()) * iChange);
+		ChangeSetUpCostModifier((thisPromotion.GetSetUpCostModifier()) * iChange);
 		ChangeOriginalCapitalDamageFix((thisPromotion.GetOriginalCapitalDamageFix()) * iChange);
 		ChangeOriginalCapitalSpecialDamageFix((thisPromotion.GetOriginalCapitalSpecialDamageFix()) * iChange);
 		ChangeMultipleInitExperence((thisPromotion.GetMultipleInitExperence()) * iChange);
@@ -26880,6 +26909,7 @@ void CvUnit::read(FDataStream& kStream)
 	kStream >> m_iMilitaryMightMod;
 	kStream >> m_iExtraMoveTimesXX;
 	kStream >> m_iRangeAttackCostModifier;
+	kStream >> m_iSetUpCostModifier;
 	kStream >> m_iOriginalCapitalDamageFix;
 	kStream >> m_iOriginalCapitalSpecialDamageFix;
 	kStream >> m_iMultipleInitExperence;
@@ -27290,6 +27320,7 @@ void CvUnit::write(FDataStream& kStream) const
 	kStream << m_iMilitaryMightMod;
 	kStream << m_iExtraMoveTimesXX;
 	kStream << m_iRangeAttackCostModifier;
+	kStream << m_iSetUpCostModifier;
 	kStream << m_iOriginalCapitalDamageFix;
 	kStream << m_iOriginalCapitalSpecialDamageFix;
 	kStream << m_iMultipleInitExperence;
@@ -27596,7 +27627,7 @@ bool CvUnit::canRangeStrike() const
 int CvUnit::GetRangePlusMoveToshot() const
 {
 	VALIDATE_OBJECT
-	return ((getDomainType() == DOMAIN_AIR) ? GetRange() : (GetRange() + baseMoves() - (isMustSetUpToRangedAttack() ? 1 : 0)));
+	return ((getDomainType() == DOMAIN_AIR) ? GetRange() : (GetRange() + baseMoves() - (isMustSetUpToRangedAttack() ? GetSetUpCostModifier() / 100 : 0)));
 }
 #endif
 
@@ -29384,7 +29415,7 @@ bool CvUnit::CanDoInterfaceMode(InterfaceModeTypes eInterfaceMode, bool bTestVis
 		break;
 
 	case INTERFACEMODE_REBASE:
-		if(getDomainType() == DOMAIN_AIR)
+		if(getDomainType() == DOMAIN_AIR && !getUnitInfo().IsForbidRebase()) 
 		{
 			return true;
 		}

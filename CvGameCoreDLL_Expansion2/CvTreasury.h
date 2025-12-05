@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -58,18 +58,9 @@ public:
 	// City Connection Route Modifiers
 	int GetCityConnectionTradeRouteGoldModifier() const;
 	void ChangeCityConnectionTradeRouteGoldModifier(int iChange);
-#ifdef MOD_RESOURCE_EXTRA_BUFF
-	int GetCityConnectionTradeRouteGoldModifierFromResource() const;
-	void SetCityConnectionTradeRouteGoldModifierFromResource(int value);
-	void ChangeCityConnectionTradeRouteGoldModifierFromResource(int iChange);
-#endif
 	int GetCityConnectionTradeRouteGoldChange() const;
 	void ChangeCityConnectionTradeRouteGoldChange(int iChange);
-#if defined(MOD_EVENTS_CITY_CONNECTIONS)
-	bool HasCityConnectionRouteBetweenCities(CvCity* pFirstCity, CvCity* pSecondCity) const;
-#else
 	bool HasCityConnectionRouteBetweenCities(CvCity* pFirstCity, CvCity* pSecondCity, bool bBestRoute = false) const;
-#endif
 
 	// Gold from international trade routes
 	int GetGoldPerTurnFromTradeRoutes() const;
@@ -114,6 +105,20 @@ public:
 	double AverageIncome(int iTurns);
 	void CvTreasury::LogExpenditure(CvString strExpenditure, int iAmount, int iColumn);
 
+#if defined(MOD_DIPLOMACY_CIV4_FEATURES)
+	int GetVassalGoldMaintenance() const;
+
+	int GetMyShareOfVassalTaxes() const;
+	int GetVassalTaxContributionTimes100(PlayerTypes ePlayer) const;
+	int GetVassalTaxContribution(PlayerTypes ePlayer) const;
+
+	void CalculateExpensePerTurnFromVassalTaxes();
+	
+	int GetExpensePerTurnFromVassalTaxesTimes100() const;
+	int GetExpensePerTurnFromVassalTaxes() const;
+	void SetExpensePerTurnFromVassalTaxesTimes100(int iValue);
+#endif
+
 protected:
 	CvPlayer* m_pPlayer;
 	int m_iGold;
@@ -121,10 +126,10 @@ protected:
 	int m_iExpensePerTurnUnitMaintenance;
 	int m_iExpensePerTurnUnitSupply;
 	int m_iCityConnectionGoldTimes100;
-	int m_iCityConnectionTradeRouteGoldModifier;
-#ifdef MOD_RESOURCE_EXTRA_BUFF
-	int m_iCityConnectionTradeRouteGoldModifierFromResource = 0;
+#if defined(MOD_DIPLOMACY_CIV4_FEATURES)
+	int m_iExpensePerTurnFromVassalTax;
 #endif
+	int m_iCityConnectionTradeRouteGoldModifier;
 	int m_iCityConnectionTradeRouteGoldChange;
 
 	int m_iBaseBuildingGoldMaintenance;

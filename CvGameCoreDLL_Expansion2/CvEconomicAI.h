@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -162,9 +162,6 @@ public:
 	void SetTurnStrategyAdopted(EconomicAIStrategyTypes eStrategy, int iValue);
 
 	void DoTurn();
-#if defined(MOD_API_EXTENSIONS)
-	void UseStrategy(EconomicAIStrategyTypes eStrategy, bool bUsingStrategy);
-#endif
 
 	CvCity* GetBestGreatWorkCity(CvPlot *pStartPlot, GreatWorkType eGreatWork) const;
 
@@ -213,14 +210,6 @@ public:
 	{
 		return m_iExplorersDisbanded;
 	};
-	void IncrementSeaExplorersDisbanded()
-	{
-		m_iSeaExplorersDisbanded++;
-	};
-	int GetSeaExplorersDisbanded()
-	{
-		return m_iSeaExplorersDisbanded;
-	};
 	int GetLastTurnWorkerDisbanded() const
 	{
 		return m_iLastTurnWorkerDisbanded;
@@ -241,9 +230,6 @@ private:
 	void DoAntiquitySites();
 	void DisbandExtraWorkers();
 	void DisbandExtraArchaeologists();
-#if defined(MOD_AI_SMART_V3)
-	void DisbandLongObsoleteUnits();
-#endif
 
 	// Low-level utility functions
 	void AssignExplorersToHuts();
@@ -265,7 +251,6 @@ private:
 	ReconState m_eReconState;
 	ReconState m_eNavalReconState;
 	int m_iExplorersDisbanded;
-	int m_iSeaExplorersDisbanded;
 	int m_iLastTurnWorkerDisbanded;
 	int m_iVisibleAntiquitySites;
 

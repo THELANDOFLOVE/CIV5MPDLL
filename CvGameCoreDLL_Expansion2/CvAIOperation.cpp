@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -1141,7 +1141,6 @@ void CvAIOperation::Read(FDataStream& kStream)
 	// Version number to maintain backwards compatibility
 	uint uiVersion;
 	kStream >> uiVersion;
-	MOD_SERIALIZE_INIT_READ(kStream);
 
 	kStream >> m_iID;
 	kStream >> m_eOwner;
@@ -1168,7 +1167,6 @@ void CvAIOperation::Write(FDataStream& kStream) const
 	// Current version number
 	uint uiVersion = 1;
 	kStream << uiVersion;
-	MOD_SERIALIZE_INIT_WRITE(kStream);
 
 	kStream << m_iID;
 	kStream << m_eOwner;
@@ -2148,7 +2146,6 @@ void CvAIOperationBasicCityAttack::Read(FDataStream& kStream)
 	// Version number to maintain backwards compatibility
 	uint uiVersion;
 	kStream >> uiVersion;
-	MOD_SERIALIZE_INIT_READ(kStream);
 }
 
 /// Write serialized data
@@ -2160,7 +2157,6 @@ void CvAIOperationBasicCityAttack::Write(FDataStream& kStream) const
 	// Current version number
 	uint uiVersion = 1;
 	kStream << uiVersion;
-	MOD_SERIALIZE_INIT_WRITE(kStream);
 }
 
 MultiunitFormationTypes CvAIOperationBasicCityAttack::GetFormation() const
@@ -2323,7 +2319,6 @@ void CvAIOperationDestroyBarbarianCamp::Read(FDataStream& kStream)
 	// Version number to maintain backwards compatibility
 	uint uiVersion;
 	kStream >> uiVersion;
-	MOD_SERIALIZE_INIT_READ(kStream);
 	m_bCivilianRescue = false;
 	kStream >> m_bCivilianRescue;
 	kStream >> m_iUnitToRescue;
@@ -2338,7 +2333,6 @@ void CvAIOperationDestroyBarbarianCamp::Write(FDataStream& kStream) const
 	// Current version number
 	uint uiVersion = 1;
 	kStream << uiVersion;
-	MOD_SERIALIZE_INIT_WRITE(kStream);
 	kStream << m_bCivilianRescue;
 	kStream << m_iUnitToRescue;
 }
@@ -2593,7 +2587,6 @@ void CvAIOperationPillageEnemy::Read(FDataStream& kStream)
 	// Version number to maintain backwards compatibility
 	uint uiVersion;
 	kStream >> uiVersion;
-	MOD_SERIALIZE_INIT_READ(kStream);
 }
 
 /// Write serialized data
@@ -2605,7 +2598,6 @@ void CvAIOperationPillageEnemy::Write(FDataStream& kStream) const
 	// Current version number
 	uint uiVersion = 1;
 	kStream << uiVersion;
-	MOD_SERIALIZE_INIT_WRITE(kStream);
 }
 
 /// Every time the army moves on its way to the destination lets double-check that we don't have a better target
@@ -2880,7 +2872,6 @@ void CvAIEscortedOperation::Read(FDataStream& kStream)
 	// Version number to maintain backwards compatibility
 	uint uiVersion;
 	kStream >> uiVersion;
-	MOD_SERIALIZE_INIT_READ(kStream);
 
 	kStream >> m_bEscorted;
 	kStream >> m_eCivilianType;
@@ -2897,7 +2888,6 @@ void CvAIEscortedOperation::Write(FDataStream& kStream) const
 	// Version number to maintain backwards compatibility
 	uint uiVersion = 1;
 	kStream << uiVersion;
-	MOD_SERIALIZE_INIT_WRITE(kStream);
 
 	kStream << m_bEscorted;
 	kStream << m_eCivilianType;
@@ -3106,10 +3096,7 @@ void CvAIOperationFoundCity::Init(int iID, PlayerTypes eOwner, PlayerTypes /*eEn
 /// If at target, found city; if at muster point, merge settler and escort and move out
 bool CvAIOperationFoundCity::ArmyInPosition(CvArmyAI* pArmy)
 {
-	if (pArmy == NULL) return false;
-	int iUnitID = pArmy->GetFirstUnitID();
-	if(iUnitID ==-1 || GET_PLAYER(m_eOwner).getUnit(iUnitID) == NULL) return false;
-
+	int iUnitID = 0;
 	bool bStateChanged = false;
 	CvUnit* pSettler = 0, *pEscort = 0;
 	CvString strMsg;
@@ -3184,7 +3171,6 @@ bool CvAIOperationFoundCity::ArmyInPosition(CvArmyAI* pArmy)
 
 		if(pSettler != NULL)
 		{
-			CvPlot* pPlot = pSettler->plot();
 			if((GetTargetPlot()->getOwner() != NO_PLAYER && GetTargetPlot()->getOwner() != m_eOwner) || GetTargetPlot()->IsAdjacentOwnedByOtherTeam(pSettler->getTeam()))
 			{
 				if(GC.getLogging() && GC.getAILogging())
@@ -3202,20 +3188,21 @@ bool CvAIOperationFoundCity::ArmyInPosition(CvArmyAI* pArmy)
 				}
 			}
 			// If the settler made it, we don't care about the entire army
-			else if(pPlot == GetTargetPlot() && pSettler->canMove() && pSettler->canFound(pPlot))
+			else if(pSettler->plot() == GetTargetPlot() && pSettler->canMove() && pSettler->canFound(pSettler->plot()))
 			{
-				int iPlotValue = GC.getGame().GetSettlerSiteEvaluator()->PlotFoundValue(pPlot, &GET_PLAYER(m_eOwner), NO_YIELD, false);
+				CvPlot* pCityPlot = pSettler->plot();
+				int iPlotValue = GC.getGame().GetSettlerSiteEvaluator()->PlotFoundValue(pCityPlot, &GET_PLAYER(m_eOwner), NO_YIELD, false);
 
 				pSettler->PushMission(CvTypes::getMISSION_FOUND());
 
 				if(GC.getLogging() && GC.getAILogging())
 				{
-					CvArea* pArea = pPlot->area();
-					CvCity* pCity = pPlot->getPlotCity();
+					CvArea* pArea = pCityPlot->area();
+					CvCity* pCity = pCityPlot->getPlotCity();
 
 					if (pCity != NULL)
 					{
-						strMsg.Format("City founded, At X=%d, At Y=%d, %s, %d, %d", pPlot->getX(), pPlot->getY(), pCity->getName().GetCString(), iPlotValue, pArea->getTotalFoundValue());
+						strMsg.Format("City founded, At X=%d, At Y=%d, %s, %d, %d", pCityPlot->getX(), pCityPlot->getY(), pCity->getName().GetCString(), iPlotValue, pArea->getTotalFoundValue());
 						LogOperationSpecialMessage(strMsg);
 					}
 				}
@@ -3224,7 +3211,7 @@ bool CvAIOperationFoundCity::ArmyInPosition(CvArmyAI* pArmy)
 
 			// If we're at our target but can no longer found a city, might be someone else beat us to this area
 			// So move back out, picking a new target
-			else if(pPlot == GetTargetPlot() && !pSettler->canFound(pPlot))
+			else if(pSettler->plot() == GetTargetPlot() && !pSettler->canFound(pSettler->plot()))
 			{
 				if(GC.getLogging() && GC.getAILogging())
 				{
@@ -3240,7 +3227,6 @@ bool CvAIOperationFoundCity::ArmyInPosition(CvArmyAI* pArmy)
 					pEscort->finishMoves();
 				}
 			}
-			
 		}
 		break;
 
@@ -3770,7 +3756,6 @@ void CvAINavalOperation::Read(FDataStream& kStream)
 	// Version number to maintain backwards compatibility
 	uint uiVersion;
 	kStream >> uiVersion;
-	MOD_SERIALIZE_INIT_READ(kStream);
 }
 
 /// Write serialized data
@@ -3782,7 +3767,6 @@ void CvAINavalOperation::Write(FDataStream& kStream) const
 	// Current version number
 	uint uiVersion = 1;
 	kStream << uiVersion;
-	MOD_SERIALIZE_INIT_WRITE(kStream);
 }
 
 /// How close to target do we end up?
@@ -4001,7 +3985,6 @@ void CvAIOperationNavalBombardment::Read(FDataStream& kStream)
 	// Version number to maintain backwards compatibility
 	uint uiVersion;
 	kStream >> uiVersion;
-	MOD_SERIALIZE_INIT_READ(kStream);
 }
 
 /// Write serialized data
@@ -4013,7 +3996,6 @@ void CvAIOperationNavalBombardment::Write(FDataStream& kStream) const
 	// Current version number
 	uint uiVersion = 1;
 	kStream << uiVersion;
-	MOD_SERIALIZE_INIT_WRITE(kStream);
 }
 
 /// Same as default version except if just gathered forces, check to see if a better target has presented itself
@@ -4243,7 +4225,6 @@ void CvAIOperationNavalSuperiority::Read(FDataStream& kStream)
 	// Version number to maintain backwards compatibility
 	uint uiVersion;
 	kStream >> uiVersion;
-	MOD_SERIALIZE_INIT_READ(kStream);
 }
 
 /// Write serialized data
@@ -4255,7 +4236,6 @@ void CvAIOperationNavalSuperiority::Write(FDataStream& kStream) const
 	// Current version number
 	uint uiVersion = 1;
 	kStream << uiVersion;
-	MOD_SERIALIZE_INIT_WRITE(kStream);
 }
 
 /// Same as default version except if just gathered forces and this operation never reaches a final target (just keeps attacking until dead or the operation is ended)
@@ -4618,7 +4598,6 @@ void CvAIOperationPureNavalCityAttack::Read(FDataStream& kStream)
 	// Version number to maintain backwards compatibility
 	uint uiVersion;
 	kStream >> uiVersion;
-	MOD_SERIALIZE_INIT_READ(kStream);
 }
 
 /// Write serialized data
@@ -4630,7 +4609,6 @@ void CvAIOperationPureNavalCityAttack::Write(FDataStream& kStream) const
 	// Current version number
 	uint uiVersion = 1;
 	kStream << uiVersion;
-	MOD_SERIALIZE_INIT_WRITE(kStream);
 }
 
 /// How far out from the target city do we want to gather?
@@ -4789,7 +4767,6 @@ void CvAIOperationCityCloseDefense::Read(FDataStream& kStream)
 	// Version number to maintain backwards compatibility
 	uint uiVersion;
 	kStream >> uiVersion;
-	MOD_SERIALIZE_INIT_READ(kStream);
 }
 
 /// Write serialized data
@@ -4801,7 +4778,6 @@ void CvAIOperationCityCloseDefense::Write(FDataStream& kStream) const
 	// Current version number
 	uint uiVersion = 1;
 	kStream << uiVersion;
-	MOD_SERIALIZE_INIT_WRITE(kStream);
 }
 
 /// Find the best blocking position against the current threats
@@ -4905,7 +4881,6 @@ void CvAIOperationRapidResponse::Read(FDataStream& kStream)
 	// Version number to maintain backwards compatibility
 	uint uiVersion;
 	kStream >> uiVersion;
-	MOD_SERIALIZE_INIT_READ(kStream);
 }
 
 /// Write serialized data
@@ -4917,7 +4892,6 @@ void CvAIOperationRapidResponse::Write(FDataStream& kStream) const
 	// Current version number
 	uint uiVersion = 1;
 	kStream << uiVersion;
-	MOD_SERIALIZE_INIT_WRITE(kStream);
 }
 
 /// If have gathered forces, check to see what the best blocking position is.
@@ -5187,7 +5161,6 @@ void CvAINavalEscortedOperation::Read(FDataStream& kStream)
 	// Version number to maintain backwards compatibility
 	uint uiVersion;
 	kStream >> uiVersion;
-	MOD_SERIALIZE_INIT_READ(kStream);
 
 	kStream >> m_eCivilianType;
 }
@@ -5201,7 +5174,6 @@ void CvAINavalEscortedOperation::Write(FDataStream& kStream) const
 	// Current version number
 	uint uiVersion = 1;
 	kStream << uiVersion;
-	MOD_SERIALIZE_INIT_WRITE(kStream);
 
 	kStream << m_eCivilianType;
 }
@@ -5415,7 +5387,6 @@ void CvAIOperationNavalAttack::Read(FDataStream& kStream)
 	// Version number to maintain backwards compatibility
 	uint uiVersion;
 	kStream >> uiVersion;
-	MOD_SERIALIZE_INIT_READ(kStream);
 }
 
 /// Write serialized data
@@ -5427,7 +5398,6 @@ void CvAIOperationNavalAttack::Write(FDataStream& kStream) const
 	// Current version number
 	uint uiVersion = 1;
 	kStream << uiVersion;
-	MOD_SERIALIZE_INIT_WRITE(kStream);
 }
 
 /// If at target, found city; if at muster point, merge settler and escort and move out
@@ -5584,7 +5554,6 @@ void CvAIOperationNukeAttack::Read(FDataStream& kStream)
 	// Version number to maintain backwards compatibility
 	uint uiVersion;
 	kStream >> uiVersion;
-	MOD_SERIALIZE_INIT_READ(kStream);
 
 	kStream >> m_iBestUnitID;
 }
@@ -5598,7 +5567,6 @@ void CvAIOperationNukeAttack::Write(FDataStream& kStream) const
 	// Current version number
 	uint uiVersion = 1;
 	kStream << uiVersion;
-	MOD_SERIALIZE_INIT_WRITE(kStream);
 
 	kStream << m_iBestUnitID;
 }
@@ -5678,7 +5646,6 @@ CvPlot* CvAIOperationNukeAttack::FindBestTarget()
 						iThisCityValue -= pLoopCity->getDamage() / 5; // No point nuking a city that is already trashed unless it is good city
 
 						// check to see if there is anything good or bad in the radius that we should account for
-						iBlastRadius = GC.getNUKE_BLAST_RADIUS()+ pLoopUnit->GetExtraNukeBlastRadius();
 
 						for(int iDX = -iBlastRadius; iDX <= iBlastRadius; iDX++)
 						{

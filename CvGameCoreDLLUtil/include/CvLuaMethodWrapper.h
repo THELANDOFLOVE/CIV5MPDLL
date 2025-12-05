@@ -6,6 +6,7 @@
 template< class Derived, class InstanceType>
 class CvLuaMethodWrapper
 {
+
 protected:
 	//These are helper templates that will allow for quick and easy member function wrapping when
 	//implementing a Lua method.
@@ -63,7 +64,6 @@ protected:
 //------------------------------------------------------------------------------
 // regular variations (const)
 //------------------------------------------------------------------------------
-
 template<class Derived, class InstanceType> template<typename ret>
 int CvLuaMethodWrapper<Derived, InstanceType>::BasicLuaMethod(lua_State* L, ret (InstanceType::*func)() const)
 {

@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -227,11 +227,7 @@ CvAICityStrategyEntry* CvAICityStrategies::GetEntry(int index)
 //=====================================
 
 /// defining static
-#if defined(MOD_GLOBAL_CITY_WORKING)
-unsigned char  CvCityStrategyAI::m_acBestYields[NUM_YIELD_TYPES][MAX_CITY_PLOTS];
-#else
 unsigned char  CvCityStrategyAI::m_acBestYields[NUM_YIELD_TYPES][NUM_CITY_PLOTS];
-#endif
 
 /// Constructor
 CvCityStrategyAI::CvCityStrategyAI():
@@ -327,7 +323,6 @@ void CvCityStrategyAI::Read(FDataStream& kStream)
 	// Version number to maintain backwards compatibility
 	uint uiVersion;
 	kStream >> uiVersion;
-	MOD_SERIALIZE_INIT_READ(kStream);
 
 	CvAssertMsg(m_piLatestFlavorValues != NULL && GC.getNumFlavorTypes() > 0, "Number of flavor values to serialize is expected to greater than 0");
 
@@ -355,7 +350,6 @@ void CvCityStrategyAI::Write(FDataStream& kStream)
 	// Current version number
 	uint uiVersion = 1;
 	kStream << uiVersion;
-	MOD_SERIALIZE_INIT_WRITE(kStream);
 
 	CvAssertMsg(GC.getNumFlavorTypes() > 0, "Number of flavor values to serialize is expected to greater than 0");
 	int iNumFlavors = GC.getNumFlavorTypes();
@@ -723,24 +717,6 @@ double CvCityStrategyAI::GetDeficientYieldValue(YieldTypes eYieldType)
 		break;
 	case YIELD_FAITH:
 		break;
-	case YIELD_TOURISM:
-		break;
-	case YIELD_GOLDEN_AGE_POINTS:
-		break;
-
-#if defined(MOD_API_UNIFIED_YIELDS_MORE)
-	case YIELD_GREAT_GENERAL_POINTS:
-	case YIELD_GREAT_ADMIRAL_POINTS:
-	case YIELD_HEALTH:
-	case YIELD_DISEASE:
-	case YIELD_CRIME:
-	case YIELD_LOYALTY:
-	case YIELD_SOVEREIGNTY:
-	case YIELD_VIOLENCE:
-	case YIELD_HERESY:
-		break;
-#endif
-
 	default:
 		FAssertMsg(false, "Yield type is not handled. What?");
 		return false;
@@ -817,12 +793,6 @@ void CvCityStrategyAI::ChooseProduction(bool bUseAsyncRandom, BuildingTypes eIgn
 			}
 		}
 
-#if defined(MOD_AI_SMART_V3)
-		if (MOD_AI_SMART_V3)
-		{
-			iTempWeight = GetUnitProductionAI()->GetTempWeightRevised(eUnitForOperation, iTempWeight);
-		}
-#endif
 		if (iTempWeight > 0)
 		{
 			m_Buildables.push_back(buildable, iTempWeight);
@@ -845,12 +815,6 @@ void CvCityStrategyAI::ChooseProduction(bool bUseAsyncRandom, BuildingTypes eIgn
 		// add in the weight of this unit as if I were deciding to build it without having a reason
 		iTempWeight += m_pUnitProductionAI->GetWeight(eUnitForArmy);
 
-#if defined(MOD_AI_SMART_V3)
-		if (MOD_AI_SMART_V3)
-		{
-			iTempWeight = GetUnitProductionAI()->GetTempWeightRevised(eUnitForArmy, iTempWeight);
-		}
-#endif
 		if (iTempWeight > 0)
 		{
 			m_Buildables.push_back(buildable, iTempWeight);
@@ -930,10 +894,6 @@ void CvCityStrategyAI::ChooseProduction(bool bUseAsyncRandom, BuildingTypes eIgn
 				{
 					iTempWeight = 0;
 				}
-				
-#if defined(MOD_AI_SMART_V3)
-				if (!MOD_AI_SMART_V3)
-#endif
 				// it also avoids military training buildings - since it can't build units
 				if(pkBuildingInfo->GetDomainFreeExperience(DOMAIN_LAND))
 				{
@@ -954,140 +914,6 @@ void CvCityStrategyAI::ChooseProduction(bool bUseAsyncRandom, BuildingTypes eIgn
 					}
 				}
 			}
-			
-#if defined(MOD_AI_SMART_V3)
-			if (MOD_AI_SMART_V3)
-			{
-				const CvBuildingClassInfo& kbClassInfo = pkBuildingInfo->GetBuildingClassInfo();
-				// Buiding that only can produce one in empire? (National/World wonder)
-				if((kbClassInfo.getMaxPlayerInstances() == 1) || (kbClassInfo.getMaxGlobalInstances() == 1))
-				{
-					// All worls wonders have a specific restriction behavior.
-					bool bIsWorldWonder = kbClassInfo.getMaxGlobalInstances() == 1;
-
-					// Grand Temple restriction!
-					bool bRequireHolyCity = pkBuildingInfo->IsRequiresHolyCity();
-
-					// Hermitage, Tourist Center
-					bool bIsCultureRelatedBuilding = (pkBuildingInfo->GetCultureRateModifier() > 0) || ((pkBuildingInfo->GetLandmarksTourismPercent() + pkBuildingInfo->GetGreatWorksTourismModifier() + pkBuildingInfo->GetLandmarksTourismPercentGlobal() + pkBuildingInfo->GetGreatWorksTourismModifierGlobal()) > 0);
-
-					// National college, Oxford University
-					bool bIsScienceBoostBuilding = (pkBuildingInfo->GetYieldModifier(YIELD_SCIENCE) > 0) || (pkBuildingInfo->GetYieldChange(YIELD_SCIENCE) > 1);
-
-					// All Guilds
-					bool bIsGreatPeopleProvider = pkBuildingInfo->GetSpecialistCount() > 0;
-
-					// National Epic
-					bool bIsGreatPleopleBooster = pkBuildingInfo->GetGreatPeopleRateModifier() > 0;
-
-					// East India Company
-					bool bIsTradeRouteBooster = (pkBuildingInfo->GetTradeRouteRecipientBonus() + pkBuildingInfo->GetTradeRouteTargetBonus()) > 0;
-
-					// Iron works, Circus Maximus, National Intelligence agency, any custom National wonder without any bonus previously checked.
-					bool bOtherNationalWonder = !bIsWorldWonder && !bRequireHolyCity && !bIsCultureRelatedBuilding && !bIsScienceBoostBuilding && !bIsGreatPeopleProvider && !bIsGreatPleopleBooster && !bIsTradeRouteBooster;
-
-					CvWeightedVector<CvCity *, SAFE_ESTIMATE_NUM_CITIES, true> weightedCityList;
-					CvCity* pLoopCity = NULL;
-					int iLoop = 0;
-					int nonPuppetCities = 0;
-					// Lets check some values in all cities.
-					for(pLoopCity = kPlayer.firstCity(&iLoop); pLoopCity != NULL; pLoopCity = kPlayer.nextCity(&iLoop))
-					{
-						if (!pLoopCity->IsPuppet())
-						{
-							nonPuppetCities++;
-							// City could build current building being checked?
-							if (pLoopCity->canConstruct(eLoopBuilding))
-							{
-								int cityScore = 0;
-
-								if (bRequireHolyCity)
-								{
-									// canConstruct filter will filter out any non holy city.
-									cityScore += 100;
-								}
-
-								if (bIsCultureRelatedBuilding)
-								{
-									cityScore += pLoopCity->getJONSCulturePerTurn();
-								}
-								if(bIsScienceBoostBuilding)
-								{
-									cityScore += pLoopCity->getYieldRate(YIELD_SCIENCE, true);
-								}
-								if (bIsGreatPleopleBooster)
-								{
-									int gpCount = pLoopCity->GetCityCitizens()->GetTotalSpecialistCount();
-									if (gpCount > 2)
-									{
-										cityScore += (gpCount * 20);
-									}								
-								}
-								if (bIsGreatPeopleProvider)
-								{
-									int gpScore = pLoopCity->foodDifference() + pLoopCity->getPopulation() - (pLoopCity->GetCityCitizens()->GetTotalSpecialistCount() * 2);
-									if (gpScore > 7)
-									{
-										cityScore += (gpScore * 5);
-									}								
-								}
-								if (bIsTradeRouteBooster)
-								{
-									CvPlayerTrade* pTrade = GET_PLAYER(m_pCity->getOwner()).GetTrade();
-									if(pTrade)
-									{
-										int iLandTrade = pTrade->GetNumPotentialConnections(pLoopCity, DOMAIN_LAND);
-										int iSeaTrade = pTrade->GetNumPotentialConnections(pLoopCity, DOMAIN_SEA);
-										cityScore += (iLandTrade + iSeaTrade);
-									}
-									else
-									{
-										// Shouldn't happen, but anyways...
-										bOtherNationalWonder = true;
-									}
-								}
-
-								if (bOtherNationalWonder || bIsWorldWonder)
-								{
-									cityScore += pLoopCity->getCurrentProductionDifference(true, false);
-								}
-
-								if (cityScore > 0)
-								{
-									weightedCityList.push_back(pLoopCity, cityScore);
-								}							
-							}
-						}
-					}
-
-					// Start checking more cities for wide empires, starting at two cities with 5 non-puppets, for wonders 3.
-					int cityDivisor = bIsWorldWonder? 3 : 5;
-					int numCitiesChecked = min(weightedCityList.size(), (1 + (nonPuppetCities / cityDivisor)));
-					bool bValidCity = false;
-					// Sort for higher scored cities on top.
-					weightedCityList.SortItems();
-					for (int cityIt = 0; cityIt < numCitiesChecked; cityIt++)
-					{
-						if ((weightedCityList.GetElement(cityIt)->GetID() == GetCity()->GetID()) && (weightedCityList.GetWeight(cityIt) > 0))
-						{
-							bValidCity = true;
-							if (!bIsWorldWonder)
-							{
-								// We also boost the national wonder weight: we want it ASAP.
-								iTempWeight = (iTempWeight * 3) / 2;
-							}
-							break;
-						}
-					}				
-
-					if (!bValidCity)
-					{
-						iTempWeight = 0;
-					}
-				}
-			}
-#endif
-
 			if(iTempWeight > 0)
 				m_Buildables.push_back(buildable, iTempWeight);
 		}
@@ -1139,12 +965,7 @@ void CvCityStrategyAI::ChooseProduction(bool bUseAsyncRandom, BuildingTypes eIgn
 						{
 							int iWaterTiles = pBiggestNearbyBodyOfWater->getNumTiles();
 							int iNumUnitsofMine = pBiggestNearbyBodyOfWater->getUnitsPerPlayer(m_pCity->getOwner());
-#if defined(MOD_CONFIG_AI_IN_XML)
-							int iFactor = GC.getAI_CONFIG_MILITARY_TILES_PER_SHIP();
-							if (iNumUnitsofMine * iFactor > iWaterTiles)
-#else
 							if (iNumUnitsofMine * 5 > iWaterTiles)
-#endif
 							{
 								iTempWeight = 0;
 							}
@@ -1155,12 +976,6 @@ void CvCityStrategyAI::ChooseProduction(bool bUseAsyncRandom, BuildingTypes eIgn
 						}
 					}
 				}
-#if defined(MOD_AI_SMART_V3)
-				if (MOD_AI_SMART_V3)
-				{
-					iTempWeight = GetUnitProductionAI()->GetTempWeightRevised((UnitTypes)iUnitLoop, iTempWeight);
-				}
-#endif
 
 
 				if(iTempWeight > 0)
@@ -1189,7 +1004,7 @@ void CvCityStrategyAI::ChooseProduction(bool bUseAsyncRandom, BuildingTypes eIgn
 		if (!GET_PLAYER(m_pCity->getOwner()).isMinorCiv())
 		{
 			//I cannot use the yield rate since it adds in set process yield, which is what I am trying to set...
-			int iBaseYield = GetCity()->getBaseYieldRate(YIELD_PRODUCTION, false) * 100;
+			int iBaseYield = GetCity()->getBaseYieldRate(YIELD_PRODUCTION) * 100;
 			iBaseYield += (GetCity()->GetYieldPerPopTimes100(YIELD_PRODUCTION) * GetCity()->getPopulation());
 			int iModifiedYield = iBaseYield * GetCity()->getBaseYieldRateModifier(YIELD_PRODUCTION);
 			iModifiedYield /= 100;
@@ -1222,25 +1037,7 @@ void CvCityStrategyAI::ChooseProduction(bool bUseAsyncRandom, BuildingTypes eIgn
 	{
 		// Choose from the best options (currently 2)
 		int iNumChoices = GC.getGame().getHandicapInfo().GetCityProductionNumOptions();
-		int iRandLogging = GC.getRandLogging();
-		FILogFile* pLog = LOGFILEMGR.GetLog("RandCalls.csv", FILogFile::kDontTimeStamp);
-		if (iRandLogging > 0 && pLog) {
-			char buffer[1024] = { 0 };
-			string msg = "Processing city Choose Production: City Name: ";
-			string strCityName = GetCity()->getName();
-			msg += strCityName;
-			msg += " City ID: ";
-			_itoa_s(GetCity()->GetID(), buffer, 10);
-			msg += buffer;
-			msg += " iNumChoices: ";
-			_itoa_s(iNumChoices, buffer, 10);
-			msg += buffer;
-			pLog->Msg(msg.c_str());
-			pLog->Msg("\n");
-		}
-
 		selection = m_Buildables.ChooseFromTopChoices(iNumChoices, &fcn, "Choosing city build from Top Choices");
-		
 		int iRushIfMoreThanXTurns = GC.getAI_ATTEMPT_RUSH_OVER_X_TURNS_TO_BUILD();
 		if(GET_PLAYER(m_pCity->getOwner()).isMinorCiv())
 		{
@@ -1311,11 +1108,9 @@ void CvCityStrategyAI::DoTurn()
 	{
 		AICityStrategyTypes eCityStrategy = (AICityStrategyTypes) iCityStrategiesLoop;
 		CvAICityStrategyEntry* pCityStrategy = GetAICityStrategies()->GetEntry(iCityStrategiesLoop);
-		CvCity* pCity = GetCity();
-		if (pCity == NULL) continue;
 
 		// Minor Civs can't run some Strategies
-		if(GET_PLAYER(pCity->getOwner()).isMinorCiv() && pCityStrategy->IsNoMinorCivs())
+		if(GET_PLAYER(GetCity()->getOwner()).isMinorCiv() && pCityStrategy->IsNoMinorCivs())
 		{
 			continue;
 		}
@@ -1330,13 +1125,13 @@ void CvCityStrategyAI::DoTurn()
 		else
 		{
 			// Has the prereq Tech necessary?
-			if(pCityStrategy->GetTechPrereq() != NO_TECH && !GET_TEAM(pCity->getTeam()).GetTeamTechs()->HasTech((TechTypes) pCityStrategy->GetTechPrereq()))
+			if(pCityStrategy->GetTechPrereq() != NO_TECH && !GET_TEAM(GetCity()->getTeam()).GetTeamTechs()->HasTech((TechTypes) pCityStrategy->GetTechPrereq()))
 			{
 				bTestCityStrategyStart = false;
 			}
 
 			// Has the Tech which obsoletes this Strategy?
-			if(bTestCityStrategyStart && pCityStrategy->GetTechObsolete() != NO_TECH && GET_TEAM(pCity->getTeam()).GetTeamTechs()->HasTech((TechTypes) pCityStrategy->GetTechObsolete()))
+			if(bTestCityStrategyStart && pCityStrategy->GetTechObsolete() != NO_TECH && GET_TEAM(GetCity()->getTeam()).GetTeamTechs()->HasTech((TechTypes) pCityStrategy->GetTechObsolete()))
 			{
 				bTestCityStrategyStart = false;
 			}
@@ -1378,7 +1173,7 @@ void CvCityStrategyAI::DoTurn()
 			bool bStrategyShouldBeActive = false;
 
 			// Has the Tech which obsoletes this Strategy? If so, Strategy should be deactivated regardless of other factors
-			if(pCityStrategy->GetTechObsolete() != NO_TECH && GET_TEAM(pCity->getTeam()).GetTeamTechs()->HasTech((TechTypes) pCityStrategy->GetTechObsolete()))
+			if(pCityStrategy->GetTechObsolete() != NO_TECH && GET_TEAM(GetCity()->getTeam()).GetTeamTechs()->HasTech((TechTypes) pCityStrategy->GetTechObsolete()))
 			{
 				bStrategyShouldBeActive = false;
 			}
@@ -1389,94 +1184,94 @@ void CvCityStrategyAI::DoTurn()
 
 				// Check all of the CityStrategy Triggers
 				if(strStrategyName == "AICITYSTRATEGY_TINY_CITY")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_TinyCity(pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_TinyCity(GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_SMALL_CITY")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_SmallCity(pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_SmallCity(GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_MEDIUM_CITY")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_MediumCity(pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_MediumCity(GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_LARGE_CITY")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_LargeCity(pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_LargeCity(GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_LANDLOCKED")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_Landlocked(pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_Landlocked(GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_NEED_TILE_IMPROVERS")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_NeedTileImprovers(eCityStrategy, pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_NeedTileImprovers(eCityStrategy, GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_WANT_TILE_IMPROVERS")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_WantTileImprovers(eCityStrategy, pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_WantTileImprovers(eCityStrategy, GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_ENOUGH_TILE_IMPROVERS")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_EnoughTileImprovers(eCityStrategy, pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_EnoughTileImprovers(eCityStrategy, GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_NEED_NAVAL_GROWTH")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_NeedNavalGrowth(eCityStrategy, pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_NeedNavalGrowth(eCityStrategy, GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_NEED_NAVAL_TILE_IMPROVEMENT")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_NeedNavalTileImprovement(pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_NeedNavalTileImprovement(GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_ENOUGH_NAVAL_TILE_IMPROVEMENT")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_EnoughNavalTileImprovement(pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_EnoughNavalTileImprovement(GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_NEED_IMPROVEMENT_FOOD")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_NeedImprovement(pCity, YIELD_FOOD);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_NeedImprovement(GetCity(), YIELD_FOOD);
 				else if(strStrategyName == "AICITYSTRATEGY_NEED_IMPROVEMENT_PRODUCTION")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_NeedImprovement(pCity, YIELD_PRODUCTION);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_NeedImprovement(GetCity(), YIELD_PRODUCTION);
 				else if(strStrategyName == "AICITYSTRATEGY_HAVE_TRAINING_FACILITY")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_HaveTrainingFacility(pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_HaveTrainingFacility(GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_CAPITAL_NEED_SETTLER")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_CapitalNeedSettler(eCityStrategy, pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_CapitalNeedSettler(eCityStrategy, GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_CAPITAL_UNDER_THREAT")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_CapitalUnderThreat(pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_CapitalUnderThreat(GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_FIRST_CULTURE_BUILDING_EMERGENCY")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_FirstCultureBuildingEmergency(pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_FirstCultureBuildingEmergency(GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_FIRST_CULTURE_BUILDING")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_FirstCultureBuilding(pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_FirstCultureBuilding(GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_FIRST_SCIENCE_BUILDING")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_FirstScienceBuilding(pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_FirstScienceBuilding(GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_FIRST_GOLD_BUILDING")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_FirstGoldBuilding(pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_FirstGoldBuilding(GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_FIRST_FAITH_BUILDING")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_FirstFaithBuilding(pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_FirstFaithBuilding(GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_FIRST_PRODUCTION_BUILDING")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_FirstProductionBuilding(pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_FirstProductionBuilding(GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_UNDER_BLOCKADE")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_UnderBlockade(pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_UnderBlockade(GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_IS_PUPPET")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_IsPuppet(pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_IsPuppet(GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_MEDIUM_CITY_HIGH_DIFFICULTY")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_MediumCityHighDifficulty(pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_MediumCityHighDifficulty(GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_ORIGINAL_CAPITAL")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_OriginalCapital(pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_OriginalCapital(GetCity());
 
 				else if(strStrategyName == "AICITYSTRATEGY_RIVER_CITY")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_RiverCity(pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_RiverCity(GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_MOUNTAIN_CITY")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_MountainCity(pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_MountainCity(GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_FOREST_CITY")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_ForestCity(pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_ForestCity(GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_HILL_CITY")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_HillCity(pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_HillCity(GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_JUNGLE_CITY")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_JungleCity(pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_JungleCity(GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_COAST_CITY")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_CoastCity(pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_CoastCity(GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_MANY_TECHS_STOLEN")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_ManyTechsStolen(pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_ManyTechsStolen(GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_KEY_SCIENCE_CITY")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_KeyScienceCity(pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_KeyScienceCity(GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_GOOD_GP_CITY")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_GoodGPCity(pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_GoodGPCity(GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_NEED_INTERNATIONAL_LAND_TRADE_ROUTE")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_NeedInternationalTradeRoute(pCity, DOMAIN_LAND);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_NeedInternationalTradeRoute(GetCity(), DOMAIN_LAND);
 				else if(strStrategyName == "AICITYSTRATEGY_NO_NEED_INTERNATIONAL_LAND_TRADE_ROUTE")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_NoNeedInternationalTradeRoute(pCity, DOMAIN_LAND);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_NoNeedInternationalTradeRoute(GetCity(), DOMAIN_LAND);
 				else if(strStrategyName == "AICITYSTRATEGY_NEED_INTERNATIONAL_SEA_TRADE_ROUTE")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_NeedInternationalTradeRoute(pCity, DOMAIN_SEA);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_NeedInternationalTradeRoute(GetCity(), DOMAIN_SEA);
 				else if(strStrategyName == "AICITYSTRATEGY_NO_NEED_INTERNATIONAL_SEA_TRADE_ROUTE")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_NoNeedInternationalTradeRoute(pCity, DOMAIN_SEA);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_NoNeedInternationalTradeRoute(GetCity(), DOMAIN_SEA);
 				else if(strStrategyName == "AICITYSTRATEGY_INTERNATIONAL_TRADE_DESTINATION")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_IsInternationalTradeDestination(pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_IsInternationalTradeDestination(GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_INTERNATIONAL_TRADE_ORIGIN")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_IsInternationalTradeOrigin(pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_IsInternationalTradeOrigin(GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_NEED_CULTURE_BUILDING")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_NeedCultureBuilding(pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_NeedCultureBuilding(GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_NEED_TOURISM_BUILDING")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_NeedTourismBuilding(pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_NeedTourismBuilding(GetCity());
 				else if(strStrategyName == "AICITYSTRATEGY_GOOD_AIRLIFT_CITY")
-					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_GoodAirliftCity(pCity);
+					bStrategyShouldBeActive = CityStrategyAIHelpers::IsTestCityStrategy_GoodAirliftCity(GetCity());
 
 				// Check Lua hook
 				ICvEngineScriptSystem1* pkScriptSystem = gDLL->GetScriptSystem();
@@ -1484,8 +1279,8 @@ void CvCityStrategyAI::DoTurn()
 				{
 					CvLuaArgsHandle args;
 					args->Push(iCityStrategiesLoop);
-					args->Push(pCity->getOwner());
-					args->Push(pCity->GetID());
+					args->Push(GetCity()->getOwner());
+					args->Push(GetCity()->GetID());
 
 					// Attempt to execute the game events.
 					// Will return false if there are no registered listeners.
@@ -1603,11 +1398,7 @@ void CvCityStrategyAI::ResetBestYields()
 {
 	for(uint uiYields = 0; uiYields < NUM_YIELD_TYPES; uiYields++)
 	{
-#if defined(MOD_GLOBAL_CITY_WORKING)
-		for(uint uiPlots = 0; uiPlots < MAX_CITY_PLOTS - 1; uiPlots++)
-#else
 		for(uint uiPlots = 0; uiPlots < NUM_CITY_PLOTS - 1; uiPlots++)
-#endif
 		{
 			m_acBestYields[uiYields][uiPlots] = MAX_UNSIGNED_CHAR;
 		}
@@ -1622,11 +1413,7 @@ void CvCityStrategyAI::UpdateBestYields()
 
 	ResetBestYields();
 
-#if defined(MOD_GLOBAL_CITY_WORKING)
-	int iPopulationToEvaluate = min(m_pCity->getPopulation() + 2, m_pCity->GetNumWorkablePlots());
-#else
 	int iPopulationToEvaluate = min(m_pCity->getPopulation() + 2, NUM_CITY_PLOTS);
-#endif
 	CvPlot* pPlot = NULL;
 	uint uiPlotsEvaluated = 0;
 
@@ -1638,11 +1425,7 @@ void CvCityStrategyAI::UpdateBestYields()
 		}
 	};
 
-#if defined(MOD_GLOBAL_CITY_WORKING)
-	for(int iPlotLoop = 0; iPlotLoop < m_pCity->GetNumWorkablePlots(); iPlotLoop++)
-#else
 	for(int iPlotLoop = 0; iPlotLoop < NUM_CITY_PLOTS; iPlotLoop++)
-#endif
 	{
 		// we want to evaluate the city plot
 		//if (iPlotLoop == CITY_HOME_PLOT)
@@ -1713,11 +1496,7 @@ void CvCityStrategyAI::UpdateBestYields()
 				{
 					if(pCityBuildings->GetNumBuilding(eBuilding) > 0)
 					{
-#if defined(MOD_BUGFIX_MINOR)
-						iCityYieldSum += pkBuildingInfo->GetYieldChange(iYield) * pCityBuildings->GetNumBuilding(eBuilding);
-#else
 						iCityYieldSum += pkBuildingInfo->GetYieldChange(iYield);
-#endif
 					}
 				}
 			}
@@ -2302,25 +2081,11 @@ bool CityStrategyAIHelpers::IsTestCityStrategy_Landlocked(CvCity* pCity)
 /// "Need Tile Improvers" City Strategy: Do we REALLY need to train some Workers?
 bool CityStrategyAIHelpers::IsTestCityStrategy_NeedTileImprovers(AICityStrategyTypes eStrategy, CvCity* pCity)
 {
-	// If we don't have any Workers by turn 30 we really need to get moving
-	int iDesperateTurn = /*30*/ GC.getAI_CITYSTRATEGY_NEED_TILE_IMPROVERS_DESPERATE_TURN();
-	iDesperateTurn *= GC.getGame().getGameSpeedInfo().getTrainPercent();
-	iDesperateTurn /= 100;
-	if(GC.getGame().getElapsedGameTurns() <= iDesperateTurn) return false;
-
 	CvPlayer& kPlayer = GET_PLAYER(pCity->getOwner());
-	// If we're losing at war, return false
-	if(kPlayer.GetDiplomacyAI()->GetStateAllWars() == STATE_ALL_WARS_LOSING)
-		return false;
 	int iCurrentNumCities = kPlayer.getNumCities();
 
 	int iLastTurnWorkerDisbanded = kPlayer.GetEconomicAI()->GetLastTurnWorkerDisbanded();
 	if(iLastTurnWorkerDisbanded >= 0 && GC.getGame().getGameTurn() - iLastTurnWorkerDisbanded <= 25)
-	{
-		return false;
-	}
-	int iCityLastTurnWorkerDisbanded = pCity->GetLastTurnWorkerDisbanded();
-	if(iCityLastTurnWorkerDisbanded > 0 && GC.getGame().getElapsedGameTurns() - iCityLastTurnWorkerDisbanded <= 15)
 	{
 		return false;
 	}
@@ -2334,94 +2099,11 @@ bool CityStrategyAIHelpers::IsTestCityStrategy_NeedTileImprovers(AICityStrategyT
 	}
 	else
 	{
-#if defined(MOD_AI_SMART_V3)
-#endif
-		int iNumCities = 1;
-		
-		// for SP, AI will cheat to improve tiles, so, simplify it
-		if (MOD_AI_SMART_V3 && !MOD_SP_SMART_AI)
-		{
-			CvCity* pLoopCity = NULL;
-			int iLoop = 0;
-			int iNumImprovedTiles = 0;
-			int iNumEmptyTiles = 0;
-			// Lets check some values in all cities.
-			for(pLoopCity = kPlayer.firstCity(&iLoop); pLoopCity != NULL; pLoopCity = kPlayer.nextCity(&iLoop))
-			{
-				// Look at all Tiles and count improved vs uninproved.
-				CvPlot* pLoopPlot;
-#if defined(MOD_GLOBAL_CITY_WORKING)
-				for (int iPlotLoop = 0; iPlotLoop < pLoopCity->GetNumWorkablePlots(); iPlotLoop++)
-#else
-				for (int iPlotLoop = 0; iPlotLoop < NUM_CITY_PLOTS; iPlotLoop++)
-#endif
-				{
-					pLoopPlot = plotCity(pLoopCity->getX(), pLoopCity->getY(), iPlotLoop);
-
-					if(pLoopPlot != NULL)
-					{
-						if(pLoopPlot->getOwner() == pCity->getOwner())
-						{
-							//for SP, Worker can Improvement water plot
-							if(MOD_SP_SMART_AI || !pLoopPlot->isWater())
-							{
-								if(pLoopPlot->getImprovementType() != NO_IMPROVEMENT)
-								{
-									if (pLoopPlot->IsImprovementPillaged())
-									{
-										iNumEmptyTiles++;
-									}
-									else
-									{
-										iNumImprovedTiles++;
-									}
-								}
-								else
-								{
-									for(int iBuildIndex = 0; iBuildIndex < GC.getNumBuildInfos(); iBuildIndex++)
-									{
-										BuildTypes eBuild = (BuildTypes) iBuildIndex;
-										CvBuildInfo* pBuildInfo = GC.getBuildInfo(eBuild);
-										if(pBuildInfo == NULL)
-											continue;
-
-										ImprovementTypes eImprovement = (ImprovementTypes) pBuildInfo->getImprovement();
-									
-										if(eImprovement == NO_IMPROVEMENT)
-											continue;
-
-										if(kPlayer.canBuild(pLoopPlot, eBuild, false /*bTestEra*/, false /*bTestVisible*/, false /*bTestGold*/, false))
-										{
-											iNumEmptyTiles++;
-											break;
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		
-			if ((iNumImprovedTiles * 3) < iNumEmptyTiles)
-			{
-				iNumCities = max(1, (iCurrentNumCities * 4) / 3);
-			}
-			else if ((iNumEmptyTiles * 3) < iNumImprovedTiles)
-			{
-				iNumCities = max(1, (iCurrentNumCities * 3) / 4);
-			}
-			else
-			{
-				iNumCities = iCurrentNumCities;
-			}
-		}
-		else
-		{
-			if(MOD_SP_SMART_AI && iNumCities < 10) iNumCities = max(1, (iCurrentNumCities * 3) / 2);
-			else iNumCities = max(1, (iCurrentNumCities * 3) / 4);
-		}
+		int iNumCities = max(1, (iCurrentNumCities * 3) / 4);
 		if(iNumWorkers >= iNumCities)
+			return false;
+		// If we're losing at war, return false
+		if(kPlayer.GetDiplomacyAI()->GetStateAllWars() == STATE_ALL_WARS_LOSING)
 			return false;
 	}
 
@@ -2447,7 +2129,14 @@ bool CityStrategyAIHelpers::IsTestCityStrategy_NeedTileImprovers(AICityStrategyT
 	// We have fewer than we think we should, or we have none at all
 	if(iModdedNumWorkers <= iModdedNumCities || iModdedNumWorkers == 0)
 	{
-		return true;
+		// If we don't have any Workers by turn 30 we really need to get moving
+		int iDesperateTurn = /*30*/ GC.getAI_CITYSTRATEGY_NEED_TILE_IMPROVERS_DESPERATE_TURN();
+
+		iDesperateTurn *= GC.getGame().getGameSpeedInfo().getTrainPercent();
+		iDesperateTurn /= 100;
+
+		if(GC.getGame().getElapsedGameTurns() > iDesperateTurn)
+			return true;
 	}
 
 	return false;
@@ -2457,18 +2146,17 @@ bool CityStrategyAIHelpers::IsTestCityStrategy_NeedTileImprovers(AICityStrategyT
 bool CityStrategyAIHelpers::IsTestCityStrategy_WantTileImprovers(AICityStrategyTypes eStrategy, CvCity* pCity)
 {
 	CvPlayer& kPlayer = GET_PLAYER(pCity->getOwner());
-	// If we're losing at war, return false
-	if(GET_PLAYER(pCity->getOwner()).GetDiplomacyAI()->GetStateAllWars() == STATE_ALL_WARS_LOSING)
-		return false;
 	int iLastTurnWorkerDisbanded = kPlayer.GetEconomicAI()->GetLastTurnWorkerDisbanded();
 	if(iLastTurnWorkerDisbanded >= 0 && GC.getGame().getGameTurn() - iLastTurnWorkerDisbanded <= 10)
 	{
 		return false;
 	}
-	int iCityLastTurnWorkerDisbanded = pCity->GetLastTurnWorkerDisbanded();
-	if(iCityLastTurnWorkerDisbanded > 0 && GC.getGame().getElapsedGameTurns() - iCityLastTurnWorkerDisbanded <= 10)
+
+	if(!GET_PLAYER(pCity->getOwner()).isMinorCiv())
 	{
-		return false;
+		// If we're losing at war, return false
+		if(GET_PLAYER(pCity->getOwner()).GetDiplomacyAI()->GetStateAllWars() == STATE_ALL_WARS_LOSING)
+			return false;
 	}
 
 	int iNumWorkers = kPlayer.GetNumUnitsWithUnitAI(UNITAI_WORKER, true, false);
@@ -2507,11 +2195,7 @@ bool CityStrategyAIHelpers::IsTestCityStrategy_WantTileImprovers(AICityStrategyT
 		int iNumResources = 0;
 		int iNumImprovedResources = 0;
 
-#if defined(MOD_GLOBAL_CITY_WORKING)
-		for(int iPlotLoop = 0; iPlotLoop < pCity->GetNumWorkablePlots(); iPlotLoop++)
-#else
 		for(int iPlotLoop = 0; iPlotLoop < NUM_CITY_PLOTS; iPlotLoop++)
-#endif
 		{
 			pLoopPlot = plotCity(pCity->getX(), pCity->getY(), iPlotLoop);
 
@@ -2519,8 +2203,7 @@ bool CityStrategyAIHelpers::IsTestCityStrategy_WantTileImprovers(AICityStrategyT
 			{
 				if(pLoopPlot->getOwner() == pCity->getOwner())
 				{
-					//for SP, Worker can Improvement water plot
-					if(!pLoopPlot->isWater() || MOD_SP_SMART_AI)
+					if(!pLoopPlot->isWater())
 					{
 						ResourceTypes eResource = pLoopPlot->getResourceType(kPlayer.getTeam());
 						if(eResource == NO_RESOURCE)
@@ -2681,11 +2364,7 @@ bool CityStrategyAIHelpers::IsTestCityStrategy_NeedNavalGrowth(AICityStrategyTyp
 	CvPlot* pLoopPlot;
 
 	// Look at all Tiles this City could potentially work
-#if defined(MOD_GLOBAL_CITY_WORKING)
-	for(int iPlotLoop = 0; iPlotLoop < pCity->GetNumWorkablePlots(); iPlotLoop++)
-#else
 	for(int iPlotLoop = 0; iPlotLoop < NUM_CITY_PLOTS; iPlotLoop++)
-#endif
 	{
 		pLoopPlot = plotCity(pCity->getX(), pCity->getY(), iPlotLoop);
 
@@ -2726,18 +2405,12 @@ bool CityStrategyAIHelpers::IsTestCityStrategy_NeedNavalGrowth(AICityStrategyTyp
 /// "Need Naval Tile Improvement" City Strategy: If there's an unimproved Resource in the water that we could be using, HIGHLY prioritize NAVAL_TILE_IMPROVEMENT in this City: should give us a Workboat in short order
 bool CityStrategyAIHelpers::IsTestCityStrategy_NeedNavalTileImprovement(CvCity* pCity)
 {
-	//for SP, we only need workers
-	if(MOD_SP_SMART_AI) return false;
 	int iNumUnimprovedWaterResources = 0;
 
 	CvPlot* pLoopPlot;
 
 	// Look at all Tiles this City could potentially work to see if there are any Water Resources that could be improved
-#if defined(MOD_GLOBAL_CITY_WORKING)
-	for(int iPlotLoop = 0; iPlotLoop < pCity->GetNumWorkablePlots(); iPlotLoop++)
-#else
 	for(int iPlotLoop = 0; iPlotLoop < NUM_CITY_PLOTS; iPlotLoop++)
-#endif
 	{
 		pLoopPlot = plotCity(pCity->getX(), pCity->getY(), iPlotLoop);
 
@@ -2847,30 +2520,9 @@ bool CityStrategyAIHelpers::IsTestCityStrategy_CapitalNeedSettler(AICityStrategy
 				int iWeightThreshold = pCityStrategy->GetWeightThreshold() + iWeightThresholdModifier;	// 130
 
 				int iGameTurn = GC.getGame().getGameTurn();
-#if defined(MOD_AI_SMART_V3)
-				bool bReturn;
-					
-				if(MOD_AI_SMART_V3)
-				{
-					int iDifficultyBonus = 4 * (200 - ((GC.getGame().getHandicapInfo().getAIGrowthPercent() + GC.getGame().getHandicapInfo().getAITrainPercent()) / 2));
-					iDifficultyBonus = (iDifficultyBonus * 100) / ((GC.getGame().getGameSpeedInfo().getGrowthPercent() + GC.getGame().getGameSpeedInfo().getTrainPercent()) / 2);
-					bReturn = ((iCitiesPlusSettlers == 1 && ((iGameTurn * iDifficultyBonus) / 100) > iWeightThreshold) ||
-						(iCitiesPlusSettlers == 2 && ((iGameTurn * iDifficultyBonus) / 200) > iWeightThreshold) ||
-						(iCitiesPlusSettlers == 3 && ((iGameTurn * iDifficultyBonus) / 400) > iWeightThreshold));
-				}
-				else
-				{
-					bReturn = ((iCitiesPlusSettlers == 1 && (iGameTurn * 4) > iWeightThreshold) ||
-						(iCitiesPlusSettlers == 2 && (iGameTurn * 2) > iWeightThreshold) ||
-						(iCitiesPlusSettlers == 3 && iGameTurn > iWeightThreshold));
-				}
-				
-				if (bReturn)
-#else
 				if((iCitiesPlusSettlers == 1 && (iGameTurn * 4) > iWeightThreshold) ||
 					(iCitiesPlusSettlers == 2 && (iGameTurn * 2) > iWeightThreshold) || 
 					(iCitiesPlusSettlers == 3 && iGameTurn > iWeightThreshold) )
-#endif
 				{
 					return true;
 				}
@@ -3003,8 +2655,7 @@ bool CityStrategyAIHelpers::IsTestCityStrategy_UnderBlockade(CvCity* pCity)
 }
 
 /// "Is Puppet" City Strategy: build gold buildings and not military training buildings
-//bool CityStrategyAIHelpers::IsTestCityStrategy_IsPuppet(CvCity* pCity)
-bool CityStrategyAIHelpers::IsTestCityStrategy_IsPuppet(const CvCity* pCity)
+bool CityStrategyAIHelpers::IsTestCityStrategy_IsPuppet(CvCity* pCity)
 {
 	if(pCity->IsPuppet())
 	{
@@ -3290,14 +2941,6 @@ bool CityStrategyAIHelpers::IsTestCityStrategy_GoodGPCity(CvCity* pCity)
 				// GPP from Buildings
 				iGPPChange += pCity->GetCityCitizens()->GetBuildingGreatPeopleRateChanges(eSpecialist) * 100;
 
-#if defined(MOD_BELIEF_NEW_EFFECT_FOR_SP)
-				// GPP from Religion
-				if(MOD_BELIEF_NEW_EFFECT_FOR_SP)
-				{
-					iGPPChange += pCity->GetGreatPersonPointsFromReligion(GetGreatPersonFromSpecialist(eSpecialist)) * 100;
-				}
-#endif
-
 				if (iGPPChange > 0)
 				{
 					int iMod = 0;
@@ -3438,12 +3081,8 @@ bool CityStrategyAIHelpers::IsTestCityStrategy_NeedTourismBuilding(CvCity *pCity
 	int iTourismValue = 0;
 	iTourismValue += pCity->GetCityCulture()->GetCultureFromWonders();
 	iTourismValue += pCity->GetCityCulture()->GetCultureFromNaturalWonders();
-#if defined(MOD_API_UNIFIED_YIELDS)
-	iTourismValue += pCity->GetCityCulture()->GetYieldFromImprovements(YIELD_CULTURE);
-#else
 	iTourismValue += pCity->GetCityCulture()->GetCultureFromImprovements();
-#endif
-	iTourismValue += pCity->GetBaseTourism();
+	iTourismValue += pCity->GetCityCulture()->GetBaseTourism();
 
 	if (iTourismValue > 10)
 	{
@@ -3462,12 +3101,7 @@ bool CityStrategyAIHelpers::IsTestCityStrategy_GoodAirliftCity(CvCity *pCity)
 
 	CvPlayer &kPlayer = GET_PLAYER(pCity->getOwner());
 	CvCity *pCapital = kPlayer.getCapitalCity();
-	if(!pCapital)
-	{
-		return false;
-	}
-	
-	if (pCity->getArea() != pCapital->getArea())
+	if (pCity && pCity->getArea() != pCapital->getArea())
 	{
 		return true;
 	}

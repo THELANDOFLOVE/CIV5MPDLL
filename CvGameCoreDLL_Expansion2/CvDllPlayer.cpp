@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -405,11 +405,7 @@ bool CvDllPlayer::MayNotAnnex()
 //------------------------------------------------------------------------------
 bool CvDllPlayer::AddDiplomacyRequest(PlayerTypes ePlayerID, DiploUIStateTypes eDiploType, const char* pszMessage, LeaderheadAnimationTypes eAnimationType, int iExtraGameData)
 {
-#if defined(MOD_API_PLAYER_LOGS)
-	return m_pPlayer->GetDiplomacyRequests()->Add(ePlayerID, eDiploType, NO_DIPLO_MESSAGE_TYPE, pszMessage, eAnimationType, iExtraGameData);
-#else
 	return m_pPlayer->GetDiplomacyRequests()->Add(ePlayerID, eDiploType, pszMessage, eAnimationType, iExtraGameData);
-#endif
 }
 //------------------------------------------------------------------------------
 void CvDllPlayer::ActiveDiplomacyRequestComplete()

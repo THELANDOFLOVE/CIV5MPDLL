@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -33,18 +33,8 @@ public:
 private:
 	static bool CanBarbariansSpawn();
 	static bool IsPlotValidForBarbCamp(CvPlot* pPlot);
-#if defined(MOD_EVENTS_BARBARIANS)
-	static UnitTypes GetRandomBarbarianUnitType(CvPlot* pPlot, UnitAITypes eUnitAI);
-#else
 	static UnitTypes GetRandomBarbarianUnitType(CvArea* pArea, UnitAITypes eUnitAI);
-#endif
-#if defined(MOD_BUGFIX_BARB_CAMP_SPAWNING)
-public:
-#endif
 	static void DoCampActivationNotice(CvPlot* pPlot);
-#if defined(MOD_BUGFIX_BARB_CAMP_SPAWNING)
-private:
-#endif
 
 	static short* m_aiPlotBarbCampSpawnCounter;
 	static short* m_aiPlotBarbCampNumUnitsSpawned;

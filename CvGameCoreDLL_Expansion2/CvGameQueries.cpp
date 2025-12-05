@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -240,11 +240,6 @@ bool CvGameQueries::AreUnitsSameType(UnitTypes eFirstUnitType, UnitTypes eSecond
 		{
 			bUnit1Combat = true;
 		}
-
-#if defined(MOD_GLOBAL_BREAK_CIVILIAN_1UPT)
-		if(MOD_GLOBAL_BREAK_CIVILIAN_1UPT && !bUnit1Combat)
-			return false;
-#endif
 
 		// Unit 2 is a combat unit?
 		if(pkSecondUnitInfo->GetCombat() > 0 || pkSecondUnitInfo->GetRange() > 0)

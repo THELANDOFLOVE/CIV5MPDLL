@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -18,65 +18,21 @@
 #include "CvLuaCity.h"
 #include "CvLuaPlot.h"
 #include "CvLuaUnit.h"
-#include "CvLuaTeam.h"
 #include "../CvGameCoreUtils.h"
-
-#include "NetworkMessageUtil.h"
 
 //Utility macro for registering methods
 #define Method(Name)			\
 	lua_pushcclosure(L, l##Name, 0);	\
 	lua_setfield(L, t, #Name);
 
-void CvLuaPlot::RegistStaticFunctions() {
-	REGIST_STATIC_FUNCTION(CvLuaPlot::lSetFeatureType);
-	REGIST_STATIC_FUNCTION(CvLuaPlot::lSetTerrainType);
-	REGIST_STATIC_FUNCTION(CvLuaPlot::lSetArea);
-	REGIST_STATIC_FUNCTION(CvLuaPlot::lSetOwnershipDuration);
-	REGIST_STATIC_FUNCTION(CvLuaPlot::lSetImprovementDuration);
-	REGIST_STATIC_FUNCTION(CvLuaPlot::lSetUpgradeProgress);
-	REGIST_STATIC_FUNCTION(CvLuaPlot::lSetStartingPlot);
-	REGIST_STATIC_FUNCTION(CvLuaPlot::lSetNEOfRiver);
-	REGIST_STATIC_FUNCTION(CvLuaPlot::lSetWOfRiver);
-	REGIST_STATIC_FUNCTION(CvLuaPlot::lSetNWOfRiver);
-	REGIST_STATIC_FUNCTION(CvLuaPlot::lSetOwner);
-	REGIST_STATIC_FUNCTION(CvLuaPlot::lSetPlotType);
-	REGIST_STATIC_FUNCTION(CvLuaPlot::lSetResourceType);
-	REGIST_STATIC_FUNCTION(CvLuaPlot::lSetNumResource);
-	REGIST_STATIC_FUNCTION(CvLuaPlot::lSetImprovementType);
-	REGIST_STATIC_FUNCTION(CvLuaPlot::lSetImprovementPillaged);
-	REGIST_STATIC_FUNCTION(CvLuaPlot::lSetRouteType);
-	REGIST_STATIC_FUNCTION(CvLuaPlot::lSetRevealed);
-	REGIST_STATIC_FUNCTION(CvLuaPlot::lSetScriptData);
-	REGIST_STATIC_FUNCTION(CvLuaPlot::lSetContinentArtType);
-	REGIST_STATIC_FUNCTION(CvLuaPlot::lSetCityPurchaseID);
-	REGIST_STATIC_FUNCTION(CvLuaPlot::lChangeExtraMovePathCost);
-	REGIST_STATIC_FUNCTION(CvLuaPlot::lChangeOwnershipDuration);
-	REGIST_STATIC_FUNCTION(CvLuaPlot::lChangeImprovementDuration);
-	REGIST_STATIC_FUNCTION(CvLuaPlot::lChangeUpgradeProgress);
-	REGIST_STATIC_FUNCTION(CvLuaPlot::lChangeNumResource);
-	REGIST_STATIC_FUNCTION(CvLuaPlot::lChangeVisibilityCount);
-	REGIST_STATIC_FUNCTION(CvLuaPlot::lChangeBuildProgress);
-	REGIST_STATIC_FUNCTION(CvLuaPlot::lChangeInvisibleVisibilityCount);
-}
-
 //------------------------------------------------------------------------------
 void CvLuaPlot::PushMethods(lua_State* L, int t)
 {
-	Method(SendAndExecuteLuaFunction);
-	Method(SendAndExecuteLuaFunctionPostpone);
-
 	Method(CanHaveFeature);
 	Method(GetFeatureType);
 	Method(GetTerrainType);
-#if defined(MOD_API_LUA_EXTENSIONS) && defined(MOD_API_PLOT_BASED_DAMAGE)
-	Method(GetTurnDamage);
-#endif
 	Method(IsRiver);
 	Method(IsWater);
-#if defined(MOD_API_LUA_EXTENSIONS) && defined(MOD_GLOBAL_ADJACENT_BLOCKADES)
-	Method(IsBlockaded);
-#endif
 	Method(SetFeatureType);
 	Method(SetTerrainType);
 
@@ -94,9 +50,6 @@ void CvLuaPlot::PushMethods(lua_State* L, int t)
 	Method(ShareAdjacentArea);
 	Method(IsAdjacentToLand);
 	Method(IsAdjacentToShallowWater);
-#if defined(MOD_API_LUA_EXTENSIONS) && defined(MOD_PROMOTIONS_CROSS_ICE)
-	Method(IsAdjacentToIce);
-#endif
 	Method(IsCoastalLand);
 
 	Method(IsWithinTeamCityRadius);
@@ -154,9 +107,6 @@ void CvLuaPlot::PushMethods(lua_State* L, int t)
 
 	Method(IsCity);
 	Method(IsFriendlyCity);
-#if defined(MOD_API_LUA_EXTENSIONS) && defined(MOD_GLOBAL_PASSABLE_FORTS)
-	Method(IsFriendlyCityOrPassableImprovement);
-#endif
 	Method(IsEnemyCity);
 	Method(IsBeingWorked);
 
@@ -166,14 +116,9 @@ void CvLuaPlot::PushMethods(lua_State* L, int t)
 	Method(GetNumVisibleEnemyDefenders);
 	Method(GetNumVisiblePotentialEnemyDefenders);
 	Method(IsVisibleEnemyUnit);
-	Method(IsVisibleEnemyUnitFromUnit);
 	Method(IsVisibleOtherUnit);
 	Method(GetNumFriendlyUnitsOfType);
 	Method(IsFighting);
-
-#if defined(MOD_API_LUA_EXTENSIONS) && defined(MOD_GLOBAL_STACKING_RULES)
-	Method(GetUnitLimit);
-#endif
 
 	Method(IsRoute);
 	Method(IsTradeRoute);
@@ -182,16 +127,8 @@ void CvLuaPlot::PushMethods(lua_State* L, int t)
 	Method(IsValidDomainForAction);
 	Method(IsImpassable);
 
-#if defined(MOD_API_LUA_EXTENSIONS)
-	Method(GetNumTradeRoutes);
-#endif
-
 	Method(GetX);
 	Method(GetY);
-#if defined(MOD_API_LUA_EXTENSIONS)
-	Method(GetXY);
-	Method(GetIndex);
-#endif
 	Method(At);
 	Method(GetPlotIndex);
 	Method(GetLatitude);
@@ -239,9 +176,6 @@ void CvLuaPlot::PushMethods(lua_State* L, int t)
 	Method(GetPlotType);
 	Method(IsFlatlands);
 	Method(IsHills);
-#if defined(MOD_API_LUA_EXTENSIONS) && defined(MOD_PATHFINDER_TERRAFIRMA)
-	Method(IsTerraFirma);
-#endif
 	Method(IsOpenGround);
 	Method(IsRoughGround);
 	Method(IsMountain);
@@ -260,20 +194,6 @@ void CvLuaPlot::PushMethods(lua_State* L, int t)
 	Method(GetRouteType);
 	Method(SetRouteType);
 	Method(IsRoutePillaged);
-#if defined(MOD_API_LUA_EXTENSIONS)
-	Method(SetRoutePillaged);
-#endif
-
-#if defined(MOD_API_LUA_EXTENSIONS)
-	Method(GetPlayerThatBuiltImprovement);
-	Method(SetPlayerThatBuiltImprovement);
-	Method(GetPlayerResponsibleForImprovement);
-	Method(SetPlayerResponsibleForImprovement);
-	Method(GetPlayerResponsibleForRoute);
-	Method(SetPlayerResponsibleForRoute);
-	Method(GetPlayerThatClearedBarbCampHere);
-	Method(SetPlayerThatClearedBarbCampHere);
-#endif
 
 	Method(GetPlotCity);
 	Method(GetWorkingCity);
@@ -339,10 +259,6 @@ void CvLuaPlot::PushMethods(lua_State* L, int t)
 
 	Method(IsBuildRemovesFeature);
 
-#if defined(MOD_API_LUA_EXTENSIONS)
-	Method(SetArchaeologicalRecord);
-	Method(AddArchaeologicalRecord);
-#endif
 	Method(GetArchaeologyArtifactType);
 	Method(GetArchaeologyArtifactEra);
 	Method(GetArchaeologyArtifactPlayer1);
@@ -352,73 +268,6 @@ void CvLuaPlot::PushMethods(lua_State* L, int t)
 
 	Method(GetCityPurchaseID);
 	Method(SetCityPurchaseID);
-
-#if defined(MOD_API_LUA_EXTENSIONS)
-	Method(AddMessage);
-	Method(AddPopupMessage);
-#endif
-
-#if defined(MOD_API_LUA_EXTENSIONS)
-	Method(IsCivilization);
-	Method(HasFeature);
-	Method(IsNaturalWonder);
-	Method(HasAnyNaturalWonder);
-	Method(HasNaturalWonder);
-	Method(IsFeatureIce);
-	Method(IsFeatureJungle);
-	Method(IsFeatureMarsh);
-	Method(IsFeatureOasis);
-	Method(IsFeatureFloodPlains);
-	Method(IsFeatureForest);
-	Method(IsFeatureFallout);
-	Method(IsFeatureAtoll);
-	Method(IsFeatureLake);
-	Method(IsFeatureRiver);
-	Method(HasImprovement);
-	Method(HasPlotType);
-	Method(IsPlotMountain);
-	Method(IsPlotMountains);
-	Method(IsPlotHill);
-	Method(IsPlotHills);
-	Method(IsPlotLand);
-	Method(IsPlotOcean);
-	Method(HasResource);
-	Method(HasRoute);
-	Method(IsRouteRoad);
-	Method(IsRouteRailroad);
-	Method(HasTerrain);
-	Method(IsTerrainGrass);
-	Method(IsTerrainPlains);
-	Method(IsTerrainDesert);
-	Method(IsTerrainTundra);
-	Method(IsTerrainSnow);
-	Method(IsTerrainCoast);
-	Method(IsTerrainOcean);
-	Method(IsTerrainMountain);
-	Method(IsTerrainMountains);
-	Method(IsTerrainHill);
-	Method(IsTerrainHills);
-	Method(IsAdjacentToFeature);
-	Method(IsWithinDistanceOfFeature);
-	Method(IsAdjacentToImprovement);
-	Method(IsWithinDistanceOfImprovement);
-	Method(IsAdjacentToPlotType);
-	Method(IsWithinDistanceOfPlotType);
-	Method(IsAdjacentToResource);
-	Method(IsWithinDistanceOfResource);
-	Method(IsAdjacentToTerrain);
-	Method(IsWithinDistanceOfTerrain);
-#endif
-#ifdef MOD_IMPROVEMENTS_UPGRADE
-	Method(GetXP);
-	Method(GetXPGrowth);
-	Method(SetXP);
-	Method(ChangeXP);
-#endif
-
-#ifdef MOD_GLOBAL_PROMOTIONS_REMOVAL
-	Method(ClearUnitPromotions);
-#endif
 }
 //------------------------------------------------------------------------------
 void CvLuaPlot::HandleMissingInstance(lua_State* L)
@@ -465,22 +314,6 @@ int CvLuaPlot::lGetTerrainType(lua_State* L)
 
 	return 1;
 }
-#if defined(MOD_API_LUA_EXTENSIONS) && defined(MOD_API_PLOT_BASED_DAMAGE)
-//------------------------------------------------------------------------------
-int CvLuaPlot::lGetTurnDamage(lua_State* L)
-{
-	CvPlot* pkPlot = GetInstance(L);
-
-	const bool bIgnoreTerrainDamage = lua_toboolean(L, 2);
-	const bool bIgnoreFeatureDamage = lua_toboolean(L, 3);
-	const bool bExtraTerrainDamage  = lua_toboolean(L, 4);
-	const bool bExtraFeatureDamage  = lua_toboolean(L, 5);
-
-	lua_pushinteger(L, pkPlot->getTurnDamage(bIgnoreTerrainDamage, bIgnoreFeatureDamage, bExtraTerrainDamage, bExtraFeatureDamage));
-
-	return 1;
-}
-#endif
 //------------------------------------------------------------------------------
 int CvLuaPlot::lIsRiver(lua_State* L)
 {
@@ -499,18 +332,6 @@ int CvLuaPlot::lIsWater(lua_State* L)
 
 	return 1;
 }
-#if defined(MOD_API_LUA_EXTENSIONS) && defined(MOD_GLOBAL_ADJACENT_BLOCKADES)
-//------------------------------------------------------------------------------
-int CvLuaPlot::lIsBlockaded(lua_State* L)
-{
-	CvPlot* pkPlot = GetInstance(L);
-	const int playerType = lua_tointeger(L, 2);
-
-	lua_pushboolean(L, pkPlot->isBlockaded((PlayerTypes)playerType));
-
-	return 1;
-}
-#endif
 //------------------------------------------------------------------------------
 int CvLuaPlot::lSetFeatureType(lua_State* L)
 {
@@ -519,10 +340,11 @@ int CvLuaPlot::lSetFeatureType(lua_State* L)
 	const int featureType = lua_tointeger(L, 2);
 	const int variety = luaL_optinteger(L, 3, -1);
 
+
 	pkPlot->setFeatureType((FeatureTypes)featureType, variety);
+
 	return 0;
 }
-
 //------------------------------------------------------------------------------
 int CvLuaPlot::lSetTerrainType(lua_State* L)
 {
@@ -622,14 +444,6 @@ int CvLuaPlot::lIsAdjacentToShallowWater(lua_State* L)
 {
 	return BasicLuaMethod(L, &CvPlot::isAdjacentToShallowWater);
 }
-#if defined(MOD_API_LUA_EXTENSIONS) && defined(MOD_PROMOTIONS_CROSS_ICE)
-//------------------------------------------------------------------------------
-//bool IsAdjacentToIce()
-int CvLuaPlot::lIsAdjacentToIce(lua_State* L)
-{
-	return BasicLuaMethod(L, &CvPlot::isAdjacentToIce);
-}
-#endif
 //------------------------------------------------------------------------------
 //bool isCoastalLand();
 int CvLuaPlot::lIsCoastalLand(lua_State* L)
@@ -852,7 +666,6 @@ int CvLuaPlot::lHasBarbarianCamp(lua_State* L)
 {
 	return BasicLuaMethod(L, &CvPlot::HasBarbarianCamp);
 }
-
 //------------------------------------------------------------------------------
 //bool isVisible(TeamTypes eTeam, bool bDebug);
 int CvLuaPlot::lIsVisible(lua_State* L)
@@ -966,19 +779,6 @@ int CvLuaPlot::lIsFriendlyCity(lua_State* L)
 	lua_pushboolean(L, bResult);
 	return 1;
 }
-#if defined(MOD_API_LUA_EXTENSIONS) && defined(MOD_GLOBAL_PASSABLE_FORTS)
-//bool isFriendlyCityOrPassableImprovement(CyUnit* pUnit, bool bCheckImprovement);
-int CvLuaPlot::lIsFriendlyCityOrPassableImprovement(lua_State* L)
-{
-	CvPlot* pkPlot = GetInstance(L);
-	CvUnit* pkUnit = CvLuaUnit::GetInstance(L, 2);
-	const bool bCheckImprovement = lua_toboolean(L, 3);
-
-	const bool bResult = pkPlot->isFriendlyCityOrPassableImprovement(*pkUnit, bCheckImprovement);
-	lua_pushboolean(L, bResult);
-	return 1;
-}
-#endif
 //------------------------------------------------------------------------------
 //bool isEnemyCity(CyUnit* pUnit);
 int CvLuaPlot::lIsEnemyCity(lua_State* L)
@@ -1042,16 +842,6 @@ int CvLuaPlot::lIsVisibleEnemyUnit(lua_State* L)
 	return 1;
 }
 //------------------------------------------------------------------------------
-//bool CvPlot::isVisibleEnemyUnit(const CvUnit* pUnit) const
-int CvLuaPlot::lIsVisibleEnemyUnitFromUnit(lua_State* L)
-{
-	CvPlot* pkPlot = GetInstance(L);
-	CvUnit* pkUnit = CvLuaUnit::GetInstance(L, 2);
-	const bool bResult = pkPlot->isVisibleEnemyUnit(pkUnit);
-	lua_pushboolean(L, bResult);
-	return 1;
-}
-//------------------------------------------------------------------------------
 //bool isVisibleOtherUnit(PlayerTypes ePlayer);
 int CvLuaPlot::lIsVisibleOtherUnit(lua_State* L)
 {
@@ -1076,14 +866,6 @@ int CvLuaPlot::lIsFighting(lua_State* L)
 {
 	return BasicLuaMethod(L, &CvPlot::isFighting);
 }
-#if defined(MOD_API_LUA_EXTENSIONS) && defined(MOD_GLOBAL_STACKING_RULES)
-//------------------------------------------------------------------------------
-//int getUnitLimit();
-int CvLuaPlot::lGetUnitLimit(lua_State* L)
-{
-	return BasicLuaMethod(L, &CvPlot::getUnitLimit);
-}
-#endif
 //------------------------------------------------------------------------------
 //bool isRoute();
 int CvLuaPlot::lIsRoute(lua_State* L)
@@ -1128,18 +910,6 @@ int CvLuaPlot::lIsImpassable(lua_State* L)
 	return BasicLuaMethod(L, &CvPlot::isImpassable);
 }
 
-#if defined(MOD_API_LUA_EXTENSIONS)
-//------------------------------------------------------------------------------
-int CvLuaPlot::lGetNumTradeRoutes(lua_State* L)
-{
-	CvPlot* pkPlot = GetInstance(L);
-
-	const int iValue = GC.getGame().GetGameTrade()->GetNumTradeRoutesInPlot(pkPlot);
-	lua_pushinteger(L, iValue);
-	return 1;
-}
-#endif
-
 //------------------------------------------------------------------------------
 //int getX();
 int CvLuaPlot::lGetX(lua_State* L)
@@ -1152,26 +922,6 @@ int CvLuaPlot::lGetY(lua_State* L)
 {
 	return BasicLuaMethod(L, &CvPlot::getY);
 }
-#if defined(MOD_API_LUA_EXTENSIONS)
-//------------------------------------------------------------------------------
-//int, int getXY();
-int CvLuaPlot::lGetXY(lua_State* L)
-{
-	CvPlot* pkPlot = GetInstance(L);
-	const int iX = pkPlot->getX();
-	const int iY = pkPlot->getY();
-
-	lua_pushinteger(L, iX);
-	lua_pushinteger(L, iY);
-	return 2;
-}
-//------------------------------------------------------------------------------
-//int getIndex();
-int CvLuaPlot::lGetIndex(lua_State* L)
-{
-	return BasicLuaMethod(L, &CvPlot::GetPlotIndex);
-}
-#endif
 //------------------------------------------------------------------------------
 //bool at(int iX, int iY);
 int CvLuaPlot::lAt(lua_State* L)
@@ -1402,17 +1152,7 @@ int CvLuaPlot::lIsPotentialCityWorkForArea(lua_State* L)
 //PlayerTypes getOwner();
 int CvLuaPlot::lGetOwner(lua_State* L)
 {
-#if defined(MOD_API_LUA_EXTENSIONS)
-	CvPlot* pkPlot = GetInstance(L);
-	const int iPlayer  = pkPlot->getOwner();
-	const int iCity = pkPlot->GetCityPurchaseID();
-
-	lua_pushinteger(L, iPlayer);
-	lua_pushinteger(L, iCity);
-	return 2;
-#else
 	return BasicLuaMethod(L, &CvPlot::getOwner);
-#endif
 }
 //------------------------------------------------------------------------------
 //void setOwner(PlayerTypes eNewValue, int iAcquiringCityID, bool bCheckUnits = true, bool bUpdateResources = true);
@@ -1438,18 +1178,6 @@ int CvLuaPlot::lIsHills(lua_State* L)
 {
 	return BasicLuaMethod(L, &CvPlot::isHills);
 }
-#if defined(MOD_API_LUA_EXTENSIONS) && defined(MOD_PATHFINDER_TERRAFIRMA)
-//------------------------------------------------------------------------------
-//bool isTerraFirma(CyUnit* pUnit);
-int CvLuaPlot::lIsTerraFirma(lua_State* L)
-{
-	CvPlot* pkPlot = GetInstance(L);
-	CvUnit* pkUnit = CvLuaUnit::GetInstance(L, 2);
-	const bool bResult = pkPlot->isTerraFirma(pkUnit);
-	lua_pushboolean(L, bResult);
-	return 1;
-}
-#endif
 //------------------------------------------------------------------------------
 //bool isOpenGround();
 int CvLuaPlot::lIsOpenGround(lua_State* L)
@@ -1514,7 +1242,6 @@ int CvLuaPlot::lSetResourceType(lua_State* L)
 {
 	return BasicLuaMethod(L, &CvPlot::setResourceType);
 }
-
 //------------------------------------------------------------------------------
 //int getNumResource();
 int CvLuaPlot::lGetNumResource(lua_State* L)
@@ -1546,8 +1273,6 @@ int CvLuaPlot::lSetImprovementType(lua_State* L)
 {
 	return BasicLuaMethod(L, &CvPlot::setImprovementType);
 }
-
-
 //------------------------------------------------------------------------------
 //void setImprovementType(bool b);
 int CvLuaPlot::lSetImprovementPillaged(lua_State* L)
@@ -1566,7 +1291,6 @@ int CvLuaPlot::lSetRouteType(lua_State* L)
 {
 	return BasicLuaMethod(L, &CvPlot::setRouteType);
 }
-
 //------------------------------------------------------------------------------
 int CvLuaPlot::lIsRoutePillaged(lua_State* L)
 {
@@ -1574,56 +1298,6 @@ int CvLuaPlot::lIsRoutePillaged(lua_State* L)
 	lua_pushboolean(L, pkPlot->IsRoutePillaged());
 	return 1;
 }
-#if defined(MOD_API_LUA_EXTENSIONS)
-//------------------------------------------------------------------------------
-//void setRoutePillaged(bool b);
-int CvLuaPlot::lSetRoutePillaged(lua_State* L)
-{
-	return BasicLuaMethod(L, &CvPlot::SetRoutePillaged);
-}
-#endif
-#if defined(MOD_API_LUA_EXTENSIONS)
-//------------------------------------------------------------------------------
-int CvLuaPlot::lGetPlayerThatBuiltImprovement(lua_State* L)
-{
-	return BasicLuaMethod(L, &CvPlot::GetPlayerThatBuiltImprovement);
-}
-//------------------------------------------------------------------------------
-int CvLuaPlot::lSetPlayerThatBuiltImprovement(lua_State* L)
-{
-	return BasicLuaMethod(L, &CvPlot::SetPlayerThatBuiltImprovement);
-}
-//------------------------------------------------------------------------------
-int CvLuaPlot::lGetPlayerResponsibleForImprovement(lua_State* L)
-{
-	return BasicLuaMethod(L, &CvPlot::GetPlayerResponsibleForImprovement);
-}
-//------------------------------------------------------------------------------
-int CvLuaPlot::lSetPlayerResponsibleForImprovement(lua_State* L)
-{
-	return BasicLuaMethod(L, &CvPlot::SetPlayerResponsibleForImprovement);
-}
-//------------------------------------------------------------------------------
-int CvLuaPlot::lGetPlayerResponsibleForRoute(lua_State* L)
-{
-	return BasicLuaMethod(L, &CvPlot::GetPlayerResponsibleForRoute);
-}
-//------------------------------------------------------------------------------
-int CvLuaPlot::lSetPlayerResponsibleForRoute(lua_State* L)
-{
-	return BasicLuaMethod(L, &CvPlot::SetPlayerResponsibleForRoute);
-}
-//------------------------------------------------------------------------------
-int CvLuaPlot::lGetPlayerThatClearedBarbCampHere(lua_State* L)
-{
-	return BasicLuaMethod(L, &CvPlot::GetPlayerThatClearedBarbCampHere);
-}
-//------------------------------------------------------------------------------
-int CvLuaPlot::lSetPlayerThatClearedBarbCampHere(lua_State* L)
-{
-	return BasicLuaMethod(L, &CvPlot::SetPlayerThatClearedBarbCampHere);
-}
-#endif
 //------------------------------------------------------------------------------
 //CyCity* getPlotCity();
 int CvLuaPlot::lGetPlotCity(lua_State* L)
@@ -1700,13 +1374,7 @@ int CvLuaPlot::lCalculateImprovementYieldChange(lua_State* L)
 	const YieldTypes eYield = (YieldTypes)lua_tointeger(L,3);
 	const PlayerTypes ePlayer = (PlayerTypes)lua_tointeger(L, 4);
 	const bool bOptional = luaL_optbool(L, 5, false);
-#if defined(MOD_BUGFIX_LUA_API)
-	RouteTypes eRoute = (RouteTypes)luaL_optint(L, 5, NUM_ROUTE_TYPES);
-	if (lua_gettop(L) == 6)
-		eRoute = (RouteTypes)lua_tointeger(L, 6);
-#else
 	const RouteTypes eRoute = (RouteTypes)luaL_optint(L, 5, NUM_ROUTE_TYPES);
-#endif
 
 	const int iResult = pkPlot->calculateImprovementYieldChange(eImprovement, eYield, ePlayer, bOptional, eRoute);
 	lua_pushinteger(L, iResult);
@@ -1772,24 +1440,12 @@ int CvLuaPlot::lChangeVisibilityCount(lua_State* L)
 {
 	CvPlot* pkPlot = GetInstance(L);
 	const TeamTypes eTeam = (TeamTypes)lua_tointeger(L, 2);
-#if defined(MOD_API_LUA_EXTENSIONS) && defined(MOD_BUGFIX_LUA_CHANGE_VISIBILITY_COUNT)
-	const int iChange = lua_tointeger(L, 3);
-#else
 	const int iChange = lua_toboolean(L, 3);
-#endif
 	const int eSeeInvisible = lua_tointeger(L, 4);
 	const bool bInformExplorationTracking = lua_toboolean(L, 5);
 	const bool bAlwaysSeeInvisible = lua_toboolean(L, 6);
 
-	if(lua_gettop(L) >= 7)
-	{
-		CvUnit* pkUnit = CvLuaUnit::GetInstance(L, 7);
-		pkPlot->changeVisibilityCount(eTeam, iChange, static_cast<InvisibleTypes>(eSeeInvisible), bInformExplorationTracking, bAlwaysSeeInvisible, pkUnit);
-	}
-	else
-	{
-		pkPlot->changeVisibilityCount(eTeam, iChange, static_cast<InvisibleTypes>(eSeeInvisible), bInformExplorationTracking, bAlwaysSeeInvisible);
-	}
+	pkPlot->changeVisibilityCount(eTeam, iChange, static_cast<InvisibleTypes>(eSeeInvisible), bInformExplorationTracking, bAlwaysSeeInvisible);
 
 	return 0;
 }
@@ -1869,22 +1525,10 @@ int CvLuaPlot::lSetRevealed(lua_State* L)
 	const bool bNewValue = lua_toboolean(L, 3);
 	const bool bTerrainOnly = luaL_optint(L, 4, 0);
 	const TeamTypes eFromTeam = (TeamTypes)luaL_optint(L, 5, NO_TEAM);
-#if defined(MOD_API_EXTENSIONS)
-	if (lua_gettop(L) >= 6)
-	{
-		CvUnit* pkUnit = CvLuaUnit::GetInstance(L, 6);
-		pkPlot->setRevealed(eTeam, bNewValue, pkUnit, bTerrainOnly, eFromTeam);
-	}
-	else
-	{
-		pkPlot->setRevealed(eTeam, bNewValue, NULL, bTerrainOnly, eFromTeam);
-	}
-#else
 	pkPlot->setRevealed(eTeam, bNewValue, bTerrainOnly, eFromTeam);
-#endif
+
 	return 0;
 }
-
 //------------------------------------------------------------------------------
 //ImprovementTypes getRevealedImprovementType(TeamTypes eTeam, bool bDebug);
 int CvLuaPlot::lGetRevealedImprovementType(lua_State* L)
@@ -1927,7 +1571,6 @@ int CvLuaPlot::lChangeBuildProgress(lua_State* L)
 {
 	return BasicLuaMethod(L, &CvPlot::changeBuildProgress);
 }
-
 //------------------------------------------------------------------------------
 //int getInvisibleVisibilityCount(TeamTypes eTeam, InvisibleTypes eInvisible);
 int CvLuaPlot::lGetInvisibleVisibilityCount(lua_State* L)
@@ -2041,12 +1684,11 @@ int CvLuaPlot::lCanSeePlot(lua_State* L)
 	TeamTypes eTeam = (TeamTypes) lua_tointeger(L, 3);
 	int iRange = lua_tointeger(L, 4);
 	DirectionTypes eFacingDirection = (DirectionTypes) lua_tointeger(L, 5);
-	DomainTypes eUnitDomain = (DomainTypes) luaL_optinteger(L, 6, DOMAIN_LAND);
 
 	bool bCanSee = false;
 	if(pkThisPlot)
 	{
-		bCanSee = pkThisPlot->canSeePlot(pkThatPlot, eTeam, iRange, eFacingDirection, eUnitDomain);
+		bCanSee = pkThisPlot->canSeePlot(pkThatPlot, eTeam, iRange, eFacingDirection);
 	}
 
 	lua_pushboolean(L, bCanSee);
@@ -2113,33 +1755,6 @@ int CvLuaPlot::lIsBuildRemovesFeature(lua_State* L)
 	return 1;
 }
 
-#if defined(MOD_API_LUA_EXTENSIONS)
-//------------------------------------------------------------------------------
-int CvLuaPlot::lSetArchaeologicalRecord(lua_State* L)
-{
-	CvPlot* pPlot = GetInstance(L);
-	GreatWorkArtifactClass eType = CvLuaArgs::toValue<GreatWorkArtifactClass>(L, 2);
-	EraTypes eEra = CvLuaArgs::toValue<EraTypes>(L, 3);
-	PlayerTypes ePlayer1 = CvLuaArgs::toValue<PlayerTypes>(L, 4);
-	PlayerTypes ePlayer2 = (PlayerTypes) luaL_optinteger(L, 5, NO_PLAYER);
-	
-	pPlot->SetArchaeologicalRecord(eType, eEra, ePlayer1, ePlayer2);
-	return 0;
-}
-//------------------------------------------------------------------------------
-int CvLuaPlot::lAddArchaeologicalRecord(lua_State* L)
-{
-	CvPlot* pPlot = GetInstance(L);
-	GreatWorkArtifactClass eType = CvLuaArgs::toValue<GreatWorkArtifactClass>(L, 2);
-	EraTypes eEra = CvLuaArgs::toValue<EraTypes>(L, 3);
-	PlayerTypes ePlayer1 = CvLuaArgs::toValue<PlayerTypes>(L, 4);
-	PlayerTypes ePlayer2 = (PlayerTypes) luaL_optinteger(L, 5, NO_PLAYER);
-	
-	pPlot->AddArchaeologicalRecord(eType, eEra, ePlayer1, ePlayer2);
-	return 0;
-}
-#endif
-
 //------------------------------------------------------------------------------
 int CvLuaPlot::lGetArchaeologyArtifactType(lua_State* L)
 {
@@ -2205,102 +1820,3 @@ int CvLuaPlot::lSetCityPurchaseID(lua_State* L)
 {
 	return BasicLuaMethod(L, &CvPlot::SetCityPurchaseID);
 }
-
-#ifdef MOD_IMPROVEMENTS_UPGRADE
-int CvLuaPlot::lGetXP(lua_State* L)
-{
-	return BasicLuaMethod(L, &CvPlot::GetXP);
-}
-int CvLuaPlot::lGetXPGrowth(lua_State* L)
-{
-	return BasicLuaMethod(L, &CvPlot::GetXPGrowth);
-}
-int CvLuaPlot::lSetXP(lua_State* L)
-{
-	return BasicLuaMethod(L, &CvPlot::SetXP);
-}
-int CvLuaPlot::lChangeXP(lua_State* L)
-{
-	return BasicLuaMethod(L, &CvPlot::ChangeXP);
-}
-#endif
-
-#if defined(MOD_API_LUA_EXTENSIONS)
-//------------------------------------------------------------------------------
-int CvLuaPlot::lAddMessage(lua_State* L)
-{
-	CvPlot* pPlot = GetInstance(L);
-	const char* szMessage = lua_tostring(L, 2);
-	const PlayerTypes ePlayer = (PlayerTypes) luaL_optinteger(L, 3, GC.getGame().getActivePlayer());
-
-	SHOW_PLOT_MESSAGE(pPlot, ePlayer, szMessage);
-	return 0;
-}
-//------------------------------------------------------------------------------
-int CvLuaPlot::lAddPopupMessage(lua_State* L)
-{
-	CvPlot* pPlot = GetInstance(L);
-	const char* szMessage = lua_tostring(L, 2);
-	const float fDelay = (float) luaL_optnumber(L, 3, 0.0);
-	const PlayerTypes ePlayer = (PlayerTypes) luaL_optinteger(L, 4, GC.getGame().getActivePlayer());
-
-	SHOW_PLOT_POPUP(pPlot, ePlayer, szMessage, fDelay);
-	return 0;
-}
-#endif
-
-#if defined(MOD_API_LUA_EXTENSIONS)
-LUAAPIIMPL(Plot, IsCivilization)
-LUAAPIIMPL(Plot, HasFeature)
-LUAAPIIMPL(Plot, IsNaturalWonder)
-LUAAPIIMPL(Plot, HasAnyNaturalWonder)
-LUAAPIIMPL(Plot, HasNaturalWonder)
-LUAAPIIMPL(Plot, IsFeatureIce)
-LUAAPIIMPL(Plot, IsFeatureJungle)
-LUAAPIIMPL(Plot, IsFeatureMarsh)
-LUAAPIIMPL(Plot, IsFeatureOasis)
-LUAAPIIMPL(Plot, IsFeatureFloodPlains)
-LUAAPIIMPL(Plot, IsFeatureForest)
-LUAAPIIMPL(Plot, IsFeatureFallout)
-LUAAPIIMPL(Plot, IsFeatureAtoll)
-LUAAPIIMPL(Plot, IsFeatureLake)
-LUAAPIIMPL(Plot, IsFeatureRiver)
-LUAAPIIMPL(Plot, HasImprovement)
-LUAAPIIMPL(Plot, HasPlotType)
-LUAAPIIMPL(Plot, IsPlotMountain)
-LUAAPIIMPL(Plot, IsPlotMountains)
-LUAAPIIMPL(Plot, IsPlotHill)
-LUAAPIIMPL(Plot, IsPlotHills)
-LUAAPIIMPL(Plot, IsPlotLand)
-LUAAPIIMPL(Plot, IsPlotOcean)
-LUAAPIIMPL(Plot, HasResource)
-LUAAPIIMPL(Plot, HasRoute)
-LUAAPIIMPL(Plot, IsRouteRoad)
-LUAAPIIMPL(Plot, IsRouteRailroad)
-LUAAPIIMPL(Plot, HasTerrain)
-LUAAPIIMPL(Plot, IsTerrainGrass)
-LUAAPIIMPL(Plot, IsTerrainPlains)
-LUAAPIIMPL(Plot, IsTerrainDesert)
-LUAAPIIMPL(Plot, IsTerrainTundra)
-LUAAPIIMPL(Plot, IsTerrainSnow)
-LUAAPIIMPL(Plot, IsTerrainCoast)
-LUAAPIIMPL(Plot, IsTerrainOcean)
-LUAAPIIMPL(Plot, IsTerrainMountain)
-LUAAPIIMPL(Plot, IsTerrainMountains)
-LUAAPIIMPL(Plot, IsTerrainHill)
-LUAAPIIMPL(Plot, IsTerrainHills)
-LUAAPIIMPL(Plot, IsAdjacentToFeature)
-LUAAPIIMPL(Plot, IsWithinDistanceOfFeature)
-LUAAPIIMPL(Plot, IsAdjacentToImprovement)
-LUAAPIIMPL(Plot, IsWithinDistanceOfImprovement)
-LUAAPIIMPL(Plot, IsAdjacentToPlotType)
-LUAAPIIMPL(Plot, IsWithinDistanceOfPlotType)
-LUAAPIIMPL(Plot, IsAdjacentToResource)
-LUAAPIIMPL(Plot, IsWithinDistanceOfResource)
-LUAAPIIMPL(Plot, IsAdjacentToTerrain)
-LUAAPIIMPL(Plot, IsWithinDistanceOfTerrain)
-#endif
-
-#ifdef MOD_GLOBAL_PROMOTIONS_REMOVAL
-LUAAPIIMPL(Plot, ClearUnitPromotions)
-#endif

@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -39,9 +39,6 @@ public:
 	// Establish/retrieve weights for one flavor
 	void AddFlavorWeights(FlavorTypes eFlavor, int iWeight);
 	int GetWeight(UnitTypes eUnit);
-#if defined(MOD_AI_SMART_V3)
-	int GetTempWeightRevised(UnitTypes eUnit, int iTempWeight);
-#endif
 
 	// Recommend highest-weighted unit
 	UnitTypes RecommendUnit(UnitAITypes eUnitAIType = NO_UNITAI);

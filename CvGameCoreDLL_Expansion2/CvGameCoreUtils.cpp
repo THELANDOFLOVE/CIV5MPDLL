@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -22,41 +22,16 @@
 #include "CvGlobals.h"
 
 #include "ICvDLLUserInterface.h"
+
 // must be included after all other headers
 #include "LintFree.h"
-#include <emmintrin.h>
-
-int RING_PLOTS[6] = { RING0_PLOTS,RING1_PLOTS,RING2_PLOTS,RING3_PLOTS,RING4_PLOTS,RING5_PLOTS };
-
-extern "C" unsigned int _ftoui3(const float x) {
-	return (unsigned int)_mm_cvt_ss2si(_mm_set_ss(x));
-}
-static const unsigned long long _Int32ToUInt32[] = { 0ULL, 0x41F0000000000000ULL };
-extern "C"  __declspec(naked) double _cdecl _ltod3(const __int64 x) {
-	__asm
-	{
-		xorps   xmm1, xmm1
-		cvtsi2sd xmm1, edx
-		xorps   xmm0, xmm0
-		cvtsi2sd xmm0, ecx
-		shr     ecx, 31
-		mulsd   xmm1, ds:_Int32ToUInt32[8]          //_DP2to32
-		addsd   xmm0, ds : _Int32ToUInt32[ecx * 8]
-		addsd   xmm0, xmm1
-		retn
-	}
-}
 
 /// This function will return the CvPlot associated with the Index (0 to 36) of a City at iX,iY.  The lower the Index the closer the Plot is to the City (roughly)
 CvPlot* plotCity(int iX, int iY, int iIndex)
 {
 	int iDeltaHexX = 0;
 	int iDeltaHexY = 0;
-#if defined(MOD_GLOBAL_CITY_WORKING)
-	if(iIndex < MAX_CITY_PLOTS)
-#else
 	if(iIndex < NUM_CITY_PLOTS)
-#endif
 	{
 		iDeltaHexX = GC.getCityPlotX()[iIndex]; // getCityPlotX now uses hex-space coords
 		iDeltaHexY = GC.getCityPlotY()[iIndex];
@@ -136,22 +111,13 @@ int plotCityXY(const CvCity* pCity, const CvPlot* pPlot)
 
 	iDX = dxWrap(iPlotHexX - iCityHexX);
 
-#if defined(MOD_GLOBAL_CITY_WORKING)
-	if(hexDistance(iDX, iDY) > pCity->getWorkPlotDistance())
-#else
 	if(hexDistance(iDX, iDY) > CITY_PLOTS_RADIUS)
-#endif
 	{
 		return -1;
 	}
 	else
 	{
-#if defined(MOD_GLOBAL_CITY_WORKING)
-		// Regardless of the working radius, we need to offset into the array by the maximum radius
-		return GC.getXYCityPlot((iDX + MAX_CITY_RADIUS), (iDY + MAX_CITY_RADIUS));
-#else
 		return GC.getXYCityPlot((iDX + CITY_PLOTS_RADIUS), (iDY + CITY_PLOTS_RADIUS));
-#endif
 	}
 }
 
@@ -203,91 +169,6 @@ CvCity* getCity(IDInfo city)
 	return NULL;
 }
 
-
-/// This function will return the CvPlot associated with the Index (0 to 36) of a City at iX,iY.  The lower the Index the closer the Plot is to the City (roughly)
-CvPlot* iterateRingPlots(const CvPlot* pCenter, int iIndex)
-{
-	if (pCenter)
-		return iterateRingPlots(pCenter->getX(), pCenter->getY(), iIndex);
-
-	return NULL;
-}
-
-CvPlot* iterateRingPlots(int iX, int iY, int iIndex)
-{
-	int iDeltaHexX = 0;
-	int iDeltaHexY = 0;
-
-	if (iIndex < MAX_CITY_PLOTS)
-	{
-		iDeltaHexX = GC.getCityPlotX()[iIndex]; // getCityPlotX now uses hex-space coords
-		iDeltaHexY = GC.getCityPlotY()[iIndex];
-	}
-	else
-	{
-		// loop till we find the ring this is on
-		int iThisRing = 0;
-		int iHighestValueOnThisRing = 0;
-		int iLowestValueOnThisRing = 0;
-		while (iHighestValueOnThisRing < iIndex)
-		{
-			iThisRing++;
-			iLowestValueOnThisRing = iHighestValueOnThisRing + 1;
-			iHighestValueOnThisRing += iThisRing * 6;
-		}
-		// determine what side of the hex we are on
-		int iDiff = (iIndex - iLowestValueOnThisRing);
-		int iSide = iDiff / iThisRing;
-		int iOffset = iDiff % iThisRing;
-
-		switch (iSide)
-		{
-		case 0:
-			iDeltaHexX = 0 + iOffset;
-			iDeltaHexY = iThisRing - iOffset;
-			break;
-		case 1:
-			iDeltaHexX = iThisRing;
-			iDeltaHexY = 0 - iOffset;
-			break;
-		case 2:
-			iDeltaHexX = iThisRing - iOffset;
-			iDeltaHexY = -iThisRing;
-			break;
-		case 3:
-			iDeltaHexX = 0 - iOffset;
-			iDeltaHexY = -iThisRing + iOffset;
-			break;
-		case 4:
-			iDeltaHexX = -iThisRing;
-			iDeltaHexY = 0 + iOffset;
-			break;
-		case 5:
-			iDeltaHexX = -iThisRing + iOffset;
-			iDeltaHexY = iThisRing;
-			break;
-		default:
-			return 0;
-		}
-
-	}
-	// convert the city coord to hex-space coordinates
-	int iCityHexX = xToHexspaceX(iX, iY);
-
-	int iPlotHexX = iCityHexX + iDeltaHexX;
-	int iPlotY = iY + iDeltaHexY; // Y is the same in both coordinate systems
-
-	// convert from hex-space coordinates to the storage array
-	int iPlotX = hexspaceXToX(iPlotHexX, iPlotY);
-
-	return GC.getMap().plot(iPlotX, iPlotY);
-}
-
-
-
-
-
-
 CvUnit* getUnit(const IDInfo& unit)
 {
 	if((unit.eOwner >= 0) && unit.eOwner < MAX_PLAYERS)
@@ -332,24 +213,13 @@ bool isBeforeUnitCycle(const CvUnit* pFirstUnit, const CvUnit* pSecondUnit)
 		return (pFirstUnit->getLevel() > pSecondUnit->getLevel());
 	}
 
-#if defined(MOD_UNITS_XP_TIMES_100)
-	if (pFirstUnit->getExperienceTimes100() != pSecondUnit->getExperienceTimes100())
-	{
-		return (pFirstUnit->getExperienceTimes100() > pSecondUnit->getExperienceTimes100());
-	}
-#else
-	if (pFirstUnit->getExperience() != pSecondUnit->getExperience())
+	if(pFirstUnit->getExperience() != pSecondUnit->getExperience())
 	{
 		return (pFirstUnit->getExperience() > pSecondUnit->getExperience());
 	}
-#endif
 
 	return (pFirstUnit->GetID() < pSecondUnit->GetID());
 }
-
-
-
-
 
 /// Is this a valid Promotion for the UnitCombatType?
 bool IsPromotionValidForUnitCombatType(PromotionTypes ePromotion, UnitTypes eUnit)
@@ -367,11 +237,7 @@ bool IsPromotionValidForUnitCombatType(PromotionTypes ePromotion, UnitTypes eUni
 	}
 
 	// Combat class not valid for this Promotion
-#if defined(MOD_GLOBAL_PROMOTION_CLASSES)
-	if(!(promotionInfo->GetUnitCombatClass(unitInfo->GetUnitPromotionType())))
-#else
 	if(!(promotionInfo->GetUnitCombatClass(unitInfo->GetUnitCombatType())))
-#endif
 	{
 		return false;
 	}
@@ -379,86 +245,23 @@ bool IsPromotionValidForUnitCombatType(PromotionTypes ePromotion, UnitTypes eUni
 	return true;
 }
 
-bool IsPromotionValidForUnitExtraCombats(CvPromotionEntry* pPromotionInfo, const CvUnit* pUnit)
-{
-	if (pUnit == nullptr) return false;
-	for(const auto& it : pUnit->GetUnitCombatsPromotionValid())
-	{
-		if(pPromotionInfo->GetUnitCombatClass(it.first)) return true;
-	}
-	return false;
-}
-
-/// Is this a valid Promotion for the Unit Type?
-bool IsPromotionValidForUnitType(CvPromotionEntry* pPromotionInfo, UnitTypes eUnit)
-{
-	return pPromotionInfo->GetUnitType((int)eUnit);
-}
-
 /// Is this a valid Promotion for this civilian?
-bool IsPromotionValidForCivilianUnitType(CvPromotionEntry* pPromotionInfo, UnitTypes eUnit)
-{
-	return pPromotionInfo->GetCivilianUnitType((int)eUnit);
-}
-
-#if defined(MOD_POLICY_FREE_PROMOTION_FOR_PROMOTION)
-bool IsPromotionValidForUnitPromotions(CvPromotionEntry* pPromotionInfo, CvUnit& pUnit)
-{
-	const std::vector<int>& prePromotions = pPromotionInfo->GetPrePromotions();
-	for(int Ii=0; Ii < prePromotions.size(); Ii++)
-	{
-		if(prePromotions[Ii] != NO_PROMOTION && pUnit.isHasPromotion((PromotionTypes)prePromotions[Ii]))
-			return true;
-	}
-
-	return false;
-}
-#endif
-bool IsPromotionValidForUnitPromotionAnds(CvPromotionEntry* pPromotionInfo, CvUnit& pUnit)
-{
-	// Has all needed Promotions
-	const std::vector<int>& pPrereqAnds = pPromotionInfo->GetPromotionPrereqAnds();
-	if(!pPrereqAnds.empty())
-	{
-		for(int Ii=0; Ii < pPrereqAnds.size(); Ii++)
-		{
-			if(pPrereqAnds[Ii] != NO_PROMOTION && !pUnit.isHasPromotion((PromotionTypes)pPrereqAnds[Ii]))
-			return false;
-		}
-	}
-	return true;
-}
-bool IsPromotionValidForUnitPromotionExclusion(CvPromotionEntry* pPromotionInfo, CvUnit& pUnit)
-{
-	//Have Exclusions?
-	const std::vector<int>& pExclusions = pPromotionInfo->GetPromotionExclusionAny();
-	if(!pExclusions.empty())
-	{
-		for(int Ii=0; Ii < pExclusions.size(); Ii++)
-		{
-			if(pExclusions[Ii] != NO_PROMOTION && pUnit.isHasPromotion((PromotionTypes)pExclusions[Ii]))
-			return false;
-		}
-	}
-	return true;
-}
-bool IsPromotionValidForUnit(PromotionTypes ePromotion, CvUnit& pUnit)
+bool IsPromotionValidForCivilianUnitType(PromotionTypes ePromotion, UnitTypes eUnit)
 {
 	CvPromotionEntry* promotionInfo = GC.getPromotionInfo(ePromotion);
-	if(promotionInfo == nullptr) return false;
-	if(!IsPromotionValidForUnitPromotionAnds(promotionInfo, pUnit)) return false;
-	if(!IsPromotionValidForUnitPromotionExclusion(promotionInfo, pUnit)) return false;
 
-	const UnitTypes eUnitType = pUnit.getUnitType();
-	return IsPromotionValidForUnitCombatType(ePromotion, eUnitType)
-		|| IsPromotionValidForCivilianUnitType(promotionInfo, eUnitType)
-		|| IsPromotionValidForUnitType(promotionInfo, eUnitType)
-#if defined(MOD_POLICY_FREE_PROMOTION_FOR_PROMOTION)
-		|| IsPromotionValidForUnitPromotions(promotionInfo, pUnit);
-#endif
+	if(promotionInfo == NULL)
+		return false;
+
+	if(!(promotionInfo->GetCivilianUnitType((int)eUnit)))
+	{
+		return false;
+	}
+
+	return true;
 }
 
-bool isPromotionValid(PromotionTypes ePromotion, UnitTypes eUnit, bool bLeader, bool bTestingPrereq, const CvUnit* pUnit)
+bool isPromotionValid(PromotionTypes ePromotion, UnitTypes eUnit, bool bLeader, bool bTestingPrereq)
 {
 	CvUnitEntry* unitInfo = GC.getUnitInfo(eUnit);
 	CvPromotionEntry* promotionInfo = GC.getPromotionInfo(ePromotion);
@@ -485,7 +288,7 @@ bool isPromotionValid(PromotionTypes ePromotion, UnitTypes eUnit, bool bLeader, 
 	}
 
 	// Is this a valid Promotion for the UnitCombatType?
-	if(!::IsPromotionValidForUnitCombatType(ePromotion, eUnit) && !::IsPromotionValidForUnitExtraCombats(promotionInfo, pUnit))
+	if(!::IsPromotionValidForUnitCombatType(ePromotion, eUnit))
 	{
 		return false;
 	}
@@ -504,54 +307,114 @@ bool isPromotionValid(PromotionTypes ePromotion, UnitTypes eUnit, bool bLeader, 
 		}
 	}
 
-	// Does not have Exclusion promotion
-	const std::vector<int>& pExclusions = promotionInfo->GetPromotionExclusionAny();
-	if(!pExclusions.empty())
-	{
-		for(int Ii=0; Ii < pExclusions.size(); Ii++)
-		{
-			if(pExclusions[Ii] != NO_PROMOTION && unitInfo->GetFreePromotions(pExclusions[Ii]))
-			{
-				return false;
-			}
-		}
-	}
-
-	// Has all needed Promotions
-	const std::vector<int>& pPrereqAnds = promotionInfo->GetPromotionPrereqAnds();
-	if(!pPrereqAnds.empty())
-	{
-		for(int Ii=0; Ii < pPrereqAnds.size(); Ii++)
-		{
-			if(!isPromotionValid((PromotionTypes)pPrereqAnds[Ii], eUnit, bLeader, true, pUnit))
-			{
-				return false;
-			}
-		}
-	}
-
 	// Promotion Prereqs
 	if(NO_PROMOTION != promotionInfo->GetPrereqPromotion())
 	{
-		if(!isPromotionValid((PromotionTypes)promotionInfo->GetPrereqPromotion(), eUnit, bLeader, true, pUnit))
+		if(!isPromotionValid((PromotionTypes)promotionInfo->GetPrereqPromotion(), eUnit, bLeader, true))
 		{
 			return false;
 		}
 	}
 
-	const std::vector<int>& vPrereqOrs = promotionInfo->GetPromotionPrereqOrs();
-	bool bValid = vPrereqOrs.size() == 0;
-	for(const auto iPrereq : promotionInfo->GetPromotionPrereqOrs())
+	PromotionTypes ePrereq1 = (PromotionTypes)promotionInfo->GetPrereqOrPromotion1();
+	PromotionTypes ePrereq2 = (PromotionTypes)promotionInfo->GetPrereqOrPromotion2();
+	PromotionTypes ePrereq3 = (PromotionTypes)promotionInfo->GetPrereqOrPromotion3();
+	PromotionTypes ePrereq4 = (PromotionTypes)promotionInfo->GetPrereqOrPromotion4();
+	PromotionTypes ePrereq5 = (PromotionTypes)promotionInfo->GetPrereqOrPromotion5();
+	PromotionTypes ePrereq6 = (PromotionTypes)promotionInfo->GetPrereqOrPromotion6();
+	PromotionTypes ePrereq7 = (PromotionTypes)promotionInfo->GetPrereqOrPromotion7();
+	PromotionTypes ePrereq8 = (PromotionTypes)promotionInfo->GetPrereqOrPromotion8();
+	PromotionTypes ePrereq9 = (PromotionTypes)promotionInfo->GetPrereqOrPromotion9();
+	if(ePrereq1 != NO_PROMOTION ||
+		ePrereq2 != NO_PROMOTION ||
+		ePrereq3 != NO_PROMOTION ||
+		ePrereq4 != NO_PROMOTION ||
+		ePrereq5 != NO_PROMOTION ||
+		ePrereq6 != NO_PROMOTION ||
+		ePrereq7 != NO_PROMOTION ||
+		ePrereq8 != NO_PROMOTION ||
+		ePrereq9 != NO_PROMOTION)
 	{
-		PromotionTypes ePrereq = (PromotionTypes)iPrereq;
-		if (ePrereq == NO_PROMOTION) continue;
-		if (isPromotionValid(ePrereq, eUnit, bLeader, true, pUnit))
+		bool bValid = false;
+		if(!bValid)
 		{
-			bValid = true;
-			break;
+			if(NO_PROMOTION != ePrereq1 && isPromotionValid(ePrereq1, eUnit, bLeader, true))
+			{
+				bValid = true;
+			}
+		}
+
+		if(!bValid)
+		{
+			if(NO_PROMOTION != ePrereq2 && isPromotionValid(ePrereq2, eUnit, bLeader, true))
+			{
+				bValid = true;
+			}
+		}
+
+		if(!bValid)
+		{
+			if(NO_PROMOTION != ePrereq3 && isPromotionValid(ePrereq3, eUnit, bLeader, true))
+			{
+				bValid = true;
+			}
+		}
+
+		if(!bValid)
+		{
+			if(NO_PROMOTION != ePrereq4 && isPromotionValid(ePrereq4, eUnit, bLeader, true))
+			{
+				bValid = true;
+			}
+		}
+
+		if(!bValid)
+		{
+			if(NO_PROMOTION != ePrereq5 && isPromotionValid(ePrereq5, eUnit, bLeader, true))
+			{
+				bValid = true;
+			}
+		}
+
+		if(!bValid)
+		{
+			if(NO_PROMOTION != ePrereq6 && isPromotionValid(ePrereq6, eUnit, bLeader, true))
+			{
+				bValid = true;
+			}
+		}
+
+		if(!bValid)
+		{
+			if(NO_PROMOTION != ePrereq7 && isPromotionValid(ePrereq7, eUnit, bLeader, true))
+			{
+				bValid = true;
+			}
+		}
+
+		if(!bValid)
+		{
+			if(NO_PROMOTION != ePrereq8 && isPromotionValid(ePrereq8, eUnit, bLeader, true))
+			{
+				bValid = true;
+			}
+		}
+
+		if(!bValid)
+		{
+			if(NO_PROMOTION != ePrereq9 && isPromotionValid(ePrereq9, eUnit, bLeader, true))
+			{
+				bValid = true;
+			}
+		}
+
+		if(!bValid)
+		{
+			return false;
 		}
 	}
-	return bValid;
+
+	return true;
 }
 
 int getPopulationAsset(int iPopulation)
@@ -653,9 +516,9 @@ bool isTechRequiredForBuilding(TechTypes eTech, BuildingTypes eBuilding)
 			return true;
 		}
 
-		for(auto iTech : info->GetPrereqAndTechs())
+		for(int iI = 0; iI < GC.getNUM_BUILDING_AND_TECH_PREREQS(); iI++)
 		{
-			if(iTech == eTech)
+			if(info->GetPrereqAndTechs(iI) == eTech)
 			{
 				return true;
 			}
@@ -901,11 +764,7 @@ bool PUF_canDeclareWar(const CvUnit* pUnit, int iData1, int iData2)
 		return false;
 	}
 
-#if defined(MOD_EVENTS_WAR_AND_PEACE)
-	return (iData2 ? false : GET_TEAM(eOtherTeam).canDeclareWar(eOurTeam, (PlayerTypes)iData1));
-#else
 	return (iData2 ? false : GET_TEAM(eOtherTeam).canDeclareWar(eOurTeam));
-#endif
 }
 
 bool PUF_canDefend(const CvUnit* pUnit, int, int)

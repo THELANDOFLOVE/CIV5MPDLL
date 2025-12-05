@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -57,11 +57,7 @@ private:
 	void PropagateWeights(int iTech, int iWeight, int iPropagationPercent, int iPropagationLevel);
 
 	// Recompute weights taking into account tech cost
-#if defined(MOD_AI_SMART_V3)
-	void ReweightByCost(CvPlayer *pPlayer, bool bWantsExpensive = false);
-#else
 	void ReweightByCost(CvPlayer *pPlayer);
-#endif
 
 	// Logging functions
 	void LogPossibleResearch();

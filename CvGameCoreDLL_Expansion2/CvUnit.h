@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -20,7 +20,6 @@
 #include "CvInfos.h"
 #include "CvPromotionClasses.h"
 #include "CvAStarNode.h"
-#include "CvGameObjectExtractable.h"
 
 #define DEFAULT_UNIT_MAP_LAYER 0
 
@@ -36,7 +35,7 @@ class CvPathNode;
 
 typedef MissionData MissionQueueNode;
 
-typedef FFastSmallFixedList<MissionQueueNode, 12, true, c_eCiv5GameplayDLL> MissionQueue;
+typedef FFastSmallFixedList< MissionQueueNode, 12, true, c_eCiv5GameplayDLL > MissionQueue;
 
 typedef FObjectHandle<CvUnit> UnitHandle;
 typedef FStaticVector<CvPlot*, 20, true, c_eCiv5GameplayDLL, 0> UnitMovementQueue;
@@ -52,23 +51,9 @@ struct CvUnitCaptureDefinition
 	int iY;
 	bool bEmbarked;
 	bool bAsIs;
-#if defined(MOD_API_EXTENSIONS)
-	int iScenarioData;
-	CvString sName;
-#if defined(MOD_GLOBAL_NO_LOST_GREATWORKS)
-	CvString sGreatName;
-#endif
-	GreatWorkType eGreatWork;
-	int iTourismBlastStrength;
-#endif
 	ReligionTypes eReligion;
 	int iReligiousStrength;
 	int iSpreadsLeft;
-
-#ifdef MOD_BATTLE_CAPTURE_NEW_RULE
-	CvUnit* pCapturingUnit = nullptr;
-#endif
-
 	CvUnitCaptureDefinition()
 		: eOriginalOwner(NO_PLAYER)
 		, eOldPlayer(NO_PLAYER)
@@ -79,22 +64,9 @@ struct CvUnitCaptureDefinition
 		, iY(-1)
 		, bEmbarked(false)
 		, bAsIs(false)
-#if defined(MOD_API_EXTENSIONS)
-		, iScenarioData(0)
-		, sName(NULL)
-#if defined(MOD_GLOBAL_NO_LOST_GREATWORKS)
-		, sGreatName(NULL)
-#endif
-		, eGreatWork(NO_GREAT_WORK)
-		, iTourismBlastStrength(0)
-#endif
 		, eReligion(NO_RELIGION)
 		, iReligiousStrength(0)
-		, iSpreadsLeft(0)
-#ifdef MOD_BATTLE_CAPTURE_NEW_RULE
-		, pCapturingUnit(nullptr)
-#endif
-		{ }
+		, iSpreadsLeft(0) { }
 
 	inline bool IsValid() const
 	{
@@ -102,7 +74,7 @@ struct CvUnitCaptureDefinition
 	}
 };
 
-class CvUnit : public CvGameObjectExtractable
+class CvUnit
 {
 
 	friend class CvUnitMission;
@@ -127,13 +99,6 @@ public:
 	};
 
 	DestructionNotification<UnitHandle>& getDestructionNotification();
-
-	void ExtractToArg(BasicArguments* arg);
-	static void PushToLua(lua_State* L, BasicArguments* arg);
-	static void RegistInstanceFunctions();
-	static void RegistStaticFunctions();
-	static CvUnit* Provide(PlayerTypes player, int id);
-	
 
 	void init(int iID, UnitTypes eUnit, UnitAITypes eUnitAI, PlayerTypes eOwner, int iX, int iY, DirectionTypes eFacingDirection, bool bNoMove, bool bSetupGraphical=true, int iMapLayer = DEFAULT_UNIT_MAP_LAYER, int iNumGoodyHutsPopped = 0);
 	void initWithNameOffset(int iID, UnitTypes eUnit, int iNameOffset, UnitAITypes eUnitAI, PlayerTypes eOwner, int iX, int iY, DirectionTypes eFacingDirection, bool bNoMove, bool bSetupGraphical=true, int iMapLayer = DEFAULT_UNIT_MAP_LAYER, int iNumGoodyHutsPopped = 0);
@@ -162,11 +127,7 @@ public:
 	bool IsDoingPartialMove() const;
 
 	ActivityTypes GetActivityType() const;
-#if defined(MOD_BUGFIX_UNITS_AWAKE_IN_DANGER)
-	void SetActivityType(ActivityTypes eNewValue, bool bClearFortify = true);
-#else
 	void SetActivityType(ActivityTypes eNewValue);
-#endif
 
 	AutomateTypes GetAutomateType() const;
 	bool IsAutomated() const;
@@ -178,11 +139,7 @@ public:
 	bool ReadyToMove() const;
 	bool ReadyToAuto() const;
 	bool IsBusy() const;
-#if defined(MOD_BUGFIX_WORKERS_VISIBLE_DANGER) || defined(MOD_BUGFIX_UNITS_AWAKE_IN_DANGER)
-	bool SentryAlert(bool bSameDomainOrRanged = false) const;
-#else
 	bool SentryAlert() const;
-#endif
 
 	bool ShowMoves() const;
 	bool CanDoInterfaceMode(InterfaceModeTypes eInterfaceMode, bool bTestVisibility = false);
@@ -206,8 +163,6 @@ public:
 	bool canMoveOrAttackInto(const CvPlot& pPlot, byte bMoveFlags = 0) const;
 	bool canMoveThrough(const CvPlot& pPlot, byte bMoveFlags = 0) const;
 
-	int  GetWithdrawChance(const CvUnit& pAttacker, const bool bCheckChances) const;
-
 	bool IsAngerFreeUnit() const;
 
 	int getCombatDamage(int iStrength, int iOpponentStrength, int iCurrentDamage, bool bIncludeRand, bool bAttackerIsCity, bool bDefenderIsCity) const;
@@ -215,13 +170,6 @@ public:
 	void move(CvPlot& pPlot, bool bShow);
 	bool jumpToNearestValidPlot();
 	bool jumpToNearestValidPlotWithinRange(int iRange);
-	bool MoveToNearestValidPlotWithinRangeFromPlot(const CvPlot& pPlot, int iRange, int& iX, int& iY, int& iLastValidPlotUnit, int &iLastValidPlotIndex);
-	void BatchMove(CvPlot& pPlot, int iRange);
-	bool IsBatchMark() const;
-	void SetIsBatchMark(bool value);
-
-	bool IsCheat() const;
-	void SetIsCheat(bool value);
 
 	bool canScrap(bool bTestVisible = false) const;
 	void scrap();
@@ -305,10 +253,6 @@ public:
 	void doHeal();
 	void DoAttrition();
 
-#if defined(MOD_GLOBAL_RELOCATION)
-	const CvPlot* getAirliftFromPlot(const CvPlot* pPlot) const;
-	const CvPlot* getAirliftToPlot(const CvPlot* pPlot, bool bIncludeCities) const;
-#endif
 	bool canAirlift(const CvPlot* pPlot) const;
 	bool canAirliftAt(const CvPlot* pPlot, int iX, int iY) const;
 	bool airlift(int iX, int iY);
@@ -356,9 +300,6 @@ public:
 	bool pillage();
 
 	bool canFound(const CvPlot* pPlot, bool bTestVisible = false) const;
-#ifdef MOD_TRAITS_CAN_FOUND_MOUNTAIN_CITY
-	bool canFoundMountainCity() const;
-#endif	
 	bool found();
 
 	bool canJoin(const CvPlot* pPlot, SpecialistTypes eSpecialist) const;
@@ -373,7 +314,7 @@ public:
 	bool CanEnhanceReligion(const CvPlot* pPlot) const;
 	bool DoEnhanceReligion();
 
-	bool CanSpreadReligion(const CvPlot* pPlot, bool bTestVisible = false) const;
+	bool CanSpreadReligion(const CvPlot* pPlot) const;
 	bool DoSpreadReligion();
 
 	bool CanRemoveHeresy(const CvPlot* pPlot) const;
@@ -382,15 +323,7 @@ public:
 	int GetNumFollowersAfterSpread() const;
 	ReligionTypes GetMajorityReligionAfterSpread() const;
 	CvCity *GetSpreadReligionTargetCity() const;
-#if defined(MOD_RELIGION_CONVERSION_MODIFIERS)
-	int GetConversionStrength(const CvCity* pCity) const;
-#else
 	int GetConversionStrength() const;
-#endif
-
-#ifdef MOD_BALANCE_CORE
-	int GetScaleAmount(int iAmountToScale) const;
-#endif
 
 	bool canDiscover(const CvPlot* pPlot, bool bTestVisible = false) const;
 	int getDiscoverAmount();
@@ -449,31 +382,9 @@ public:
 
 	bool isReadyForUpgrade() const;
 	bool CanUpgradeRightNow(bool bOnlyTestVisible) const;
-#if defined(MOD_API_EXTENSIONS)
-	bool CanUpgradeTo(UnitTypes eUpgradeUnitType, bool bOnlyTestVisible) const;
-#endif
-#if defined(MOD_GLOBAL_CS_UPGRADES)
-	bool CanUpgradeInTerritory(bool bOnlyTestVisible) const;
-#endif
 	UnitTypes GetUpgradeUnitType() const;
 	int upgradePrice(UnitTypes eUnit) const;
-#if defined(MOD_API_EXTENSIONS)
-	CvUnit* DoUpgrade(bool bFree = false);
-#else
 	CvUnit* DoUpgrade();
-#endif
-#if defined(MOD_API_EXTENSIONS)
-	CvUnit* DoUpgradeTo(UnitTypes eUpgradeUnitType, bool bFree = false);
-#endif
-
-#if defined(MOD_API_UNIT_STATS)
-	int getStatsTravelled() { return m_iStatsTravelled; };
-	void setStatsTravelled(int iDistance) { m_iStatsTravelled = iDistance; };
-	int changeStatsTravelled(int iDistance) { m_iStatsTravelled += iDistance; return m_iStatsTravelled; };
-	int getStatsKilled() { return m_iStatsKilled; };
-	void setStatsKilled(int iCount) { m_iStatsKilled = iCount; };
-	int changeStatsKilled(int iCount) { m_iStatsKilled += iCount; return m_iStatsKilled; };
-#endif
 
 	HandicapTypes getHandicapType() const;
 	CvCivilizationInfo& getCivilizationInfo() const;
@@ -482,16 +393,8 @@ public:
 	SpecialUnitTypes getSpecialUnitType() const;
 	bool IsGreatPerson() const;
 	UnitTypes getCaptureUnitType(CivilizationTypes eCivilization) const;
-	UnitTypes getCaptureUnitType(PlayerTypes ePlayer);
 	UnitCombatTypes getUnitCombatType() const;
-#if defined(MOD_GLOBAL_PROMOTION_CLASSES)
-	UnitCombatTypes getUnitPromotionType() const;
-#endif
 	DomainTypes getDomainType() const;
-#if defined(MOD_ROG_CORE)
-	//check if plot type matches the (primary) domain type
-	bool isNativeDomain(const CvPlot* pPlot) const;
-#endif
 
 	int flavorValue(FlavorTypes eFlavor) const;
 
@@ -502,9 +405,6 @@ public:
 	bool IsBarbarianUnitThreateningMinor(PlayerTypes eMinor);
 
 	int visibilityRange() const;
-#if defined(MOD_PROMOTIONS_VARIABLE_RECON)
-	int reconRange() const;
-#endif
 	bool canChangeVisibility() const;
 
 	int baseMoves(DomainTypes eIntoDomain = NO_DOMAIN) const;
@@ -557,14 +457,6 @@ public:
 	int GetBaseCombatStrength(bool bIgnoreEmbarked = false) const;
 	int GetBaseCombatStrengthConsideringDamage() const;
 
-	int GetCombatStrengthChangeFromKilledUnits() const;
-	void ChangeCombatStrengthChangeFromKilledUnits(int iChange);
-	void SetCombatStrengthChangeFromKilledUnits(int iValue);
-
-	int GetRangedCombatStrengthChangeFromKilledUnits() const;
-	void ChangeRangedCombatStrengthChangeFromKilledUnits(int iChange);
-	void SetRangedCombatStrengthChangeFromKilledUnits(int iValue);
-
 	int GetGenericMaxStrengthModifier(const CvUnit* pOtherUnit, const CvPlot* pBattlePlot, bool bIgnoreUnitAdjacency) const;
 	int GetMaxAttackStrength(const CvPlot* pFromPlot, const CvPlot* pToPlot, const CvUnit* pDefender) const;
 	int GetMaxDefenseStrength(const CvPlot* pInPlot, const CvUnit* pAttacker, bool bFromRangedAttack = false) const;
@@ -573,15 +465,6 @@ public:
 	bool canSiege(TeamTypes eTeam) const;
 
 	int GetBaseRangedCombatStrength() const;
-#if defined(MOD_API_EXTENSIONS)
-	void SetBaseRangedCombatStrength(int iStrength);
-#endif 
-
-#if defined(MOD_ROG_CORE)
-	int GetDamageCombatModifier(bool bForDefenseAgainstRanged = false, int iAssumedDamage = 0) const;
-#endif 
-
-
 	int GetMaxRangedCombatStrength(const CvUnit* pOtherUnit, const CvCity* pCity, bool bAttacking, bool bForRangedAttack) const;
 
 	int GetAirCombatDamage(const CvUnit* pDefender, CvCity* pCity, bool bIncludeRand, int iAssumeExtraDamage = 0) const;
@@ -590,17 +473,11 @@ public:
 	bool canAirAttack() const;
 	bool canAirDefend(const CvPlot* pPlot = NULL) const;
 
-#if defined(MOD_AI_SMART_V3)
-	int EnemyScoreAtRange(const CvPlot* pPlot, bool onlyInterceptors) const;
-#endif
 	int GetAirStrikeDefenseDamage(const CvUnit* pAttacker, bool bIncludeRand = true) const;
 
 	CvUnit* GetBestInterceptor(const CvPlot& pPlot, CvUnit* pkDefender = NULL, bool bLandInterceptorsOnly=false, bool bVisibleInterceptorsOnly=false) const;
 	int GetInterceptorCount(const CvPlot& pPlot, CvUnit* pkDefender = NULL, bool bLandInterceptorsOnly=false, bool bVisibleInterceptorsOnly=false) const;
 	int GetInterceptionDamage(const CvUnit* pAttacker, bool bIncludeRand = true) const;
-#if defined(MOD_GLOBAL_PARATROOPS_AA_DAMAGE)
-	int GetParadropInterceptionDamage(const CvUnit* pAttacker, bool bIncludeRand = true) const;
-#endif
 
 	int GetCombatLimit() const;
 	int GetRangedCombatLimit() const;
@@ -613,15 +490,6 @@ public:
 	int experienceNeeded() const;
 	int attackXPValue() const;
 	int defenseXPValue() const;
-#ifdef MOD_GLOBAL_UNIT_EXTRA_ATTACK_DEFENSE_EXPERENCE
-	int ExtraAttackXPValue() const;
-	int ExtraDefenseXPValue() const;
-#endif
-#if defined(MOD_UNIT_BOUND_IMPROVEMENT)
-	int GetBoundLandImprovement() const;
-	int GetBoundWaterImprovement() const;
-#endif
-
 	int maxXPValue() const;
 
 	int firstStrikes() const;
@@ -635,60 +503,6 @@ public:
 	bool ignoreTerrainCost() const;
 	int getIgnoreTerrainCostCount() const;
 	void changeIgnoreTerrainCostCount(int iValue);
-
-#if defined(MOD_API_PLOT_BASED_DAMAGE)
-	bool ignoreTerrainDamage() const;
-	int getIgnoreTerrainDamageCount() const;
-	void changeIgnoreTerrainDamageCount(int iValue);
-
-	bool ignoreFeatureDamage() const;
-	int getIgnoreFeatureDamageCount() const;
-	void changeIgnoreFeatureDamageCount(int iValue);
-
-	bool extraTerrainDamage() const;
-	int getExtraTerrainDamageCount() const;
-	void changeExtraTerrainDamageCount(int iValue);
-
-	bool extraFeatureDamage() const;
-	int getExtraFeatureDamageCount() const;
-	void changeExtraFeatureDamageCount(int iValue);
-#endif
-
-#if defined(MOD_PROMOTIONS_IMPROVEMENT_BONUS)
-	int GetNearbyImprovementCombatBonus() const;
-	void SetNearbyImprovementCombatBonus(int iCombatBonus);
-	int GetNearbyImprovementBonusRange() const;
-	void SetNearbyImprovementBonusRange(int iBonusRange);
-	ImprovementTypes GetCombatBonusImprovement() const;
-	void SetCombatBonusImprovement(ImprovementTypes eImprovement);
-#endif
-
-	bool canIntercept() const;
-	int GetAirInterceptRange() const;
-
-#if defined(MOD_PROMOTIONS_CROSS_MOUNTAINS)
-	bool canCrossMountains() const;
-	int getCanCrossMountainsCount() const;
-	void changeCanCrossMountainsCount(int iValue);
-#endif
-
-#if defined(MOD_PROMOTIONS_CROSS_OCEANS)
-	bool canCrossOceans() const;
-	int getCanCrossOceansCount() const;
-	void changeCanCrossOceansCount(int iValue);
-#endif
-
-#if defined(MOD_PROMOTIONS_CROSS_ICE)
-	bool canCrossIce() const;
-	int getCanCrossIceCount() const;
-	void changeCanCrossIceCount(int iValue);
-#endif
-
-#if defined(MOD_PROMOTIONS_GG_FROM_BARBARIANS)
-	bool isGGFromBarbarians() const;
-	int getGGFromBarbariansCount() const;
-	void changeGGFromBarbariansCount(int iValue);
-#endif
 
 	bool IsRoughTerrainEndsTurn() const;
 	int GetRoughTerrainEndsTurnCount() const;
@@ -747,19 +561,13 @@ public:
 
 	bool isNukeImmune() const;
 	void changeNukeImmuneCount(int iValue);
-
-	bool isPlagueImmune() const;
-	void changePlagueImmuneCount(int iValue);
-	bool isCanDoNukeDamage() const;
-	void changeCanDoNukeDamageCount(int iValue);
-	int getCanDoNukeDamageCount() const;
+	int getNukeImmuneCount() const;
 
 	int maxInterceptionProbability() const;
 	int currInterceptionProbability() const;
 	int evasionProbability() const;
 	int withdrawalProbability() const;
 
-	int getNumNearByEnemyUnitsAdjacent()const;
 	int GetNumEnemyUnitsAdjacent(const CvUnit* pUnitToExclude = NULL) const;
 	bool IsEnemyCityAdjacent() const;
 	bool IsEnemyCityAdjacent(const CvCity* pSpecifyCity) const;
@@ -770,22 +578,6 @@ public:
 	void ChangeAdjacentModifier(int iValue);
 	int GetRangedAttackModifier() const;
 	void ChangeRangedAttackModifier(int iValue);
-	int GetRangeSuppressModifier() const;
-	void ChangeRangeSuppressModifier(int iValue);
-	int GetRangeSuppressModifier(const CvUnit* pOtherUnit) const;
-	int GetCombatModifierFromBuilding() const;
-	int GetPromotionMaintenanceCost() const;
-	void ChangePromotionMaintenanceCost(int iValue);
-	int GetFreeExpPerTurn() const;
-	void ChangeFreeExpPerTurn(int iValue);
-	int GetStayCSInfluencePerTurn() const;
-	void ChangeStayCSInfluencePerTurn(int iValue);
-	int GetStayCSExpPerTurn() const;
-	void ChangeStayCSExpPerTurn(int iValue);
-	int GetInterceptionDamageMod() const;
-	void ChangeInterceptionDamageMod(int iValue);
-	int GetAirSweepDamageMod() const;
-	void ChangeAirSweepDamageMod(int iValue);
 	int GetInterceptionCombatModifier() const;
 	void ChangeInterceptionCombatModifier(int iValue);
 	int GetInterceptionDefenseDamageModifier() const;
@@ -796,10 +588,7 @@ public:
 	void changeAttackModifier(int iValue);
 	int getDefenseModifier() const;
 	void changeDefenseModifier(int iValue);
-	int getGroundAttackDamage() const;
-	void changeGroundAttackDamage(int iValue);
-	int getGroundAttackRange() const;
-	void changeGroundAttackRange(int iValue);
+
 	int cityAttackModifier() const;
 	int cityDefenseModifier() const;
 	int rangedDefenseModifier() const;
@@ -821,19 +610,6 @@ public:
 	int unitClassDefenseModifier(UnitClassTypes eUnitClass) const;
 	int unitCombatModifier(UnitCombatTypes eUnitCombat) const;
 	int domainModifier(DomainTypes eDomain) const;
-
-	int domainAttack(DomainTypes eDomain) const;
-	int domainDefense(DomainTypes eDomain) const;
-
-#if defined(MOD_API_PROMOTION_TO_PROMOTION_MODIFIERS)
-	int otherPromotionModifier(PromotionTypes other) const;
-	int otherPromotionAttackModifier(PromotionTypes other) const;
-	int otherPromotionDefenseModifier(PromotionTypes other) const;
-
-	int otherPromotionModifierByUnit(const CvUnit* otherUnit) const;
-	int otherPromotionAttackModifierByUnit(const CvUnit* otherUnit) const;
-	int otherPromotionDefenseModifierByUnit(const CvUnit* otherUnit) const;
-#endif
 
 	bool IsHasNoValidMove() const;
 
@@ -865,10 +641,7 @@ public:
 	int getArea() const;
 	CvArea* area() const;
 	bool onMap() const;
-#if defined(MOD_ROG_CORE)
-	void setOriginCity(int ID);
-	CvCity* getOriginCity() const;
-#endif
+
 	int getLastMoveTurn() const;
 	void setLastMoveTurn(int iNewValue);
 
@@ -895,18 +668,9 @@ public:
 	void setGameTurnCreated(int iNewValue);
 
 	int getDamage() const;
-#if defined(MOD_API_UNIT_STATS)
-	int setDamage(int iNewValue, PlayerTypes ePlayer = NO_PLAYER, int iUnit = -1, float fAdditionalTextDelay = 0.0f, const CvString* pAppendText = NULL);
-	int changeDamage(int iChange, PlayerTypes ePlayer = NO_PLAYER, int iUnit = -1, float fAdditionalTextDelay = 0.0f, const CvString* pAppendText = NULL);
-#else
 	int setDamage(int iNewValue, PlayerTypes ePlayer = NO_PLAYER, float fAdditionalTextDelay = 0.0f, const CvString* pAppendText = NULL);
 	int changeDamage(int iChange, PlayerTypes ePlayer = NO_PLAYER, float fAdditionalTextDelay = 0.0f, const CvString* pAppendText = NULL);
-#endif
-#if defined(SHOW_PLOT_POPUP)
-	void ShowDamageDeltaText(int iDelta, CvPlot* pkPlot, float fAdditionalTextDelay = 0.0f, const CvString* pAppendText = NULL);
-#else
 	static void ShowDamageDeltaText(int iDelta, CvPlot* pkPlot, float fAdditionalTextDelay = 0.0f, const CvString* pAppendText = NULL);
-#endif
 
 	int getMoves() const;
 	void setMoves(int iNewValue);
@@ -914,20 +678,14 @@ public:
 	void finishMoves();
 
 	bool IsImmobile() const;
-	void ChangesNumImmobile(int iValue);
+	void SetImmobile(bool bValue);
 
 	bool IsInFriendlyTerritory() const;
 	bool IsUnderEnemyRangedAttack() const;
 
-#if defined(MOD_UNITS_XP_TIMES_100)
-	int getExperienceTimes100() const;
-	void setExperienceTimes100(int iNewValueTimes100, int iMax = -1);
-	void changeExperienceTimes100(int iChangeTimes100, int iMax = -1, bool bFromCombat = false, bool bInBorders = false, bool bUpdateGlobal = false);
-#else
 	int getExperience() const;
 	void setExperience(int iNewValue, int iMax = -1);
 	void changeExperience(int iChange, int iMax = -1, bool bFromCombat = false, bool bInBorders = false, bool bUpdateGlobal = false);
-#endif
 
 	int getLevel() const;
 	void setLevel(int iNewValue);
@@ -955,111 +713,10 @@ public:
 	void changeFortifyTurns(int iChange);
 	bool IsFortifiedThisTurn() const;
 	void SetFortifiedThisTurn(bool bValue);
-	bool getHasWithdrawnThisTurn() const;
-	void setHasWithdrawnThisTurn(bool bNewValue);
+
 	int getBlitzCount() const;
 	bool isBlitz() const;
 	void changeBlitzCount(int iChange);
-
-	void DoAdjacentPlotDamage(CvPlot* pWhere, int iValue);
-
-	void MoveToEnemyPlotDamage(CvPlot* pWhere);
-
-#if defined(MOD_ROG_CORE)
-	void ClearNumTimesAttackedThisTurn();
-	void ChangeNumTimesAttackedThisTurn(PlayerTypes ePlayer, int iValue);
-	int GetNumTimesAttackedThisTurn(PlayerTypes ePlayer) const;
-
-	int getMeleeDefenseModifier() const;
-	void changeMeleeDefenseModifier(int iValue);
-
-	int attackFullyHealedModifier() const;
-	int attackAbove50HealthModifier() const;
-	int attackBelow50HealthModifier() const;
-
-	int getForcedDamageValue();
-	void ChangeForcedDamageValue(int iChange);
-
-	int getChangeDamageValue();
-	void ChangeChangeDamageValue(int iChange);
-
-	int getExtraAttackFullyHealedMod() const;
-	void changeExtraAttackFullyHealedMod(int iChange);
-
-	int getExtraAttackAboveHealthMod() const;
-	void changeExtraAttackAboveHealthMod(int iChange);
-
-	int getExtraAttackBelowHealthMod() const;
-	void changeExtraAttackBelowHealthMod(int iChange);
-#endif
-
-#if defined(MOD_ROG_CORE)
-	int getAoEDamageOnMove() const;
-	void changeAoEDamageOnMove(int iChange);
-	bool IsStrongerDamaged() const;
-	void ChangeIsStrongerDamaged(int iChange);
-	bool IsFightWellDamaged() const;
-	void ChangeIsFightWellDamaged(int iChange);
-#endif
-
-	bool IsImmueMeleeAttack() const;
-	void ChangeImmueMeleeAttackCount(int iChange);
-
-#if defined(MOD_ROG_CORE)
-	int getHPHealedIfDefeatEnemyGlobal() const;
-	void changeHPHealedIfDefeatEnemyGlobal(int iValue);
-
-	int getNumOriginalCapitalAttackMod() const;
-	void changeNumOriginalCapitalAttackMod(int iValue);
-
-	int getNumOriginalCapitalDefenseMod() const;
-	void changeNumOriginalCapitalDefenseMod(int iValue);
-#endif
-
-
-#if defined(MOD_ROG_CORE)
-	int getOnCapitalLandAttackMod() const;
-	void changeOnCapitalLandAttackMod(int iValue);
-
-	int getOutsideCapitalLandAttackMod() const;
-	void changeOutsideCapitalLandAttackMod(int iValue);
-
-	int getOnCapitalLandDefenseMod() const;
-	void changeOnCapitalLandDefenseMod(int iValue);
-
-	int getOutsideCapitalLandDefenseMod() const;
-	void changeOutsideCapitalLandDefenseMod(int iValue);
-#endif
-
-	int GetAttackInflictDamageChange() const;
-	int GetAttackInflictDamageChangeMaxHPPercent() const;
-	void ChangeAttackInflictDamageChange(int iChange);
-	void ChangeAttackInflictDamageChangeMaxHPPercent(int iChange);
-
-	int GetDefenseInflictDamageChange() const;
-	int GetDefenseInflictDamageChangeMaxHPPercent() const;
-	void ChangeDefenseInflictDamageChange(int iChange);
-	void ChangeDefenseInflictDamageChangeMaxHPPercent(int iChange);
-
-	int GetSiegeInflictDamageChange() const;
-	int GetSiegeInflictDamageChangeMaxHPPercent() const;
-	void ChangeSiegeInflictDamageChange(int iChange);
-	void ChangeSiegeInflictDamageChangeMaxHPPercent(int iChange);
-
-	bool IsRangeBackWhenDefense() const;
-	void ChangeNumRangeBackWhenDefense(int iChange);
-
-	int GetHeavyChargeAddMoves() const;
-	int GetHeavyChargeExtraDamage() const;
-	int GetHeavyChargeCollateralFixed() const;
-	int GetHeavyChargeCollateralPercent() const;
-	void ChangeHeavyChargeAddMoves(int iChange);
-	void ChangeHeavyChargeExtraDamage(int iChange);
-	void ChangeHeavyChargeCollateralFixed(int iChange);
-	void ChangeHeavyChargeCollateralPercent(int iChange);
-
-	int GetOutsideFriendlyLandsInflictDamageChange() const;
-	void ChangeOutsideFriendlyLandsInflictDamageChange(int iChange);
 
 	int getAmphibCount() const;
 	bool isAmphib() const;
@@ -1085,20 +742,11 @@ public:
 	bool isHillsDoubleMove() const;
 	void changeHillsDoubleMoveCount(int iChange);
 
-	int getRiverDoubleMoveCount() const;
-	bool isRiverDoubleMove() const;
-	void changeRiverDoubleMoveCount(int iChange);
-
 	int getImmuneToFirstStrikesCount() const;
 	void changeImmuneToFirstStrikesCount(int iChange);
 
 	int getExtraVisibilityRange() const;
 	void changeExtraVisibilityRange(int iChange);
-
-#if defined(MOD_PROMOTIONS_VARIABLE_RECON)
-	int getExtraReconRange() const;
-	void changeExtraReconRange(int iChange);
-#endif
 
 	int getExtraMoves() const;
 	void changeExtraMoves(int iChange);
@@ -1121,11 +769,8 @@ public:
 	int getExtraRange() const;
 	void changeExtraRange(int iChange);
 
-	int getInterceptChance() const;
-	void changeInterceptChance(int iChange);
-
-	//int getExtraIntercept() const;
-	//void changeExtraIntercept(int iChange);
+	int getExtraIntercept() const;
+	void changeExtraIntercept(int iChange);
 
 	int getExtraEvasion() const;
 	void changeExtraEvasion(int iChange);
@@ -1138,16 +783,6 @@ public:
 
 	int getExtraWithdrawal() const;
 	void changeExtraWithdrawal(int iChange);
-
-#if defined(MOD_API_UNIFIED_YIELDS_MORE)
-	// Plague Stuff
-	std::vector<int> GetInflictedPlagueIDs() const;
-	PromotionTypes GetInflictedPlague(int iPlagueID, int& iPlagueChance) const;
-	bool HasPlague(int iPlagueID = -1, int iMinimumPriority = -1) const;
-	void RemovePlague(int iPlagueID = -1, int iHigherPriority = -1);
-	bool ImmuneToPlague(int iPlagueID = -1) const;
-	bool CanPlague(CvUnit* pOtherUnit) const;
-#endif
 
 	int getExtraEnemyHeal() const;
 	void changeExtraEnemyHeal(int iChange);
@@ -1218,17 +853,8 @@ public:
 	int getExtraAttackWoundedMod() const;
 	void changeExtraAttackWoundedMod(int iChange);
 
-	int getExtraWoundedMod() const;
-	void changeExtraWoundedMod(int iChange);
-
 	int GetFlankAttackModifier() const;
 	void ChangeFlankAttackModifier(int iChange);
-
-	int GetRangedFlankAttackModifier() const;
-	void ChangeRangedFlankAttackModifier(int iChange);
-
-	int GetRangedFlankAttackModifierPercent() const;
-	void ChangeRangedFlankAttackModifierPercent(int iChange);
 
 	int getExtraOpenDefensePercent() const;
 	void changeExtraOpenDefensePercent(int iChange);
@@ -1236,33 +862,17 @@ public:
 	int getExtraRoughDefensePercent() const;
 	void changeExtraRoughDefensePercent(int iChange);
 
-	int getNumAttacks() const;
-	int getNumAttacksMadeThisTurn() const;
 	void changeExtraAttacks(int iChange);
-	void ChangeMadeAttackNum(int iChange);
 
 	// Citadel
 	bool IsNearEnemyCitadel(int& iCitadelDamage);
 
-#if defined(MOD_ROG_CORE)
-	bool IsNearOurCitadel(int& iCitadelHeal);
-#endif
-
 	// Great General Stuff
-#if defined(MOD_PROMOTIONS_AURA_CHANGE)
-	bool IsNearGreatGeneral(int& iAuraEffectChange) const;
-#else
 	bool IsNearGreatGeneral() const;
-#endif
 	bool IsStackedGreatGeneral() const;
 	int GetGreatGeneralStackMovement() const;
 	int GetReverseGreatGeneralModifier() const;
 	int GetNearbyImprovementModifier() const;
-#if defined(MOD_PROMOTIONS_IMPROVEMENT_BONUS)
-	int GetNearbyImprovementModifierFromTraits() const;
-	int GetNearbyImprovementModifierFromPromotions() const;
-	int GetNearbyImprovementModifier(ImprovementTypes eBonusImprovement, int iImprovementRange, int iImprovementModifier) const;
-#endif
 
 	bool IsGreatGeneral() const;
 	int GetGreatGeneralCount() const;
@@ -1270,13 +880,6 @@ public:
 	bool IsGreatAdmiral() const;
 	int GetGreatAdmiralCount() const;
 	void ChangeGreatAdmiralCount(int iChange);
-
-#if defined(MOD_PROMOTIONS_AURA_CHANGE)
-	int GetAuraRangeChange() const;
-	void ChangeAuraRangeChange(int iChange);
-	int GetAuraEffectChange() const;
-	void ChangeAuraEffectChange(int iChange);
-#endif
 
 	int getGreatGeneralModifier() const;
 	void changeGreatGeneralModifier(int iChange);
@@ -1290,35 +893,9 @@ public:
 	void ChangeIgnoreGreatGeneralBenefitCount(int iChange);
 	// END Great General Stuff
 
-#if defined(MOD_UNITS_NO_SUPPLY)
-	bool isNoSupply() const;
-	void changeNoSupply(int iChange);
-#endif
-
-#if defined(MOD_UNITS_MAX_HP)
-	int getMaxHitPointsBase() const;
-	void setMaxHitPointsBase(int iMaxHitPoints);
-	void changeMaxHitPointsBase(int iChange);
-	
-	int getMaxHitPointsChange() const;
-	void changeMaxHitPointsChange(int iChange);
-	int getMaxHitPointsChangeFromRazedCityPop() const;
-	void changeMaxHitPointsChangeFromRazedCityPop(int iValue);
-	void setMaxHitPointsChangeFromRazedCityPop(int iChange);
-	int getMaxHitPointsModifier() const;
-	void changeMaxHitPointsModifier(int iChange);
-#endif
-
 	bool IsIgnoreZOC() const;
 	void ChangeIgnoreZOCCount(int iChange);
-	bool IsCanDoFallBackDamage() const;
-	void ChangeCanDoFallBackDamageCount(int iChange);
-	bool IsCanPlunderWithoutWar() const;
-	void ChangeCanPlunderWithoutWarCount(int iChange);
-	bool IsCanParadropAnyWhere() const;
-	void ChangeCanParadropAnyWhereCount(int iChange);
-	bool IsCanParadropUnLimit() const;
-	void ChangeIsCanParadropUnLimitCount(int iChange);
+
 	bool IsSapper() const;
 	void ChangeSapperCount(int iChange);
 	bool IsSappingCity(const CvCity* pTargetCity) const;
@@ -1354,7 +931,6 @@ public:
 	void rotateFacingDirectionCounterClockwise();
 
 	bool isSuicide() const;
-	bool isNoFallout() const;
 	bool isTrade() const;
 
 	int getDropRange() const;
@@ -1366,20 +942,12 @@ public:
 	int GetNumInterceptions() const;
 	void ChangeNumInterceptions(int iChange);
 
-	int GetExtraAirInterceptRange() const; // JJ: New
-	void ChangeExtraAirInterceptRange(int iChange);
-
 	bool isOutOfInterceptions() const;
 	int getMadeInterceptionCount() const;
 	void setMadeInterception(bool bNewValue);
 
 	bool TurnProcessed() const;
 	void SetTurnProcessed(bool bValue);
-
-#if defined(MOD_API_UNIT_CANNOT_BE_RANGED_ATTACKED)
-	bool IsCannotBeRangedAttacked() const;
-	void SetCannotBeRangedAttacked(bool bNewValue);
-#endif
 
 	bool isPromotionReady() const;
 	void setPromotionReady(bool bNewValue);
@@ -1414,11 +982,6 @@ public:
 	bool IsCapturedAsIs() const;
 	void SetCapturedAsIs(bool bSetValue);
 
-#ifdef MOD_BATTLE_CAPTURE_NEW_RULE
-	CvUnit* getCapturingUnit() const;
-	void setCapturingUnit(CvUnit* unit);
-#endif
-
 	const UnitTypes getUnitType() const;
 	CvUnitEntry& getUnitInfo() const;
 	UnitClassTypes getUnitClassType() const;
@@ -1431,12 +994,6 @@ public:
 
 	const InvisibleTypes getSeeInvisibleType() const;
 	void setSeeInvisibleType(InvisibleTypes InvisibleType);
-#if defined(MOD_PROMOTION_FEATURE_INVISIBLE)
-	const int GetFeatureInvisible() const;
-	const int GetFeatureInvisible2() const;
-	void setFeatureInvisible(int FeatureInvisible, int FeatureInvisible2);
-	bool IsInvisibleInvalid(CvPlot* pPlot) const;
-#endif
 
 	const CvUnit* getCombatUnit() const;
 	CvUnit* getCombatUnit();
@@ -1453,29 +1010,12 @@ public:
 
 	const CvString getName() const;
 	const char* getNameKey() const;
-#if defined(MOD_PROMOTIONS_UNIT_NAMING)
-	const CvString getUnitName() const;
-	void setUnitName(const CvString strNewValue);
-#endif
 	const CvString getNameNoDesc() const;
 	void setName(const CvString strNewValue);
-#if defined(MOD_GLOBAL_NO_LOST_GREATWORKS)
-	const CvString getGreatName() const;
-	void setGreatName(CvString strName);
-#endif
 	GreatWorkType GetGreatWork() const;
 	void SetGreatWork(GreatWorkType eGreatWork);
-#if defined(MOD_API_EXTENSIONS)
-	bool HasGreatWork() const;
-	bool HasUnusedGreatWork() const;
-#endif
 	int GetTourismBlastStrength() const;
 	void SetTourismBlastStrength(int iValue);
-
-#ifdef MOD_BATTLE_CAPTURE_NEW_RULE
-	bool GetIsNewCapture() const;
-	void SetIsNewCapture(bool value);
-#endif
 
 	// Arbitrary Script Data
 	std::string getScriptData() const;
@@ -1490,16 +1030,6 @@ public:
 	int getFeatureDoubleMoveCount(FeatureTypes eIndex) const;
 	bool isFeatureDoubleMove(FeatureTypes eIndex) const;
 	void changeFeatureDoubleMoveCount(FeatureTypes eIndex, int iChange);
-
-#if defined(MOD_PROMOTIONS_HALF_MOVE)
-	int getTerrainHalfMoveCount(TerrainTypes eIndex) const;
-	bool isTerrainHalfMove(TerrainTypes eIndex) const;
-	void changeTerrainHalfMoveCount(TerrainTypes eIndex, int iChange);
-
-	int getFeatureHalfMoveCount(FeatureTypes eIndex) const;
-	bool isFeatureHalfMove(FeatureTypes eIndex) const;
-	void changeFeatureHalfMoveCount(FeatureTypes eIndex, int iChange);
-#endif
 
 	int getImpassableCount() const;
 
@@ -1528,13 +1058,6 @@ public:
 	int getExtraFeatureDefensePercent(FeatureTypes eIndex) const;
 	void changeExtraFeatureDefensePercent(FeatureTypes eIndex, int iChange);
 
-#if defined(MOD_API_UNIFIED_YIELDS)
-	int getYieldFromKills(YieldTypes eIndex) const;
-	void changeYieldFromKills(YieldTypes eIndex, int iChange);
-	int getYieldFromBarbarianKills(YieldTypes eIndex) const;
-	void changeYieldFromBarbarianKills(YieldTypes eIndex, int iChange);
-#endif
-
 	int getExtraUnitCombatModifier(UnitCombatTypes eIndex) const;
 	void changeExtraUnitCombatModifier(UnitCombatTypes eIndex, int iChange);
 
@@ -1543,8 +1066,6 @@ public:
 
 	bool canAcquirePromotion(PromotionTypes ePromotion) const;
 	bool canAcquirePromotionAny() const;
-
-
 	bool isPromotionValid(PromotionTypes ePromotion) const;
 	bool isHasPromotion(PromotionTypes eIndex) const;
 	void setHasPromotion(PromotionTypes eIndex, bool bNewValue);
@@ -1557,15 +1078,7 @@ public:
 	bool isPotentialEnemy(TeamTypes eTeam, const CvPlot* pPlot = NULL) const;
 
 	bool canRangeStrike() const;
-#if defined(MOD_AI_SMART_V3)
-	int GetRangePlusMoveToshot() const;
-	void GetMovablePlotListOpt(vector<CvPlot*>& plotData, CvPlot* plotTarget, bool exitOnFound, bool bIgnoreFriendlyUnits = false);
-#endif
-#if defined(MOD_AI_SMART_V3)
-	bool canEverRangeStrikeAt(int iX, int iY, const CvPlot* pSourcePlot = NULL) const;
-#else
 	bool canEverRangeStrikeAt(int iX, int iY) const;
-#endif
 	bool canRangeStrikeAt(int iX, int iY, bool bNeedWar = true, bool bNoncombatAllowed = true) const;
 
 	bool IsAirSweepCapable() const;
@@ -1578,8 +1091,6 @@ public:
 
 	bool potentialWarAction(const CvPlot* pPlot) const;
 	bool willRevealByMove(const CvPlot& pPlot) const;
-
-	bool attemptGroundAttacks(const CvPlot& pPlot);
 
 	bool isAlwaysHostile(const CvPlot& pPlot) const;
 	void changeAlwaysHostileCount(int iValue);
@@ -1608,9 +1119,6 @@ public:
 	void AI_promote();
 	UnitAITypes AI_getUnitAIType() const;
 	void AI_setUnitAIType(UnitAITypes eNewValue);
-#if defined(MOD_AI_SMART_V3)
-	int GetPromotionValue(int promotionBonus, int unitExtraValue, int matchFlavorValue, int baseValue);
-#endif
 	int AI_promotionValue(PromotionTypes ePromotion);
 
 	GreatPeopleDirectiveTypes GetGreatPeopleDirective() const;
@@ -1643,28 +1151,6 @@ public:
 	MissionAITypes GetMissionAIType();
 	void SetMissionAI(MissionAITypes eNewMissionAI, CvPlot* pNewPlot, CvUnit* pNewUnit);
 	CvUnit* GetMissionAIUnit();
-
-#if defined(MOD_API_EXTENSIONS) || defined(MOD_GLOBAL_BREAK_CIVILIAN_RESTRICTIONS)
-	inline bool IsCivilianUnit() const
-	{
-		return !(IsCombatUnit() || isRanged());
-	}
-
-	inline bool IsMinorCivUnit() const
-	{
-		return (m_eOwner >= MAX_MAJOR_CIVS);
-	}
-
-	inline bool IsBarbarianUnit() const
-	{
-		return (m_eOwner == BARBARIAN_PLAYER);
-	}
-
-	inline bool IsCityStateUnit() const
-	{
-		return IsMinorCivUnit() && !IsBarbarianUnit();
-	}
-#endif
 
 	// Combat eligibility routines
 	inline bool IsCombatUnit() const
@@ -1701,12 +1187,6 @@ public:
 	void ChangeEmbarkAllWaterCount(int iValue);
 	int GetEmbarkAllWaterCount() const;
 
-#if defined(MOD_PROMOTIONS_DEEP_WATER_EMBARKATION)
-	bool IsEmbarkDeepWater() const;
-	void ChangeEmbarkDeepWaterCount(int iValue);
-	int GetEmbarkDeepWaterCount() const;
-#endif
-
 	void ChangeEmbarkExtraVisibility(int iValue);
 	int GetEmbarkExtraVisibility() const;
 
@@ -1718,253 +1198,8 @@ public:
 	void ChangeCapitalDefenseFalloff(int iValue);
 	int GetCapitalDefenseFalloff() const;
 
-#if defined(MOD_DEFENSE_MOVES_BONUS)
-	void ChangeMoveLeftDefenseMod(int iValue);
-	int GetMoveLeftDefenseMod() const;
-
-	void ChangeMoveUsedDefenseMod(int iValue);
-	int GetMoveUsedDefenseMod() const;
-#endif
-	int getRouteMovementChanges(RouteTypes eIndex) const;
-	void changeRouteMovementChanges(RouteTypes eIndex, int iChange);
-
-#if defined(MOD_ROG_CORE)
-	void ChangeMoveLfetAttackMod(int iValue);
-	int GetMoveLfetAttackMod() const;
-
-	void ChangeMoveUsedAttackMod(int iValue);
-	int GetMoveUsedAttackMod() const;
-
-	void ChangeGoldenAgeMod(int iValue);
-	int GetGoldenAgeMod() const;
-
-	void ChangeAntiHigherPopMod(int iValue);
-	int GetAntiHigherPopMod() const;
-	bool IsHigherPopThan(const CvUnit* pOtherUnit) const;
-	int getCombatModPerAdjacentUnitCombatModifier(UnitCombatTypes eIndex) const;
-	void changeCombatModPerAdjacentUnitCombatModifier(UnitCombatTypes eIndex, int iChange);
-
-	int getCombatModPerAdjacentUnitCombatAttackMod(UnitCombatTypes eIndex) const;
-	void changeCombatModPerAdjacentUnitCombatAttackMod(UnitCombatTypes eIndex, int iChange);
-
-	int getCombatModPerAdjacentUnitCombatDefenseMod(UnitCombatTypes eIndex) const;
-	void changeCombatModPerAdjacentUnitCombatDefenseMod(UnitCombatTypes eIndex, int iChange);
-
-	void ChangeRangedSupportFireMod(int iValue);
-	int GetRangedSupportFireMod() const;
-
-	int GetMoraleBreakChance() const;
-	void ChangeMoraleBreakChance(int iChange);
-
-	int GetIgnoreDamageChance() const;
-	void ChangeIgnoreDamageChance(int iChange);
-	int GetDamageAoEFortified() const;
-	void ChangeDamageAoEFortified(int iChange);
-
-	int GetWorkRateMod() const;
-	void ChangeWorkRateMod(int iChange);
-
-	int GetTurnDamage() const;
-	void ChangeTurnDamage(int iChange);
-	int GetTurnDamagePercent() const;
-	void ChangeTurnDamagePercent(int iChange);
-	int GetNearbyEnemyDamage() const;
-	void ChangeNearbyEnemyDamage(int iChange);
-	int GetAdjacentEnemySapMovement() const;
-	void ChangeAdjacentEnemySapMovement(int iChange);
-	int GetAdjacentSapExperience() const;
-	void ChangeAdjacentSapExperience(int iChange);
-	int GetAdjacentFriendlySapMovement() const;
-	void ChangeAdjacentFriendlySapMovement(int iChange);
-	int GetPillageReplenishMoves() const;
-	void ChangePillageReplenishMoves(int iChange);
-	bool IsPillageReplenishAttck() const;
-	void ChangePillageReplenishAttckount(int iChange);
-	int GetPillageReplenishHealth() const;
-	void ChangePillageReplenishHealth(int iChange);
-
-	int getAOEDamageOnKill() const;
-	void changeAOEDamageOnKill(int iChange);
-	int getAOEDamageOnPillage() const;
-	void changeAOEDamageOnPillage(int iChange);
-	int GetBarbarianCombatBonus() const;
-	void ChangeBarbarianCombatBonus(int iValue);
-	int GetBarbarianCombatBonusTotal() const;
-#endif
-
-	int GetCaptureDefeatedEnemyChance() const;
-	void ChangeCaptureDefeatedEnemyChance(int iValue);
-	void ChangeCannotBeCapturedCount(int iChange);
-	bool GetCannotBeCaptured();
-
-
-#if defined(MOD_ROG_CORE)
-	int getMultiAttackBonus() const;
-	void changeMultiAttackBonus(int iChange);
-
-	void ChangeNumAttacksMadeThisTurnAttackMod(int iValue);
-	int GetNumAttacksMadeThisTurnAttackMod() const;
-
-	void ChangeNumSpyAttackMod(int iValue);
-	int GetNumSpyAttackMod() const;
-
-	void ChangeNumWonderAttackMod(int iValue);
-	int GetNumWonderAttackMod() const;
-
-	void ChangeNumWorkAttackMod(int iValue);
-	int GetNumWorkAttackMod() const;
-
-
-	void ChangeNumSpyDefenseMod(int iValue);
-	int GetNumSpyDefenseMod() const;
-
-	void ChangeNumWonderDefenseMod(int iValue);
-	int GetNumWonderDefenseMod() const;
-
-	void ChangeNumWorkDefenseMod(int iValue);
-	int GetNumWorkDefenseMod() const;
-
-	void ChangeNumSpyStayAttackMod(int iValue);
-	int GetNumSpyStayAttackMod() const;
-	void ChangeNumSpyStayDefenseMod(int iValue);
-	int GetNumSpyStayDefenseMod() const;
-
-	bool IsNoResourcePunishment() const;
-	void ChangeIsNoResourcePunishment(int iChange);
-
-	void ChangeCurrentHitPointAttackMod(int iValue);
-	int GetCurrentHitPointAttackMod() const;
-
-	void ChangeCurrentHitPointDefenseMod(int iValue);
-	int GetCurrentHitPointDefenseMod() const;
-
-	void ChangeDoFallBackAttackMod(int iValue);
-	int GetDoFallBackAttackMod() const;
-
-	void ChangeBeFallBackDefenseMod(int iValue);
-	int GetBeFallBackDefenseMod() const;
-
-	void ChangeNumTimesDoFallBackThisTurn(int iValue);
-	int GetNumTimesDoFallBackThisTurn() const;
-	void ChangeNumTimesBeFallBackThisTurn(int iValue);
-	int GetNumTimesBeFallBackThisTurn() const;
-
-	void ChangeNearNumEnemyAttackMod(int iValue);
-	int GetNearNumEnemyAttackMod() const;
-
-	void ChangeNearNumEnemyDefenseMod(int iValue);
-	int GetNearNumEnemyDefenseMod() const;
-
-	int GetExtraNukeBlastRadius() const;
-	int GetNumEnemyAdjacent() const;
-
-#endif
-
 	void ChangeCityAttackPlunderModifier(int iValue);
 	int GetCityAttackPlunderModifier() const;
-
-	void SetExtraPopConsume(int iValue);
-	int GetExtraPopConsume() const;
-
-	void ChangeAttackBonusFromDeathUnit(int iValue);
-	int GetAttackBonusFromDeathUnit() const;
-	int GetAttackModifierFromWorldCongress() const;
-
-#if defined(MOD_PROMOTION_AURA_PROMOTION)
-	bool HasAuraPromotions() const;
-	const std::tr1::unordered_set<PromotionTypes>& GetAuraPromotions() const;
-	void CheckAuraToOtherUnits();
-	void CheckAuraFromOtherUnits();
-	void CheckAuraPromotionFromOtherUnits(PromotionTypes ePromotion);
-#endif
-#if defined(MOD_PROMOTION_NEW_EFFECT_FOR_SP)
-	const int GetMeleeAttackModifier() const;
-	void ChangeMeleeAttackModifier(int iValue);
-
-	const int GetCaptureEmenyExtraMax() const;
-	void ChangeCaptureEmenyExtraMax(int iValue);
-
-	const int GetCaptureEmenyPercent() const;
-	void ChangeCaptureEmenyPercent(int iValue);
-
-	const int GetMovePercentCaptureCity() const;
-	void ChangeMovePercentCaptureCity(int iValue);
-
-	const int GetHealPercentCaptureCity() const;
-	void ChangeHealPercentCaptureCity(int iValue);
-
-	const int GetInsightEnemyDamageModifier() const;
-	void ChangeInsightEnemyDamageModifier(int iValue);
-
-	const int GetHeightModPerX() const;
-	void ChangeHeightModPerX(int iValue);
-	const int GetHeightModLimited() const;
-	void ChangeHeightModLimited(int iValue);
-	const int GetTotalHeightMod(CvPlot& TargetPlot) const;
-
-	const int GetMilitaryMightMod() const;
-	void ChangeMilitaryMightMod(int iValue);
-
-	const int GetExtraMoveTimesXX() const;
-	void ChangeExtraMoveTimesXX(int iValue);
-
-	const int GetRangeAttackCostModifier() const;
-	void ChangeRangeAttackCostModifier(int iValue);
-
-	const int GetSetUpCostModifier() const;
-	void ChangeSetUpCostModifier(int iValue);
-
-	const int GetOriginalCapitalDamageFixTotal() const;
-	const int GetOriginalCapitalDamageFix() const;
-	void ChangeOriginalCapitalDamageFix(int iValue);
-
-	const int GetOriginalCapitalSpecialDamageFixTotal() const;
-	const int GetOriginalCapitalSpecialDamageFix() const;
-	void ChangeOriginalCapitalSpecialDamageFix(int iValue);
-
-	const int GetMultipleInitExperence() const;
-	void ChangeMultipleInitExperence(int iValue);
-
-	const int GetLostAllMovesAttackCity() const;
-	void ChangeLostAllMovesAttackCity(int iValue);
-
-	void ChangeUnitAttackFaithBonus(int iValue);
-	void ChangeCityAttackFaithBonus(int iValue);
-	const int GetUnitAttackFaithBonus() const;
-	const int GetCityAttackFaithBonus() const;
-
-	const int GetCarrierEXPGivenModifier() const;
-	void ChangeCarrierEXPGivenModifier(int iValue);
-
-	void setRemovePromotionUpgrade(int iValue);
-	const int GetRemovePromotionUpgrade() const;
-
-	void setAttackChanceFromAttackDamageFormula(int iValue);
-	const int GetAttackChanceFromAttackDamageFormula() const;
-
-	void setMovementFromAttackDamageFormula(int iValue);
-	const int GetMovementFromAttackDamageFormula() const;
-
-	void setHealPercentFromAttackDamageFormula(int iValue);
-	const int GetHealPercentFromAttackDamageFormula() const;
-#endif
-#if defined(MOD_TROOPS_AND_CROPS_FOR_SP)
-	const int GetCrops() const;
-	void ChangeCrops(int iValue);
-	bool IsCrops() const;
-
-	const int GetArmee() const;
-	void ChangeArmee(int iValue);
-	bool IsArmee() const;
-
-	bool IsNoTroops() const;
-
-	bool IsCanEstablishCorps() const;
-	void ChangeNumEstablishCorps(int iValue);
-
-	bool IsCanBeEstablishedCorps() const;
-	void ChangeNumCannotBeEstablishedCorps(int iValue);
-#endif
 
 	void ChangeReligiousStrengthLossRivalTerritory(int iValue);
 	int GetReligiousStrengthLossRivalTerritory() const;
@@ -1986,136 +1221,24 @@ public:
 
 	// Ported in from old CvUnitAI class
 	int SearchRange(int iRange) const;
-#if defined(MOD_AI_SECONDARY_WORKERS)
-	bool PlotValid(CvPlot* pPlot, byte bMoveFlags = 0) const;
-#else
 	bool PlotValid(CvPlot* pPlot) const;
-#endif
 
 	CvUnitReligion* GetReligionData() const
 	{
 		return m_pReligion;
 	};
 
-	bool isUnitTechUpgrade() const;
 	static void dispatchingNetMessage(bool dispatching);
 	static bool dispatchingNetMessage();
 
 	std::string debugDump(const FAutoVariableBase&) const;
 	std::string stackTraceRemark(const FAutoVariableBase&) const;
 
-#if defined(MOD_API_EXTENSIONS)
-	bool IsCivilization(CivilizationTypes iCivilizationType) const;
-	bool HasPromotion(PromotionTypes iPromotionType) const;
-	bool IsUnit(UnitTypes iUnitType) const;
-	bool IsUnitClass(UnitClassTypes iUnitClassType) const;
-	bool IsOnFeature(FeatureTypes iFeatureType) const;
-	bool IsAdjacentToFeature(FeatureTypes iFeatureType) const;
-	bool IsWithinDistanceOfFeature(FeatureTypes iFeatureType, int iDistance) const;
-
-
-	bool IsWithinDistanceOfUnit(UnitTypes eOtherUnit, int iDistance, bool bIsFriendly, bool bIsEnemy) const;
-	bool IsWithinDistanceOfUnitClass(UnitClassTypes eUnitClass, int iDistance, bool bIsFriendly, bool bIsEnemy) const;
-	bool IsWithinDistanceOfUnitCombatType(UnitCombatTypes eUnitCombat, int iDistance, bool bIsFriendly, bool bIsEnemy) const;
-	bool IsWithinDistanceOfUnitPromotion(PromotionTypes eUnitPromotion, int iDistance, bool bIsFriendly, bool bIsEnemy) const;
-	bool IsWithinDistanceOfCity(int iDistance, bool bIsFriendly, bool bIsEnemy) const;
-	bool IsAdjacentToUnit(UnitTypes eOtherUnit, bool bIsFriendly, bool bIsEnemy) const;
-	bool IsAdjacentToUnitClass(UnitClassTypes eUnitClass, bool bIsFriendly, bool bIsEnemy) const;
-	bool IsAdjacentToUnitCombatType(UnitCombatTypes eUnitCombat, bool bIsFriendly, bool bIsEnemy) const;
-	bool IsAdjacentToUnitPromotion(PromotionTypes eUnitPromotion, bool bIsFriendly, bool bIsEnemy) const;
-
-	bool IsOnImprovement(ImprovementTypes iImprovementType) const;
-	bool IsAdjacentToImprovement(ImprovementTypes iImprovementType) const;
-	bool IsWithinDistanceOfImprovement(ImprovementTypes iImprovementType, int iDistance) const;
-	bool IsOnPlotType(PlotTypes iPlotType) const;
-	bool IsAdjacentToPlotType(PlotTypes iPlotType) const;
-	bool IsWithinDistanceOfPlotType(PlotTypes iPlotType, int iDistance) const;
-	bool IsOnResource(ResourceTypes iResourceType) const;
-	bool IsAdjacentToResource(ResourceTypes iResourceType) const;
-	bool IsWithinDistanceOfResource(ResourceTypes iResourceType, int iDistance) const;
-	bool IsOnTerrain(TerrainTypes iTerrainType) const;
-	bool IsAdjacentToTerrain(TerrainTypes iTerrainType) const;
-	bool IsWithinDistanceOfTerrain(TerrainTypes iTerrainType, int iDistance) const;
-#endif
-
-#ifdef MOD_GLOBAL_WAR_CASUALTIES
-	int GetWarCasualtiesModifier() const;
-	void ChangeWarCasualtiesModifier(int iChange);
-	void SetWarCasualtiesModifier(int iValue);
-#endif
-
-#ifdef MOD_PROMOTION_SPLASH_DAMAGE
-	std::vector<SplashInfo>& GetSplashInfoVec();
-
-	int GetSplashImmuneRC() const;
-	void ChangeSplashImmuneRC(int iChange);
-	void SetSplashImmuneRC(int iValue);
-
-	int GetSplashXP() const;
-	void ChangeSplashXP(int iChange);
-	void SetSplashXP(int iValue);
-
-	bool IsTriggerSplashFinish() const;
-	void ChangeNumTriggerSplashFinish(int iChange);
-#endif
-
-#ifdef MOD_PROMOTION_COLLECTIONS
-	std::tr1::unordered_map<PromotionCollectionsTypes, int>& GetPromotionCollections();
-#endif
-
-#ifdef MOD_PROMOTION_ADD_ENEMY_PROMOTIONS
-	int GetAddEnemyPromotionImmuneRC() const;
-	bool IsImmuneNegtivePromotions() const;
-	void ChangeAddEnemyPromotionImmuneRC(int iChange);
-#endif
-
-#ifdef MOD_GLOBAL_PROMOTIONS_REMOVAL
-	void ClearSamePlotPromotions();
-	std::tr1::unordered_set<PromotionTypes>& GetPromotionsThatCanBeActionCleared();
-	void RemoveDebuffWhenDoTurn();
-	void RemoveDebuffWhenDoneTurn();
-	bool CanRemoveDebuff(AutoRemoveInfo& kAutoRemoveInfo) const;
-#endif
-
-#ifdef MOD_PROMOTION_CITY_DESTROYER
-	std::tr1::unordered_map<PromotionTypes, DestroyBuildingsInfo>& GetDestroyBuildings();
-
-	int GetSiegeKillCitizensPercent() const;
-	int GetSiegeKillCitizensFixed() const;
-	void ChangeSiegeKillCitizensPercent(int iChange);
-	void ChangeSiegeKillCitizensFixed(int iChange);
-	bool CanSiegeKillCitizens() const;
-#endif
-
-#ifdef MOD_PROMOTION_COLLATERAL_DAMAGE
-	std::vector<CollateralInfo>& GetCollateralInfoVec();
-
-	int GetCollateralImmuneRC() const;
-	void ChangeCollateralImmuneRC(int iChange);
-	void SetCollateralImmuneRC(int iValue);
-
-	int GetCollateralXP() const;
-	void ChangeCollateralXP(int iChange);
-	void SetCollateralXP(int iValue);
-#endif
-
-#ifdef MOD_GLOBAL_CORRUPTION
-	CvString GetPlotCorruptionScoreReport() const;
-#endif
-
-	int GetInstantYieldPerReligionFollowerConverted(YieldTypes eIndex) const;
-	void ChangeInstantYieldPerReligionFollowerConverted(YieldTypes eIndex, int iChange);
-
-	void ChangePromotionBuilds(BuildTypes eIndex,int iChange);
-    bool IsPromotionBuilds(BuildTypes eIndex) const;
-
-	void ChangeUnitCombatsPromotionValid(UnitCombatTypes eIndex,int iChange);
-    const std::tr1::unordered_map<int, int>& GetUnitCombatsPromotionValid() const;
 protected:
 	const MissionQueueNode* HeadMissionQueueNode() const;
 	MissionQueueNode* HeadMissionQueueNode();
 
-	bool getCaptureDefinition(CvUnitCaptureDefinition* pkCaptureDef, PlayerTypes eCapturingPlayer = NO_PLAYER, CvUnit* pCapturingUnit = nullptr);
+	bool	getCaptureDefinition(CvUnitCaptureDefinition* pkCaptureDef, PlayerTypes eCapturingPlayer = NO_PLAYER);
 	static CvUnit* createCaptureUnit(const CvUnitCaptureDefinition& kCaptureDef);
 
 	void	ClearPathCache();
@@ -2143,21 +1266,14 @@ protected:
 	FAutoVariable<int, CvUnit> m_iDeployFromOperationTurn;
 	int m_iLastMoveTurn;
 	short m_iCycleOrder;
-#if defined(MOD_API_UNIT_STATS)
-	int m_iStatsTravelled;
-	int m_iStatsKilled;
-#endif
 	FAutoVariable<int, CvUnit> m_iReconX;
 	FAutoVariable<int, CvUnit> m_iReconY;
 	FAutoVariable<int, CvUnit> m_iReconCount;
 	FAutoVariable<int, CvUnit> m_iGameTurnCreated;
 	FAutoVariable<int, CvUnit> m_iDamage;
 	FAutoVariable<int, CvUnit> m_iMoves;
-	int m_iNumImmobile;
+	FAutoVariable<bool, CvUnit> m_bImmobile;
 	FAutoVariable<int, CvUnit> m_iExperience;
-#if defined(MOD_UNITS_XP_TIMES_100)
-	int m_iExperienceTimes100;
-#endif
 	FAutoVariable<int, CvUnit> m_iLevel;
 	FAutoVariable<int, CvUnit> m_iCargo;
 	FAutoVariable<int, CvUnit> m_iCargoCapacity;
@@ -2168,7 +1284,6 @@ protected:
 	FAutoVariable<int, CvUnit> m_iCombatDamage;
 	FAutoVariable<int, CvUnit> m_iFortifyTurns;
 	FAutoVariable<bool, CvUnit> m_bFortifiedThisTurn;
-	FAutoVariable<bool, CvUnit> m_bHasWithdrawnThisTurn;
 	FAutoVariable<int, CvUnit> m_iBlitzCount;
 	FAutoVariable<int, CvUnit> m_iAmphibCount;
 	FAutoVariable<int, CvUnit> m_iRiverCrossingNoPenaltyCount;
@@ -2182,21 +1297,16 @@ protected:
 	FAutoVariable<int, CvUnit> m_iAlwaysHealCount;
 	FAutoVariable<int, CvUnit> m_iHealOutsideFriendlyCount;
 	FAutoVariable<int, CvUnit> m_iHillsDoubleMoveCount;
-	FAutoVariable<int, CvUnit> m_iRiverDoubleMoveCount;
 	FAutoVariable<int, CvUnit> m_iImmuneToFirstStrikesCount;
 	FAutoVariable<int, CvUnit> m_iExtraVisibilityRange;
-#if defined(MOD_PROMOTIONS_VARIABLE_RECON)
-	FAutoVariable<int, CvUnit> m_iExtraReconRange;
-#endif
 	FAutoVariable<int, CvUnit> m_iExtraMoves;
 	FAutoVariable<int, CvUnit> m_iExtraMoveDiscount;
 	FAutoVariable<int, CvUnit> m_iExtraRange;
-	FAutoVariable<int, CvUnit> m_iInterceptChance;
+	FAutoVariable<int, CvUnit> m_iExtraIntercept;
 	FAutoVariable<int, CvUnit> m_iExtraEvasion;
 	FAutoVariable<int, CvUnit> m_iExtraFirstStrikes;
 	FAutoVariable<int, CvUnit> m_iExtraChanceFirstStrikes;
 	FAutoVariable<int, CvUnit> m_iExtraWithdrawal;
-
 	FAutoVariable<int, CvUnit> m_iExtraEnemyHeal;
 	FAutoVariable<int, CvUnit> m_iExtraNeutralHeal;
 	FAutoVariable<int, CvUnit> m_iExtraFriendlyHeal;
@@ -2210,20 +1320,11 @@ protected:
 	FAutoVariable<int, CvUnit> m_iAdjacentTileHeal;
 	FAutoVariable<int, CvUnit> m_iAdjacentModifier;
 	FAutoVariable<int, CvUnit> m_iRangedAttackModifier;
-	FAutoVariable<int, CvUnit> m_iRangeSuppressModifier;
-	FAutoVariable<int, CvUnit> m_iPromotionMaintenanceCost;
-	FAutoVariable<int, CvUnit> m_iFreeExpPerTurn;
-	FAutoVariable<int, CvUnit> m_iStayCSInfluencePerTurn;
-	FAutoVariable<int, CvUnit> m_iStayCSExpPerTurn;
-	FAutoVariable<int, CvUnit> m_iInterceptionDamageMod;
-	FAutoVariable<int, CvUnit> m_iAirSweepDamageMod;
 	FAutoVariable<int, CvUnit> m_iInterceptionCombatModifier;
 	FAutoVariable<int, CvUnit> m_iInterceptionDefenseDamageModifier;
 	FAutoVariable<int, CvUnit> m_iAirSweepCombatModifier;
 	FAutoVariable<int, CvUnit> m_iAttackModifier;
 	FAutoVariable<int, CvUnit> m_iDefenseModifier;
-	FAutoVariable<int, CvUnit> m_iGroundAttackDamage;
-	FAutoVariable<int, CvUnit> m_iGroundAttackRange;
 	FAutoVariable<int, CvUnit> m_iExtraCombatPercent;
 	FAutoVariable<int, CvUnit> m_iExtraCityAttackPercent;
 	FAutoVariable<int, CvUnit> m_iExtraCityDefensePercent;
@@ -2236,11 +1337,7 @@ protected:
 	FAutoVariable<int, CvUnit> m_iExtraRoughRangedAttackMod;
 	FAutoVariable<int, CvUnit> m_iExtraAttackFortifiedMod;
 	FAutoVariable<int, CvUnit> m_iExtraAttackWoundedMod;
-	FAutoVariable<int, CvUnit> m_iExtraWoundedMod;
 	int m_iFlankAttackModifier;
-	int m_iRangedFlankAttackModifier;
-	int m_iRangedFlankAttackModifierPercent;
-	int m_iMutuallyExclusiveGroup;
 	FAutoVariable<int, CvUnit> m_iExtraOpenDefensePercent;
 	FAutoVariable<int, CvUnit> m_iExtraRoughDefensePercent;
 	FAutoVariable<int, CvUnit> m_iPillageChange;
@@ -2251,102 +1348,10 @@ protected:
 	FAutoVariable<int, CvUnit> m_iExtraNavalMoves;
 	FAutoVariable<int, CvUnit> m_iKamikazePercent;
 	FAutoVariable<int, CvUnit> m_iBaseCombat;
-#if defined(MOD_API_EXTENSIONS)
-	int m_iBaseRangedCombat;
-#endif
 	FAutoVariable<DirectionTypes, CvUnit> m_eFacingDirection;
 	FAutoVariable<int, CvUnit> m_iArmyId;
 
 	FAutoVariable<int, CvUnit> m_iIgnoreTerrainCostCount;
-#if defined(MOD_API_PLOT_BASED_DAMAGE)
-	FAutoVariable<int, CvUnit> m_iIgnoreTerrainDamageCount;
-	FAutoVariable<int, CvUnit> m_iIgnoreFeatureDamageCount;
-	FAutoVariable<int, CvUnit> m_iExtraTerrainDamageCount;
-	FAutoVariable<int, CvUnit> m_iExtraFeatureDamageCount;
-#endif
-#if defined(MOD_PROMOTIONS_IMPROVEMENT_BONUS)
-	FAutoVariable<int, CvUnit> m_iNearbyImprovementCombatBonus;
-	FAutoVariable<int, CvUnit> m_iNearbyImprovementBonusRange;
-	FAutoVariable<ImprovementTypes, CvUnit> m_eCombatBonusImprovement;
-#endif
-
-#if defined(MOD_ROG_CORE)
-	FAutoVariable<int, CvUnit> m_iAoEDamageOnMove;
-	FAutoVariable<int, CvUnit> m_iForcedDamage;
-	FAutoVariable<int, CvUnit> m_iChangeDamage;
-	FAutoVariable<int, CvUnit> m_iExtraFullyHealedMod;
-	FAutoVariable<int, CvUnit> m_iExtraAttackAboveHealthMod;
-	FAutoVariable<int, CvUnit> m_iExtraAttackBelowHealthMod;
-	FAutoVariable<int, CvUnit> m_iFightWellDamaged;
-	FAutoVariable<int, CvUnit> m_iStrongerDamaged;
-#endif
-
-#if defined(MOD_ROG_CORE)
-	FAutoVariable<int, CvUnit> m_iMeleeDefenseModifier;
-
-	FAutoVariable<int, CvUnit> m_iNearbyUnitPromotionBonus;
-	FAutoVariable<int, CvUnit> m_iNearbyUnitPromotionBonusRange;
-	FAutoVariable<int, CvUnit> m_iNearbyUnitPromotionBonusMax;
-
-	FAutoVariable<PromotionTypes, CvUnit>  m_iCombatBonusFromNearbyUnitPromotion;
-#endif
-
-#if defined(MOD_ROG_CORE)
-	FAutoVariable<int, CvUnit> m_iNumOriginalCapitalAttackMod;
-	FAutoVariable<int, CvUnit> m_iNumOriginalCapitalDefenseMod;
-	FAutoVariable<int, CvUnit> m_iHPHealedIfDefeatEnemyGlobal;
-#endif
-
-
-#if defined(MOD_ROG_CORE)
-	FAutoVariable<int, CvUnit> m_iOnCapitalLandAttackMod;
-	FAutoVariable<int, CvUnit> m_iOutsideCapitalLandAttackMod;
-	FAutoVariable<int, CvUnit> m_iOnCapitalLandDefenseMod;
-	FAutoVariable<int, CvUnit> m_iOutsideCapitalLandDefenseMod;
-#endif
-
-
-
-#if defined(MOD_ROG_CORE)
-	std::tr1::unordered_map<int, int> m_aiNumTimesAttackedThisTurn;
-	FAutoVariable<int, CvUnit> m_iMultiAttackBonus;
-	FAutoVariable<int, CvUnit> m_iNumAttacksMadeThisTurnAttackMod;
-	FAutoVariable<int, CvUnit> m_iNumSpyDefenseMod;
-	FAutoVariable<int, CvUnit> m_iNumSpyAttackMod;
-	FAutoVariable<int, CvUnit> m_iNumWonderDefenseMod;
-	FAutoVariable<int, CvUnit> m_iNumWonderAttackMod;
-	FAutoVariable<int, CvUnit> m_iNumWorkDefenseMod;
-	FAutoVariable<int, CvUnit> m_iNumWorkAttackMod;
-
-	FAutoVariable<int, CvUnit> m_iNumSpyStayDefenseMod;
-	FAutoVariable<int, CvUnit> m_iNumSpyStayAttackMod;
-
-	FAutoVariable<int, CvUnit> m_iNoResourcePunishment;
-
-	FAutoVariable<int, CvUnit> m_iCurrentHitPointAttackMod;
-	FAutoVariable<int, CvUnit> m_iCurrentHitPointDefenseMod;
-	FAutoVariable<int, CvUnit> m_iDoFallBackAttackMod;
-	FAutoVariable<int, CvUnit> m_iBeFallBackDefenseMod;
-
-	FAutoVariable<int, CvUnit> m_aiNumTimesDoFallBackThisTurn;
-	FAutoVariable<int, CvUnit> m_aiNumTimesBeFallBackThisTurn;
-
-	FAutoVariable<int, CvUnit> m_iNearNumEnemyAttackMod;
-	FAutoVariable<int, CvUnit> m_iNearNumEnemyDefenseMod;
-#endif
-
-#if defined(MOD_PROMOTIONS_CROSS_MOUNTAINS)
-	FAutoVariable<int, CvUnit> m_iCanCrossMountainsCount;
-#endif
-#if defined(MOD_PROMOTIONS_CROSS_OCEANS)
-	FAutoVariable<int, CvUnit> m_iCanCrossOceansCount;
-#endif
-#if defined(MOD_PROMOTIONS_CROSS_ICE)
-	FAutoVariable<int, CvUnit> m_iCanCrossIceCount;
-#endif
-#if defined(MOD_PROMOTIONS_GG_FROM_BARBARIANS)
-	FAutoVariable<int, CvUnit> m_iGGFromBarbariansCount;
-#endif
 	FAutoVariable<int, CvUnit> m_iRoughTerrainEndsTurnCount;
 	FAutoVariable<int, CvUnit> m_iEmbarkAbilityCount;
 	FAutoVariable<int, CvUnit> m_iHoveringUnitCount;
@@ -2356,8 +1361,6 @@ protected:
 	FAutoVariable<int, CvUnit> m_iNoDefensiveBonusCount;
 	FAutoVariable<int, CvUnit> m_iNoCaptureCount;
 	FAutoVariable<int, CvUnit> m_iNukeImmuneCount;
-	FAutoVariable<int, CvUnit> m_iPlagueImmuneCount;
-	FAutoVariable<int, CvUnit> m_iCanDoNukeDamageCount;
 	FAutoVariable<int, CvUnit> m_iHiddenNationalityCount;
 	FAutoVariable<int, CvUnit> m_iAlwaysHostileCount;
 	FAutoVariable<int, CvUnit> m_iNoRevealMapCount;
@@ -2375,35 +1378,16 @@ protected:
 	FAutoVariable<int, CvUnit> m_iAttacksMade;
 	FAutoVariable<int, CvUnit> m_iGreatGeneralCount;
 	int m_iGreatAdmiralCount;
-#if defined(MOD_PROMOTIONS_AURA_CHANGE)
-	int m_iAuraRangeChange;
-	int m_iAuraEffectChange;
-#endif
 	FAutoVariable<int, CvUnit> m_iGreatGeneralModifier;
 	int m_iGreatGeneralReceivesMovementCount;
 	int m_iGreatGeneralCombatModifier;
 	int m_iIgnoreGreatGeneralBenefit;
 	int m_iIgnoreZOC;
-	int m_iCanDoFallBackDamage;
-	int m_iCanPlunderWithoutWar;
-	int m_iCanParadropAnyWhere;
-	FAutoVariable<int, CvUnit> m_iIsCanParadropUnLimit;
-	int m_iImmueMeleeAttack;
-#if defined(MOD_UNITS_NO_SUPPLY)
-	int m_iNoSupply;
-#endif
-#if defined(MOD_UNITS_MAX_HP)
-	int m_iMaxHitPointsBase;
-	int m_iMaxHitPointsChange;
-	int m_iMaxHitPointsChangeFromRazedCityPop = 0;
-	int m_iMaxHitPointsModifier;
-#endif
 	FAutoVariable<int, CvUnit> m_iFriendlyLandsModifier;
 	FAutoVariable<int, CvUnit> m_iFriendlyLandsAttackModifier;
 	FAutoVariable<int, CvUnit> m_iOutsideFriendlyLandsModifier;
 	FAutoVariable<int, CvUnit> m_iHealIfDefeatExcludeBarbariansCount;
 	FAutoVariable<int, CvUnit> m_iNumInterceptions;
-	FAutoVariable<int, CvUnit> m_iExtraAirInterceptRange;
 	FAutoVariable<int, CvUnit> m_iMadeInterceptionCount;
 	int m_iEverSelectedCount;
 	int m_iSapperCount;
@@ -2419,25 +1403,13 @@ protected:
 	FAutoVariable<bool, CvUnit> m_bSetUpForRangedAttack;
 	FAutoVariable<bool, CvUnit> m_bEmbarked;
 	FAutoVariable<bool, CvUnit> m_bAITurnProcessed;
-#if defined(MOD_API_UNIT_CANNOT_BE_RANGED_ATTACKED)
-	FAutoVariable<bool, CvUnit> m_bCannotBeRangedAttacked;
-#endif
 
 	FAutoVariable<TacticalAIMoveTypes, CvUnit> m_eTacticalMove;
 	FAutoVariable<PlayerTypes, CvUnit> m_eCapturingPlayer;
-#ifdef MOD_BATTLE_CAPTURE_NEW_RULE
-	CvUnit* m_pCapturingUnit;
-#endif
-
 	bool m_bCapturedAsIs;
 	FAutoVariable<UnitTypes, CvUnit> m_eLeaderUnitType;
 	FAutoVariable<InvisibleTypes, CvUnit> m_eInvisibleType;
 	FAutoVariable<InvisibleTypes, CvUnit> m_eSeeInvisibleType;
-#if defined(MOD_PROMOTION_FEATURE_INVISIBLE)
-	FAutoVariable<int, CvUnit> m_eFeatureInvisible;
-	FAutoVariable<int, CvUnit> m_eFeatureInvisible2;
-#endif
-
 	FAutoVariable<GreatPeopleDirectiveTypes, CvUnit> m_eGreatPeopleDirectiveType;
 	CvUnitEntry* m_pUnitInfo;
 
@@ -2458,25 +1430,14 @@ protected:
 
 	FAutoVariable<std::vector<int>, CvUnit> m_terrainDoubleMoveCount;
 	FAutoVariable<std::vector<int>, CvUnit> m_featureDoubleMoveCount;
-#if defined(MOD_PROMOTIONS_HALF_MOVE)
-	FAutoVariable<std::vector<int>, CvUnit> m_terrainHalfMoveCount;
-	FAutoVariable<std::vector<int>, CvUnit> m_featureHalfMoveCount;
-#endif
 	FAutoVariable<std::vector<int>, CvUnit> m_terrainImpassableCount;
 	FAutoVariable<std::vector<int>, CvUnit> m_featureImpassableCount;
 	FAutoVariable<std::vector<int>, CvUnit> m_extraTerrainAttackPercent;
 	FAutoVariable<std::vector<int>, CvUnit> m_extraTerrainDefensePercent;
 	FAutoVariable<std::vector<int>, CvUnit> m_extraFeatureAttackPercent;
 	FAutoVariable<std::vector<int>, CvUnit> m_extraFeatureDefensePercent;
-#if defined(MOD_API_UNIFIED_YIELDS)
-	FAutoVariable<std::vector<int>, CvUnit> m_yieldFromKills;
-	FAutoVariable<std::vector<int>, CvUnit> m_yieldFromBarbarianKills;
-#endif
 	FAutoVariable<std::vector<int>, CvUnit> m_extraUnitCombatModifier;
-	std::tr1::unordered_map<int, int> m_unitClassModifier;
-	std::tr1::unordered_map<int, int> m_piGetPromotionBuilds;
-	std::tr1::unordered_map<int, int> m_mapUnitCombatsPromotionValid;
-
+	FAutoVariable<std::vector<int>, CvUnit> m_unitClassModifier;
 	int m_iMissionTimer;
 	FAutoVariable<int, CvUnit> m_iMissionAIX;
 	FAutoVariable<int, CvUnit> m_iMissionAIY;
@@ -2493,188 +1454,35 @@ protected:
 
 	bool m_bIgnoreDangerWakeup; // slewis - make this an autovariable when saved games are broken
 	int m_iEmbarkedAllWaterCount;
-#if defined(MOD_PROMOTIONS_DEEP_WATER_EMBARKATION)
-	int m_iEmbarkedDeepWaterCount;
-#endif
-
-#if defined(MOD_DEFENSE_MOVES_BONUS)
-	int m_iMoveLeftDefenseMod;
-	int m_iMoveUsedDefenseMod;
-#endif
-	FAutoVariable<std::vector<int>, CvUnit> m_iRouteMovementChanges;
-#if defined(MOD_ROG_CORE)
-	FAutoVariable<std::vector<int>, CvUnit> m_iCombatModPerAdjacentUnitCombatModifier;
-	FAutoVariable<std::vector<int>, CvUnit> m_iCombatModPerAdjacentUnitCombatAttackMod;
-	FAutoVariable<std::vector<int>, CvUnit> m_iCombatModPerAdjacentUnitCombatDefenseMod;
-	int m_iOriginCity;
-	int m_iMoveLfetAttackMod;
-	int m_iMoveUsedAttackMod;
-	int m_iGoldenAgeMod;
-	int m_iAntiHigherPopMod;
-	int m_iRangedSupportFireMod;
-	int m_iBarbCombatBonus;
-	int m_iCanMoraleBreak;
-	int m_iIgnoreDamageChance;
-	int m_iDamageAoEFortified;
-	int m_iWorkRateMod;
-	int m_iTurnDamage;
-	int m_iTurnDamagePercent;
-	int m_iNearbyEnemyDamage;
-	int m_iAdjacentEnemySapMovement;
-	int m_iAdjacentSapExperience;
-	int m_iAdjacentFriendlySapMovement;
-	int m_iPillageReplenishMoves;
-	int m_iPillageReplenishAttck;
-	int m_iPillageReplenishHealth;
-	int m_iAOEDamageOnKill;
-	int m_iAOEDamageOnPillage;
-#endif
-
-	int m_iCannotBeCapturedCount;
-	int m_iCaptureDefeatedEnemyChance;
-
-
-#ifdef MOD_PROMOTION_SPLASH_DAMAGE
-	std::vector<SplashInfo> m_asSplashInfoVec = {};
-
-	int m_iSplashImmuneRC = 0;
-	int m_iSplashXP = 0;
-	int m_iNumTriggerSplashFinish = 0;
-#endif
-
-#ifdef MOD_PROMOTION_COLLATERAL_DAMAGE
-	std::vector<CollateralInfo> m_asCollateralInfoVec = {};
-
-	int m_iCollateralImmuneRC = 0;
-	int m_iCollateralXP = 0;
-#endif
-
-#ifdef MOD_PROMOTION_COLLECTIONS
-	std::tr1::unordered_map<PromotionCollectionsTypes, int> m_sPromotionCollections;
-#endif
-
- #ifdef MOD_PROMOTION_ADD_ENEMY_PROMOTIONS
-	int m_iAddEnemyPromotionImmuneRC = 0;
- #endif
-
-#ifdef MOD_GLOBAL_PROMOTIONS_REMOVAL
-	std::tr1::unordered_map<PromotionTypes, AutoRemoveInfo> m_mapAutoRemovePromotions;
-	std::tr1::unordered_set<PromotionTypes> m_sPromotionsThatCanBeActionCleared;
-#endif
-
-#ifdef MOD_PROMOTION_CITY_DESTROYER
-	std::tr1::unordered_map<PromotionTypes, DestroyBuildingsInfo> m_mapDestroyBuildings;
-
-	int m_iSiegeKillCitizensPercent = 0;
-	int m_iSiegeKillCitizensFixed = 0;
-#endif
-
 	int m_iEmbarkExtraVisibility;
 	int m_iEmbarkDefensiveModifier;
 	int m_iCapitalDefenseModifier;
 	int m_iCapitalDefenseFalloff;
 	int m_iCityAttackPlunderModifier;
-	int m_iExtraPopConsume;
-	int m_iAttackBonusFromDeathUnit;
-#if defined(MOD_PROMOTION_AURA_PROMOTION)
-	std::tr1::unordered_set<PromotionTypes> m_sAuraPromotions;
-#endif
-#if defined(MOD_PROMOTION_NEW_EFFECT_FOR_SP)
-	int m_iMeleeAttackModifier;
-	int m_iCaptureEmenyExtraMax;
-	int m_iCaptureEmenyPercent;
-	int m_iMovePercentCaptureCity;
-	int m_iHealPercentCaptureCity;
-	int m_iInsightEnemyDamageModifier;
-	int m_iHeightModPerX;
-	int m_iHeightModLimited;
-	int m_iMilitaryMightMod;
-	int m_iExtraMoveTimesXX;
-	int m_iRangeAttackCostModifier;
-	int m_iSetUpCostModifier;
-	int m_iOriginalCapitalDamageFix;
-	int m_iOriginalCapitalSpecialDamageFix;
-	int m_iMultipleInitExperence;
-	int m_iLostAllMovesAttackCity;
-	int m_iUnitAttackFaithBonus;
-	int m_iCityAttackFaithBonus;
-	int m_iCarrierEXPGivenModifier;
-	int m_iRemovePromotionUpgrade;
-	int m_eAttackChanceFromAttackDamageFormula;
-	int m_eMovementFromAttackDamageFormula;
-	int m_eHealPercentFromAttackDamageFormula;
-#endif
-#if defined(MOD_TROOPS_AND_CROPS_FOR_SP)
-	int m_iCrops;
-	int m_iArmee;
-	int m_iNumEstablishCorps;
-	int m_iCannotBeEstablishedCorps;
-#endif
 	int m_iReligiousStrengthLossRivalTerritory;
 	int m_iTradeMissionInfluenceModifier;
 	int m_iTradeMissionGoldModifier;
 	int m_iMapLayer;		// Which layer does the unit reside on for pathing/stacking/etc.
 	int m_iNumGoodyHutsPopped;
 	int m_iLastGameTurnAtFullHealth;
-
-	int m_iAttackInflictDamageChange = 0;
-	int m_iAttackInflictDamageChangeMaxHPPercent = 0;
-
-	int m_iDefenseInflictDamageChange = 0;
-	int m_iDefenseInflictDamageChangeMaxHPPercent = 0;
-
-	int m_iSiegeInflictDamageChange = 0;
-	int m_iSiegeInflictDamageChangeMaxHPPercent = 0;
-
-	int m_iNumRangeBackWhenDefense = 0;
-
-	int m_iHeavyChargeAddMoves = 0;
-	int m_iHeavyChargeExtraDamage = 0;
-	int m_iHeavyChargeCollateralFixed = 0;
-	int m_iHeavyChargeCollateralPercent = 0;
-
-	int m_iOutsideFriendlyLandsInflictDamageChange = 0;
-	
-#if defined(MOD_PROMOTIONS_UNIT_NAMING)
-	CvString m_strUnitName;
-#endif
+		
 	CvString m_strName;
-#if defined(MOD_GLOBAL_NO_LOST_GREATWORKS)
-	CvString m_strGreatName;
-#endif
 	GreatWorkType m_eGreatWork;
 	int m_iTourismBlastStrength;
-
-#ifdef MOD_BATTLE_CAPTURE_NEW_RULE
-	bool m_bIsNewCapture = false;
-#endif
-	bool m_bIsBatchMark = false;
-	bool m_bIsCheat = false;
 
 	mutable CvPathNodeArray m_kLastPath;
 	mutable uint m_uiLastPathCacheDest;
 
 	bool canAdvance(const CvPlot& pPlot, int iThreshold) const;
 
-#if defined(MOD_BALANCE_CORE)
-	void DoPlagueTransfer(CvUnit& defender);
-#endif
-
 	CvUnit* airStrikeTarget(CvPlot& pPlot, bool bNoncombatAllowed) const;
 
+	bool CanWithdrawFromMelee(CvUnit& pAttacker);
+	bool DoWithdrawFromMelee(CvUnit& pAttacker);
 
- #ifdef MOD_GLOBAL_WAR_CASUALTIES
-	int m_iWarCasualtiesModifier = 0;
- #endif
-
-	bool CanFallBack(const CvUnit& pAttacker, bool bCheckChances) const;
-	//int  GetWithdrawChance(const CvUnit& pAttacker, const bool bCheckChances) const;
-	bool DoFallBack(const CvUnit& pAttacker);
-
-	int m_iCombatStrengthChangeFromKilledUnits = 0;
-	int m_iRangedCombatStrengthChangeFromKilledUnits = 0;
-
-	std::tr1::array<int, NUM_YIELD_TYPES> m_aiInstantYieldPerReligionFollowerConverted;
+	// these are do to a unit using Heavy Charge against you
+	bool CanFallBackFromMelee(CvUnit& pAttacker);
+	bool DoFallBackFromMelee(CvUnit& pAttacker);
 
 private:
 

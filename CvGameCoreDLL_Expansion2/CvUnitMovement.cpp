@@ -63,25 +63,13 @@ void CvUnitMovement::GetCostsForMove(const CvUnit* pUnit, const CvPlot* pFromPlo
 			iRegularCost /= 2;
 		}
 
-		else if(pToPlot->isRiver() && pFromPlot->isRiver() && pUnit->isRiverDoubleMove())
-		{
-			iRegularCost /= 2;
-		}
-
 		else if((eFeature == NO_FEATURE) ? pUnit->isTerrainDoubleMove(eTerrain) : pUnit->isFeatureDoubleMove(eFeature))
 		{
 			iRegularCost /= 2;
 		}
-
-#if defined(MOD_PROMOTIONS_HALF_MOVE)
-		else if((pToPlot->getFeatureType() == NO_FEATURE) ? pUnit->isTerrainHalfMove(pToPlot->getTerrainType()) : pUnit->isFeatureHalfMove(pToPlot->getFeatureType()))
-		{
-			iRegularCost *= 2;
-		}
-#endif
 	}
 
-	iRegularCost = std::min(iRegularCost, (iBaseMoves * iMoveDenominator + pUnit->GetExtraMoveTimesXX()));
+	iRegularCost = std::min(iRegularCost, (iBaseMoves * iMoveDenominator));
 
 	if(pFromPlot->isValidRoute(pUnit) && pToPlot->isValidRoute(pUnit) && ((kUnitTeam.isBridgeBuilding() || !(pFromPlot->isRiverCrossing(directionXY(pFromPlot, pToPlot))))))
 	{
@@ -96,12 +84,11 @@ void CvUnitMovement::GetCostsForMove(const CvUnit* pUnit, const CvPlot* pFromPlo
 
 		int iMovementCost = (pRouteInfo != NULL)? pRouteInfo->getMovementCost() : 0;
 		int iFlatMovementCost = (pRouteInfo != NULL)? pRouteInfo->getFlatMovementCost() : 0;
-		iFromMovementCost += kUnitTeam.getRouteChange(pFromPlot->getRouteType()) + pUnit->getRouteMovementChanges(pFromPlot->getRouteType());
-		iMovementCost += kUnitTeam.getRouteChange(pToPlot->getRouteType()) + pUnit->getRouteMovementChanges(pToPlot->getRouteType());
-		iRouteCost = std::max(iFromMovementCost,iMovementCost);
+
+		iRouteCost = std::max(iFromMovementCost + kUnitTeam.getRouteChange(pFromPlot->getRouteType()), iMovementCost + kUnitTeam.getRouteChange(pToPlot->getRouteType()));
 		iRouteFlatCost = std::max(iFromFlatMovementCost * iBaseMoves, iFlatMovementCost * iBaseMoves);
 	}
-	else if((MOD_TRAIT_WOOD_AS_ROAD_SP || pUnit->getOwner() == pToPlot->getOwner()) && (eFeature == FEATURE_FOREST || eFeature == FEATURE_JUNGLE) && pTraits->IsMoveFriendlyWoodsAsRoad())
+	else if(pUnit->getOwner() == pToPlot->getOwner() && (eFeature == FEATURE_FOREST || eFeature == FEATURE_JUNGLE) && pTraits->IsMoveFriendlyWoodsAsRoad())
 	{
 		CvRouteInfo* pRoadInfo = GC.getRouteInfo(ROUTE_ROAD);
 		iRouteCost = pRoadInfo->getMovementCost();
@@ -131,34 +118,6 @@ void CvUnitMovement::GetCostsForMove(const CvUnit* pUnit, const CvPlot* pFromPlo
 				}
 			}
 		}
-
-#if defined(MOD_ROG_CORE)
-
-		CvCity* pOwner = pToPlot->getWorkingCity();
-
-		if (pOwner != NULL && GET_TEAM(pOwner->getTeam()).isAtWar(kPlayer.getTeam()))
-		{
-			if (pToPlot->isWater())
-			{
-				int iTempCost = pToPlot->getWorkingCity()->getWaterTileMovementReduce();
-				iTempCost += GET_PLAYER(pOwner->getOwner()).GetWaterTileMovementReduceGlobal();
-				if (iTempCost > 0)
-				{
-					iRegularCost += iMoveDenominator * iTempCost;
-				}
-			}
-
-			else
-			{
-				int iTempCost = pToPlot->getWorkingCity()->getLandTileMovementReduce();
-				iTempCost += GET_PLAYER(pOwner->getOwner()).GetLandTileMovementReduceGlobal();
-				if (iTempCost > 0)
-				{
-				  iRegularCost += iMoveDenominator * iTempCost;
-				}
-			}
-		}
-#endif
 	}
 }
 
@@ -237,46 +196,15 @@ bool CvUnitMovement::ConsumesAllMoves(const CvUnit* pUnit, const CvPlot* pFromPl
 	if(!pFromPlot->isValidDomainForLocation(*pUnit))
 	{
 		// If we are a land unit that can embark, then do further tests.
-#if defined(MOD_PATHFINDER_DEEP_WATER_EMBARKATION)
-		if(pUnit->getDomainType() != DOMAIN_LAND || pUnit->canMoveAllTerrain())
-			return true;
-			
-		if(pUnit->IsHoveringUnit()) {
-			if (!pUnit->IsEmbarkDeepWater()) {
-				return true;
-			}
-		} else {
-			if (!pUnit->CanEverEmbark()) {
-				return true;
-			}
-		}
-#else
 		if(pUnit->getDomainType() != DOMAIN_LAND || pUnit->IsHoveringUnit() || pUnit->canMoveAllTerrain() || !pUnit->CanEverEmbark())
 			return true;
-#endif
 	}
 
 	// if the unit can embark and we are transitioning from land to water or vice versa
-#if defined(MOD_PATHFINDER_TERRAFIRMA)
-	bool bFromWater = !pFromPlot->isTerraFirma(pUnit);
-	bool bToWater = !pToPlot->isTerraFirma(pUnit);
-	bool bCanEmbark = pUnit->CanEverEmbark();
-#if defined(MOD_PATHFINDER_DEEP_WATER_EMBARKATION)
-	if (pUnit->IsHoveringUnit() && pUnit->IsEmbarkDeepWater()) {
-		bCanEmbark = true;
-	}
-#endif
-	if(bToWater != bFromWater && bCanEmbark)
-#else
 	if(pToPlot->isWater() != pFromPlot->isWater() && pUnit->CanEverEmbark())
-#endif
 	{
 		// Is the unit from a civ that can disembark for just 1 MP?
-#if defined(MOD_PATHFINDER_TERRAFIRMA)
-		if(!bToWater && bFromWater && pUnit->isEmbarked() && GET_PLAYER(pUnit->getOwner()).GetPlayerTraits()->IsEmbarkedToLandFlatCost())
-#else
 		if(!pToPlot->isWater() && pFromPlot->isWater() && pUnit->isEmbarked() && GET_PLAYER(pUnit->getOwner()).GetPlayerTraits()->IsEmbarkedToLandFlatCost())
-#endif
 		{
 			return false;	// Then no, it does not.
 		}
@@ -403,12 +331,6 @@ bool CvUnitMovement::IsSlowedByZOC(const CvUnit* pUnit, const CvPlot* pFromPlot,
 							{
 								// continue on
 							}
-#if defined(MOD_BUGFIX_HOVERING_PATHFINDER)
-							// hovering units always exert a ZOC
-							else if (pLoopUnit->IsHoveringUnit()) {
-								// continue on
-							}
-#endif
 							else
 							{
 								continue;

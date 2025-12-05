@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -79,22 +79,7 @@ bool CvCitySiteEvaluator::CanFound(CvPlot* pPlot, const CvPlayer* pPlayer, bool 
 		}
 	}
 
-	if (pPlot->isMountain())
-	{
-#ifdef MOD_TRAITS_CAN_FOUND_MOUNTAIN_CITY
-		if (!MOD_TRAITS_CAN_FOUND_MOUNTAIN_CITY || !pPlayer || !pPlayer->GetCanFoundMountainCity())
-		{
-			return false;
-		}
-		
-		bValid = true;
-		goto DONE_bValid;
-#else
-		return false;
-#endif
-	}
-
-	if (pPlot->isImpassable())
+	if(pPlot->isImpassable() || pPlot->isMountain())
 	{
 		return false;
 	}
@@ -151,18 +136,7 @@ bool CvCitySiteEvaluator::CanFound(CvPlot* pPlot, const CvPlayer* pPlayer, bool 
 
 	if(pPlot->isWater())
 	{
-#ifdef MOD_TRAITS_CAN_FOUND_COAST_CITY
-		if (MOD_TRAITS_CAN_FOUND_COAST_CITY && pPlayer && pPlayer->GetCanFoundCoastCity() && !pPlot->isLake() && pPlot->isAdjacentToLand())
-		{
-			bValid = true;
-			goto DONE_bValid;
-		}
-		else {
-			return false;
-		}
-#else
 		return false;
-#endif // MOD_TRAITS_CAN_FOUND_COAST_CITY
 	}
 
 	if(!bValid)
@@ -170,7 +144,6 @@ bool CvCitySiteEvaluator::CanFound(CvPlot* pPlot, const CvPlayer* pPlayer, bool 
 		return false;
 	}
 
-DONE_bValid:
 	if(!bTestVisible)
 	{
 		// look at same land mass
@@ -200,14 +173,6 @@ DONE_bValid:
 		}
 	}
 
-#if defined(MOD_EVENTS_CITY_FOUNDING)
-	if (MOD_EVENTS_CITY_FOUNDING) {
-		if (GAMEEVENTINVOKE_TESTALL(GAMEEVENT_PlayerCanFoundCity, pPlayer->GetID(), pPlot->getX(), pPlot->getY()) == GAMEEVENTRETURN_FALSE) {
-			return false;
-		}
-	}
-#endif
-	
 	return true;
 }
 
@@ -346,13 +311,6 @@ int CvCitySiteEvaluator::PlotFoundValue(CvPlot* pPlot, CvPlayer* pPlayer, YieldT
 	int iClosestCityOfMine = 999;
 	int iClosestEnemyCity = 999;
 
-#ifdef MOD_TRAITS_CAN_FOUND_MOUNTAIN_CITY
-	int iIncaMountainCityValue = 8;
-#endif
-#ifdef MOD_TRAITS_CAN_FOUND_COAST_CITY
-	int iPolyCoastCityValue = 10;
-#endif
-
 	int iCapitalArea = NULL;
 
 	bool bIsInca = false;
@@ -411,11 +369,7 @@ int CvCitySiteEvaluator::PlotFoundValue(CvPlot* pPlot, CvPlayer* pPlayer, YieldT
 							iResourceValue = 0;
 							iStrategicValue = 0;
 
-#if defined(MOD_GLOBAL_CITY_WORKING)
-							if (iDistance > 0 && iDistance <= pPlayer->getWorkPlotDistance())
-#else	
 							if (iDistance > 0 && iDistance <= NUM_CITY_RINGS)
-#endif
 							{
 								if (eYield == NO_YIELD || eYield == YIELD_FOOD)
 								{
@@ -437,9 +391,6 @@ int CvCitySiteEvaluator::PlotFoundValue(CvPlot* pPlot, CvPlayer* pPlayer, YieldT
 								{
 									iFaithValue = iRingModifier * ComputeFaithValue(pLoopPlot, pPlayer) * /*1*/ GC.getSETTLER_FAITH_MULTIPLIER();
 								}
-#if defined(MOD_API_UNIFIED_YIELDS)
-								// We don't flavour settle site choice by tourism - way to early for that!!!
-#endif
 							}
 
 							// whether or not we are working these we get the benefit as long as culture can grow to take them
@@ -470,11 +421,7 @@ int CvCitySiteEvaluator::PlotFoundValue(CvPlot* pPlot, CvPlayer* pPlayer, YieldT
 							iPlotValue += iStrategicValue;
 
 							// if this tile is a NW boost the value just so that we force the AI to claim them (if we can work it)
-#if defined(MOD_GLOBAL_CITY_WORKING)
-							if (pLoopPlot->IsNaturalWonder(true) && iDistance > 0 && iDistance <= pPlayer->getWorkPlotDistance())
-#else	
-							if (pLoopPlot->IsNaturalWonder(true) && iDistance > 0 && iDistance <= NUM_CITY_RINGS)
-#endif
+							if (pLoopPlot->IsNaturalWonder() && iDistance > 0 && iDistance <= NUM_CITY_RINGS)
 							{
 								//iPlotValue += iPlotValue * 2 + 10;
 								iPlotValue += iPlotValue * 2 + 500;
@@ -509,28 +456,20 @@ int CvCitySiteEvaluator::PlotFoundValue(CvPlot* pPlot, CvPlayer* pPlayer, YieldT
 							}
 							else if (ePlotFeature == FEATURE_JUNGLE)
 							{
-#if defined(MOD_GLOBAL_CITY_WORKING)
-								if (iDistance <= pPlayer->getWorkPlotDistance())
-#else	
 								if (iDistance <= NUM_CITY_RINGS)
-#endif
 								{
 									++iBrazilJungleCount;
 								}
 							}
 							else if (ePlotFeature == FEATURE_MARSH || ePlotFeature == FEATURE_FLOOD_PLAINS)
 							{
-#if defined(MOD_GLOBAL_CITY_WORKING)
-								if (iDistance <= pPlayer->getWorkPlotDistance())
-#else	
 								if (iDistance <= NUM_CITY_RINGS)
-#endif
 								{
 									++iWetlandsCount;
 								}
 							}
 
-							if (pLoopPlot->IsNaturalWonder(true))
+							if (pLoopPlot->IsNaturalWonder())
 							{
 								if (iDistance <= 1)
 								{
@@ -540,11 +479,7 @@ int CvCitySiteEvaluator::PlotFoundValue(CvPlot* pPlot, CvPlayer* pPlayer, YieldT
 
 							if (pLoopPlot->getTerrainType() == TERRAIN_DESERT)
 							{
-#if defined(MOD_GLOBAL_CITY_WORKING)
-								if (iDistance <= pPlayer->getWorkPlotDistance())
-#else	
 								if (iDistance <= NUM_CITY_RINGS)
-#endif
 								{
 									if (ePlotResource == NO_RESOURCE)
 									{
@@ -557,11 +492,7 @@ int CvCitySiteEvaluator::PlotFoundValue(CvPlot* pPlot, CvPlayer* pPlayer, YieldT
 							{
 								if (pLoopPlot->isHills())
 								{
-#if defined(MOD_GLOBAL_CITY_WORKING)
-								if (iDistance <= pPlayer->getWorkPlotDistance())
-#else	
-								if (iDistance <= NUM_CITY_RINGS)
-#endif
+									if (iDistance <= NUM_CITY_RINGS)
 									{
 										iAdjacentMountains = pLoopPlot->GetNumAdjacentMountains();
 										if (iAdjacentMountains > 0 && iAdjacentMountains < 6)
@@ -668,20 +599,6 @@ int CvCitySiteEvaluator::PlotFoundValue(CvPlot* pPlot, CvPlayer* pPlayer, YieldT
 	{
 		rtnValue += (int)rtnValue * /*15*/ GC.getBUILD_ON_RIVER_PERCENT() / 100;
 	}
-
-#ifdef MOD_TRAITS_CAN_FOUND_MOUNTAIN_CITY
-	if (MOD_TRAITS_CAN_FOUND_MOUNTAIN_CITY && pPlot->isMountain() && pPlayer->GetCanFoundMountainCity())
-	{
-		rtnValue += (int)rtnValue * (iIncaMountainCityValue + pPlayer->GetCurrentEra());
-	}
-#endif
-
-#ifdef MOD_TRAITS_CAN_FOUND_COAST_CITY
-	if (MOD_TRAITS_CAN_FOUND_COAST_CITY && pPlot->getTerrainType() == TERRAIN_COAST && pPlayer->GetCanFoundCoastCity())
-	{
-		rtnValue += (int)rtnValue * (iPolyCoastCityValue + pPlayer->GetCurrentEra());
-	}
-#endif
 
 	if (pPlot->isCoastalLand(GC.getMIN_WATER_SIZE_FOR_OCEAN()))
 	{
@@ -1214,13 +1131,6 @@ void CvSiteEvaluatorForStart::ComputeFlavorMultipliers(CvPlayer*)
 	}
 }
 
-#if defined(MOD_GLOBAL_CITY_WORKING)
-// *****
-// ***** WARNING!!!
-// *****
-// ***** This method gets called pre-game if using a WB map (.civ5map), in which case pPlayer is NULL
-// *****
-#endif
 /// Value of this site for a civ starting location
 int CvSiteEvaluatorForStart::PlotFoundValue(CvPlot* pPlot, CvPlayer* pPlayer, YieldTypes, bool)
 {
@@ -1246,12 +1156,7 @@ int CvSiteEvaluatorForStart::PlotFoundValue(CvPlot* pPlot, CvPlayer* pPlayer, Yi
 	}
 
 	// We have our own special method of scoring, so don't call the base class for that (like settler version does)
-#if defined(MOD_GLOBAL_CITY_WORKING)
-	int iLimit = (pPlayer != NULL) ? pPlayer->GetNumWorkablePlots() : AVG_CITY_PLOTS;
-	for(iI = 0; iI < iLimit; iI++)
-#else
 	for(iI = 0; iI < NUM_CITY_PLOTS; iI++)
-#endif
 	{
 		pLoopPlot = plotCity(pPlot->getX(), pPlot->getY(), iI);
 
@@ -1263,18 +1168,8 @@ int CvSiteEvaluatorForStart::PlotFoundValue(CvPlot* pPlot, CvPlayer* pPlayer, Yi
 		else
 		{
 			int iDistance = plotDistance(pPlot->getX(), pPlot->getY(), pLoopPlot->getX(), pLoopPlot->getY());
-#if defined(MOD_GLOBAL_CITY_WORKING)
-			if (pPlayer != NULL) {
-				CvAssert(iDistance <= pPlayer->getWorkPlotDistance());
-				if(iDistance > pPlayer->getWorkPlotDistance()) continue;
-			} else {
-				CvAssert(iDistance <= AVG_CITY_RADIUS);
-				if(iDistance > AVG_CITY_RADIUS) continue;
-			}
-#else	
 			CvAssert(iDistance <= NUM_CITY_RINGS);
 			if(iDistance > NUM_CITY_RINGS) continue;
-#endif
 			int iRingModifier = m_iRingModifier[iDistance];
 
 			// Skip the city plot itself for now

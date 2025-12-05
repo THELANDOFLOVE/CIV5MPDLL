@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -16,18 +16,12 @@
 class CvArea;
 class CvTeamTechs;
 
-class CvTeam : public CvGameObjectExtractable
+class CvTeam
 {
 
 public:
 	CvTeam();
 	~CvTeam();
-
-	void ExtractToArg(BasicArguments* arg);
-	static void PushToLua(lua_State* L, BasicArguments* arg);
-	static void RegistInstanceFunctions();
-	static void RegistStaticFunctions();
-	static CvTeam* Provide(TeamTypes team);
 
 	// inlined for performance reasons, only in the dll
 	static CvTeam& getTeam(TeamTypes eTeam)
@@ -58,15 +52,9 @@ public:
 	void updateYield();
 
 	bool canChangeWarPeace(TeamTypes eTeam) const;
-#if defined(MOD_EVENTS_WAR_AND_PEACE)
-	bool canDeclareWar(TeamTypes eTeam, PlayerTypes eOriginatingPlayer) const;
-	void declareWar(TeamTypes eTeam, bool bDefensivePact, PlayerTypes eOriginatingPlayer);
-	void makePeace(TeamTypes eTeam, bool bBumpUnits, bool bSuppressNotification, PlayerTypes eOriginatingPlayer);
-#else
 	bool canDeclareWar(TeamTypes eTeam) const;
 	void declareWar(TeamTypes eTeam, bool bDefensivePact = false);
 	void makePeace(TeamTypes eTeam, bool bBumpUnits = true, bool bSuppressNotification = false);
-#endif
 
 	int GetTurnMadePeaceTreatyWithTeam(TeamTypes eTeam) const;
 	void SetTurnMadePeaceTreatyWithTeam(TeamTypes eTeam, int iNewValue);
@@ -108,9 +96,6 @@ public:
 	bool isObserver() const;
 	bool isBarbarian() const;
 	bool isMinorCiv() const;
-#if defined(MOD_API_EXTENSIONS)
-	bool isMajorCiv() const;
-#endif
 
 	int GetNumMinorCivsAttacked() const;
 	void SetNumMinorCivsAttacked(int iValue);
@@ -181,14 +166,6 @@ public:
 	bool isGoldTrading() const;
 	void changeGoldTradingCount(int iChange);
 
-
-	int getBombardIndirectCount() const;
-	bool isBombardIndirect() const;
-	void changeBombardIndirectCount(int iChange);
-
-	int GetBombardRange() const;
-	void ChangeBombardRange(int iChange);
-
 	bool HavePolicyInTeam(PolicyTypes ePolicy);
 
 	int getAllowEmbassyTradingAllowedCount() const;
@@ -218,21 +195,6 @@ public:
 	bool isPermanentAllianceTrading() const;
 	void changePermanentAllianceTradingCount(int iChange);
 
-	int GetRazeSpeedModifier() const;
-	void ChangeRazeSpeedModifier(int iChange);
-
-#if defined(MOD_TECHS_CITY_WORKING)
-	int GetCityWorkingChange() const;
-	bool isCityWorkingChange() const;
-	void changeCityWorkingChange(int iChange);
-#endif
-
-#if defined(MOD_TECHS_CITY_AUTOMATON_WORKERS)
-	int GetCityAutomatonWorkersChange() const;
-	bool isCityAutomatonWorkersChange() const;
-	void changeCityAutomatonWorkersChange(int iChange);
-#endif
-
 	int getBridgeBuildingCount() const;
 	bool isBridgeBuilding() const;
 	void changeBridgeBuildingCount(int iChange);
@@ -240,10 +202,6 @@ public:
 	int getWaterWorkCount() const;
 	bool isWaterWork() const;
 	void changeWaterWorkCount(int iChange);
-
-	int getCitySplashDamageCount() const;
-	bool isCitySplashDamage() const;
-	void changeCitySplashDamageCount(int iChange);
 
 	int getBorderObstacleCount() const;
 	bool isBorderObstacle() const;
@@ -290,17 +248,8 @@ public:
 	bool IsHasFoundPlayersTerritory(PlayerTypes ePlayer) const;
 	bool SetHasFoundPlayersTerritory(PlayerTypes ePlayer, bool bValue);
 
-#if defined(MOD_EVENTS_WAR_AND_PEACE)
-	bool isAggressor(TeamTypes eIndex) const;
-	bool isPacifier(TeamTypes eIndex) const;
-#endif
-
 	bool isAtWar(TeamTypes eIndex) const;
-#if defined(MOD_EVENTS_WAR_AND_PEACE)
-	void setAtWar(TeamTypes eIndex, bool bNewValue, bool bAggressorPacifier);
-#else
 	void setAtWar(TeamTypes eIndex, bool bNewValue);
-#endif
 	bool HasCommonEnemy(TeamTypes eOtherTeam) const;
 
 	int GetNumTurnsAtWar(TeamTypes eTeam) const;
@@ -324,10 +273,6 @@ public:
 	bool HasEmbassyAtTeam(TeamTypes eIndex) const;
 	void SetHasEmbassyAtTeam(TeamTypes eIndex, bool bNewValue);
 
-#if defined(MOD_API_EXTENSIONS)
-	bool HasSpyAtTeam(TeamTypes eIndex) const;
-#endif
-
 	void EvacuateDiplomatsAtTeam(TeamTypes eIndex);
 
 	bool IsAllowsOpenBordersToTeam(TeamTypes eIndex) const;
@@ -339,7 +284,6 @@ public:
 	int GetTotalNumResearchAgreements() const;
 	bool IsHasResearchAgreement(TeamTypes eIndex) const;
 	void SetHasResearchAgreement(TeamTypes eIndex, bool bNewValue);
-	int GetResearchAgreementStartTurn(TeamTypes eIndex) const;
 	void CancelResearchAgreement(TeamTypes eIndex);
 
 	bool IsHasTradeAgreement(TeamTypes eIndex) const;
@@ -365,7 +309,7 @@ public:
 	void setProjectArtType(ProjectTypes eIndex, int number, int value);
 	bool isProjectMaxedOut(ProjectTypes eIndex, int iExtra = 0) const;
 	bool isProjectAndArtMaxedOut(ProjectTypes eIndex) const;
-	void changeProjectCount(ProjectTypes eIndex, int iChange, bool bIsCapture = false);
+	void changeProjectCount(ProjectTypes eIndex, int iChange);
 	void finalizeProjectArtTypes();
 
 	int getProjectMaking(ProjectTypes eIndex) const;
@@ -391,14 +335,6 @@ public:
 
 	void setHasTech(TechTypes eIndex, bool bNewValue, PlayerTypes ePlayer, bool bFirst, bool bAnnounce);
 	CvTeamTechs* GetTeamTechs() const;
-
-#if defined(MOD_API_UNIFIED_YIELDS)
-	int getFeatureYieldChange(FeatureTypes eIndex1, YieldTypes eIndex2) const;
-	void changeFeatureYieldChange(FeatureTypes eIndex1, YieldTypes eIndex2, int iChange);
-
-	int getTerrainYieldChange(TerrainTypes eIndex1, YieldTypes eIndex2) const;
-	void changeTerrainYieldChange(TerrainTypes eIndex1, YieldTypes eIndex2, int iChange);
-#endif
 
 	int getImprovementYieldChange(ImprovementTypes eIndex1, YieldTypes eIndex2) const;
 	void changeImprovementYieldChange(ImprovementTypes eIndex1, YieldTypes eIndex2, int iChange);
@@ -461,6 +397,64 @@ public:
 
 	void setDynamicTurnsSimultMode(bool simultaneousTurns);
 
+#if defined(MOD_DIPLOMACY_CIV4_FEATURES)
+	bool IsVoluntaryVassal(TeamTypes eIndex) const;
+	bool IsVassal(TeamTypes eIndex) const;
+	void setVassal(TeamTypes eIndex, bool bNewValue, bool bVoluntary = false);
+
+	TeamTypes GetMaster() const;
+
+	bool IsVassalOfSomeone() const;
+	
+	bool canBecomeVassal(TeamTypes eTeam, bool bIgnoreAlreadyVassal = false) const;
+	bool CanMakeVassal(TeamTypes eTeam, bool bIgnoreAlreadyVassal = false) const;
+	void DoBecomeVassal(TeamTypes eTeam, bool bVoluntary = false);
+	bool canEndVassal(TeamTypes eTeam) const;
+	bool canEndAllVassal();
+	void DoEndVassal(TeamTypes eTeam, bool bPeaceful, bool bSuppressNotification);
+
+	void DoLiberateVassal(TeamTypes eTeam);
+	bool CanLiberateVassal(TeamTypes eTeam) const;
+
+	void DoUpdateVassalWarPeaceRelationships();
+
+	int getNumCitiesWhenVassalMade() const;
+	void setNumCitiesWhenVassalMade(int iValue);
+	int getTotalPopulationWhenVassalMade() const;
+	void setTotalPopulationWhenVassalMade(int iValue);
+
+	int GetNumTurnsIsVassal() const;
+	void SetNumTurnsIsVassal(int iValue);
+	void ChangeNumTurnsIsVassal(int iChange);
+
+	int GetNumTurnsSinceVassalEnded(TeamTypes eTeam) const;
+	void SetNumTurnsSinceVassalEnded(TeamTypes eTeam, int iValue);
+	void ChangeNumTurnsSinceVassalEnded(TeamTypes eTeam, int iChange);
+	bool IsTooSoonForVassal(TeamTypes eTeam) const;
+
+	bool IsVassalLockedIntoWar(TeamTypes eOtherTeam) const;
+
+	int getVassalageTradingAllowedCount() const;
+	bool IsVassalageTradingAllowed() const;
+	void changeVassalageTradingAllowedCount(int iChange);
+
+	int GetNumVassals();
+
+	bool IsTradeTech(TechTypes eTech) const;
+	void SetTradeTech(TechTypes eTech, bool bValue);
+
+	void AcquireMap(TeamTypes eIndex, bool bTerritoryOnly = false);
+
+	void DoApplyVassalTax(PlayerTypes ePlayer, int iPercent);
+	bool CanSetVassalTax(PlayerTypes ePlayer) const;
+	void SetVassalTax(PlayerTypes ePlayer, int iPercent);
+	int GetVassalTax(PlayerTypes ePlayer) const;
+
+	int GetNumTurnsSinceVassalTaxSet(PlayerTypes ePlayer) const;
+	void SetNumTurnsSinceVassalTaxSet(PlayerTypes ePlayer, int iValue);
+	void ChangeNumTurnsSinceVassalTaxSet(PlayerTypes ePlayer, int iChange);
+#endif
+
 	// Wrapper for giving Players on this Team a notification message
 	void AddNotification(NotificationTypes eNotificationType, const char* strMessage, const char* strSummary, int iX = -1, int iY = -1, int iGameDataIndex = -1, int iExtraGameData = -1);
 
@@ -484,26 +478,14 @@ protected:
 	int m_iMapTradingCount;
 	int m_iTechTradingCount;
 	int m_iGoldTradingCount;
-	int m_iBombardIndirectCount;
-	int m_iBombardRange;
 	int m_iAllowEmbassyTradingAllowedCount;
 	int m_iOpenBordersTradingAllowedCount;
 	int m_iDefensivePactTradingAllowedCount;
 	int m_iResearchAgreementTradingAllowedCount;
 	int m_iTradeAgreementTradingAllowedCount;
 	int m_iPermanentAllianceTradingCount;
-#if defined(MOD_TECHS_CITY_WORKING)
-	int m_iCityWorkingChange;
-#endif
-#if defined(MOD_TECHS_CITY_AUTOMATON_WORKERS)
-	int m_iCityAutomatonWorkersChange;
-#endif
-
-	int m_iRazeSpeedModifier = 0; // team level raze speed modifier
-
 	int m_iBridgeBuildingCount;
 	int m_iWaterWorkCount;
-	int m_iCitySplashDamageCount;
 	int m_iRiverTradeCount;
 	int m_iBorderObstacleCount;
 	int m_iVictoryPoints;
@@ -540,15 +522,11 @@ protected:
 	Firaxis::Array< bool, REALLY_MAX_PLAYERS > m_abHasFoundPlayersTerritory;
 	Firaxis::Array< bool, REALLY_MAX_TEAMS > m_abHasMet;
 	Firaxis::Array< bool, REALLY_MAX_TEAMS > m_abAtWar;
-#if defined(MOD_EVENTS_WAR_AND_PEACE)
-	Firaxis::Array< bool, REALLY_MAX_TEAMS > m_abAggressorPacifier;
-#endif
 	Firaxis::Array< bool, REALLY_MAX_TEAMS > m_abPermanentWarPeace;
 	Firaxis::Array< bool, REALLY_MAX_TEAMS > m_abEmbassy;
 	Firaxis::Array< bool, REALLY_MAX_TEAMS > m_abOpenBorders;
 	Firaxis::Array< bool, REALLY_MAX_TEAMS > m_abDefensivePact;
 	Firaxis::Array< bool, REALLY_MAX_TEAMS > m_abResearchAgreement;
-	Firaxis::Array< int, REALLY_MAX_TEAMS > m_aiResearchAgreementStartTurn;
 	Firaxis::Array< bool, REALLY_MAX_TEAMS > m_abTradeAgreement;
 	Firaxis::Array< bool, REALLY_MAX_TEAMS > m_abForcePeace;
 	Firaxis::Array< int, REALLY_MAX_PLAYERS > m_aiTurnTeamMet;
@@ -558,6 +536,9 @@ protected:
 	                 FAllocArrayType< bool,
 	                 FAllocArrayType< bool,
 	                 FAllocArrayType< bool,
+#if defined(MOD_DIPLOMACY_CIV4_FEATURES)
+					 FAllocArrayType< bool,
+#endif
 	                 FAllocArrayType< int,
 	                 FAllocArrayType< int,
 	                 FAllocArrayType< int,
@@ -568,21 +549,33 @@ protected:
 					 FAllocArrayType< int,
 	                 FAllocArrayType< int,
 	                 FAllocArrayType< int,
-#if defined(MOD_API_UNIFIED_YIELDS)
 	                 FAllocArray2DType< int,
 	                 FAllocArray2DType< int,
+	                 FAllocArray2DType< int,
+	                 FAllocBase< 0, 0 > > > > > > > > > > > > > > > > > > 
+ #if defined(MOD_DIPLOMACY_CIV4_FEATURES)
+					 >
 #endif
-	                 FAllocArray2DType< int,
-	                 FAllocArray2DType< int,
-	                 FAllocArray2DType< int,
-#if defined(MOD_API_UNIFIED_YIELDS)
-	                 FAllocBase< 0, 0 > > > > > > > > > > > > > > > > > > > > CvTeamData;
-#else
-	                 FAllocBase< 0, 0 > > > > > > > > > > > > > > > > > > CvTeamData;
-#endif
+					 CvTeamData;
 	CvTeamData m_BatchData;
 
 	int* m_aiForceTeamVoteEligibilityCount;
+
+#if defined(MOD_DIPLOMACY_CIV4_FEATURES)
+	int m_iVassalageTradingAllowedCount;
+	bool* m_pabTradeTech;
+
+	TeamTypes m_eMaster;
+	bool m_bIsVoluntaryVassal;
+	int m_iNumTurnsIsVassal;
+	int m_iNumCitiesWhenVassalMade;
+	int m_iTotalPopulationWhenVassalMade;
+	Firaxis::Array< int, REALLY_MAX_TEAMS > m_aiNumTurnsSinceVassalEnded;
+
+	// Only major civs can be taxed
+	Firaxis::Array< int, MAX_MAJOR_CIVS > m_aiNumTurnsSinceVassalTaxSet;
+	Firaxis::Array< int, MAX_MAJOR_CIVS > m_aiVassalTax;
+#endif
 
 	bool* m_abCanLaunch;
 	bool* m_abVictoryAchieved;
@@ -600,11 +593,6 @@ protected:
 	int* m_paiObsoleteBuildingCount;
 	int* m_paiTerrainTradeCount;
 	int* m_aiVictoryCountdown;
-
-#if defined(MOD_API_UNIFIED_YIELDS)
-	int** m_ppaaiFeatureYieldChange;
-	int** m_ppaaiTerrainYieldChange;
-#endif
 
 	int** m_ppaaiImprovementYieldChange;
 	int** m_ppaaiImprovementNoFreshWaterYieldChange;
@@ -626,16 +614,12 @@ protected:
 	void announceTechToPlayers(TechTypes eIndex, bool bPartial = false);
 
 	void DoNowAtWarOrPeace(TeamTypes eTeam, bool bWar);
-#if defined(MOD_EVENTS_WAR_AND_PEACE)
-	void DoDeclareWar(PlayerTypes eOriginatingPlayer, bool bAggressor, TeamTypes eTeam, bool bDefensivePact, bool bMinorAllyPact = false);
+#if defined(MOD_DIPLOMACY_CIV4_FEATURES)
+	void DoDeclareWar(TeamTypes eTeam, bool bDefensivePact, bool bMinorAllyPact = false, bool bVassal = false);
 #else
 	void DoDeclareWar(TeamTypes eTeam, bool bDefensivePact, bool bMinorAllyPact = false);
 #endif
-#if defined(MOD_EVENTS_WAR_AND_PEACE)
-	void DoMakePeace(PlayerTypes eOriginatingPlayer, bool bPacifier, TeamTypes eTeam, bool bBumpUnits, bool bSuppressNotification = false);
-#else
 	void DoMakePeace(TeamTypes eTeam, bool bBumpUnits, bool bSuppressNotification = false);
-#endif
 };
 
 // helper for accessing static functions

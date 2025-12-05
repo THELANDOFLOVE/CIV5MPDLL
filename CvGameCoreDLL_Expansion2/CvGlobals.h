@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -36,22 +36,12 @@ class CvColorInfo;
 class CvPlayerColorInfo;
 class CvEntityEventInfo;
 class CvLandscapeInfo;
-#if defined(MOD_API_PLOT_YIELDS)
-class CvPlotInfo;
-#endif
-#if defined(MOD_API_UNIFIED_YIELDS)
-class CvGreatPersonInfo;
-enum GreatPersonTypes;
-#endif
 class CvTerrainInfo;
 class CvResourceClassInfo;
 class CvResourceInfo;
 class CvFeatureInfo;
 class CvCivilizationInfo;
 class CvMinorCivInfo;
-#if defined(MOD_EVENTS_QUESTS)
-class CvQuestInfo;
-#endif
 class CvLeaderHeadInfo;
 class CvSpecialUnitInfo;
 class CvYieldInfo;
@@ -115,10 +105,6 @@ class CvTraitEntry;
 class CvTraitXMLEntries;
 class CvNotificationEntry;
 class CvNotificationXMLEntries;
-#if defined(MOD_API_ACHIEVEMENTS) || defined(ACHIEVEMENT_HACKS)
-class CvAchievementInfo;
-class CvAchievementXMLEntries;
-#endif
 class CvBaseInfo;
 class CvReplayInfo;
 class CvReligionEntry;
@@ -151,27 +137,6 @@ class ICvPlot1;
 class ICvRandom1;
 class ICvUnit1;
 
-#ifdef MOD_GLOBAL_CITY_SCALES
-#include "CvCityScaleClasses.h"
-#endif
-
-#ifdef MOD_GLOBAL_CORRUPTION
-#include "CvCorruption.h"
-#endif
-
-#ifdef MOD_NUCLEAR_WINTER_FOR_SP
-#include "CvNuclearWinter.h"
-#endif
-
-#ifdef MOD_PROMOTION_COLLECTIONS
-#include "CvPromotionCollectionClasses.h"
-#endif
-
-#include "CvBuildingClassCollectionsClasses.h"
-
-#include "CvLuaFormula.h"
-
-#include "CvIndependentPromotionInfo.h"
 
 class CvGlobals
 {
@@ -333,17 +298,6 @@ public:
 	std::vector<CvMultiUnitFormationInfo*>& getMultiUnitFormationInfo();
 	_Ret_maybenull_ CvMultiUnitFormationInfo* getMultiUnitFormationInfo(int i);
 
-#if defined(MOD_API_PLOT_YIELDS)
-	int getNumPlotInfos();
-	std::vector<CvPlotInfo*>& getPlotInfo();
-	CvPlotInfo* getPlotInfo(PlotTypes ePlotNum);
-#endif
-#if defined(MOD_API_UNIFIED_YIELDS)
-	int getNumGreatPersonInfos();
-	std::vector<CvGreatPersonInfo*>& getGreatPersonInfo();
-	CvGreatPersonInfo* getGreatPersonInfo(GreatPersonTypes eGreatPersonNum);
-#endif
-
 	int getNumTerrainInfos();
 	std::vector<CvTerrainInfo*>& getTerrainInfo();
 	CvTerrainInfo* getTerrainInfo(TerrainTypes eTerrainNum);
@@ -371,12 +325,6 @@ public:
 	int GetNumPlayableMinorCivs() const;
 	std::vector<CvMinorCivInfo*>& getMinorCivInfo();
 	CvMinorCivInfo* getMinorCivInfo(MinorCivTypes eMinorCivNum);
-
-#if defined(MOD_EVENTS_QUESTS)
-	int getNumQuestInfos();
-	std::vector<CvQuestInfo*>& getQuestInfo();
-	CvQuestInfo* getQuestInfo(/*MinorCivQuestTypes*/ int eQuestNum);
-#endif
 
 	int getNumLeaderHeadInfos();
 	std::vector<CvLeaderHeadInfo*>& getLeaderHeadInfo();
@@ -425,49 +373,6 @@ public:
 	CvImprovementEntry* getImprovementInfo(ImprovementTypes eImprovementNum);
 	CvImprovementXMLEntries* GetGameImprovements() const;
 
-#ifdef MOD_GLOBAL_CITY_SCALES
-	int getNumCityScales();
-	std::vector<CvCityScaleEntry*>& getCityScaleInfo();
-	_Ret_maybenull_ CvCityScaleEntry* getCityScaleInfo(CityScaleTypes eCityScale);
-
-	void sortAndUpdateOrderedCityScale(const std::vector<CvCityScaleEntry*>&);
-	CvCityScaleEntry* getCityScaleInfoByPopulation(int iPopulation) const;
-#endif
-
-#ifdef MOD_GLOBAL_CORRUPTION
-	int getNumCorruptionLevel();
-	std::vector<CvCorruptionLevel*>& getCorruptionLevelInfo();
-	CvCorruptionLevel* getCorruptionLevelInfo(CorruptionLevelTypes eCorruptionLevel);
-
-	std::vector<CvCorruptionLevel*>& getOrderedNormalCityCorruptionLevels();
-	void initCityCorruptionLevelsByCityType();
-
-	CvCorruptionLevel* getPuppetCityCorruptionLevel() const;
-	CvCorruptionLevel* getCapitalCityCorruptionLevel() const;
-#endif
-
-#ifdef MOD_NUCLEAR_WINTER_FOR_SP
-	int getNumNuclearWinterLevel();
-	std::vector<CvNuclearWinterLevel*>& getNuclearWinterLevelInfo();
-	CvNuclearWinterLevel* getNuclearWinterLevelInfo(NuclearWinterLevelTypes eLevel);
-	void initGlobalNuclearWinterLevels();
-	std::vector<CvNuclearWinterLevel*>& CvGlobals::getOrderedNuclearWinterLevels();
-#endif
-
-#ifdef MOD_PROMOTION_COLLECTIONS
-	std::vector<CvPromotionCollectionEntry*>& GetPromotionCollections();
-	CvPromotionCollectionEntry* GetPromotionCollection(PromotionCollectionsTypes ePromotionCollection);
-	int GetNumPromotionCollections();
-	void InitPromotion2CollectionMapping();
-	std::tr1::unordered_map<PromotionTypes, std::tr1::unordered_set<PromotionCollectionsTypes> >& GetPromotion2CollectionsMapping();
-#endif
-
-#ifdef MOD_BUILDINGCLASS_COLLECTIONS
-	std::vector<CvBuildingClassCollectionsEntry*>& GetBuildingClassCollections();
-	CvBuildingClassCollectionsEntry* GetBuildingClassCollection(BuildingClassCollectionsTypes eBuildingClassCollection);
-	int GetNumBuildingClassCollections();
-#endif
-
 	int getNumBuildInfos();
 	std::vector<CvBuildInfo*>& getBuildInfo();
 	CvBuildInfo* getBuildInfo(BuildTypes eBuildNum);
@@ -479,12 +384,6 @@ public:
 	int getNumGameSpeedInfos();
 	std::vector<CvGameSpeedInfo*>& getGameSpeedInfo();
 	_Ret_maybenull_ CvGameSpeedInfo* getGameSpeedInfo(GameSpeedTypes eGameSpeedNum);
-
-#if defined(MOD_EVENTS_DIPLO_MODIFIERS)
-	int getNumDiploModifierInfos();
-	std::vector<CvDiploModifierInfo*>& getDiploModifierInfo();
-	_Ret_maybenull_ CvDiploModifierInfo* getDiploModifierInfo(DiploModifierTypes eDiploModifierNum);
-#endif
 
 	int getNumProcessInfos();
 	std::vector<CvProcessInfo*>& getProcessInfo();
@@ -644,30 +543,6 @@ public:
 	_Ret_maybenull_ CvSmallAwardInfo* getSmallAwardInfo(SmallAwardTypes eSmallAwardNum);
 
 	CvNotificationXMLEntries* GetNotificationEntries();
-
-#if defined(MOD_API_ACHIEVEMENTS) || defined(ACHIEVEMENT_HACKS)
-	int getNumAchievementInfos();
-	std::vector<CvAchievementInfo*>& getAchievementInfo();
-	_Ret_maybenull_ CvAchievementInfo* getAchievementInfo(EAchievement eAchievementNum);
-	CvAchievementXMLEntries* GetGameAchievements() const;
-#endif
-
-#ifdef MOD_SPECIALIST_RESOURCES
-	std::tr1::unordered_set<PolicyTypes>& getSpecialistResourcesPolicies();
-	std::tr1::unordered_set<TechTypes>& getSpecialistResourcesTechnologies();
-	void initSpecialistResourcesDependencies();
-#endif
-
-	std::vector<CvLuaFormula*>& GetLuaFormulaEntries();
-	int GetNumLuaFormulaEntries();
-	CvLuaFormula* GetLuaFormulaEntry(LuaFormulaTypes eFormula);
-
-	lua::EvaluatorManager* GetLuaEvaluatorManager();
-
-	CvIndependentPromotionInfo* GetIndependentPromotion();
-
-	const std::vector<BuildingTypes>& GetEnableUnitPurchaseBuildings() const;
-	void InitEnableUnitPurchaseBuildings();
 
 	//
 	// Global Types
@@ -1315,12 +1190,6 @@ public:
 	{
 		return m_iAI_CITIZEN_VALUE_FAITH;
 	}
-#if defined(MOD_API_UNIFIED_YIELDS_MORE)
-	inline int getAI_CITIZEN_VALUE_HEALTH()
-	{
-		return m_iAI_CITIZEN_VALUE_HEALTH;
-	}
-#endif
 	inline int getAI_CITIZEN_FOOD_MOD_SIZE_CUTOFF()
 	{
 		return m_iAI_CITIZEN_FOOD_MOD_SIZE_CUTOFF;
@@ -2729,10 +2598,6 @@ public:
 	{
 		return m_iOPINION_WEIGHT_DOF;
 	}
-	inline int getOPINION_WEIGHT_MARRIAGE()
-	{
-		return m_iOPINION_WEIGHT_MARRIAGE;
-	}
 	inline int getOPINION_WEIGHT_DOF_WITH_FRIEND()
 	{
 		return m_iOPINION_WEIGHT_DOF_WITH_FRIEND;
@@ -2833,10 +2698,6 @@ public:
 	{
 		return m_iOPINION_WEIGHT_CAPTURED_CAPITAL;
 	}
-	inline int getOPINION_WEIGHT_CAPTURED_RELIGION()
-	{
-		return m_iOPINION_WEIGHT_CAPTURED_RELIGION;
-	}
 	inline int getOPINION_WEIGHT_WE_LIKED_THEIR_PROPOSAL()
 	{
 		return m_iOPINION_WEIGHT_WE_LIKED_THEIR_PROPOSAL;
@@ -2900,14 +2761,6 @@ public:
 	inline int getOPINION_THRESHOLD_ALLY()
 	{
 		return m_iOPINION_THRESHOLD_ALLY;
-	}
-	inline int getDOF_WEIGHT_CHANGE_FROM_MARRIAGE()
-	{
-		return m_iDOF_WEIGHT_CHANGE_FROM_MARRIAGE;
-	}
-	inline int getDOF_WEIGHT_MODIFIER_FROM_MARRIAGE()
-	{
-		return m_iDOF_WEIGHT_MODIFIER_FROM_MARRIAGE;
 	}
 	inline int getAPPROACH_NEUTRAL_DEFAULT()
 	{
@@ -3032,22 +2885,6 @@ public:
 	inline int getAPPROACH_GUARDED_WORKING_WITH_PLAYER()
 	{
 		return m_iAPPROACH_GUARDED_WORKING_WITH_PLAYER;
-	}
-	inline int getAPPROACH_DECEPTIVE_MARRIAGE_WITH_PLAYER()
-	{
-		return m_iAPPROACH_DECEPTIVE_MARRIAGE_WITH_PLAYER;
-	}
-	inline int getAPPROACH_FRIENDLY_MARRIAGE_WITH_PLAYER()
-	{
-		return m_iAPPROACH_FRIENDLY_MARRIAGE_WITH_PLAYER;
-	}
-	inline int getAPPROACH_HOSTILE_MARRIAGE_WITH_PLAYER()
-	{
-		return m_iAPPROACH_HOSTILE_MARRIAGE_WITH_PLAYER;
-	}
-	inline int getAPPROACH_GUARDED_MARRIAGE_WITH_PLAYER()
-	{
-		return m_iAPPROACH_GUARDED_MARRIAGE_WITH_PLAYER;
 	}
 	inline int getAPPROACH_DECEPTIVE_WORKING_AGAINST_PLAYER()
 	{
@@ -5392,37 +5229,6 @@ public:
 	{
 		return m_iVERY_UNHAPPY_MAX_GOLD_PENALTY;
 	}
-
-	inline int getVERY_UNHAPPY_DISEASE_PENALTY_PER_UNHAPPY()
-	{
-		return m_iVERY_UNHAPPY_DISEASE_PENALTY_PER_UNHAPPY;
-	}
-	inline int getVERY_UNHAPPY_MAX_DISEASE_PENALTY()
-	{
-		return m_iVERY_UNHAPPY_MAX_DISEASE_PENALTY;
-	}
-
-	inline int getVERY_UNHAPPY_CRIME_PENALTY_PER_UNHAPPY()
-	{
-		return m_iVERY_UNHAPPY_CRIME_PENALTY_PER_UNHAPPY;
-	}
-	inline int getVERY_UNHAPPY_MAX_CRIME_PENALTY()
-	{
-		return m_iVERY_UNHAPPY_MAX_CRIME_PENALTY;
-	}
-
-
-	inline int getHEALTH_DISEASE_CONNECTION_MOD()
-	{
-		return m_iHEALTH_DISEASE_CONNECTION_MOD;
-	}
-	inline int getHEALTH_DISEASE_TRADE_MOD()
-	{
-		return m_iHEALTH_DISEASE_TRADE_MOD;
-	}
-
-
-
 	inline int getWLTKD_GROWTH_MULTIPLIER()
 	{
 		return m_iWLTKD_GROWTH_MULTIPLIER;
@@ -5458,10 +5264,6 @@ public:
 	inline int getBONUS_PER_ADJACENT_FRIEND()
 	{
 		return m_iBONUS_PER_ADJACENT_FRIEND;
-	}
-	inline int getBONUS_PER_ADJACENT_FRIEND_RANGED()
-	{
-		return m_iBONUS_PER_ADJACENT_FRIEND_RANGED;
 	}
 	inline int getPOLICY_ATTACK_BONUS_MOD()
 	{
@@ -5579,64 +5381,6 @@ public:
 	{
 		return m_iGOLDEN_AGE_LENGTH;
 	}
-	inline int getGOLDEN_AGE_POINT_MULTIPLE_IN_GA()
-	{
-		return m_iGOLDEN_AGE_POINT_MULTIPLE_IN_GA;
-	}
-#if defined(MOD_GLOBAL_UNIT_MOVES_AFTER_DISEMBARK)
-	inline int getUNIT_MOVES_AFTER_DISEMBARK()
-	{
-		return m_iUNIT_MOVES_AFTER_DISEMBARK;
-	}
-#endif
-#if defined(MOD_GLOBAL_MAX_PLOT_BUILD)
-	inline int getNUM_OUTSIZE_PLOT_MAX_BUILD()
-	{
-		return m_iNUM_OUTSIZE_PLOT_MAX_BUILD;
-	}
-#endif
-
-#if defined(MOD_TROOPS_AND_CROPS_FOR_SP)
-	inline int getTROOP_RATE_TIMES100_LOW()
-	{
-		return m_iTROOP_RATE_TIMES100_LOW;
-	}
-	inline int getTROOP_RATE_TIMES100_DEFAULT()
-	{
-		return m_iTROOP_RATE_TIMES100_DEFAULT;
-	}
-	inline int getTROOP_RATE_TIMES100_HIGH()
-	{
-		return m_iTROOP_RATE_TIMES100_HIGH;
-	}
-	inline int getTROOP_NUM_BASE()
-	{
-		return m_iTROOP_NUM_BASE;
-	}
-#endif
-#if defined(MOD_INTERNATIONAL_IMMIGRATION_FOR_SP)
-	inline int getIMMIGRATION_BASE_RATE()
-	{
-		return m_iIMMIGRATION_BASE_RATE;
-	}
-#endif
-
-	inline int getMAX_POPULATION_INCREASE_NOTIOFACATION()
-	{
-		return m_iMAX_POPULATION_INCREASE_NOTIOFACATION;
-	}
-	inline int getMAXIMUM_WORK_PLOT_DISTANCE_MINOR_REDUCE()
-	{
-		return m_iMAXIMUM_WORK_PLOT_DISTANCE_MINOR_REDUCE;
-	}
-
-#if defined(MOD_ROG_CORE)
-	inline int getORIGINAL_CAPITAL_MODMAX()
-	{
-		return m_iORIGINAL_CAPITAL_MODMAX;
-	}
-#endif
-
 	inline int getGOLDEN_AGE_GREAT_PEOPLE_MODIFIER()
 	{
 		return m_iGOLDEN_AGE_GREAT_PEOPLE_MODIFIER;
@@ -6537,42 +6281,6 @@ public:
 	{
 		return m_iCITY_STRENGTH_HILL_CHANGE;
 	}
-	inline int getCITY_FRESH_WATER_HEALTH_YIELD()
-	{
-		return m_iCITY_FRESH_WATER_HEALTH_YIELD;
-	}
-
-	inline int getCITY_CRIME_SPY_YIELD()
-	{
-		return m_iCITY_CRIME_SPY_YIELD;
-	}
-
-	inline int getCITY_CRIME_OPINION_REVOLUTIONARY_WAVE_YIELD()
-	{
-		return m_iCITY_CRIME_OPINION_REVOLUTIONARY_WAVE_YIELD;
-	}
-	inline int getCITY_CRIME_OPINION_CIVIL_RESISTANCE_YIELD()
-	{
-		return m_iCITY_CRIME_OPINION_CIVIL_RESISTANCE_YIELD;
-	}
-	inline int getCITY_CRIME_OPINION_DISSIDENTS_YIELD()
-	{
-		return m_iCITY_CRIME_OPINION_DISSIDENTS_YIELD;
-	}
-
-	inline int getCITY_CRIME_GOLDEN_AGE_YIELD()
-	{
-		return m_iCITY_CRIME_GOLDEN_AGE_YIELD;
-	}
-	inline int getCITY_LOYALTY_GOLDEN_AGE_YIELD()
-	{
-		return m_iCITY_LOYALTY_GOLDEN_AGE_YIELD;
-	}
-
-	inline int getCITY_STRENGTH_MOUNTAIN_CHANGE()
-	{
-		return m_iCITY_STRENGTH_MOUNTAIN_CHANGE;
-	}
 	inline int getCITY_ATTACKING_DAMAGE_MOD()
 	{
 		return m_iCITY_ATTACKING_DAMAGE_MOD;
@@ -6757,20 +6465,13 @@ public:
 	{
 		return m_iMINOR_CIV_PLOT_CULTURE_COST_MULTIPLIER;
 	}
-#if defined(MOD_GLOBAL_CITY_WORKING)
-	GD_INT_DEF(MAXIMUM_WORK_PLOT_DISTANCE)
-#endif
 	inline int getMAXIMUM_BUY_PLOT_DISTANCE()
 	{
 		return m_iMAXIMUM_BUY_PLOT_DISTANCE;
 	}
 	inline int getMAXIMUM_ACQUIRE_PLOT_DISTANCE()
 	{
-#if defined(MOD_GLOBAL_CITY_WORKING)
-		return std::min(m_iMAXIMUM_ACQUIRE_PLOT_DISTANCE, MAX_CITY_RADIUS);
-#else
 		return m_iMAXIMUM_ACQUIRE_PLOT_DISTANCE;
-#endif
 	}
 	inline int getPLOT_INFLUENCE_BASE_MULTIPLIER()
 	{
@@ -7298,10 +6999,6 @@ public:
 	{
 		return m_iPROMOTION_OCEAN_IMPASSABLE;
 	}
-	inline int getPROMOTION_NEW_UNIT_CAPTURED()
-	{
-		return m_iPROMOTION_NEW_UNIT_CAPTURED;
-	}
 	inline int getPROMOTION_ONLY_DEFENSIVE()
 	{
 		return m_iPROMOTION_ONLY_DEFENSIVE;
@@ -7671,125 +7368,292 @@ public:
 		return m_fLEAGUE_PROJECT_REWARD_TIER_2_THRESHOLD;
 	}
 
-#if defined(MOD_PROMOTIONS_DEEP_WATER_EMBARKATION)
-	GD_INT_DEF(PROMOTION_DEEPWATER_EMBARKATION)
-	GD_INT_DEF(PROMOTION_DEFENSIVE_DEEPWATER_EMBARKATION)
-#endif
+#if defined(MOD_DIPLOMACY_CIV4_FEATURES)
+	inline int getHELP_REQUEST_TURN_LIMIT_MIN()
+	{
+		return m_iHELP_REQUEST_TURN_LIMIT_MIN;
+	}
+	inline int getHELP_REQUEST_TURN_LIMIT_RAND()
+	{
+		return m_iHELP_REQUEST_TURN_LIMIT_RAND;
+	}
+	inline int getSHARE_OPINION_TURN_BUFFER()
+	{
+		return m_iSHARE_OPINION_TURN_BUFFER;
+	}
+	inline int getSHARE_OPINION_RAND()
+	{
+		return m_iSHARE_OPINION_RAND;
+	}
+	inline int getSHARE_OPINION_FLAVOR_BASE()
+	{
+		return m_iSHARE_OPINION_FLAVOR_BASE;
+	}
+	inline int getSHARE_OPINION_FLAVOR_MULTIPLIER()
+	{
+		return m_iSHARE_OPINION_FLAVOR_MULTIPLIER;
+	}
+	inline float getTECH_COST_ERA_EXPONENT()
+	{
+		return m_fTECH_COST_ERA_EXPONENT;
+	}
+	inline int getVASSAL_RELIGIOUS_PRESSURE_MODIFIER()
+	{
+		return m_iVASSAL_RELIGIOUS_PRESSURE_MODIFIER;
+	}
+	inline int getVASSAL_TOURISM_MODIFIER()
+	{
+		return m_iVASSAL_TOURISM_MODIFIER;
+	}
+	inline int getVASSALAGE_VASSAL_TAX_PERCENT_MINIMUM()
+	{
+		return m_iVASSALAGE_VASSAL_TAX_PERCENT_MINIMUM;
+	}
+	inline int getVASSALAGE_VASSAL_TAX_PERCENT_MAXIMUM()
+	{
+		return m_iVASSALAGE_VASSAL_TAX_PERCENT_MAXIMUM;
+	}
+	inline float getVASSALAGE_VASSAL_CITY_POP_EXPONENT()
+	{
+		return m_fVASSALAGE_VASSAL_CITY_POP_EXPONENT;
+	}
+	inline int getVASSALAGE_VASSAL_UNIT_MAINT_COST_PERCENT()
+	{
+		return m_iVASSALAGE_VASSAL_UNIT_MAINT_COST_PERCENT;
+	}
+	inline int getVASSAL_SCORE_PERCENT()
+	{
+		return m_iVASSAL_SCORE_PERCENT;
+	}
+	inline int getVASSAL_SCIENCE_PERCENT()
+	{
+		return m_iVASSAL_SCIENCE_PERCENT;
+	}
+	inline int getVASSAL_HAPPINESS_PERCENT()
+	{
+		return m_iVASSAL_HAPPINESS_PERCENT;
+	}
+	inline int getVASSALAGE_FREE_YIELD_FROM_VASSAL_PERCENT()
+	{
+		return m_iVASSALAGE_FREE_YIELD_FROM_VASSAL_PERCENT;
+	}
+	inline int getVASSALAGE_PROTECT_VALUE_PER_OPINION_WEIGHT()
+	{
+		return m_iVASSALAGE_PROTECT_VALUE_PER_OPINION_WEIGHT;
+	}
+	inline int getVASSALAGE_FAILED_PROTECT_VALUE_PER_OPINION_WEIGHT()
+	{
+		return m_iVASSALAGE_FAILED_PROTECT_VALUE_PER_OPINION_WEIGHT;
+	}
+	inline int getVASSALAGE_FAILED_PROTECT_CITY_DISTANCE()
+	{
+		return m_iVASSALAGE_FAILED_PROTECT_CITY_DISTANCE;
+	}
+	inline int getVASSALAGE_FAILED_PROTECT_PER_TURN_DECAY()
+	{
+		return m_iVASSALAGE_FAILED_PROTECT_PER_TURN_DECAY;
+	}
+	inline int getVASSALAGE_PROTECTED_PER_TURN_DECAY()
+	{
+		return m_iVASSALAGE_PROTECTED_PER_TURN_DECAY;
+	}
+	inline int getVASSALAGE_VASSAL_LOST_CITIES_THRESHOLD()
+	{
+		return m_iVASSALAGE_VASSAL_LOST_CITIES_THRESHOLD;
+	}
+	inline int getVASSALAGE_VASSAL_POPULATION_THRESHOLD()
+	{
+		return m_iVASSALAGE_VASSAL_POPULATION_THRESHOLD;
+	}
+	inline int getVASSALAGE_VASSAL_MASTER_CITY_PERCENT_THRESHOLD()
+	{
+		return m_iVASSALAGE_VASSAL_MASTER_CITY_PERCENT_THRESHOLD;
+	}
+	inline int getVASSALAGE_VASSAL_MASTER_POP_PERCENT_THRESHOLD()
+	{
+		return m_iVASSALAGE_VASSAL_MASTER_POP_PERCENT_THRESHOLD;
+	}
+	inline int getVASSALAGE_CAPITULATE_BASE_THRESHOLD()
+	{
+		return m_iVASSALAGE_CAPITULATE_BASE_THRESHOLD;
+	}
+	inline int getOPINION_WEIGHT_MASTER_LIBERATED_ME_FROM_VASSALAGE()
+	{
+		return m_iOPINION_WEIGHT_MASTER_LIBERATED_ME_FROM_VASSALAGE;
+	}
+	inline int getOPINION_WEIGHT_VASSALAGE_WE_ARE_VOLUNTARY_VASSAL()
+	{
+		return m_iOPINION_WEIGHT_VASSALAGE_WE_ARE_VOLUNTARY_VASSAL;
+	}
+	inline int getOPINION_WEIGHT_VASSALAGE_VOLUNTARY_VASSAL_MOD()
+	{
+		return m_iOPINION_WEIGHT_VASSALAGE_VOLUNTARY_VASSAL_MOD;
+	}
+	inline int getOPINION_WEIGHT_DEMANDED_WHILE_VASSAL()
+	{
+		return m_iOPINION_WEIGHT_DEMANDED_WHILE_VASSAL;
+	}
+	inline int getVASSALAGE_TREATMENT_THRESHOLD_DISAGREE()
+	{
+		return m_iVASSALAGE_TREATMENT_THRESHOLD_DISAGREE;
+	}
+	inline int getVASSALAGE_TREATMENT_THRESHOLD_MISTREATED()
+	{
+		return m_iVASSALAGE_TREATMENT_THRESHOLD_MISTREATED;
+	}
+	inline int getVASSALAGE_TREATMENT_THRESHOLD_UNHAPPY()
+	{
+		return m_iVASSALAGE_TREATMENT_THRESHOLD_UNHAPPY;
+	}
+	inline int getVASSALAGE_TREATMENT_THRESHOLD_ENSLAVED()
+	{
+		return m_iVASSALAGE_TREATMENT_THRESHOLD_ENSLAVED;
+	}
+	inline float getOPINION_WEIGHT_VASSAL_TAX_EXPONENT()
+	{
+		return m_fOPINION_WEIGHT_VASSAL_TAX_EXPONENT;
+	}
+	inline int getOPINION_WEIGHT_VASSAL_TAX_DIVISOR()
+	{
+		return m_iOPINION_WEIGHT_VASSAL_TAX_DIVISOR;
+	}
+	inline int getOPINION_WEIGHT_VASSAL_CURRENT_TAX_MODIFIER()
+	{
+		return m_iOPINION_WEIGHT_VASSAL_CURRENT_TAX_MODIFIER;
+	}
+	inline int getOPINION_WEIGHT_VASSALAGE_WE_ARE_VASSAL()
+	{
+		return m_iOPINION_WEIGHT_VASSALAGE_WE_ARE_VASSAL;
+	}
+	inline int getOPINION_WEIGHT_VASSALAGE_WE_ARE_MASTER()
+	{
+		return m_iOPINION_WEIGHT_VASSALAGE_WE_ARE_MASTER;
+	}
+	inline int getOPINION_WEIGHT_VASSALAGE_THEY_PEACEFULLY_REVOKED()
+	{
+		return m_iOPINION_WEIGHT_VASSALAGE_THEY_PEACEFULLY_REVOKED;
+	}
+	inline int getOPINION_WEIGHT_VASSALAGE_THEY_FORCIBLY_REVOKED()
+	{
+		return m_iOPINION_WEIGHT_VASSALAGE_THEY_FORCIBLY_REVOKED;
+	}
+	inline int getOPINION_WEIGHT_VASSALAGE_FAILED_PROTECT_MAX()
+	{
+		return m_iOPINION_WEIGHT_VASSALAGE_FAILED_PROTECT_MAX;
+	}
+	inline int getOPINION_WEIGHT_VASSALAGE_PROTECT_MAX()
+	{
+		return m_iOPINION_WEIGHT_VASSALAGE_PROTECT_MAX;
+	}
+	inline int getOPINION_WEIGHT_VASSALAGE_PEACEFULLY_REVOKED_NUM_TURNS_UNTIL_FORGOTTEN()
+	{
+		return m_iOPINION_WEIGHT_VASSALAGE_PEACEFULLY_REVOKED_NUM_TURNS_UNTIL_FORGOTTEN;
+	}
+	inline int getOPINION_WEIGHT_VASSALAGE_FORCIBLY_REVOKED_NUM_TURNS_UNTIL_FORGIVEN()
+	{
+		return m_iOPINION_WEIGHT_VASSALAGE_FORCIBLY_REVOKED_NUM_TURNS_UNTIL_FORGIVEN;
+	}
+	inline int getOPINION_WEIGHT_VASSALAGE_BROKEN_VASSAL_AGREEMENT_OPINION_WEIGHT()
+	{
+		return m_iOPINION_WEIGHT_VASSALAGE_BROKEN_VASSAL_AGREEMENT_OPINION_WEIGHT;
+	}
+	inline int getOPINION_WEIGHT_VASSALAGE_TOO_MANY_VASSALS()
+	{
+		return m_iOPINION_WEIGHT_VASSALAGE_TOO_MANY_VASSALS;
+	}
 
-#if defined(MOD_PROMOTIONS_FLAGSHIP)
-	GD_INT_DEF(PROMOTION_FLAGSHIP)
-#endif
-
-#if defined(MOD_PROMOTIONS_AURA_CHANGE)
-	GD_INT_DEF(GREAT_GENERAL_MAX_RANGE)
-#endif
-
-#if defined(MOD_CONFIG_AI_IN_XML)
-	GD_INT_DEF(AI_CONFIG_MILITARY_MELEE_PER_AA)
-	GD_INT_DEF(AI_CONFIG_MILITARY_AIRCRAFT_PER_CARRIER_SPACE)
-	GD_INT_DEF(AI_CONFIG_MILITARY_TILES_PER_SHIP)
-	GD_INT_DEF(WARMONGER_THREAT_MAJOR_CITY_WEIGHT)
-	GD_INT_DEF(WARMONGER_THREAT_MINOR_CITY_WEIGHT)
-	GD_INT_DEF(WARMONGER_THREAT_CAPITAL_CITY_PERCENT)
-	GD_INT_DEF(WARMONGER_THREAT_KNOWS_ATTACKER_PERCENT)
-	GD_INT_DEF(WARMONGER_THREAT_KNOWS_DEFENDER_PERCENT)
-	GD_INT_DEF(WARMONGER_THREAT_AGGRIEVED_PERCENT)
-	GD_INT_DEF(WARMONGER_THREAT_COOP_WAR_PERCENT)
-	GD_INT_DEF(WARMONGER_THREAT_DEF_PACT_ENABLED)
-	GD_INT_DEF(WARMONGER_THREAT_CITY_SIZE_ENABLED)
-	GD_INT_DEF(WARMONGER_THREAT_APPROACH_PERCENT_HOSTILE)
-	GD_INT_DEF(WARMONGER_THREAT_APPROACH_PERCENT_AFRAID)
-	GD_INT_DEF(WARMONGER_THREAT_APPROACH_PERCENT_GUARDED)
-	GD_INT_DEF(WARMONGER_THREAT_APPROACH_PERCENT_NEUTRAL)
-	GD_INT_DEF(WARMONGER_THREAT_APPROACH_PERCENT_FRIENDLY)
-	GD_INT_DEF(WARMONGER_THREAT_APPROACH_DECAY_PERCENT_HOSTILE)
-	GD_INT_DEF(WARMONGER_THREAT_APPROACH_DECAY_PERCENT_AFRAID)
-	GD_INT_DEF(WARMONGER_THREAT_APPROACH_DECAY_PERCENT_GUARDED)
-	GD_INT_DEF(WARMONGER_THREAT_APPROACH_DECAY_PERCENT_NEUTRAL)
-	GD_INT_DEF(WARMONGER_THREAT_APPROACH_DECAY_PERCENT_FRIENDLY)
-#endif
-
-#if defined(MOD_CONFIG_GAME_IN_XML)
-	GD_INT_DEF(RELIGION_LAST_FOUND_ERA)
-	GD_INT_DEF(RELIGION_GP_FAITH_PURCHASE_ERA)
-	GD_INT_DEF(IDEOLOGY_START_ERA)
-	GD_INT_DEF(WAR_MAJOR_MINIMUM_TURNS)
-	GD_INT_DEF(WAR_MINOR_MINIMUM_TURNS)
-	GD_INT_DEF(CITY_STARTING_RINGS)
-#endif
-
-	GD_INT_DEF(TOURISM_START_TECH)
-	GD_INT_DEF(TOURISM_START_ERA)
-	GD_INT_DEF(PUPPET_TOURISM_MODIFIER)
-	GD_INT_DEF(WONDER_GOLDEN_AGE_PURCHASE_MODIFIER)
-	GD_INT_DEF(PUPPET_GOLDEN_AGE_MODIFIER)
-
-#if defined(MOD_API_UNIFIED_YIELDS_MORE)
-	GD_INT_DEF(PUPPET_GREAT_GENERAL_POINTS_MODIFIER)
-	GD_INT_DEF(PUPPET_GREAT_ADMIRAL_POINTS_MODIFIER)
-	GD_INT_DEF(PUPPET_HEALTH_MODIFIER)
-	GD_INT_DEF(PUPPET_DISEASE_MODIFIER)
-	GD_INT_DEF(PUPPET_CRIME_MODIFIER)
-	GD_INT_DEF(PUPPET_LOYALTY_MODIFIER)
-	GD_INT_DEF(PUPPET_SOVEREIGNTY_MODIFIER)
-#endif
-
-
-#if defined(MOD_TRADE_ROUTE_SCALING)
-	GD_INT_DEF(TRADE_ROUTE_BASE_TARGET_TURNS)
-	GD_INT_DEF(TRADE_ROUTE_BASE_LAND_DISTANCE)
-	GD_INT_DEF(TRADE_ROUTE_BASE_LAND_MODIFIER)
-	GD_INT_DEF(TRADE_ROUTE_BASE_SEA_DISTANCE)
-	GD_INT_DEF(TRADE_ROUTE_BASE_SEA_MODIFIER)
-	GD_INT_DEF(TRADE_ROUTE_BASE_FOOD_VALUE)
-	GD_INT_DEF(TRADE_ROUTE_BASE_PRODUCTION_VALUE)
-	GD_INT_DEF(TRADE_ROUTE_SCIENCE_DIVISOR_TIMES100)
-	GD_INT_DEF(TRADE_ROUTE_DIFFERENT_RESOURCE_VALUE)
-	GD_INT_DEF(TRADE_ROUTE_RIVER_CITY_MODIFIER)
-	GD_INT_DEF(TRADE_ROUTE_BASE_PLUNDER_GOLD)
-	GD_INT_DEF(TRADE_ROUTE_PLUNDER_TURNS_COUNTER)
-#endif
-
-#if defined(MOD_GLOBAL_INTERNAL_TRADE_ROUTE_BONUS_FROM_ORIGIN_CITY)
-	GD_INT_DEF(INTERNAL_TRADE_ROUTE_FOOD_BONUS_BASE_FROM_ORIGIN)
-	GD_INT_DEF(INTERNAL_TRADE_ROUTE_FOOD_BONUS_MOD_FROM_ORIGIN)
-	GD_INT_DEF(INTERNAL_TRADE_ROUTE_PRODUCTION_BONUS_BASE_FROM_ORIGIN)
-	GD_INT_DEF(INTERNAL_TRADE_ROUTE_PRODUCTION_BONUS_MOD_FROM_ORIGIN)
-#endif
-
-#if defined(MOD_GLOBAL_CS_GIFTS)
-	GD_INT_DEF(MINOR_CIV_FIRST_CONTACT_BONUS_CULTURE)
-	GD_INT_DEF(MINOR_CIV_FIRST_CONTACT_BONUS_FAITH)
-	GD_INT_DEF(MINOR_CIV_FIRST_CONTACT_BONUS_GOLD)
-	GD_INT_DEF(MINOR_CIV_FIRST_CONTACT_BONUS_FOOD)
-	GD_INT_DEF(MINOR_CIV_FIRST_CONTACT_BONUS_FRIENDSHIP)
-	GD_INT_DEF(MINOR_CIV_FIRST_CONTACT_SUBSEQUENT_TEAM_MULTIPLIER)
-	GD_INT_DEF(MINOR_CIV_FIRST_CONTACT_SUBSEQUENT_TEAM_DIVISOR)
-	GD_INT_DEF(MINOR_CIV_FIRST_CONTACT_FRIENDLY_BONUS_MULTIPLIER)
-	GD_INT_DEF(MINOR_CIV_FIRST_CONTACT_FRIENDLY_BONUS_DIVISOR)
-	GD_INT_DEF(MINOR_CIV_FIRST_CONTACT_HOSTILE_BONUS_MULTIPLIER)
-	GD_INT_DEF(MINOR_CIV_FIRST_CONTACT_HOSTILE_BONUS_DIVISOR)
-#endif
-
-#if defined(MOD_GLOBAL_STACKING_RULES)
-	GD_INT_DEF(CITY_UNIT_LIMIT)
-#endif
-
-	GD_INT_DEF(MAX_CITY_ATTACK_RANGE)
-
-#if defined(MOD_UI_CITY_EXPANSION)
-	GD_INT_DEF(PLOT_INFLUENCE_COST_VISIBLE_DIVISOR)
-#endif
-
-#if defined(MOD_GLOBAL_WAR_CASUALTIES)
-	GD_INT_DEF(WAR_CASUALTIES_THRESHOLD);
-	GD_INT_DEF(WAR_CASUALTIES_DELTA_BASE);
-	GD_INT_DEF(WAR_CASUALTIES_POPULATION_LOSS);
-#endif
-
-#ifdef MOD_GLOBAL_CORRUPTION
-	GD_INT_DEF(CORRUPTION_SCORE_PER_DISTANCE);
-	GD_INT_DEF(CORRUPTION_SCORE_COASTAL_BONUS);
+	inline int getAPPROACH_HOSTILE_WE_ARE_VASSAL()
+	{
+		return m_iAPPROACH_HOSTILE_WE_ARE_VASSAL;
+	}
+	inline int getAPPROACH_GUARDED_WE_ARE_VASSAL()
+	{
+		return m_iAPPROACH_GUARDED_WE_ARE_VASSAL;
+	}
+	inline int getAPPROACH_DECEPTIVE_WE_ARE_VASSAL()
+	{
+		return m_iAPPROACH_DECEPTIVE_WE_ARE_VASSAL;
+	}
+	inline int getAPPROACH_WAR_VASSAL_FORCEFULLY_REVOKED()
+	{
+		return m_iAPPROACH_WAR_VASSAL_FORCEFULLY_REVOKED;
+	}
+	inline int getAPPROACH_DECEPTIVE_VASSAL_FORCEFULLY_REVOKED()
+	{
+		return m_iAPPROACH_DECEPTIVE_VASSAL_FORCEFULLY_REVOKED;
+	}
+	inline int getAPPROACH_FRIENDLY_VASSAL_FORCEFULLY_REVOKED()
+	{
+		return m_iAPPROACH_FRIENDLY_VASSAL_FORCEFULLY_REVOKED;
+	}
+	inline int getAPPROACH_WAR_VASSAL_PEACEFULLY_REVOKED()
+	{
+		return m_iAPPROACH_WAR_VASSAL_PEACEFULLY_REVOKED;
+	}
+	inline int getAPPROACH_DECEPTIVE_VASSAL_PEACEFULLY_REVOKED()
+	{
+		return m_iAPPROACH_DECEPTIVE_VASSAL_PEACEFULLY_REVOKED;
+	}
+	inline int getAPPROACH_FRIENDLY_VASSAL_PEACEFULLY_REVOKED()
+	{
+		return m_iAPPROACH_FRIENDLY_VASSAL_PEACEFULLY_REVOKED;
+	}
+	inline int getAPPROACH_WAR_MY_VASSAL()
+	{
+		return m_iAPPROACH_WAR_MY_VASSAL;
+	}	
+	inline int getAPPROACH_GUARDED_TOO_MANY_VASSALS()
+	{
+		return m_iAPPROACH_GUARDED_TOO_MANY_VASSALS;
+	}
+	inline int getAPPROACH_WAR_TOO_MANY_VASSALS()
+	{
+		return m_iAPPROACH_WAR_TOO_MANY_VASSALS;
+	}
+	inline int getTARGET_VASSAL_BACKUP_PATHETIC()
+	{
+		return m_iTARGET_VASSAL_BACKUP_PATHETIC;
+	}
+	inline int getTARGET_VASSAL_BACKUP_WEAK()
+	{
+		return m_iTARGET_VASSAL_BACKUP_WEAK;
+	}
+	inline int getTARGET_VASSAL_BACKUP_POOR()
+	{
+		return m_iTARGET_VASSAL_BACKUP_POOR;
+	}
+	inline int getTARGET_VASSAL_BACKUP_AVERAGE()
+	{
+		return m_iTARGET_VASSAL_BACKUP_AVERAGE;
+	}
+	inline int getTARGET_VASSAL_BACKUP_STRONG()
+	{
+		return m_iTARGET_VASSAL_BACKUP_STRONG;
+	}
+	inline int getTARGET_VASSAL_BACKUP_POWERFUL()
+	{
+		return m_iTARGET_VASSAL_BACKUP_POWERFUL;
+	}
+	inline int getTARGET_VASSAL_BACKUP_IMMENSE()
+	{
+		return m_iTARGET_VASSAL_BACKUP_IMMENSE;
+	}
+	inline int getTARGET_VASSAL_BACKUP_DISTANT()
+	{
+		return m_iTARGET_VASSAL_BACKUP_DISTANT;
+	}
+	inline int getTARGET_VASSAL_BACKUP_FAR()
+	{
+		return m_iTARGET_VASSAL_BACKUP_FAR;
+	}
+	inline int getTARGET_VASSAL_BACKUP_CLOSE()
+	{
+		return m_iTARGET_VASSAL_BACKUP_CLOSE;
+	}
+	inline int getTARGET_VASSAL_BACKUP_NEIGHBORS()
+	{
+		return m_iTARGET_VASSAL_BACKUP_NEIGHBORS;
+	}
 #endif
 
 	////////////// END DEFINES //////////////////
@@ -7906,17 +7770,10 @@ protected:
 
 	int m_aiPlotDirectionX[NUM_DIRECTION_TYPES];
 	int m_aiPlotDirectionY[NUM_DIRECTION_TYPES];
-#if defined(MOD_GLOBAL_CITY_WORKING)
-	int m_aiCityPlotX[MAX_CITY_PLOTS];
-	int m_aiCityPlotY[MAX_CITY_PLOTS];
-	int m_aiCityPlotPriority[MAX_CITY_PLOTS];
-	int m_aaiXYCityPlot[2*MAX_CITY_RADIUS+1][2*MAX_CITY_RADIUS+1];
-#else
 	int m_aiCityPlotX[NUM_CITY_PLOTS];
 	int m_aiCityPlotY[NUM_CITY_PLOTS];
 	int m_aiCityPlotPriority[NUM_CITY_PLOTS];
 	int m_aaiXYCityPlot[CITY_PLOTS_DIAMETER][CITY_PLOTS_DIAMETER];
-#endif
 
 	DirectionTypes m_aeTurnLeftDirection[NUM_DIRECTION_TYPES];
 	DirectionTypes m_aeTurnRightDirection[NUM_DIRECTION_TYPES];
@@ -7940,12 +7797,6 @@ protected:
 	std::vector<CvColorInfo*> m_paColorInfo;
 	std::vector<CvPlayerColorInfo*> m_paPlayerColorInfo;
 
-#if defined(MOD_API_PLOT_YIELDS)
-	std::vector<CvPlotInfo*> m_paPlotInfo;
-#endif
-#if defined(MOD_API_UNIFIED_YIELDS)
-	std::vector<CvGreatPersonInfo*> m_paGreatPersonInfo;
-#endif
 	std::vector<CvTerrainInfo*> m_paTerrainInfo;
 	std::vector<CvYieldInfo*> m_paYieldInfo;
 	std::vector<CvRouteInfo*> m_paRouteInfo;
@@ -7955,17 +7806,11 @@ protected:
 	std::vector<CvBuildInfo*> m_paBuildInfo;
 	std::vector<CvHandicapInfo*> m_paHandicapInfo;
 	std::vector<CvGameSpeedInfo*> m_paGameSpeedInfo;
-#if defined(MOD_EVENTS_DIPLO_MODIFIERS)
-	std::vector<CvDiploModifierInfo*> m_paDiploModifierInfo;
-#endif
 	std::vector<CvTurnTimerInfo*> m_paTurnTimerInfo;
 	std::vector<CvCivilizationInfo*> m_paCivilizationInfo;
 	int m_iNumPlayableCivilizationInfos;
 	int m_iNumAIPlayableCivilizationInfos;
 	std::vector<CvMinorCivInfo*> m_paMinorCivInfo;
-#if defined(MOD_EVENTS_QUESTS)
-	std::vector<CvQuestInfo*> m_paQuestInfo;
-#endif
 	std::vector<CvLeaderHeadInfo*> m_paLeaderHeadInfo;
 	std::vector<CvProcessInfo*> m_paProcessInfo;
 	std::vector<CvVoteInfo*> m_paVoteInfo;
@@ -8016,47 +7861,6 @@ protected:
 	CvLeagueProjectRewardXMLEntries* m_pLeagueProjectRewards;
 	CvResolutionXMLEntries* m_pResolutions;
 	CvNotificationXMLEntries* m_pNotifications;
-#if defined(MOD_API_ACHIEVEMENTS) || defined(ACHIEVEMENT_HACKS)
-	CvAchievementXMLEntries* m_pAchievements;
-#endif
-
-#ifdef MOD_GLOBAL_CITY_SCALES
-	CvCityScaleXMLEntries* m_pCityScales;
-	std::vector<CvCityScaleEntry*> m_vOrderedCityScales; // order by min population
-#endif
-
-#ifdef MOD_GLOBAL_CORRUPTION
-	CvCorruptionLevelXMLEntries* m_pCorruptionInfo;
-	std::vector<CvCorruptionLevel*> m_vOrderedNormalCityCorruptionLevels; // order by score lower bound.
-	CvCorruptionLevel* m_pPuppetCityCorruptionLevel = nullptr;
-	CvCorruptionLevel* m_pCapitalCityCorruptionLevel = nullptr;
-#endif
-
-#ifdef MOD_NUCLEAR_WINTER_FOR_SP
-	CvNuclearWinterLevelXMLEntries* m_pNuclearWinterInfo;
-	std::vector<CvNuclearWinterLevel*> m_vOrderedNuclearWinterLevels; // order by Trigger Threshold lower bound.
-#endif
-
-#ifdef MOD_PROMOTION_COLLECTIONS
-	CvPromotionCollectionEntries* m_pPromotionCollections;
-	std::tr1::unordered_map<PromotionTypes, std::tr1::unordered_set<PromotionCollectionsTypes> > m_mPromotion2CollectionsMapping;
-#endif
-
-#ifdef MOD_BUILDINGCLASS_COLLECTIONS
-	CvBuildingClassCollectionsXMLEntries* m_pBuildingClassCollections;
-#endif
-
-#ifdef MOD_SPECIALIST_RESOURCES
-	std::tr1::unordered_set<PolicyTypes> m_vSpecialistResourcesPolicies;
-	std::tr1::unordered_set<TechTypes> m_vSpecialistResourcesTechnologies;
-#endif
-
-	CvLuaFormulaXMLEntries* m_pLuaFormulaEntries;
-	lua::EvaluatorManager* m_pLuaEvaluatorManager;
-
-	CvIndependentPromotionInfo* m_pIndependentPromotion;
-
-	std::vector<BuildingTypes> m_vEnableUnitPurchaseBuildings;
 
 	//////////////////////////////////////////////////////////////////////////
 	// GLOBAL TYPES
@@ -8230,9 +8034,6 @@ protected:
 	int m_iAI_CITIZEN_VALUE_SCIENCE;
 	int m_iAI_CITIZEN_VALUE_CULTURE;
 	int m_iAI_CITIZEN_VALUE_FAITH;
-#if defined(MOD_API_UNIFIED_YIELDS_MORE)
-	int m_iAI_CITIZEN_VALUE_HEALTH;
-#endif
 	int m_iAI_CITIZEN_FOOD_MOD_SIZE_CUTOFF;
 	int m_iAI_CITIZEN_FOOD_MOD_SIZE_EXPONENT;
 	int m_iAI_CITIZEN_MOD_FOOD_DEFICIT;
@@ -8585,7 +8386,6 @@ protected:
 	int m_iOPINION_WEIGHT_DOF;
 	int m_iOPINION_WEIGHT_DOF_WITH_FRIEND;
 	int m_iOPINION_WEIGHT_DOF_WITH_ENEMY;
-	int m_iOPINION_WEIGHT_MARRIAGE;
 	int m_iOPINION_WEIGHT_DENOUNCED_BY_FRIEND_EACH;
 	int m_iOPINION_WEIGHT_DENOUNCED_BY_FRIEND_DONT_LIKE;
 	int m_iOPINION_WEIGHT_DENOUNCED_FRIEND_EACH;
@@ -8609,7 +8409,6 @@ protected:
 	int m_iOPINION_WEIGHT_ROBBED_BY;
 	int m_iOPINION_WEIGHT_INTRIGUE_SHARED_BY;
 	int m_iOPINION_WEIGHT_CAPTURED_CAPITAL;
-	int m_iOPINION_WEIGHT_CAPTURED_RELIGION;
 	int m_iOPINION_WEIGHT_WE_LIKED_THEIR_PROPOSAL;
 	int m_iOPINION_WEIGHT_WE_LIKED_THEIR_PROPOSAL_NUM_TURNS;
 	int m_iOPINION_WEIGHT_WE_DISLIKED_THEIR_PROPOSAL;
@@ -8626,8 +8425,6 @@ protected:
 	int m_iOPINION_THRESHOLD_FAVORABLE;
 	int m_iOPINION_THRESHOLD_FRIEND;
 	int m_iOPINION_THRESHOLD_ALLY;
-	int m_iDOF_WEIGHT_CHANGE_FROM_MARRIAGE;
-	int m_iDOF_WEIGHT_MODIFIER_FROM_MARRIAGE;
 	int m_iAPPROACH_NEUTRAL_DEFAULT;
 	int m_iAPPROACH_BIAS_FOR_CURRENT;
 	int m_iAPPROACH_WAR_CURRENTLY_DECEPTIVE;
@@ -8659,10 +8456,6 @@ protected:
 	int m_iAPPROACH_FRIENDLY_WORKING_WITH_PLAYER;
 	int m_iAPPROACH_HOSTILE_WORKING_WITH_PLAYER;
 	int m_iAPPROACH_GUARDED_WORKING_WITH_PLAYER;
-	int m_iAPPROACH_DECEPTIVE_MARRIAGE_WITH_PLAYER;
-	int m_iAPPROACH_FRIENDLY_MARRIAGE_WITH_PLAYER;
-	int m_iAPPROACH_HOSTILE_MARRIAGE_WITH_PLAYER;
-	int m_iAPPROACH_GUARDED_MARRIAGE_WITH_PLAYER;
 	int m_iAPPROACH_DECEPTIVE_WORKING_AGAINST_PLAYER;
 	int m_iAPPROACH_HOSTILE_WORKING_AGAINST_PLAYER;
 	int m_iAPPROACH_WAR_WORKING_AGAINST_PLAYER;
@@ -9252,14 +9045,6 @@ protected:
 	int m_iVERY_UNHAPPY_MAX_PRODUCTION_PENALTY;
 	int m_iVERY_UNHAPPY_GOLD_PENALTY_PER_UNHAPPY;
 	int m_iVERY_UNHAPPY_MAX_GOLD_PENALTY;
-	int m_iVERY_UNHAPPY_DISEASE_PENALTY_PER_UNHAPPY;
-	int m_iVERY_UNHAPPY_MAX_DISEASE_PENALTY;
-	int m_iVERY_UNHAPPY_CRIME_PENALTY_PER_UNHAPPY;
-	int m_iVERY_UNHAPPY_MAX_CRIME_PENALTY;
-
-	int m_iHEALTH_DISEASE_CONNECTION_MOD;
-	int m_iHEALTH_DISEASE_TRADE_MOD;
-
 	int m_iWLTKD_GROWTH_MULTIPLIER;
 	int m_iINDUSTRIAL_ROUTE_PRODUCTION_MOD;
 	int m_iRESOURCE_DEMAND_COUNTDOWN_BASE;
@@ -9269,7 +9054,6 @@ protected:
 	int m_iGREAT_GENERAL_RANGE;
 	int m_iGREAT_GENERAL_STRENGTH_MOD;
 	int m_iBONUS_PER_ADJACENT_FRIEND;
-	int m_iBONUS_PER_ADJACENT_FRIEND_RANGED;
 	int m_iPOLICY_ATTACK_BONUS_MOD;
 	int m_iCONSCRIPT_MIN_CITY_POPULATION;
 	int m_iCONSCRIPT_POPULATION_PER_COST;
@@ -9299,29 +9083,6 @@ protected:
 	int m_iBASE_GOLDEN_AGE_UNITS;
 	int m_iGOLDEN_AGE_UNITS_MULTIPLIER;
 	int m_iGOLDEN_AGE_LENGTH;
-	int m_iGOLDEN_AGE_POINT_MULTIPLE_IN_GA;
-#if defined(MOD_GLOBAL_UNIT_MOVES_AFTER_DISEMBARK)
-	int m_iUNIT_MOVES_AFTER_DISEMBARK;
-#endif
-#if defined(MOD_GLOBAL_MAX_PLOT_BUILD)
-	int m_iNUM_OUTSIZE_PLOT_MAX_BUILD;
-#endif
-	int m_iMAX_POPULATION_INCREASE_NOTIOFACATION;
-	int m_iMAXIMUM_WORK_PLOT_DISTANCE_MINOR_REDUCE;
-
-#if defined(MOD_TROOPS_AND_CROPS_FOR_SP)
-	int m_iTROOP_RATE_TIMES100_LOW;
-	int m_iTROOP_RATE_TIMES100_DEFAULT;
-	int m_iTROOP_RATE_TIMES100_HIGH;
-	int m_iTROOP_NUM_BASE;
-#endif
-#if defined(MOD_INTERNATIONAL_IMMIGRATION_FOR_SP)
-	int m_iIMMIGRATION_BASE_RATE;
-#endif
-
-#if defined(MOD_ROG_CORE)
-	int m_iORIGINAL_CAPITAL_MODMAX;
-#endif
 	int m_iGOLDEN_AGE_GREAT_PEOPLE_MODIFIER;
 	int m_iMIN_UNIT_GOLDEN_AGE_TURNS;
 	int m_iGOLDEN_AGE_CULTURE_MODIFIER;
@@ -9547,17 +9308,6 @@ protected:
 	int m_iCITY_STRENGTH_POPULATION_CHANGE;
 	int m_iCITY_STRENGTH_UNIT_DIVISOR;
 	int m_iCITY_STRENGTH_HILL_CHANGE;
-	int m_iCITY_FRESH_WATER_HEALTH_YIELD;	
-	int m_iCITY_CRIME_SPY_YIELD;
-
-	int m_iCITY_CRIME_OPINION_REVOLUTIONARY_WAVE_YIELD;
-	int m_iCITY_CRIME_OPINION_CIVIL_RESISTANCE_YIELD;
-	int m_iCITY_CRIME_OPINION_DISSIDENTS_YIELD;
-
-	int m_iCITY_CRIME_GOLDEN_AGE_YIELD;
-	int m_iCITY_LOYALTY_GOLDEN_AGE_YIELD;
-
-	int m_iCITY_STRENGTH_MOUNTAIN_CHANGE;
 	int m_iCITY_ATTACKING_DAMAGE_MOD;
 	int m_iATTACKING_CITY_MELEE_DAMAGE_MOD;
 	int m_iCITY_ATTACK_RANGE;
@@ -9604,9 +9354,6 @@ protected:
 	int m_iCULTURE_COST_VISIBLE_DIVISOR;
 	int m_iCULTURE_PLOT_COST_MOD_MINIMUM;
 	int m_iMINOR_CIV_PLOT_CULTURE_COST_MULTIPLIER;
-#if defined(MOD_GLOBAL_CITY_WORKING)
-	GD_INT_DECL(MAXIMUM_WORK_PLOT_DISTANCE);
-#endif
 	int m_iMAXIMUM_BUY_PLOT_DISTANCE;
 	int m_iMAXIMUM_ACQUIRE_PLOT_DISTANCE;
 	int m_iPLOT_INFLUENCE_BASE_MULTIPLIER;
@@ -9833,131 +9580,90 @@ protected:
 	int m_iPROMOTION_ALLWATER_EMBARKATION;
 	int m_iPROMOTION_OCEAN_IMPASSABLE_UNTIL_ASTRONOMY;
 	int m_iPROMOTION_OCEAN_IMPASSABLE;
-	int m_iPROMOTION_NEW_UNIT_CAPTURED;
 	int m_iAI_HANDICAP;
 	int m_iBARBARIAN_CAMP_IMPROVEMENT;
 	int m_iWALLS_BUILDINGCLASS;
 	int m_iPROMOTION_ONLY_DEFENSIVE;
 	int m_iPROMOTION_UNWELCOME_EVANGELIST;
 
-#if defined(MOD_PROMOTIONS_DEEP_WATER_EMBARKATION)
-	GD_INT_DECL(PROMOTION_DEEPWATER_EMBARKATION);
-	GD_INT_DECL(PROMOTION_DEFENSIVE_DEEPWATER_EMBARKATION);
-#endif
 
-#if defined(MOD_PROMOTIONS_FLAGSHIP)
-	GD_INT_DECL(PROMOTION_FLAGSHIP);
-#endif
+#if defined(MOD_DIPLOMACY_CIV4_FEATURES)
+	float m_fTECH_COST_ERA_EXPONENT;
+	float m_fVASSALAGE_VASSAL_CITY_POP_EXPONENT;
 
-#if defined(MOD_PROMOTIONS_AURA_CHANGE)
-	GD_INT_DECL(GREAT_GENERAL_MAX_RANGE);
-#endif
+	int m_iHELP_REQUEST_TURN_LIMIT_MIN;
+	int m_iHELP_REQUEST_TURN_LIMIT_RAND;
+	int m_iSHARE_OPINION_RAND;
+	int m_iSHARE_OPINION_FLAVOR_BASE;
+	int m_iSHARE_OPINION_FLAVOR_MULTIPLIER;
+	int m_iSHARE_OPINION_TURN_BUFFER;
+	int m_iVASSALAGE_VASSAL_UNIT_MAINT_COST_PERCENT;
+	int m_iVASSAL_SCORE_PERCENT;
+	int m_iVASSAL_SCIENCE_PERCENT;
+	int m_iVASSAL_HAPPINESS_PERCENT;
+	int m_iVASSALAGE_FREE_YIELD_FROM_VASSAL_PERCENT;
+	int m_iVASSALAGE_PROTECT_VALUE_PER_OPINION_WEIGHT;
+	int m_iVASSALAGE_FAILED_PROTECT_VALUE_PER_OPINION_WEIGHT;
+	int m_iVASSALAGE_FAILED_PROTECT_CITY_DISTANCE;
+	int m_iVASSALAGE_FAILED_PROTECT_PER_TURN_DECAY;
+	int m_iVASSALAGE_PROTECTED_PER_TURN_DECAY;
+	int m_iVASSALAGE_VASSAL_LOST_CITIES_THRESHOLD;
+	int m_iVASSALAGE_VASSAL_POPULATION_THRESHOLD;
+	int m_iVASSALAGE_VASSAL_MASTER_CITY_PERCENT_THRESHOLD;
+	int m_iVASSALAGE_VASSAL_MASTER_POP_PERCENT_THRESHOLD;
+	int m_iVASSALAGE_CAPITULATE_BASE_THRESHOLD;
+	int m_iVASSALAGE_VASSAL_TAX_PERCENT_MINIMUM;
+	int m_iVASSALAGE_VASSAL_TAX_PERCENT_MAXIMUM;
 
-#if defined(MOD_CONFIG_AI_IN_XML)
-	GD_INT_DECL(AI_CONFIG_MILITARY_MELEE_PER_AA);
-	GD_INT_DECL(AI_CONFIG_MILITARY_AIRCRAFT_PER_CARRIER_SPACE);
-	GD_INT_DECL(AI_CONFIG_MILITARY_TILES_PER_SHIP);
-	GD_INT_DECL(WARMONGER_THREAT_MAJOR_CITY_WEIGHT);
-	GD_INT_DECL(WARMONGER_THREAT_MINOR_CITY_WEIGHT);
-	GD_INT_DECL(WARMONGER_THREAT_CAPITAL_CITY_PERCENT);
-	GD_INT_DECL(WARMONGER_THREAT_KNOWS_ATTACKER_PERCENT);
-	GD_INT_DECL(WARMONGER_THREAT_KNOWS_DEFENDER_PERCENT);
-	GD_INT_DECL(WARMONGER_THREAT_AGGRIEVED_PERCENT);
-	GD_INT_DECL(WARMONGER_THREAT_COOP_WAR_PERCENT);
-	GD_INT_DECL(WARMONGER_THREAT_DEF_PACT_ENABLED);
-	GD_INT_DECL(WARMONGER_THREAT_CITY_SIZE_ENABLED);
-	GD_INT_DECL(WARMONGER_THREAT_APPROACH_PERCENT_HOSTILE);
-	GD_INT_DECL(WARMONGER_THREAT_APPROACH_PERCENT_AFRAID);
-	GD_INT_DECL(WARMONGER_THREAT_APPROACH_PERCENT_GUARDED);
-	GD_INT_DECL(WARMONGER_THREAT_APPROACH_PERCENT_NEUTRAL);
-	GD_INT_DECL(WARMONGER_THREAT_APPROACH_PERCENT_FRIENDLY);
-	GD_INT_DECL(WARMONGER_THREAT_APPROACH_DECAY_PERCENT_HOSTILE);
-	GD_INT_DECL(WARMONGER_THREAT_APPROACH_DECAY_PERCENT_AFRAID);
-	GD_INT_DECL(WARMONGER_THREAT_APPROACH_DECAY_PERCENT_GUARDED);
-	GD_INT_DECL(WARMONGER_THREAT_APPROACH_DECAY_PERCENT_NEUTRAL);
-	GD_INT_DECL(WARMONGER_THREAT_APPROACH_DECAY_PERCENT_FRIENDLY);
-#endif
+	int m_iVASSALAGE_TREATMENT_THRESHOLD_DISAGREE;
+	int m_iVASSALAGE_TREATMENT_THRESHOLD_MISTREATED;
+	int m_iVASSALAGE_TREATMENT_THRESHOLD_UNHAPPY;
+	int m_iVASSALAGE_TREATMENT_THRESHOLD_ENSLAVED;
 
-#if defined(MOD_CONFIG_GAME_IN_XML)
-	GD_INT_DECL(RELIGION_LAST_FOUND_ERA);
-	GD_INT_DECL(RELIGION_GP_FAITH_PURCHASE_ERA);
-	GD_INT_DECL(IDEOLOGY_START_ERA);
-	GD_INT_DECL(WAR_MAJOR_MINIMUM_TURNS);
-	GD_INT_DECL(WAR_MINOR_MINIMUM_TURNS);
-	GD_INT_DECL(CITY_STARTING_RINGS);
-#endif
+	int m_iOPINION_WEIGHT_VASSALAGE_VOLUNTARY_VASSAL_MOD;
+	int m_iOPINION_WEIGHT_DEMANDED_WHILE_VASSAL;
+	float m_fOPINION_WEIGHT_VASSAL_TAX_EXPONENT;
+	int m_iOPINION_WEIGHT_VASSAL_TAX_DIVISOR;
+	int m_iOPINION_WEIGHT_VASSAL_CURRENT_TAX_MODIFIER;
+	int m_iOPINION_WEIGHT_MASTER_LIBERATED_ME_FROM_VASSALAGE;
+	int m_iOPINION_WEIGHT_VASSALAGE_WE_ARE_VOLUNTARY_VASSAL;
+	int m_iOPINION_WEIGHT_VASSALAGE_WE_ARE_VASSAL;
+	int m_iOPINION_WEIGHT_VASSALAGE_WE_ARE_MASTER;
+	int m_iOPINION_WEIGHT_VASSALAGE_THEY_PEACEFULLY_REVOKED;
+	int m_iOPINION_WEIGHT_VASSALAGE_THEY_FORCIBLY_REVOKED;
+	int m_iOPINION_WEIGHT_VASSALAGE_PROTECT_MAX;
+	int m_iOPINION_WEIGHT_VASSALAGE_FAILED_PROTECT_MAX;
+	int m_iOPINION_WEIGHT_VASSALAGE_PEACEFULLY_REVOKED_NUM_TURNS_UNTIL_FORGOTTEN;
+	int m_iOPINION_WEIGHT_VASSALAGE_FORCIBLY_REVOKED_NUM_TURNS_UNTIL_FORGIVEN;
+	int m_iOPINION_WEIGHT_VASSALAGE_BROKEN_VASSAL_AGREEMENT_OPINION_WEIGHT;
+	int m_iOPINION_WEIGHT_VASSALAGE_TOO_MANY_VASSALS;
 
-	GD_INT_DECL(TOURISM_START_TECH);
-	GD_INT_DECL(TOURISM_START_ERA);
-	GD_INT_DECL(PUPPET_TOURISM_MODIFIER);
-	GD_INT_DECL(WONDER_GOLDEN_AGE_PURCHASE_MODIFIER);
-	GD_INT_DECL(PUPPET_GOLDEN_AGE_MODIFIER);
+	int m_iAPPROACH_HOSTILE_WE_ARE_VASSAL;
+	int m_iAPPROACH_GUARDED_WE_ARE_VASSAL;
+	int m_iAPPROACH_DECEPTIVE_WE_ARE_VASSAL;
+	int m_iAPPROACH_WAR_VASSAL_FORCEFULLY_REVOKED;
+	int m_iAPPROACH_DECEPTIVE_VASSAL_FORCEFULLY_REVOKED;
+	int m_iAPPROACH_FRIENDLY_VASSAL_FORCEFULLY_REVOKED;
+	int m_iAPPROACH_WAR_VASSAL_PEACEFULLY_REVOKED;
+	int m_iAPPROACH_DECEPTIVE_VASSAL_PEACEFULLY_REVOKED;
+	int m_iAPPROACH_FRIENDLY_VASSAL_PEACEFULLY_REVOKED;
+	int m_iAPPROACH_WAR_MY_VASSAL;
+	int m_iAPPROACH_GUARDED_TOO_MANY_VASSALS;
+	int m_iAPPROACH_WAR_TOO_MANY_VASSALS;
 
-#if defined(MOD_API_UNIFIED_YIELDS_MORE)
-	GD_INT_DECL(PUPPET_GREAT_GENERAL_POINTS_MODIFIER);
-	GD_INT_DECL(PUPPET_GREAT_ADMIRAL_POINTS_MODIFIER);
-	GD_INT_DECL(PUPPET_HEALTH_MODIFIER);
-	GD_INT_DECL(PUPPET_DISEASE_MODIFIER);
-	GD_INT_DECL(PUPPET_CRIME_MODIFIER);
-	GD_INT_DECL(PUPPET_LOYALTY_MODIFIER);
-	GD_INT_DECL(PUPPET_SOVEREIGNTY_MODIFIER);
-#endif
-
-#if defined(MOD_TRADE_ROUTE_SCALING)
-	GD_INT_DECL(TRADE_ROUTE_BASE_TARGET_TURNS);
-	GD_INT_DECL(TRADE_ROUTE_BASE_LAND_DISTANCE);
-	GD_INT_DECL(TRADE_ROUTE_BASE_LAND_MODIFIER);
-	GD_INT_DECL(TRADE_ROUTE_BASE_SEA_DISTANCE);
-	GD_INT_DECL(TRADE_ROUTE_BASE_SEA_MODIFIER);
-	GD_INT_DECL(TRADE_ROUTE_BASE_FOOD_VALUE);
-	GD_INT_DECL(TRADE_ROUTE_BASE_PRODUCTION_VALUE);
-	GD_INT_DECL(TRADE_ROUTE_SCIENCE_DIVISOR_TIMES100);
-	GD_INT_DECL(TRADE_ROUTE_DIFFERENT_RESOURCE_VALUE);
-	GD_INT_DECL(TRADE_ROUTE_RIVER_CITY_MODIFIER);
-	GD_INT_DECL(TRADE_ROUTE_BASE_PLUNDER_GOLD);
-	GD_INT_DECL(TRADE_ROUTE_PLUNDER_TURNS_COUNTER);
-#endif
-
-#if defined(MOD_GLOBAL_INTERNAL_TRADE_ROUTE_BONUS_FROM_ORIGIN_CITY)
-	GD_INT_DECL(INTERNAL_TRADE_ROUTE_FOOD_BONUS_BASE_FROM_ORIGIN);
-	GD_INT_DECL(INTERNAL_TRADE_ROUTE_FOOD_BONUS_MOD_FROM_ORIGIN);
-	GD_INT_DECL(INTERNAL_TRADE_ROUTE_PRODUCTION_BONUS_BASE_FROM_ORIGIN);
-	GD_INT_DECL(INTERNAL_TRADE_ROUTE_PRODUCTION_BONUS_MOD_FROM_ORIGIN);
-#endif
-
-#if defined(MOD_GLOBAL_CS_GIFTS)
-	GD_INT_DECL(MINOR_CIV_FIRST_CONTACT_BONUS_CULTURE);
-	GD_INT_DECL(MINOR_CIV_FIRST_CONTACT_BONUS_FAITH);
-	GD_INT_DECL(MINOR_CIV_FIRST_CONTACT_BONUS_GOLD);
-	GD_INT_DECL(MINOR_CIV_FIRST_CONTACT_BONUS_FOOD);
-	GD_INT_DECL(MINOR_CIV_FIRST_CONTACT_BONUS_FRIENDSHIP);
-	GD_INT_DECL(MINOR_CIV_FIRST_CONTACT_SUBSEQUENT_TEAM_MULTIPLIER);
-	GD_INT_DECL(MINOR_CIV_FIRST_CONTACT_SUBSEQUENT_TEAM_DIVISOR);
-	GD_INT_DECL(MINOR_CIV_FIRST_CONTACT_FRIENDLY_BONUS_MULTIPLIER);
-	GD_INT_DECL(MINOR_CIV_FIRST_CONTACT_FRIENDLY_BONUS_DIVISOR);
-	GD_INT_DECL(MINOR_CIV_FIRST_CONTACT_HOSTILE_BONUS_MULTIPLIER);
-	GD_INT_DECL(MINOR_CIV_FIRST_CONTACT_HOSTILE_BONUS_DIVISOR);
-#endif
-
-#if defined(MOD_GLOBAL_STACKING_RULES)
-	GD_INT_DECL(CITY_UNIT_LIMIT);
-#endif
-
-	GD_INT_DECL(MAX_CITY_ATTACK_RANGE);
-
-#if defined(MOD_UI_CITY_EXPANSION)
-	GD_INT_DECL(PLOT_INFLUENCE_COST_VISIBLE_DIVISOR);
-#endif
-
-#ifdef MOD_GLOBAL_WAR_CASUALTIES
-	GD_INT_DECL(WAR_CASUALTIES_THRESHOLD);
-	GD_INT_DECL(WAR_CASUALTIES_DELTA_BASE);
-	GD_INT_DECL(WAR_CASUALTIES_POPULATION_LOSS);
-#endif
-
-#ifdef MOD_GLOBAL_CORRUPTION
-	GD_INT_DECL(CORRUPTION_SCORE_PER_DISTANCE);
-	GD_INT_DECL(CORRUPTION_SCORE_COASTAL_BONUS);
+	int m_iTARGET_VASSAL_BACKUP_PATHETIC;
+	int m_iTARGET_VASSAL_BACKUP_WEAK;
+	int m_iTARGET_VASSAL_BACKUP_POOR;
+	int m_iTARGET_VASSAL_BACKUP_AVERAGE;
+	int m_iTARGET_VASSAL_BACKUP_STRONG;
+	int m_iTARGET_VASSAL_BACKUP_POWERFUL;
+	int m_iTARGET_VASSAL_BACKUP_IMMENSE;
+	int m_iTARGET_VASSAL_BACKUP_DISTANT;
+	int m_iTARGET_VASSAL_BACKUP_FAR;
+	int m_iTARGET_VASSAL_BACKUP_CLOSE;
+	int m_iTARGET_VASSAL_BACKUP_NEIGHBORS;
+	int m_iVASSAL_RELIGIOUS_PRESSURE_MODIFIER;
+	int m_iVASSAL_TOURISM_MODIFIER;
 #endif
 
 	// DLL interface

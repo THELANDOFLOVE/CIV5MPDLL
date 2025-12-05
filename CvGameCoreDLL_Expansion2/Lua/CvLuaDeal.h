@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -15,7 +15,6 @@
 class CvLuaDeal : public CvLuaScopedInstance<CvLuaDeal, CvDeal>
 {
 public:
-	static void RegistStaticFunctions();
 	//! Push CvCity methods into table t
 	static void PushMethods(lua_State* L, int t);
 
@@ -184,15 +183,6 @@ protected:
 	};
 
 	static int lAddVoteCommitment(lua_State* L); // Too many args for template, defined in cpp
-	static int lAddDiplomaticMarriage(lua_State* L)
-	{
-		return BasicLuaMethod(L, &CvDeal::AddDiplomaticMarriage);
-	}
-
-	static int lAddDualEmpireTreaty(lua_State* L)
-	{
-		return BasicLuaMethod(L, &CvDeal::AddDualEmpireTreaty);
-	}
 
 	static int lChangeGoldTrade(lua_State* L)
 	{
@@ -245,16 +235,27 @@ protected:
 		return BasicLuaMethod(L, &CvDeal::RemoveThirdPartyEmbargo);
 	};
 	static int lRemoveVoteCommitment(lua_State* L); // Too many args for template, defined in cpp
-	static int lRemoveDiplomaticMarriage(lua_State* L)
-	{
-		return BasicLuaMethod(L, &CvDeal::RemoveDiplomaticMarriage);
-	}
-	static int lRemoveDualEmpireTreaty(lua_State* L)
-	{
-		return BasicLuaMethod(L, &CvDeal::RemoveDualEmpireTreaty);
-	}
 
 	static TradedItemList::iterator m_iterator;
+
+#if defined(MOD_DIPLOMACY_CIV4_FEATURES)
+	static int lAddTechTrade(lua_State* L)
+	{
+		return BasicLuaMethod(L, &CvDeal::AddTechTrade);
+	};
+	static int lAddVassalageTrade(lua_State* L)
+	{
+		return BasicLuaMethod(L, &CvDeal::AddVassalageTrade);
+	};
+	static int lAddRevokeVassalageTrade(lua_State* L)
+	{
+		return BasicLuaMethod(L, &CvDeal::AddRevokeVassalageTrade);
+	};
+	static int lRemoveTechTrade(lua_State* L)
+	{
+		return BasicLuaMethod(L, &CvDeal::RemoveTechTrade);
+	};
+#endif
 };
 
 #endif //CVLUADEAL_H

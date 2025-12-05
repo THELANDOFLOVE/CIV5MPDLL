@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -205,21 +205,6 @@ int CvLuaEnums::pRegister(lua_State* L)
 	RegisterEnum(YIELD_SCIENCE);
 	RegisterEnum(YIELD_CULTURE);
 	RegisterEnum(YIELD_FAITH);
-	RegisterEnum(YIELD_TOURISM);
-	RegisterEnum(YIELD_GOLDEN_AGE_POINTS);
-
-#if defined(MOD_API_UNIFIED_YIELDS_MORE)
-	RegisterEnum(YIELD_GREAT_GENERAL_POINTS);
-	RegisterEnum(YIELD_GREAT_ADMIRAL_POINTS);	
-	RegisterEnum(YIELD_HEALTH);	
-	RegisterEnum(YIELD_DISEASE);	
-	RegisterEnum(YIELD_CRIME);
-	RegisterEnum(YIELD_LOYALTY);
-	RegisterEnum(YIELD_SOVEREIGNTY); 
-	RegisterEnum(YIELD_VIOLENCE);
-	RegisterEnum(YIELD_HERESY);
-#endif
-
 	RegisterEnum(NUM_YIELD_TYPES);
 	EnumEnd(L);
 
@@ -248,20 +233,6 @@ int CvLuaEnums::pRegister(lua_State* L)
 	RegisterEnum(GAMEOPTION_NO_HAPPINESS);
 	RegisterEnum(GAMEOPTION_NO_TUTORIAL);
 	RegisterEnum(GAMEOPTION_NO_RELIGION);
-#if defined(MOD_TROOPS_AND_CROPS_FOR_SP)
-	RegisterEnum(GAMEOPTION_SP_CORPS_MODE_DISABLE);
-	RegisterEnum(GAMEOPTION_SP_CORPS_MODE_HIGH);
-	RegisterEnum(GAMEOPTION_SP_CORPS_MODE_LOW);
-#endif
-#if defined(MOD_INTERNATIONAL_IMMIGRATION_FOR_SP)
-	RegisterEnum(GAMEOPTION_SP_IMMIGRATION_OFF);
-#endif
-#if defined(MOD_NUCLEAR_WINTER_FOR_SP)
-	RegisterEnum(GAMEOPTION_SP_NUCLEARWINTER_OFF);
-#endif
-	RegisterEnum(GAMEOPTION_CIV_CONQUER);
-	RegisterEnum(GAMEOPTION_HUMAN_ALL_UC);
-	RegisterEnum(GAMEOPTION_PROJECT_CAPTURE);
 	RegisterEnum(NUM_GAMEOPTION_TYPES);
 
 
@@ -331,7 +302,6 @@ int CvLuaEnums::pRegister(lua_State* L)
 	RegisterEnum(NUM_TERRAIN_TYPES);
 	EnumEnd(L);
 
-	
 	//InterfaceModeTypes
 	EnumStart(L, "InterfaceModeTypes");
 	RegisterEnum(NO_INTERFACEMODE);
@@ -543,12 +513,6 @@ int CvLuaEnums::pRegister(lua_State* L)
 	RegisterEnum(COMMAND_DELETE);
 	RegisterEnum(COMMAND_GIFT);
 	RegisterEnum(COMMAND_HOTKEY);
-
-
-	//RegisterEnum(COMMAND_KILL);
-	//RegisterEnum(COMMAND_TELEPORT);
-
-
 	RegisterEnum(NUM_COMMAND_TYPES);
 	EnumEnd(L);
 
@@ -620,6 +584,12 @@ int CvLuaEnums::pRegister(lua_State* L)
 	RegisterEnum(DIPLO_UI_STATE_STOP_CONVERSIONS);
 
 	RegisterEnum(DIPLO_UI_STATE_STOP_DIGGING);
+
+#if defined(MOD_DIPLOMACY_CIV4_FEATURES)
+	RegisterEnum(DIPLO_UI_STATE_HUMAN_REQUEST);
+	RegisterEnum(DIPLO_UI_STATE_TRADE_AI_MAKES_GENEROUS_OFFER);
+	RegisterEnum(DIPLO_UI_STATE_DISCUSS_AI_REVOKE_VASSALAGE);
+#endif
 
 	RegisterEnum(NUM_DIPLO_UI_STATES);
 	EnumEnd(L);
@@ -703,6 +673,13 @@ int CvLuaEnums::pRegister(lua_State* L)
 	RegisterEnum(FROM_UI_DIPLO_EVENT_HUMAN_DISCUSSION_STOP_DIGGING);
 	RegisterEnum(FROM_UI_DIPLO_EVENT_STOP_DIGGING);
 
+#if defined(MOD_DIPLOMACY_CIV4_FEATURES)
+	RegisterEnum(FROM_UI_DIPLO_EVENT_HUMAN_DISCUSSION_SHARE_OPINION);
+	RegisterEnum(FROM_UI_DIPLO_EVENT_HUMAN_REQUEST);
+	RegisterEnum(FROM_UI_DIPLO_EVENT_HUMAN_ENDS_VASSALAGE);
+	RegisterEnum(FROM_UI_DIPLO_EVENT_HUMAN_MOVE_TROOPS_RESPONSE);
+#endif
+
 	RegisterEnum(NUM_FROM_UI_DIPLO_EVENTS);
 	EnumEnd(L);
 
@@ -779,8 +756,11 @@ int CvLuaEnums::pRegister(lua_State* L)
 	RegisterEnum(TRADE_ITEM_ALLOW_EMBASSY);
 	RegisterEnum(TRADE_ITEM_DECLARATION_OF_FRIENDSHIP);
 	RegisterEnum(TRADE_ITEM_VOTE_COMMITMENT);
-	RegisterEnum(TRADE_ITEM_DIPLOMATIC_MARRIAGE);
-	RegisterEnum(TRADE_ITEM_DUAL_EMPIRE_TREATY);
+#if defined(MOD_DIPLOMACY_CIV4_FEATURES)
+	RegisterEnum(TRADE_ITEM_TECHS);
+	RegisterEnum(TRADE_ITEM_VASSALAGE);
+	RegisterEnum(TRADE_ITEM_VASSALAGE_REVOKE);
+#endif
 	RegisterEnum(NUM_TRADEABLE_ITEMS);
 	EnumEnd(L);
 
@@ -811,9 +791,6 @@ int CvLuaEnums::pRegister(lua_State* L)
 	RegisterEnum(ENDTURN_BLOCKING_CHOOSE_ARCHAEOLOGY);
 	RegisterEnum(ENDTURN_BLOCKING_LEAGUE_CALL_FOR_VOTES);
 	RegisterEnum(ENDTURN_BLOCKING_CHOOSE_IDEOLOGY);
-#if defined(MOD_API_LUA_EXTENSIONS) && defined(MOD_UI_CITY_EXPANSION)
-	RegisterEnum(ENDTURN_BLOCKING_CITY_TILE);
-#endif
 	RegisterEnum(NUM_ENDTURN_BLOCKING_TYPES);
 	EnumEnd(L);
 
@@ -837,6 +814,18 @@ int CvLuaEnums::pRegister(lua_State* L)
 	RegisterEnum(MAJOR_CIV_APPROACH_NEUTRAL);
 	RegisterEnum(NUM_MAJOR_CIV_APPROACHES);
 	EnumEnd(L);
+
+#if defined(MOD_DIPLOMACY_CIV4_FEATURES)
+	EnumStart(L, "AggressivePostureTypes");
+	RegisterEnum(NO_AGGRESSIVE_POSTURE_TYPE);
+	RegisterEnum(AGGRESSIVE_POSTURE_NONE);
+	RegisterEnum(AGGRESSIVE_POSTURE_LOW);
+	RegisterEnum(AGGRESSIVE_POSTURE_MEDIUM);
+	RegisterEnum(AGGRESSIVE_POSTURE_HIGH);
+	RegisterEnum(AGGRESSIVE_POSTURE_INCREDIBLE);
+	RegisterEnum(NUM_AGGRESSIVE_POSTURE_TYPES);
+	EnumEnd(L);
+#endif
 
 	// MinorCivTraitTypes
 	EnumStart(L, "MinorCivTraitTypes");
@@ -1062,36 +1051,6 @@ int CvLuaEnums::pRegister(lua_State* L)
 	RegisterEnum(CONTROL_RELIGION_OVERVIEW);
 	RegisterEnum(CONTROL_RESTART_GAME);
 	EnumEnd(L);
-
-#if defined(MOD_API_LUA_EXTENSIONS) && defined(MOD_API_TRADEROUTES)
-	// TradeConnectionTypes
-	EnumStart(L, "TradeConnectionTypes");
-	RegisterEnum(TRADE_CONNECTION_INTERNATIONAL);
-	RegisterEnum(TRADE_CONNECTION_FOOD);
-	RegisterEnum(TRADE_CONNECTION_PRODUCTION);
-#if defined(MOD_API_LUA_EXTENSIONS) && defined(MOD_TRADE_WONDER_RESOURCE_ROUTES)
-	RegisterEnum(TRADE_CONNECTION_WONDER_RESOURCE);
-#endif
-	RegisterEnum(NUM_TRADE_CONNECTION_TYPES);
-	EnumEnd(L);
-#endif
-
-#if defined(MOD_API_LUA_EXTENSIONS) && defined(MOD_EVENTS_TERRAFORMING)	
-	// TerraformingEventTypes
-	EnumStart(L, "TerraformingEventTypes");
-	RegisterEnum(NO_TERRAFORMINGEVENT);
-	RegisterEnum(TERRAFORMINGEVENT_LOAD);
-	RegisterEnum(TERRAFORMINGEVENT_AREA);
-	RegisterEnum(TERRAFORMINGEVENT_LANDMASS);
-	RegisterEnum(TERRAFORMINGEVENT_CONTINENT);
-	RegisterEnum(TERRAFORMINGEVENT_PLOT);
-	RegisterEnum(TERRAFORMINGEVENT_TERRAIN);
-	RegisterEnum(TERRAFORMINGEVENT_FEATURE);
-	RegisterEnum(TERRAFORMINGEVENT_RIVER);
-	RegisterEnum(TERRAFORMINGEVENT_CITY);
-	RegisterEnum(NUM_TERRAFORMINGEVENT_TYPES);
-	EnumEnd(L);
-#endif
 
 	return 0;
 }

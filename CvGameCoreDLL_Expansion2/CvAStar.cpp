@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -866,11 +866,7 @@ int PathDestValid(int iToX, int iToY, const void* pointer, CvAStar* finder)
 		return TRUE;
 	}
 
-#ifdef MOD_TRAITS_CAN_FOUND_MOUNTAIN_CITY
-	if(pToPlot->isMountain() && !pToPlot->isCity() && !pUnit->canFoundMountainCity() && (!pCacheData->isHuman() || pCacheData->IsAutomated()))
-#else 
-	if(pToPlot->isMountain() && !pToPlot->isCity() && (!pCacheData->isHuman() || pCacheData->IsAutomated()))
-#endif
+	if(pToPlot->isMountain() && (!pCacheData->isHuman() || pCacheData->IsAutomated()))
 	{
 		return FALSE;
 	}
@@ -923,10 +919,6 @@ int PathDestValid(int iToX, int iToY, const void* pointer, CvAStar* finder)
 		}
 	}
 
-#if defined(MOD_GLOBAL_BREAK_CIVILIAN_RESTRICTIONS)
-	// This can cause problems when there are others units in the city we want to attack,  --Qingyin
-	//if(bToPlotRevealed && (!MOD_GLOBAL_BREAK_CIVILIAN_RESTRICTIONS || pUnit->IsCombatUnit()))
-#endif
 	if(bToPlotRevealed)
 	{
 		CvCity* pCity = pToPlot->getPlotCity();
@@ -991,9 +983,6 @@ int PathCost(CvAStarNode* parent, CvAStarNode* node, int data, const void* point
 	CvAssertMsg(eUnitDomain != DOMAIN_AIR, "pUnit->getDomainType() is not expected to be equal with DOMAIN_AIR");
 
 	bool bToPlotIsWater = pToPlot->isWater() && !pToPlot->IsAllowsWalkWater();
-#if defined(MOD_PATHFINDER_TERRAFIRMA)
-	bToPlotIsWater = !pToPlot->isTerraFirma(pUnit) && !pToPlot->IsAllowsWalkWater();
-#endif
 	int iMax;
 	if(parent->m_iData1 > 0)
 	{
@@ -1034,12 +1023,7 @@ int PathCost(CvAStarNode* parent, CvAStarNode* node, int data, const void* point
 	{
 		iCost = (PATH_MOVEMENT_WEIGHT * iCost);
 
-#if defined(MOD_PATHFINDER_TERRAFIRMA)
-		bool bFromTerraFirma = pFromPlot->isTerraFirma(pUnit);
-		if(eUnitDomain == DOMAIN_LAND && bFromTerraFirma && bToPlotIsWater && !pUnit->canEmbarkOnto(*pFromPlot, *pToPlot, true))
-#else
 		if(eUnitDomain == DOMAIN_LAND && !pFromPlot->isWater() && bToPlotIsWater && !pUnit->canEmbarkOnto(*pFromPlot, *pToPlot, true))
-#endif
 		{
 			iCost += PATH_INCORRECT_EMBARKING_WEIGHT;
 		}
@@ -1057,18 +1041,7 @@ int PathCost(CvAStarNode* parent, CvAStarNode* node, int data, const void* point
 		{
 			if(pToPlot->getFeatureType() != NO_FEATURE)
 			{
-#if defined(MOD_UNITS_MAX_HP)
-			// We don't have the specific unit, so we'll just use the generic MAX_HIT_POINTS value
-#endif
-#if defined(MOD_API_PLOT_BASED_DAMAGE)
-				if (MOD_API_PLOT_BASED_DAMAGE) {
-					iCost += (GC.getPATH_DAMAGE_WEIGHT() * std::max(0, pToPlot->getTurnDamage(pUnit->ignoreTerrainDamage(), pUnit->ignoreFeatureDamage(), pUnit->extraTerrainDamage(), pUnit->extraFeatureDamage()))) / GC.getMAX_HIT_POINTS();
-				} else {
-#endif
-					iCost += (GC.getPATH_DAMAGE_WEIGHT() * std::max(0, GC.getFeatureInfo(pToPlot->getFeatureType())->getTurnDamage())) / GC.getMAX_HIT_POINTS();
-#if defined(MOD_API_PLOT_BASED_DAMAGE)
-				}
-#endif
+				iCost += (GC.getPATH_DAMAGE_WEIGHT() * std::max(0, GC.getFeatureInfo(pToPlot->getFeatureType())->getTurnDamage())) / GC.getMAX_HIT_POINTS();
 			}
 
 			if(pToPlot->getExtraMovePathCost() > 0)
@@ -1078,37 +1051,22 @@ int PathCost(CvAStarNode* parent, CvAStarNode* node, int data, const void* point
 		}
 
 		// Penalty for stacking
-#if defined(MOD_GLOBAL_STACKING_RULES)
-		if(pToPlot->getUnitLimit() > 0 && !(finder->GetInfo() & MOVE_IGNORE_STACKING))
-#else
 		if(GC.getPLOT_UNIT_LIMIT() > 0 && !(finder->GetInfo() & MOVE_IGNORE_STACKING))
-#endif
 		{
 			// Check to see if any units are present at this full-turn move plot... if the player can see what's there
-#if defined(MOD_GLOBAL_STACKING_RULES)
-			if(pToPlot->getNumFriendlyUnitsOfType(pUnit) >= pToPlot->getUnitLimit())
-#else
 			if(pToPlot->getNumFriendlyUnitsOfType(pUnit) >= GC.getPLOT_UNIT_LIMIT())
-#endif
 			{
 				iCost += PATH_STACKING_WEIGHT;
 			}
 		}
 
 		// Penalty for ending a turn on a mountain
-		if(pToPlot->isMountain() && !pToPlot->isCity())
+		if(pToPlot->isMountain())
 		{
 			// We want to discourage AIs and automated units from exhausting their movement on a mountain, but if the unit is manually controlled by the human, let them do what they want.
 			if (!pCacheData->isHuman() || pCacheData->IsAutomated())
 			{
-#ifdef MOD_TRAITS_CAN_FOUND_MOUNTAIN_CITY
-				if (!pUnit->canFoundMountainCity())
-				{
-					iCost += PATH_END_TURN_MOUNTAIN_WEIGHT;
-				}
-#else
 				iCost += PATH_END_TURN_MOUNTAIN_WEIGHT;
-#endif
 			}
 		}
 
@@ -1244,17 +1202,8 @@ int PathValid(CvAStarNode* parent, CvAStarNode* node, int data, const void* poin
 	CvPathNodeCacheData& kToNodeCacheData = node->m_kCostCacheData;
 	kToNodeCacheData.bPlotVisibleToTeam = pToPlot->isVisible(eUnitTeam);
 	kToNodeCacheData.iNumFriendlyUnitsOfType = pToPlot->getNumFriendlyUnitsOfType(pUnit);
-#if defined(MOD_GLOBAL_STACKING_RULES)
-	kToNodeCacheData.iUnitPlotLimit = pToPlot->getUnitLimit();
-#endif
 	kToNodeCacheData.bIsMountain = pToPlot->isMountain();
-#ifdef MOD_TRAITS_CAN_FOUND_MOUNTAIN_CITY
-	kToNodeCacheData.bIsCity = pToPlot->isCity();
-#endif
 	kToNodeCacheData.bIsWater = (pToPlot->isWater() && !pToPlot->IsAllowsWalkWater());
-#if defined(MOD_PATHFINDER_TERRAFIRMA)
-	kToNodeCacheData.bIsTerraFirma = pToPlot->isTerraFirma(pUnit) && !pToPlot->IsAllowsWalkWater();
-#endif
 	kToNodeCacheData.bCanEnterTerrain = pUnit->canEnterTerrain(*pToPlot, CvUnit::MOVEFLAG_PRETEND_CORRECT_EMBARK_STATE);
 	kToNodeCacheData.bIsRevealedToTeam = pToPlot->isRevealed(eUnitTeam);
 	kToNodeCacheData.bContainsOtherFriendlyTeamCity = false;
@@ -1287,9 +1236,7 @@ int PathValid(CvAStarNode* parent, CvAStarNode* node, int data, const void* poin
 	int iFinderInfo              = finder->GetInfo();
 	CvPlot* pUnitPlot            = pUnit->plot();
 	int iFinderIgnoreStacking    = iFinderInfo & MOVE_IGNORE_STACKING;
-#if !defined(MOD_GLOBAL_STACKING_RULES)
 	int iUnitPlotLimit           = GC.getPLOT_UNIT_LIMIT();
-#endif
 	bool bFromPlotOwned          = pFromPlot->isOwned();
 	TeamTypes eFromPlotTeam      = pFromPlot->getTeam();
 
@@ -1344,36 +1291,20 @@ int PathValid(CvAStarNode* parent, CvAStarNode* node, int data, const void* poin
 					if(kNodeCacheData.bPlotVisibleToTeam)
 					{
 						// Check to see if any units are present at this full-turn move plot... if the player can see what's there
-#if defined(MOD_GLOBAL_STACKING_RULES)
-						if(kNodeCacheData.iNumFriendlyUnitsOfType >= kNodeCacheData.iUnitPlotLimit && !(iFinderIgnoreStacking))
-#else
 						if(kNodeCacheData.iNumFriendlyUnitsOfType >= iUnitPlotLimit && !(iFinderIgnoreStacking))
-#endif
 						{
 							return FALSE;
 						}
 
-#ifdef MOD_TRAITS_CAN_FOUND_MOUNTAIN_CITY
-						if (kNodeCacheData.bIsMountain && !kNodeCacheData.bIsCity && !(iFinderIgnoreStacking) && (!bIsHuman || bAIControl) && !pUnit->canFound(pToPlot))
-						{
-							return FALSE;
-						}
-
-						if (kNodeCacheData.bIsMountain && !kNodeCacheData.bIsCity && !kNodeCacheData.bCanEnterTerrain)
-						{
-							return FALSE;
-						}
-#else
 						if (kNodeCacheData.bIsMountain && !(iFinderIgnoreStacking) && (!bIsHuman || bAIControl))
 						{
 							return FALSE;
 						}
 
-						if (kNodeCacheData.bIsMountain && !kNodeCacheData.bCanEnterTerrain)
+						if(kNodeCacheData.bIsMountain && !kNodeCacheData.bCanEnterTerrain)
 						{
 							return FALSE;
 						}
-#endif
 
 						if ((iFinderInfo & CvUnit::MOVEFLAG_STAY_ON_LAND) && kNodeCacheData.bIsWater)
 						{
@@ -1381,10 +1312,6 @@ int PathValid(CvAStarNode* parent, CvAStarNode* node, int data, const void* poin
 						}
 					}
 
-#if defined(MOD_GLOBAL_BREAK_CIVILIAN_RESTRICTIONS)
-					// This can cause problems when there are others units in the city we want to attack,  --Qingyin
-					//if(kNodeCacheData.bIsRevealedToTeam && (!MOD_GLOBAL_BREAK_CIVILIAN_RESTRICTIONS || bUnitIsCombat))
-#endif
 					if(kNodeCacheData.bIsRevealedToTeam)
 					{
 						if (kNodeCacheData.bContainsOtherFriendlyTeamCity && !(iFinderIgnoreStacking))
@@ -1433,28 +1360,15 @@ int PathValid(CvAStarNode* parent, CvAStarNode* node, int data, const void* poin
 	// slewis - moved this up so units can't move directly into the water. Not 100% sure this is the right solution.
 	if(unit_domain_type == DOMAIN_LAND)
 	{
-#if defined(MOD_PATHFINDER_TERRAFIRMA)
-		bool bFromTerraFirma = kFromNodeCacheData.bIsTerraFirma;
-		bool bToWater = !kToNodeCacheData.bIsTerraFirma;
-		if( bFromTerraFirma && bToWater && kToNodeCacheData.bIsRevealedToTeam && !pUnit->canEmbarkOnto(*pFromPlot, *pToPlot, true))
-#else
 		if(!kFromNodeCacheData.bIsWater && kToNodeCacheData.bIsWater && kToNodeCacheData.bIsRevealedToTeam && !pUnit->canEmbarkOnto(*pFromPlot, *pToPlot, true))
-#endif
 		{
-#if defined(MOD_PATHFINDER_DEEP_WATER_EMBARKATION)
-			if(!pUnit->canMoveAllTerrain() && !pToPlot->IsAllowsWalkWater())
-#else
 			if(!pUnit->IsHoveringUnit() && !pUnit->canMoveAllTerrain() && !pToPlot->IsAllowsWalkWater())
-#endif
 			{
 				return FALSE;
 			}
 		}
 	}
 
-#if defined(MOD_GLOBAL_BREAK_CIVILIAN_RESTRICTIONS)
-	if (!MOD_GLOBAL_BREAK_CIVILIAN_RESTRICTIONS) {
-#endif
 	if(!bUnitIsCombat && unit_domain_type != DOMAIN_AIR)
 	{
 		const PlayerTypes eUnitPlayer = unit_owner;
@@ -1464,22 +1378,10 @@ int PathValid(CvAStarNode* parent, CvAStarNode* node, int data, const void* poin
 			const CvUnit* pToPlotUnit = pToPlot->getUnitByIndex(iUnit);
 			if(pToPlotUnit != NULL && pToPlotUnit->getOwner() != eUnitPlayer)
 			{
-#if defined(MOD_BUGFIX_RADARING)
-				if (MOD_BUGFIX_RADARING) {
-					// Only if the player can see what's in the plot
-					if (pToPlot->isVisible(eUnitTeam)) {
-						return FALSE;
-					}
-				}
-				else
-#endif
 				return FALSE; // Plot occupied by another player
 			}
 		}
 	}
-#if defined(MOD_GLOBAL_BREAK_CIVILIAN_RESTRICTIONS)
-	}
-#endif
 
 	// slewis - Added to catch when the unit is adjacent to an enemy unit while it is stacked with a friendly unit.
 	//          The logic above (with bPreviousNodeHostile) catches this problem with a path that's longer than one step
@@ -1488,11 +1390,7 @@ int PathValid(CvAStarNode* parent, CvAStarNode* node, int data, const void* poin
 	{
 		if(kToNodeCacheData.bContainsVisibleEnemyDefender)
 		{
-#if defined(MOD_GLOBAL_STACKING_RULES)
-			if(pUnitPlot->getNumFriendlyUnitsOfType(pUnit) > pUnitPlot->getUnitLimit())
-#else
 			if(pUnitPlot->getNumFriendlyUnitsOfType(pUnit) > iUnitPlotLimit)
-#endif
 			{
 				return FALSE;
 			}
@@ -1631,14 +1529,7 @@ int PathNodeAdd(CvAStarNode* parent, CvAStarNode* node, int data, const void* po
 	if(data == ASNL_ADDOPEN || data == ASNL_STARTOPEN)
 	{
 		// Are there movement points left and we're worried about stacking or mountains?
-#ifdef MOD_TRAITS_CAN_FOUND_MOUNTAIN_CITY
-		if (node->m_iData1 > 0
-			&& !finder->IsPathDest(node->m_iX, node->m_iY)
-			&& (!(finder->GetInfo() & MOVE_IGNORE_STACKING)
-				|| (GC.getMap().plotUnchecked(node->m_iX, node->m_iY)->isMountain() && !GC.getMap().plotUnchecked(node->m_iX, node->m_iY)->isCity())))
-#else
 		if(node->m_iData1 > 0 && !finder->IsPathDest(node->m_iX, node->m_iY) && (!(finder->GetInfo() & MOVE_IGNORE_STACKING) || GC.getMap().plotUnchecked(node->m_iX, node->m_iY)->isMountain()))
-#endif
 		{
 			// Retrieve another node
 			CvTwoLayerPathFinder* twoLayerFinder = static_cast<CvTwoLayerPathFinder*>(finder);
@@ -1685,11 +1576,7 @@ int IgnoreUnitsDestValid(int iToX, int iToY, const void* pointer, CvAStar* finde
 		return FALSE;
 	}
 
-#ifdef MOD_TRAITS_CAN_FOUND_MOUNTAIN_CITY
-	if((pToPlot->isMountain() && !pToPlot->isCity() && !pUnit->canFoundMountainCity()) && (!pCacheData->isHuman() || pCacheData->IsAutomated()))
-#else
-	if((pToPlot->isMountain() && !pToPlot->isCity()) && (!pCacheData->isHuman() || pCacheData->IsAutomated()))
-#endif
+	if(pToPlot->isMountain() && (!pCacheData->isHuman() || pCacheData->IsAutomated()))
 	{
 		return FALSE;
 	}
@@ -1789,13 +1676,7 @@ int IgnoreUnitsCost(CvAStarNode* parent, CvAStarNode* node, int data, const void
 	{
 		iCost = (PATH_MOVEMENT_WEIGHT * iCost);
 
-#if defined(MOD_PATHFINDER_TERRAFIRMA)
-		bool bFromTerraFirma = pFromPlot->isTerraFirma(pUnit);
-		bool bToWater = !pToPlot->isTerraFirma(pUnit);
-		if(bFromTerraFirma && bToWater && !pUnit->canEmbarkOnto(*pFromPlot, *pToPlot, true))
-#else
 		if(!pFromPlot->isWater() && pToPlot->isWater() && !pUnit->canEmbarkOnto(*pFromPlot, *pToPlot, true))
-#endif
 		{
 			iCost += PATH_INCORRECT_EMBARKING_WEIGHT;
 		}
@@ -1818,18 +1699,7 @@ int IgnoreUnitsCost(CvAStarNode* parent, CvAStarNode* node, int data, const void
 		{
 			if(pToPlot->getFeatureType() != NO_FEATURE)
 			{
-#if defined(MOD_UNITS_MAX_HP)
-			// We don't have the specific unit, so we'll just use the generic MAX_HIT_POINTS value
-#endif
-#if defined(MOD_API_PLOT_BASED_DAMAGE)
-				if (MOD_API_PLOT_BASED_DAMAGE) {
-					iCost += (GC.getPATH_DAMAGE_WEIGHT() * std::max(0, pToPlot->getTurnDamage(pUnit->ignoreTerrainDamage(), pUnit->ignoreFeatureDamage(), pUnit->extraTerrainDamage(), pUnit->extraFeatureDamage()))) / GC.getMAX_HIT_POINTS();
-				} else {
-#endif
-					iCost += (GC.getPATH_DAMAGE_WEIGHT() * std::max(0, GC.getFeatureInfo(pToPlot->getFeatureType())->getTurnDamage())) / GC.getMAX_HIT_POINTS();
-#if defined(MOD_API_PLOT_BASED_DAMAGE)
-				}
-#endif
+				iCost += (GC.getPATH_DAMAGE_WEIGHT() * std::max(0, GC.getFeatureInfo(pToPlot->getFeatureType())->getTurnDamage())) / GC.getMAX_HIT_POINTS();
 			}
 
 			if(pToPlot->getExtraMovePathCost() > 0)
@@ -1944,13 +1814,7 @@ int IgnoreUnitsValid(CvAStarNode* parent, CvAStarNode* node, int data, const voi
 	// slewis - moved this up so units can't move directly into the water. Not 100% sure this is the right solution.
 	if(pCacheData->getDomainType() == DOMAIN_LAND)
 	{
-#if defined(MOD_PATHFINDER_TERRAFIRMA)
-		bool bFromTerraFirma = pFromPlot->isTerraFirma(pUnit);
-		bool bToWater = !pToPlot->isTerraFirma(pUnit);
-		if(bFromTerraFirma && bToWater && pToPlot->isRevealed(eUnitTeam) && !pUnit->canEmbarkOnto(*pFromPlot, *pToPlot, true))
-#else
 		if(!pFromPlot->isWater() && pToPlot->isWater() && pToPlot->isRevealed(eUnitTeam) && !pUnit->canEmbarkOnto(*pFromPlot, *pToPlot, true))
-#endif
 		{
 			return FALSE;
 		}
@@ -2105,7 +1969,7 @@ int StepValid(CvAStarNode* parent, CvAStarNode* node, int data, const void* poin
 		return FALSE;
 	}
 
-	if(pNewPlot->isImpassable() || (pNewPlot->isMountain() && !pNewPlot->isCity()))
+	if(pNewPlot->isImpassable() || pNewPlot->isMountain())
 	{
 		return FALSE;
 	}
@@ -2279,7 +2143,7 @@ int InfluenceCost(CvAStarNode* parent, CvAStarNode* node, int data, const void* 
 			iCost += GC.getINFLUENCE_RIVER_COST();
 
 		// Mountain Cost
-		if(pToPlot->isMountain() && !pToPlot->isCity())
+		if(pToPlot->isMountain())
 			iCost += GC.getINFLUENCE_MOUNTAIN_COST();
 		// Not a mountain - use the terrain cost
 		else
@@ -2399,11 +2263,7 @@ int RouteGetExtraChild(CvAStarNode* node, int iIndex, int& iX, int& iY, CvAStar*
 			continue;
 		}
 
-#if defined(MOD_EVENTS_CITY_CONNECTIONS)
-		if(pRouteInfo->m_cRouteState & CvCityConnections::HAS_INDIRECT_ROUTE)
-#else
 		if(pRouteInfo->m_cRouteState & CvCityConnections::HAS_WATER_ROUTE)
-#endif
 		{
 			if(iValidCount == iIndex)
 			{
@@ -2442,7 +2302,7 @@ int RouteValid(CvAStarNode* parent, CvAStarNode* node, int data, const void* poi
 
 	if(kPlayer.GetPlayerTraits()->IsMoveFriendlyWoodsAsRoad())
 	{
-		if(MOD_TRAIT_WOOD_AS_ROAD_SP || pNewPlot->getOwner() == ePlayer)
+		if(pNewPlot->getOwner() == ePlayer)
 		{
 			if(pNewPlot->getFeatureType() == FEATURE_FOREST || pNewPlot->getFeatureType() == FEATURE_JUNGLE)
 			{
@@ -2494,14 +2354,6 @@ int RouteValid(CvAStarNode* parent, CvAStarNode* node, int data, const void* poi
 
 	if(finder->GetInfo() & MOVE_ANY_ROUTE)
 	{
-#if defined(MOD_EVENTS_CITY_CONNECTIONS)
-		// Cities always have the best route, which permits "harbour to harbour" connections before The Wheel
-		if(pNewPlot->isCity())
-		{
-			return TRUE;
-		}
-#endif
-
 		// if the player can't build
 		if(kPlayer.getBestRoute() == NO_ROUTE)
 		{
@@ -2594,11 +2446,7 @@ int RouteGetNumExtraChildren(CvAStarNode* node,  CvAStar* finder)
 			continue;
 		}
 
-#if defined(MOD_EVENTS_CITY_CONNECTIONS)
-		if(pRouteInfo->m_cRouteState & CvCityConnections::HAS_INDIRECT_ROUTE)
-#else
 		if(pRouteInfo->m_cRouteState & CvCityConnections::HAS_WATER_ROUTE)
-#endif
 		{
 			iResultNum++;
 		}
@@ -2628,12 +2476,8 @@ int WaterRouteValid(CvAStarNode* parent, CvAStarNode* node, int data, const void
 		return FALSE;
 	}
 
-#if defined(MOD_GLOBAL_PASSABLE_FORTS)
-	if (pNewPlot->isFriendlyCityOrPassableImprovement(ePlayer, true))
-#else
 	CvCity* pCity = pNewPlot->getPlotCity();
 	if(pCity && pCity->getTeam() == eTeam)
-#endif
 	{
 		return TRUE;
 	}
@@ -2718,7 +2562,7 @@ int BuildRouteValid(CvAStarNode* parent, CvAStarNode* node, int data, const void
 		return FALSE;
 	}
 
-	if(pNewPlot->isImpassable() || (pNewPlot->isMountain() && !pNewPlot->isCity()))
+	if(pNewPlot->isImpassable() || pNewPlot->isMountain())
 	{
 		return FALSE;
 	}
@@ -3299,13 +3143,7 @@ int UIPathValid(CvAStarNode* parent, CvAStarNode* node, int data, const void* po
 				// which move over land and sea plots equally (canMoveAllTerrain)
 				if (!pUnit->canMoveAllTerrain())
 				{
-#if defined(MOD_BUGFIX_HOVERING_PATHFINDER)
-					if (!(pUnit->IsHoveringUnit() && (pToPlot->isShallowWater() || pToPlot->getFeatureType() == FEATURE_ICE))) {
-						return FALSE;
-					}
-#else
 					return FALSE;
-#endif
 				}
 			}
 		}
@@ -3458,17 +3296,8 @@ int TacticalAnalysisMapPathValid(CvAStarNode* parent, CvAStarNode* node, int dat
 	CvPathNodeCacheData& kToNodeCacheData = node->m_kCostCacheData;
 	kToNodeCacheData.bPlotVisibleToTeam = pToPlotCell->IsVisible();
 	kToNodeCacheData.iNumFriendlyUnitsOfType = pToPlot->getNumFriendlyUnitsOfType(pUnit);
-#if defined(MOD_GLOBAL_STACKING_RULES)
-	kToNodeCacheData.iUnitPlotLimit = pToPlot->getUnitLimit();
-#endif
 	kToNodeCacheData.bIsMountain = pToPlot->isMountain();
-#ifdef MOD_TRAITS_CAN_FOUND_MOUNTAIN_CITY
-	kToNodeCacheData.bIsCity = pToPlot->isCity();
-#endif
 	kToNodeCacheData.bIsWater = pToPlotCell->IsWater();
-#if defined(MOD_PATHFINDER_TERRAFIRMA)
-	kToNodeCacheData.bIsTerraFirma = pToPlotCell->IsTerraFirma();
-#endif
 	kToNodeCacheData.bCanEnterTerrain = pUnit->canEnterTerrain(*pToPlot, CvUnit::MOVEFLAG_PRETEND_CORRECT_EMBARK_STATE);
 	kToNodeCacheData.bIsRevealedToTeam = pToPlotCell->IsRevealed();
 	kToNodeCacheData.bContainsOtherFriendlyTeamCity = false;
@@ -3508,9 +3337,7 @@ int TacticalAnalysisMapPathValid(CvAStarNode* parent, CvAStarNode* node, int dat
 	int iFinderInfo              = finder->GetInfo();
 	CvPlot* pUnitPlot            = pUnit->plot();
 	int iFinderIgnoreStacking    = iFinderInfo & MOVE_IGNORE_STACKING;
-#if !defined(MOD_GLOBAL_STACKING_RULES)
 	int iUnitPlotLimit           = GC.getPLOT_UNIT_LIMIT();
-#endif
 	bool bFromPlotOwned          = !pFromPlotCell->IsUnclaimedTerritory();
 	TeamTypes eFromPlotTeam      = pFromPlot->getTeam();
 
@@ -3566,37 +3393,20 @@ int TacticalAnalysisMapPathValid(CvAStarNode* parent, CvAStarNode* node, int dat
 					if(kNodeCacheData.bPlotVisibleToTeam)
 					{
 						// Check to see if any units are present at this full-turn move plot... if the player can see what's there
-#if defined(MOD_GLOBAL_STACKING_RULES)
-						if(kNodeCacheData.iNumFriendlyUnitsOfType >= kNodeCacheData.iUnitPlotLimit && !(iFinderIgnoreStacking))
-#else
 						if(kNodeCacheData.iNumFriendlyUnitsOfType >= iUnitPlotLimit && !(iFinderIgnoreStacking))
-#endif
 						{
 							return FALSE;
 						}
 
-#ifdef MOD_TRAITS_CAN_FOUND_MOUNTAIN_CITY
-						if (kNodeCacheData.bIsMountain && !kNodeCacheData.bIsCity && !(iFinderIgnoreStacking) && (!bIsHuman || bAIControl))
-						{
-							return FALSE;
-						}
-
-						if (kNodeCacheData.bIsMountain && !kNodeCacheData.bIsCity && !kNodeCacheData.bCanEnterTerrain)	// only doing canEnterTerrain on mountain plots because it is expensive, though it probably should always be called and some other checks in this loop could be removed.
-						{
-							return FALSE;
-						}
-#else
 						if (kNodeCacheData.bIsMountain && !(iFinderIgnoreStacking) && (!bIsHuman || bAIControl))
 						{
 							return FALSE;
 						}
 
-						if (kNodeCacheData.bIsMountain && !kNodeCacheData.bCanEnterTerrain)	// only doing canEnterTerrain on mountain plots because it is expensive, though it probably should always be called and some other checks in this loop could be removed.
+						if(kNodeCacheData.bIsMountain && !kNodeCacheData.bCanEnterTerrain)	// only doing canEnterTerrain on mountain plots because it is expensive, though it probably should always be called and some other checks in this loop could be removed.
 						{
 							return FALSE;
 						}
-#endif
-
 
 						if ((finder->GetInfo() & CvUnit::MOVEFLAG_STAY_ON_LAND) && kNodeCacheData.bIsWater)
 						{
@@ -3604,10 +3414,6 @@ int TacticalAnalysisMapPathValid(CvAStarNode* parent, CvAStarNode* node, int dat
 						}
 					}
 
-#if defined(MOD_GLOBAL_BREAK_CIVILIAN_RESTRICTIONS)
-					// This can cause problems when there are others units in the city we want to attack,  --Qingyin
-					//if(kNodeCacheData.bIsRevealedToTeam && (!MOD_GLOBAL_BREAK_CIVILIAN_RESTRICTIONS || bUnitIsCombat))
-#endif
 					if(kNodeCacheData.bIsRevealedToTeam)
 					{
 						if (kNodeCacheData.bContainsOtherFriendlyTeamCity && !(iFinderIgnoreStacking))
@@ -3656,28 +3462,15 @@ int TacticalAnalysisMapPathValid(CvAStarNode* parent, CvAStarNode* node, int dat
 	// slewis - moved this up so units can't move directly into the water. Not 100% sure this is the right solution.
 	if(unit_domain_type == DOMAIN_LAND)
 	{
-#if defined(MOD_PATHFINDER_TERRAFIRMA)
-		bool bFromTerraFirma = kFromNodeCacheData.bIsTerraFirma;
-		bool bToWater = !kToNodeCacheData.bIsTerraFirma;
-		if(bFromTerraFirma && bToWater && kToNodeCacheData.bIsRevealedToTeam && !pUnit->canEmbarkOnto(*pFromPlot, *pToPlot, true))
-#else
 		if(!kFromNodeCacheData.bIsWater && kToNodeCacheData.bIsWater && kToNodeCacheData.bIsRevealedToTeam && !pUnit->canEmbarkOnto(*pFromPlot, *pToPlot, true))
-#endif
 		{
-#if defined(MOD_PATHFINDER_DEEP_WATER_EMBARKATION)
-			if(!pUnit->canMoveAllTerrain() && !pToPlot->IsAllowsWalkWater())
-#else
 			if(!pUnit->IsHoveringUnit() && !pUnit->canMoveAllTerrain() && !pToPlot->IsAllowsWalkWater())
-#endif
 			{
 				return FALSE;
 			}
 		}
 	}
 
-#if defined(MOD_GLOBAL_BREAK_CIVILIAN_RESTRICTIONS)
-	if (!MOD_GLOBAL_BREAK_CIVILIAN_RESTRICTIONS) {
-#endif
 	if(!bUnitIsCombat && unit_domain_type != DOMAIN_AIR)
 	{
 		const PlayerTypes eUnitPlayer = unit_owner;
@@ -3691,9 +3484,6 @@ int TacticalAnalysisMapPathValid(CvAStarNode* parent, CvAStarNode* node, int dat
 			}
 		}
 	}
-#if defined(MOD_GLOBAL_BREAK_CIVILIAN_RESTRICTIONS)
-	}
-#endif
 
 	// slewis - Added to catch when the unit is adjacent to an enemy unit while it is stacked with a friendly unit.
 	//          The logic above (with bPreviousNodeHostile) catches this problem with a path that's longer than one step
@@ -3702,11 +3492,7 @@ int TacticalAnalysisMapPathValid(CvAStarNode* parent, CvAStarNode* node, int dat
 	{
 		if(kToNodeCacheData.bContainsVisibleEnemyDefender)
 		{
-#if defined(MOD_GLOBAL_STACKING_RULES)
-			if(pUnitPlot->getNumFriendlyUnitsOfType(pUnit) > pUnitPlot->getUnitLimit())
-#else
 			if(pUnitPlot->getNumFriendlyUnitsOfType(pUnit) > iUnitPlotLimit)
-#endif
 			{
 				return FALSE;
 			}
@@ -3790,11 +3576,7 @@ int FindValidDestinationDest(int iToX, int iToY, const void* pointer, CvAStar* f
 	CvUnit* pUnit = ((CvUnit*)pointer);
 	CvPlot* pToPlot = GC.getMap().plotUnchecked(iToX, iToY);
 
-#if defined(MOD_GLOBAL_STACKING_RULES)
-	if(pToPlot->getNumFriendlyUnitsOfType(pUnit) >= pToPlot->getUnitLimit())
-#else
 	if(pToPlot->getNumFriendlyUnitsOfType(pUnit) >= GC.getPLOT_UNIT_LIMIT())
-#endif
 	{
 		return false;
 	}
@@ -3976,11 +3758,7 @@ void TradePathInitialize(const void* pointer, CvAStar* finder)
 	CvPlayer& kPlayer = GET_PLAYER(ePlayer);
 	TeamTypes eTeam = kPlayer.getTeam();
 	pCacheData->m_pTeam = &GET_TEAM(eTeam);
-#if defined(MOD_BUGFIX_TRADE_ROUTES_EMBARK_ALL_WATER)
-	pCacheData->m_bCanEmbarkAllWaterPassage = pCacheData->m_pTeam->canEmbarkAllWaterPassage() || kPlayer.GetPlayerTraits()->IsEmbarkedAllWater();
-#else
 	pCacheData->m_bCanEmbarkAllWaterPassage = pCacheData->m_pTeam->canEmbarkAllWaterPassage();
-#endif
 
 	CvPlayerTraits* pPlayerTraits = kPlayer.GetPlayerTraits();
 	if (pPlayerTraits)
@@ -4069,21 +3847,7 @@ int TradeRouteLandPathCost(CvAStarNode* parent, CvAStarNode* node, int data, con
 	}
 	
 	// Penalty for ending a turn on a mountain
-#if defined(MOD_GLOBAL_ALPINE_PASSES)
-	bool bMountain = pToPlot->isMountain();
-	if (bMountain && !pToPlot->isCity() && MOD_GLOBAL_ALPINE_PASSES && pToPlot->getRouteType() != NO_ROUTE) {
-		// Any land unit may travel over a mountain with a pass
-		bMountain = false;
-	}
-	if (bMountain && pToPlot->isCity())
-	{
-		bMountain = false;
-	}
-
-	if (pToPlot->isImpassable() || bMountain)
-#else
 	if(pToPlot->isImpassable() || pToPlot->isMountain())
-#endif
 	{
 		iCost += 1000;
 	}
@@ -4105,47 +3869,17 @@ int TradeRouteLandValid(CvAStarNode* parent, CvAStarNode* node, int data, const 
 	CvMap& kMap = GC.getMap();
 	CvPlot* pNewPlot = kMap.plotUnchecked(node->m_iX, node->m_iY);
 
-#if !defined(MOD_BUGFIX_MINOR)
 	if(kMap.plotUnchecked(parent->m_iX, parent->m_iY)->getArea() != pNewPlot->getArea())
 	{
 		return FALSE;
 	}
-#endif
 
 	if (pNewPlot->isWater())
 	{
-#if defined(MOD_BUGFIX_MINOR)
-		if (pNewPlot->IsAllowsWalkWater()) {
-			return TRUE;
-		}
-#endif
-
 		return FALSE;
 	}
 
-#if defined(MOD_BUGFIX_MINOR)
-	CvPlot* pOldPlot = kMap.plotUnchecked(parent->m_iX, parent->m_iY);
-	if (pOldPlot->getArea() != pNewPlot->getArea())
-	{
-		if (pOldPlot->IsAllowsWalkWater()) {
-			return TRUE;
-		}
-
-		return FALSE;
-	}
-#endif
-
-#if defined(MOD_GLOBAL_ALPINE_PASSES)
-	bool bMountain = pNewPlot->isMountain();
-	if (bMountain && pNewPlot->isCity() && MOD_GLOBAL_ALPINE_PASSES && pNewPlot->getRouteType() != NO_ROUTE) {
-		// Any land unit may travel over a mountain with a pass
-		bMountain = false;
-	}
-
-	if (bMountain || pNewPlot->isImpassable())
-#else
-	if (pNewPlot->isMountain() || pNewPlot->isImpassable())
-#endif
+	if(pNewPlot->isMountain() || pNewPlot->isImpassable())
 	{
 		return FALSE;
 	}
@@ -4171,11 +3905,7 @@ int TradeRouteWaterPathCost(CvAStarNode* parent, CvAStarNode* node, int data, co
 	int iBaseCost = 100;
 	int iCost = iBaseCost;
 
-#if defined(MOD_GLOBAL_PASSABLE_FORTS)
-	if (!(pToPlot->isCity() || pToPlot->isPassableImprovement()))
-#else
 	if (!pToPlot->isCity())
-#endif
 	{
 		bool bIsAdjacentToLand = pFromPlot->isAdjacentToLand_Cached() && pToPlot->isAdjacentToLand_Cached();
 		if (!bIsAdjacentToLand)
@@ -4192,13 +3922,7 @@ int TradeRouteWaterPathCost(CvAStarNode* parent, CvAStarNode* node, int data, co
 
 		if (!pToPlot->isWater())
 		{
-#if defined(MOD_BUGFIX_MINOR)
-			// Due to the "times 100", this is only equivalent to 10 tiles, which for a water trade route is too few
-			// iCost += 1000;
-			iCost += 50 * 100;
-#else
 			iCost += 1000;
-#endif
 		}
 		else
 		{
@@ -4236,11 +3960,7 @@ int TradeRouteWaterValid(CvAStarNode* parent, CvAStarNode* node, int data, const
 	CvMap& kMap = GC.getMap();
 	CvPlot* pNewPlot = kMap.plotUnchecked(node->m_iX, node->m_iY);
 
-#if defined(MOD_GLOBAL_PASSABLE_FORTS)
-	if (!(pNewPlot->isCity() || pNewPlot->isPassableImprovement()))
-#else
 	if (!pNewPlot->isCity())
-#endif
 	{
 		if (!pNewPlot->isWater())
 		{
@@ -4256,11 +3976,7 @@ int TradeRouteWaterValid(CvAStarNode* parent, CvAStarNode* node, int data, const
 		}
 
 		CvPlot* pParentPlot = kMap.plotUnchecked(parent->m_iX, parent->m_iY);
-#if defined(MOD_GLOBAL_PASSABLE_FORTS)
-		if (!(pParentPlot->isCity() || pParentPlot->isPassableImprovement()))
-#else
 		if (!pParentPlot->isCity())
-#endif
 		{
 			if(pParentPlot->getArea() != pNewPlot->getArea())
 			{

@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -112,52 +112,12 @@ void CvCityAI::AI_chooseProduction(bool bInterruptWonders)
 		}
 		else
 		{
-#if defined(MOD_AI_SMART_V3)
-			bool checkBuildWonder = true;
-			
-			// All of this only has sense if the AI is able to expand...
-			if (MOD_AI_SMART_V3)
-			{
-				int cityExpansionFlavor = m_pCityStrategyAI->GetLatestFlavorValue((FlavorTypes)GC.getInfoTypeForString("FLAVOR_EXPANSION"));
-				int cityWonderFlavor = m_pCityStrategyAI->GetLatestFlavorValue((FlavorTypes)GC.getInfoTypeForString("FLAVOR_WONDER"));
-				// Check if at city, the player has more desire to expand than to build wonders.
-				if ((cityExpansionFlavor - cityWonderFlavor) > 0)
-				{
-					int currentCityProd	 = 0;
-					int allOthercitiesProd = 0;
-					CvCity* pLoopCity = NULL;
-					int iLoop = 0;
-					// Lets check production of wonder city vs production in all cities.
-					for(pLoopCity = kOwner.firstCity(&iLoop); pLoopCity != NULL; pLoopCity = kOwner.nextCity(&iLoop))
-					{
-						int cityProd = pLoopCity->getCurrentProductionDifference(true, false);
-						if (isThis(*pLoopCity))
-						{
-							currentCityProd = cityProd;
-						}
-						else
-						{
-							allOthercitiesProd += cityProd;
-						}
-					}
-					bool bMostProductionInCity = (currentCityProd - (allOthercitiesProd * 2)) > 0;
-					// If the production of city equals 66% all empire production, lets stop wonder choose.
-					checkBuildWonder = !bMostProductionInCity;
-				}			
-			}
-			
-			if (checkBuildWonder)
-			{
-#endif
 			// to prevent us from continuously locking into building wonders in one city when there are other high priority items to build
 			int iFlavorWonder = kOwner.GetGrandStrategyAI()->GetPersonalityAndGrandStrategy((FlavorTypes)GC.getInfoTypeForString("FLAVOR_WONDER"));
 			int iFlavorGP = kOwner.GetGrandStrategyAI()->GetPersonalityAndGrandStrategy((FlavorTypes)GC.getInfoTypeForString("FLAVOR_GREAT_PEOPLE"));
 			int iFlavor = (iFlavorWonder > iFlavorGP ) ? iFlavorWonder : iFlavorGP;
 			if (GC.getGame().getJonRandNum(11, "Random roll for whether to continue building wonders") <= iFlavor)
 				bBuildWonder = true;
-#if defined(MOD_AI_SMART_V3)
-			}
-#endif
 		}
 	}
 
@@ -215,11 +175,7 @@ void CvCityAI::AI_stealPlots()
 	CvPlot* pLoopPlot = 0;
 	int iI = 0;
 
-#if defined(MOD_GLOBAL_CITY_WORKING)
-	for(iI = 0; iI < GetNumWorkablePlots(); iI++)
-#else
 	for(iI = 0; iI < NUM_CITY_PLOTS; iI++)
-#endif
 	{
 		pLoopPlot = plotCity(getX(),getY(),iI);
 
@@ -268,7 +224,6 @@ void CvCityAI::read(FDataStream& kStream)
 	// Version number to maintain backwards compatibility
 	uint uiVersion;
 	kStream >> uiVersion;
-	MOD_SERIALIZE_INIT_READ(kStream);
 
 	kStream >> m_bChooseProductionDirty;
 	kStream >> m_iCachePlayerClosenessTurn;
@@ -288,7 +243,6 @@ void CvCityAI::write(FDataStream& kStream) const
 	// Current version number
 	uint uiVersion = 1;
 	kStream << uiVersion;
-	MOD_SERIALIZE_INIT_WRITE(kStream);
 
 	kStream << m_bChooseProductionDirty;
 	kStream << m_iCachePlayerClosenessTurn;

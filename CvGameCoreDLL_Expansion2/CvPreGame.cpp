@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -37,7 +37,7 @@
 //GameOptionTypes enumeration usage vs the newer system that uses strings.
 const char* ConvertGameOptionTypeToString(GameOptionTypes eOption)
 {
-	switch (eOption)
+	switch(eOption)
 	{
 	case GAMEOPTION_NO_CITY_RAZING:
 		return "GAMEOPTION_NO_CITY_RAZING";
@@ -81,31 +81,9 @@ const char* ConvertGameOptionTypeToString(GameOptionTypes eOption)
 		return "GAMEOPTION_NO_TUTORIAL";
 	case GAMEOPTION_NO_RELIGION:
 		return "GAMEOPTION_NO_RELIGION";
-#if defined(MOD_TROOPS_AND_CROPS_FOR_SP)
-	case GAMEOPTION_SP_CORPS_MODE_DISABLE:
-		return "GAMEOPTION_SP_CORPS_MODE_DISABLE";
-	case GAMEOPTION_SP_CORPS_MODE_HIGH:
-		return "GAMEOPTION_SP_CORPS_MODE_HIGH";
-	case GAMEOPTION_SP_CORPS_MODE_LOW:
-		return "GAMEOPTION_SP_CORPS_MODE_LOW";
-#endif
-#if defined(MOD_INTERNATIONAL_IMMIGRATION_FOR_SP)
-	case GAMEOPTION_SP_IMMIGRATION_OFF:
-		return "GAMEOPTION_SP_IMMIGRATION_OFF";
-#endif
-#if defined(MOD_NUCLEAR_WINTER_FOR_SP)
-	case GAMEOPTION_SP_NUCLEARWINTER_OFF:
-		return "GAMEOPTION_SP_NUCLEARWINTER_OFF";
-#endif
-	case GAMEOPTION_CIV_CONQUER:
-		return "GAMEOPTION_CIV_CONQUER";
-	case GAMEOPTION_HUMAN_ALL_UC:
-		return "GAMEOPTION_HUMAN_ALL_UC";
-	case GAMEOPTION_PROJECT_CAPTURE:
-		return "GAMEOPTION_PROJECT_CAPTURE";
-	default:
-		return NULL;
 	}
+
+	return NULL;
 }
 
 namespace CvPreGame
@@ -237,9 +215,6 @@ PREGAMEVARDEFAULT(CvString,                           s_gameName);
 PREGAMEVAR(GameSpeedTypes,                     s_gameSpeed,              NO_GAMESPEED);
 PREGAMEVAR(bool,                               s_gameStarted,            false);
 PREGAMEVAR(int,                                s_gameTurn,               -1);
-#if defined(MOD_API_EXTENSIONS)
-GameTypes s_pushedGameType = GAME_TYPE_NONE;
-#endif
 PREGAMEVAR(GameTypes,                          s_gameType,               GAME_TYPE_NONE);
 PREGAMEVAR(GameMapTypes,                       s_gameMapType,            GAME_USER_PARAMETERS);
 PREGAMEVAR(int,                                s_gameUpdateTime,         0);
@@ -1176,19 +1151,6 @@ bool isMinorCiv(PlayerTypes p)
 		return s_minorNationCivs[p];
 	return false;
 }
-
-#if defined(MOD_API_EXTENSIONS)
-bool isReallyNetworkMultiPlayer()
-{
-	GameTypes eType = gameType();
-
-	if (s_pushedGameType != GAME_TYPE_NONE) {
-		eType = s_pushedGameType;
-	}
-
-	return eType == GAME_NETWORK_MULTIPLAYER;
-}
-#endif
 
 bool isNetworkMultiplayerGame()
 {
@@ -2559,15 +2521,10 @@ void setGameTurn(int turn)
 
 void setGameType(GameTypes g, GameStartTypes eStartType)
 {
-#if defined(MOD_BUGFIX_MINOR)
-	setGameType(g);
-	s_gameStartType = eStartType;
-#else
 	s_gameType = g;
 	s_gameStartType = eStartType;
 	if(s_gameType != GAME_NETWORK_MULTIPLAYER)
 		s_isInternetGame = false;
-#endif
 }
 
 void setGameType(GameTypes g)
@@ -2593,32 +2550,9 @@ void setGameType(const CvString& g)
 		setGameType(GAME_TYPE_NONE);
 	}
 
-#if defined(MOD_BUGFIX_MINOR)
-	// Don't need this code as it's included in the setGameType() calls above
-#else
 	if(s_gameType != GAME_NETWORK_MULTIPLAYER)
 		s_isInternetGame = false;
-#endif
 }
-
-#if defined(MOD_API_EXTENSIONS)
-void pushGameType(GameTypes g)
-{
-	if (s_pushedGameType == GAME_TYPE_NONE) {
-		s_pushedGameType = gameType();
-		setGameType(g);
-	}
-}
-
-void popGameType()
-{
-	if (s_pushedGameType != GAME_TYPE_NONE) {
-		setGameType(s_pushedGameType);
-		
-		s_pushedGameType = GAME_TYPE_NONE;
-	}
-}
-#endif
 
 void setGameStartType(GameStartTypes eStartType)
 {

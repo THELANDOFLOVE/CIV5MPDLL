@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -313,10 +313,30 @@ enum DemandResponseTypes
     DEMAND_RESPONSE_REFUSE_HOSTILE,
     DEMAND_RESPONSE_REFUSE_TOO_MUCH,
     DEMAND_RESPONSE_REFUSE_TOO_SOON,
+#if defined(MOD_DIPLOMACY_CIV4_FEATURES)
+	DEMAND_RESPONSE_GIFT_ACCEPT,
+	DEMAND_RESPONSE_GIFT_REFUSE_TOO_MUCH,
+	DEMAND_RESPONSE_GIFT_REFUSE_TOO_SOON,
+#endif
 
     NUM_DEMAND_RESPONSES,
 };
 
+#if defined(MOD_DIPLOMACY_CIV4_FEATURES)
+
+enum VassalTreatmentTypes
+{
+	NO_VASSAL_TREATMENT = -1,
+
+	VASSAL_TREATMENT_CONTENT,
+	VASSAL_TREATMENT_DISAGREE,
+	VASSAL_TREATMENT_MISTREATED,
+	VASSAL_TREATMENT_UNHAPPY,
+	VASSAL_TREATMENT_ENSLAVED,
+
+	NUM_VASSAL_TREATMENT_TYPES
+};
+#endif
 enum PublicDeclarationTypes
 {
     NO_PUBLIC_DECLARATION_TYPE = -1,

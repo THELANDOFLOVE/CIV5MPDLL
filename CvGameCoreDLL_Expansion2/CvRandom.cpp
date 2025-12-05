@@ -1,5 +1,5 @@
 /*	-------------------------------------------------------------------------------------------------------
-	Â© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
+	© 1991-2012 Take-Two Interactive Software and its subsidiaries.  Developed by Firaxis Games.  
 	Sid Meier's Civilization V, Civ, Civilization, 2K Games, Firaxis Games, Take-Two Interactive Software 
 	and their respective logos are all trademarks of Take-Two interactive Software, Inc.  
 	All other marks and trademarks are the property of their respective owners.  
@@ -12,21 +12,16 @@
 #include "FCallStack.h"
 #include "FStlContainerSerialization.h"
 
-
 #ifdef WIN32
 #	include "Win32/FDebugHelper.h"
 #endif//_WINPC
 
-
-
-RNGStackWalker dbgRNGStackWalker;
 // include this after all other headers!
 #include "LintFree.h"
 
 #define RANDOM_A      (1103515245)
 #define RANDOM_C      (12345)
 #define RANDOM_SHIFT  (16)
-
 
 CvRandom::CvRandom() :
 	m_ulRandomSeed(0)
@@ -74,11 +69,7 @@ CvRandom::CvRandom(const CvRandom& source) :
 
 bool CvRandom::operator==(const CvRandom& source) const
 {
-#if defined(MOD_BUGFIX_RANDOM)
-	return(m_ulRandomSeed == source.m_ulRandomSeed && m_ulCallCount == source.m_ulCallCount);
-#else
 	return(m_ulRandomSeed == source.m_ulRandomSeed);
-#endif
 }
 
 bool CvRandom::operator!=(const CvRandom& source) const
@@ -116,13 +107,9 @@ void CvRandom::reset(unsigned long ulSeed)
 	// Uninit class
 	uninit();
 
-#if defined(MOD_BUGFIX_RANDOM)
-	reseed(ulSeed);
-#else
 	recordCallStack();
 	m_ulRandomSeed = ulSeed;
 	m_ulResetCount++;
-#endif
 }
 
 unsigned short CvRandom::get(unsigned short usNum, const char* pszLog)
@@ -133,10 +120,10 @@ unsigned short CvRandom::get(unsigned short usNum, const char* pszLog)
 	unsigned long ulNewSeed = ((RANDOM_A * m_ulRandomSeed) + RANDOM_C);
 	unsigned short us = ((unsigned short)((((ulNewSeed >> RANDOM_SHIFT) & MAX_UNSIGNED_SHORT) * ((unsigned long)usNum)) / (MAX_UNSIGNED_SHORT + 1)));
 
-	if(true)
+	if(GC.getLogging())
 	{
 		int iRandLogging = GC.getRandLogging();
-		if(iRandLogging > 0 && m_bSynchronous)
+		if(iRandLogging > 0 && (m_bSynchronous || (iRandLogging & RAND_LOGGING_ASYNCHRONOUS_FLAG) != 0))
 		{
 #if !defined(FINAL_RELEASE)
 			if(!gDLL->IsGameCoreThread() && gDLL->IsGameCoreExecuting() && m_bSynchronous)
@@ -144,51 +131,40 @@ unsigned short CvRandom::get(unsigned short usNum, const char* pszLog)
 				CvAssertMsg(0, "App side is accessing the synchronous random number generator while the game core is running.");
 			}
 #endif
-			
-			//if(kGame.getTurnSlice() > 0 || ((iRandLogging & RAND_LOGGING_PREGAME_FLAG) != 0))
+			CvGame& kGame = GC.getGame();
+			if(kGame.getTurnSlice() > 0 || ((iRandLogging & RAND_LOGGING_PREGAME_FLAG) != 0))
 			{
-				FILogFile* pLog = LOGFILEMGR.GetLog("RandCalls.log", FILogFile::kDontTimeStamp);
+				FILogFile* pLog = LOGFILEMGR.GetLog("RandCalls.csv", FILogFile::kDontTimeStamp, "Game Turn, Turn Slice, Range, Value, Seed, Instance, Type, Location\n");
 				if(pLog)
 				{
-					char szOut[2048] = { 0 };
-					char buf[1024] = {0};
-					if(pszLog) strcpy(buf, pszLog);
-					auto turn = GC.getGame().getGameTurn();
-					string outStr = "turn: ";
-					_itoa_s(turn, buf, 10);
-					outStr += buf;
-					
-					outStr += ", max: ";
-					_itoa_s(usNum, buf, 10);
-					outStr += buf;
+					char szOut[1024] = {0};
+					sprintf_s(szOut, "%d, %d, %u, %u, %u, %8x, %s, %s\n", kGame.getGameTurn(), kGame.getTurnSlice(), (uint)usNum, (uint)us, getSeed(), (uint)this, m_bSynchronous?"sync":"async", (pszLog != NULL)?pszLog:"Unknown");
+					pLog->Msg(szOut);
 
-					outStr += ", result: ";
-					_itoa_s(us, buf, 10);
-					outStr += buf;
-
-					outStr += ", seed: ";
-					_ui64toa_s(ulNewSeed, buf, 1024, 10);
-					outStr += buf;
-
-					outStr += ", call count: ";
-					_ui64toa_s(m_ulCallCount, buf, 1024, 10);
-					outStr += buf;
-
-					outStr += ", reset count: ";
-					_ui64toa_s(m_ulResetCount, buf, 1024, 10);
-					outStr += buf;
-
-					/*sprintf(szOut, "turn: %d, max: %u, result: %u, seed: %I64u, call count: %I64u, reset count: %I64u, desc:  ", turn,
-						usNum, us, ulNewSeed, m_ulCallCount, m_ulResetCount);*/
-
-					outStr += ", desc: ";
-					//string outStr = string(szOut);
-					if (pszLog) outStr += pszLog;
-					outStr += "\n";
-					pLog->Msg(outStr.c_str());
-					dbgRNGStackWalker.SetLog(pLog);
-					dbgRNGStackWalker.ShowCallstack();
-					pLog->Msg("\n");
+#if !defined(FINAL_RELEASE)
+					if((iRandLogging & RAND_LOGGING_CALLSTACK_FLAG) != 0)
+					{
+#ifdef _DEBUG
+						if(m_bExtendedCallStackDebugging)
+						{
+							// Use the callstack from the extended callstack debugging system
+							const FCallStack& callStack = m_kCallStacks.back();
+							std::string stackTrace = callStack.toString(true, 6);
+							pLog->Msg(stackTrace.c_str());
+						}
+						else
+#endif
+						{
+#ifdef WIN32
+							// Get callstack directly
+							FCallStack callStack;
+							FDebugHelper::GetInstance().GetCallStack(&callStack, 0, 8);
+							std::string stackTrace = callStack.toString(true, 6);
+							pLog->Msg(stackTrace.c_str());
+#endif
+						}
+					}
+#endif
 				}
 			}
 		}
@@ -210,9 +186,6 @@ void CvRandom::reseed(unsigned long ulNewValue)
 	recordCallStack();
 	m_ulResetCount++;
 	m_ulRandomSeed = ulNewValue;
-#if defined(MOD_BUGFIX_RANDOM)
-	m_ulCallCount = 0;
-#endif
 }
 
 
@@ -238,7 +211,6 @@ void CvRandom::read(FDataStream& kStream)
 	// Version number to maintain backwards compatibility
 	uint uiVersion;
 	kStream >> uiVersion;
-	MOD_SERIALIZE_INIT_READ(kStream);
 
 	kStream >> m_ulRandomSeed;
 	kStream >> m_ulCallCount;
@@ -262,7 +234,6 @@ void CvRandom::write(FDataStream& kStream) const
 	// Current version number
 	uint uiVersion = 1;
 	kStream << uiVersion;
-	MOD_SERIALIZE_INIT_WRITE(kStream);
 
 	kStream << m_ulRandomSeed;
 	kStream << m_ulCallCount;

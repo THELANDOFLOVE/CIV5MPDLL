@@ -918,7 +918,7 @@ void CvCity::init(int iID, PlayerTypes eOwner, int iX, int iY, bool bBumpUnits, 
 			{
 				if(bGarrisonFreeMaintenance)
 				{
-					kPlayer.changeExtraUnitCost(iUnit->getUnitInfo().GetExtraMaintenanceCost());
+					kPlayer.changeExtraUnitCost(-iUnit->getUnitInfo().GetExtraMaintenanceCost());
 				}
 
 				if (getOwner() == iUnit->getOwner())
@@ -2132,7 +2132,7 @@ void CvCity::kill()
 
 		if(pLoopUnit)
 		{
-			if(bGarrisonFreeMaintenance && pLoopUnit->GetBaseCombatStrength(true/*bIgnoreEmbarked*/) > 0 && pLoopUnit->getDomainType() == DOMAIN_LAND)
+			if(bGarrisonFreeMaintenance && pLoopUnit->GetBaseCombatStrength(true/*bIgnoreEmbarked*/) > 0 && pLoopUnit->getDomainType() == DOMAIN_LAND && pLoopUnit->getOwner() == eOwner)
 			{
 				GET_PLAYER(eOwner).changeExtraUnitCost(pLoopUnit->getUnitInfo().GetExtraMaintenanceCost());
 			}
@@ -3815,6 +3815,37 @@ int CvCity::GetImprovementExtraYield(ImprovementTypes eImprovement, YieldTypes e
 	CvAssertMsg(eYield > -1 && eYield < NUM_YIELD_TYPES, "Invalid yield index.");
 	return ModifierLookup(m_yieldChanges[eYield].forImprovement, eImprovement);
 
+}
+
+//	--------------------------------------------------------------------------------
+/// Get adjacent improvement yield change from buildings in this city
+int CvCity::GetAdjacentImprovementYieldChangeFromBuildings(ImprovementTypes eImprovement, ImprovementTypes eOtherImprovement, YieldTypes eYield) const
+{
+	VALIDATE_OBJECT
+	int rtnValue = 0;
+	const std::vector<BuildingTypes>& vCached = GC.GetGameBuildings()->GetBuildingsWithAdjacentYield();
+	for (size_t i = 0; i < vCached.size(); i++)
+	{
+		BuildingTypes eBuilding = vCached[i];
+		if (GetCityBuildings()->GetNumActiveBuilding(eBuilding) > 0)
+		{
+			CvBuildingEntry* pBuilding = GC.getBuildingInfo(eBuilding);
+			if (pBuilding)
+			{
+				const auto& vChanges = pBuilding->GetAdjacentImprovementYieldChanges();
+				for (const auto& change : vChanges)
+				{
+					if ((int)change.m_iImprovementType == (int)eImprovement &&
+						(int)change.m_iOtherImprovementType == (int)eOtherImprovement &&
+						(int)change.m_iYieldType == (int)eYield)
+					{
+						rtnValue += change.m_iYield;
+					}
+				}
+			}
+		}
+	}
+	return rtnValue;
 }
 
 //	--------------------------------------------------------------------------------
@@ -7809,6 +7840,7 @@ void CvCity::processBuilding(BuildingTypes eBuilding, int iChange, bool bFirst, 
 		m_pCityBuildings->ChangeBuildingProductionModifier(pBuildingInfo->GetBuildingProductionModifier() * iChange);
 		m_pCityBuildings->ChangeMissionaryExtraSpreads(pBuildingInfo->GetExtraMissionarySpreads() * iChange);
 		m_pCityBuildings->ChangeLandmarksTourismPercent(pBuildingInfo->GetLandmarksTourismPercent() * iChange);
+		m_pCityBuildings->ChangeLandmarksTourismPerXForeignFollowers(pBuildingInfo->GetLandmarksTourismPerXForeignFollowers() * iChange);
 		m_pCityBuildings->ChangeGreatWorksTourismModifier(pBuildingInfo->GetGreatWorksTourismModifier() * iChange);
 		m_pCityBuildings->ChangeNumBuildingsFromFaith((pBuildingInfo->GetFaithCost() > 0 && pBuildingInfo->IsUnlockedByBelief() && pBuildingInfo->GetProductionCost() == -1) ? iChange : 0);
 		ChangeWonderProductionModifier(pBuildingInfo->GetWonderProductionModifier() * iChange);

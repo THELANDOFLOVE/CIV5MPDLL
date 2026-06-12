@@ -742,6 +742,34 @@ bool CvPolicyEntry::CacheResults(Database::Results& kResults, CvDatabaseUtility&
 		}
 	}
 
+	//AdjacentImprovementYieldChanges
+	{
+		std::string strKey("Policy_AdjacentImprovementYieldChanges");
+		Database::Results* pResults = kUtility.GetResults(strKey);
+		if (pResults == NULL)
+		{
+			pResults = kUtility.PrepareResults(strKey,
+				"SELECT Imp1.ID as ImprovementID, Imp2.ID as OtherImprovementID, "
+				"Yields.ID as YieldID, Yield "
+				"FROM Policy_AdjacentImprovementYieldChanges "
+				"INNER JOIN Improvements AS Imp1 ON ImprovementType = Imp1.Type "
+				"INNER JOIN Improvements AS Imp2 ON OtherImprovementType = Imp2.Type "
+				"INNER JOIN Yields ON YieldType = Yields.Type "
+				"WHERE PolicyType = ?");
+		}
+		pResults->Bind(1, szPolicyType);
+		while (pResults->Step())
+		{
+			AdjacentImprovementYieldChange change;
+			change.m_iImprovementType = pResults->GetInt(0);
+			change.m_iOtherImprovementType = pResults->GetInt(1);
+			change.m_iYieldType = pResults->GetInt(2);
+			change.m_iYield = pResults->GetInt(3);
+			m_vAdjacentImprovementYieldChanges.push_back(change);
+		}
+		pResults->Reset();
+	}
+
 #if defined(MOD_API_UNIFIED_YIELDS) && defined(MOD_API_PLOT_YIELDS)
 	//PlotYieldChanges
 	if (MOD_API_UNIFIED_YIELDS && MOD_API_PLOT_YIELDS)
@@ -3928,6 +3956,31 @@ int CvPlayerPolicies::GetImprovementCultureChange(ImprovementTypes eImprovement)
 		if(m_pabHasPolicy[i] && !IsPolicyBlocked((PolicyTypes)i))
 		{
 			rtnValue += m_pPolicies->GetPolicyEntry(i)->GetImprovementCultureChanges(eImprovement);
+		}
+	}
+
+	return rtnValue;
+}
+
+/// Get adjacent improvement yield change from policies
+int CvPlayerPolicies::GetAdjacentImprovementYieldChange(ImprovementTypes eImprovement, ImprovementTypes eOtherImprovement, YieldTypes eYield)
+{
+	int rtnValue = 0;
+
+	for (int i = 0; i < m_pPolicies->GetNumPolicies(); i++)
+	{
+		if (m_pabHasPolicy[i] && !IsPolicyBlocked((PolicyTypes)i))
+		{
+			const auto& vChanges = m_pPolicies->GetPolicyEntry(i)->GetAdjacentImprovementYieldChanges();
+			for (const auto& change : vChanges)
+			{
+				if ((int)change.m_iImprovementType == (int)eImprovement &&
+					(int)change.m_iOtherImprovementType == (int)eOtherImprovement &&
+					(int)change.m_iYieldType == (int)eYield)
+				{
+					rtnValue += change.m_iYield;
+				}
+			}
 		}
 	}
 

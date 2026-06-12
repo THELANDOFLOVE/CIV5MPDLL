@@ -1128,6 +1128,8 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(AddTemporaryDominanceZone);
 
 	Method(GetNaturalWonderYieldModifier);
+	Method(GetNaturalWonderYieldModifierPerEra);
+	Method(GetImmigrationRegressandModifier);
 
 	Method(GetPolicyBuildingClassYieldModifier);
 	Method(GetPolicyBuildingClassYieldChange);
@@ -10726,6 +10728,34 @@ int  CvLuaPlayer::lGetNaturalWonderYieldModifier(lua_State* L)
 
 	lua_pushinteger(L, iYieldModifier);
 	return 1;
+}
+//------------------------------------------------------------------------------
+int CvLuaPlayer::lGetNaturalWonderYieldModifierPerEra(lua_State* L)
+{
+	int iYieldModifierPerEra = 0;
+	CvPlayer* pkPlayer = GetInstance(L);
+	if(pkPlayer)
+	{
+		CvPlayerTraits* pkPlayerTraits = pkPlayer->GetPlayerTraits();
+		if(pkPlayerTraits)
+		{
+			iYieldModifierPerEra = pkPlayerTraits->GetNaturalWonderYieldModifierPerEra();
+		}
+	}
+
+	lua_pushinteger(L, iYieldModifierPerEra);
+	return 1;
+}
+//------------------------------------------------------------------------------
+int CvLuaPlayer::lGetImmigrationRegressandModifier(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	if(pkPlayer)
+	{
+		lua_pushinteger(L, pkPlayer->GetImmigrationRegressandModifier());
+		return 1;
+	}
+	return 0;
 }
 //------------------------------------------------------------------------------
 int CvLuaPlayer::lGetPolicyBuildingClassYieldModifier(lua_State* L)

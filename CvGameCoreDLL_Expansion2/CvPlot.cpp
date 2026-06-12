@@ -8971,6 +8971,7 @@ int CvPlot::calculateNatureYield(YieldTypes eYield, TeamTypes eTeam, bool bIgnor
 #endif
 
 				iMod += GET_PLAYER((PlayerTypes)m_eOwner).GetPlayerTraits()->GetNaturalWonderYieldModifier();
+				iMod += GET_PLAYER((PlayerTypes)m_eOwner).GetPlayerTraits()->GetNaturalWonderYieldModifierPerEra() * GET_PLAYER((PlayerTypes)m_eOwner).GetCurrentEra();
 				if(iMod > 0)
 				{
 					iYieldChange *= (100 + iMod);
@@ -9154,6 +9155,25 @@ int CvPlot::calculateImprovementYieldChange(ImprovementTypes eImprovement, Yield
 #if defined(MOD_API_VP_ADJACENT_YIELD_BOOST)
 		iYield += ComputeYieldFromOtherAdjacentImprovement(*pImprovement, eYield);
 #endif
+		// Policy and Trait adjacent improvement yield bonuses
+		{
+			CvPlayerAI& kPlayer = GET_PLAYER(ePlayer);
+			for (int iI = 0; iI < NUM_DIRECTION_TYPES; ++iI)
+			{
+				CvPlot* pAdjacentPlot = plotDirection(getX(), getY(), ((DirectionTypes)iI));
+				if (pAdjacentPlot && pAdjacentPlot->getImprovementType() != NO_IMPROVEMENT
+					&& pAdjacentPlot->getOwner() == ePlayer)
+				{
+					ImprovementTypes eOtherImp = pAdjacentPlot->getImprovementType();
+					iYield += kPlayer.GetPlayerPolicies()->GetAdjacentImprovementYieldChange(
+						eImprovement, eOtherImp, eYield);
+					iYield += kPlayer.GetPlayerTraits()->GetAdjacentImprovementYieldChange(
+						eImprovement, eOtherImp, eYield);
+					iYield += kPlayer.GetAdjacentImprovementYieldChangeFromBuildingsGlobal(
+						eImprovement, eOtherImp, eYield);
+				}
+			}
+		}
 	}
 	if(eYield == YIELD_CULTURE && getOwner() != NO_PLAYER)
 	{
@@ -9349,11 +9369,52 @@ int CvPlot::calculateImprovementYieldChange(ImprovementTypes eImprovement, Yield
 					iReligionAdjacentCityYield += GC.GetGameBeliefs()->GetEntry(eSecondaryPantheon)->GetImprovementAdjacentCityYieldChange(eImprovement, eYield);
 				}
 				iYield += iReligionChange;
+				// Belief adjacent improvement yield bonuses
+				for (int iI = 0; iI < NUM_DIRECTION_TYPES; ++iI)
+				{
+					CvPlot* pAdjacentPlot = plotDirection(getX(), getY(), ((DirectionTypes)iI));
+					if (pAdjacentPlot && pAdjacentPlot->getImprovementType() != NO_IMPROVEMENT)
+					{
+						ImprovementTypes eOtherImp = pAdjacentPlot->getImprovementType();
+						iYield += pReligion->m_Beliefs.GetAdjacentImprovementYieldChange(
+							eImprovement, eOtherImp, eYield);
+						if (eSecondaryPantheon != NO_BELIEF)
+						{
+							CvBeliefEntry* pSecBelief = GC.GetGameBeliefs()->GetEntry(eSecondaryPantheon);
+							if (pSecBelief)
+							{
+								const auto& vChanges = pSecBelief->GetAdjacentImprovementYieldChanges();
+								for (const auto& change : vChanges)
+								{
+									if ((int)change.m_iImprovementType == (int)eImprovement &&
+										(int)change.m_iOtherImprovementType == (int)eOtherImp &&
+										(int)change.m_iYieldType == (int)eYield)
+									{
+										iYield += change.m_iYield;
+									}
+								}
+							}
+						}
+					}
+				}
 			}
 		}
 		
 		// Extra yield for improvements
 		iYield += pWorkingCity->GetImprovementExtraYield(eImprovement, eYield);
+			// Building adjacent improvement yield bonuses
+			{
+				for (int iI = 0; iI < NUM_DIRECTION_TYPES; ++iI)
+				{
+					CvPlot* pAdjacentPlot = plotDirection(getX(), getY(), ((DirectionTypes)iI));
+					if (pAdjacentPlot && pAdjacentPlot->getImprovementType() != NO_IMPROVEMENT)
+					{
+						ImprovementTypes eOtherImp = pAdjacentPlot->getImprovementType();
+						iYield += pWorkingCity->GetAdjacentImprovementYieldChangeFromBuildings(
+							eImprovement, eOtherImp, eYield);
+					}
+				}
+			}
 		if(ePlayer != NO_PLAYER) iYield += GET_PLAYER(ePlayer).GetImprovementExtraYield(eImprovement, eYield);
 	}
 
@@ -10261,7 +10322,51 @@ bool CvPlot::setRevealed(TeamTypes eTeam, bool bNewValue, bool bTerrainOnly, Tea
 #endif
 {
 	int iI;
-	
+	if (bNewValue && !isRevealed(eTeam))  
+{
+#if defined(MOD_API_EXTENSIONS)
+    if (pUnit != NULL)  
+    {
+        int iEra = GET_TEAM(pUnit->getTeam()).GetCurrentEra();
+        int aiTotalYield[NUM_YIELD_TYPES] = {0};
+        
+        for (int i = 0; i < GC.getNumPromotionInfos(); i++)
+        {
+            PromotionTypes ePromotion = (PromotionTypes)i;
+            if (!pUnit->isHasPromotion(ePromotion)) continue;
+            
+            CvPromotionEntry* pkPromotion = GC.getPromotionInfo(ePromotion);
+            if (!pkPromotion) continue;
+            
+            for (int j = 0; j < NUM_YIELD_TYPES; j++)
+            {
+                YieldTypes eYield = (YieldTypes)j;
+                int iYieldBonus = pkPromotion->GetExploreYield(eYield);
+                if (iYieldBonus <= 0) continue;
+                int iEraPercent = pkPromotion->GetEraPercent(eYield);
+                iYieldBonus = iYieldBonus * (100 + iEra * iEraPercent) / 100;
+                
+                aiTotalYield[j] += iYieldBonus;
+            }
+        }
+        
+        for (int j = 0; j < NUM_YIELD_TYPES; j++)
+        {
+            YieldTypes eYield = (YieldTypes)j;
+            if (aiTotalYield[j] <= 0) continue;
+            
+            GET_PLAYER(pUnit->getOwner()).doInstantYield(eYield, aiTotalYield[j]);
+            
+            char text[256] = {0};
+            sprintf_s(text, "%s+%d[ENDCOLOR]%s", 
+                GC.getYieldInfo(eYield)->getColorString(), 
+                aiTotalYield[j], 
+                GC.getYieldInfo(eYield)->getIconString());
+            SHOW_PLOT_POPUP(this, pUnit->getOwner(), text, 0.0f);
+        }
+    }
+#endif
+}
 #if defined(MOD_EVENTS_TILE_REVEALED)
 	// We need to capture this value here, as a Natural Wonder may update it before we need it
 	int iRevealedMajors = getNumMajorCivsRevealed();
@@ -14123,4 +14228,4 @@ int CvPlot::GetNumSpecificPlayerUnitsAdjacent(PlayerTypes ePlayer, const CvUnit*
 	return iNumUnitsAdjacent;
 }
 
-#endif
+#endif

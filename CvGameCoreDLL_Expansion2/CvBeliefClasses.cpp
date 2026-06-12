@@ -1175,6 +1175,33 @@ bool CvBeliefEntry::CacheResults(Database::Results& kResults, CvDatabaseUtility&
 			m_ppiImprovementYieldChanges[ImprovementID][YieldID] = yield;
 		}
 	}
+	//AdjacentImprovementYieldChanges
+	{
+		std::string strKey("Belief_AdjacentImprovementYieldChanges");
+		Database::Results* pResults = kUtility.GetResults(strKey);
+		if (pResults == NULL)
+		{
+			pResults = kUtility.PrepareResults(strKey,
+				"SELECT Imp1.ID as ImprovementID, Imp2.ID as OtherImprovementID, "
+				"Yields.ID as YieldID, Yield "
+				"FROM Belief_AdjacentImprovementYieldChanges "
+				"INNER JOIN Improvements AS Imp1 ON ImprovementType = Imp1.Type "
+				"INNER JOIN Improvements AS Imp2 ON OtherImprovementType = Imp2.Type "
+				"INNER JOIN Yields ON YieldType = Yields.Type "
+				"WHERE BeliefType = ?");
+		}
+		pResults->Bind(1, szBeliefType);
+		while (pResults->Step())
+		{
+			AdjacentImprovementYieldChange change;
+			change.m_iImprovementType = pResults->GetInt(0);
+			change.m_iOtherImprovementType = pResults->GetInt(1);
+			change.m_iYieldType = pResults->GetInt(2);
+			change.m_iYield = pResults->GetInt(3);
+			m_vAdjacentImprovementYieldChanges.push_back(change);
+		}
+		pResults->Reset();
+	}
 	//ImprovementAdjacentCityYieldChanges;
 	{
 		kUtility.Initialize2DArray(m_ppiImprovementAdjacentCityYieldChanges, "Improvements", "Yields");
@@ -2184,6 +2211,31 @@ int CvReligionBeliefs::GetImprovementYieldChange(ImprovementTypes eImprovement, 
 int CvReligionBeliefs::GetImprovementAdjacentCityYieldChange(ImprovementTypes eImprovement, YieldTypes eYield) const
 {
 	return m_vImprovementAdjacentCityYieldChanges[eImprovement][eYield];
+}
+
+/// Get adjacent improvement yield change from beliefs
+int CvReligionBeliefs::GetAdjacentImprovementYieldChange(ImprovementTypes eImprovement, ImprovementTypes eOtherImprovement, YieldTypes eYield) const
+{
+	int rtnValue = 0;
+	CvBeliefXMLEntries* pBeliefs = GC.GetGameBeliefs();
+	for (BeliefList::const_iterator i = m_ReligionBeliefs.begin(); i != m_ReligionBeliefs.end(); ++i)
+	{
+		CvBeliefEntry* pBeliefEntry = pBeliefs->GetEntry(*i);
+		if (pBeliefEntry)
+		{
+			const auto& vChanges = pBeliefEntry->GetAdjacentImprovementYieldChanges();
+			for (const auto& change : vChanges)
+			{
+				if ((int)change.m_iImprovementType == (int)eImprovement &&
+					(int)change.m_iOtherImprovementType == (int)eOtherImprovement &&
+					(int)change.m_iYieldType == (int)eYield)
+				{
+					rtnValue += change.m_iYield;
+				}
+			}
+		}
+	}
+	return rtnValue;
 }
 
 /// Get yield change from beliefs for a specific building class

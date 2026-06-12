@@ -11,3 +11,6 @@ alter table UnitPromotions add OutsideFriendlyLandsInflictDamageChange integer d
 
 alter table UnitPromotions add OriginalCapitalDamageFix integer default 0;
 alter table UnitPromotions add OriginalCapitalSpecialDamageFix integer default 0;
+
+alter table UnitPromotions add FixDamagePerPromotionMod integer default 0;
+alter table UnitPromotions add FixReducePerPromotionMod integer default 0;

@@ -1032,6 +1032,8 @@ public:
 	int GetDomainFreeExperiencesPerTurnGlobal(DomainTypes eDomain) const;
 	void ChangeDomainEnemyCombatModifierGlobal(DomainTypes eDomain, int iChange);
 	int GetDomainEnemyCombatModifierGlobal(DomainTypes eDomain) const;
+	void ChangeDomainFriendsCombatModifierGlobal(DomainTypes eDomain, int iChange);
+	int GetDomainFriendsCombatModifierGlobal(DomainTypes eDomain) const;
 	void ChangeDomainFreeExperience(DomainTypes eDomain, int iChange);
 	int GetDomainFreeExperience(DomainTypes) const;
 
@@ -1360,6 +1362,7 @@ public:
 
 	int GetImprovementExtraYield(ImprovementTypes eImprovement, YieldTypes eYield) const;
 	void ChangeImprovementExtraYield(ImprovementTypes eImprovement, YieldTypes eYield, int iChange);
+	int GetAdjacentImprovementYieldChangeFromBuildingsGlobal(ImprovementTypes eImprovement, ImprovementTypes eOtherImprovement, YieldTypes eYield) const;
 
 	int GetYieldModifierFromSpecialistGlobal(SpecialistTypes eSpecialist, YieldTypes eYield) const;
 	void ChangeYieldModifierFromSpecialistGlobal(SpecialistTypes eSpecialist, YieldTypes eYield, int iChange);
@@ -1706,6 +1709,9 @@ public:
 	void ChangeResearchTotalCostModifier(int iChange);
 	int GetResearchTotalCostModifierGoldenAge() const;
 	void ChangeResearchTotalCostModifierGoldenAge(int iChange);
+
+	int GetImmigrationRegressandModifier() const;
+	void ChangeImmigrationRegressandModifier(int iChange);
 
 	int GetLiberatedInfluence() const;
 	void SetLiberatedInfluence(int iValue);
@@ -2613,6 +2619,7 @@ protected:
 	int m_iGlobalRangedStrikeModifier;
 	int m_iResearchTotalCostModifier;
 	int m_iResearchTotalCostModifierGoldenAge;
+	int m_iImmigrationRegressandModifier;
 	int m_iLiberatedInfluence;
 	int m_iExtraUnitPlayerInstances;
 	int m_iConquestCasualtiesModifier;
@@ -2720,6 +2727,7 @@ protected:
 	std::vector<int> m_aiDomainFreeExperiencePerGreatWorkGlobal;
 	std::vector<int> m_aiDomainFreeExperiencesPerTurnGlobal;
 	std::vector<int> m_aiDomainEnemyCombatModifierGlobal;
+	std::vector<int> m_aiDomainFriendsCombatModifierGlobal;
 
 	std::map<int, int> m_piDomainFreeExperience;
 	std::tr1::unordered_map<int, int> m_piUnitTypePrmoteHealGlobal;

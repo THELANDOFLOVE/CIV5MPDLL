@@ -118,3 +118,11 @@ create table PolicyBranch_CivilizationLocked (
     PolicyBranchType text references PolicyBranchTypes(Type),
     CivilizationType text references Civilizations(Type)
 );
+--******************** Adjacent Improvement Yield ********************--
+create table Policy_AdjacentImprovementYieldChanges (
+    PolicyType text references Policies(Type),
+    ImprovementType text references Improvements(Type),
+    OtherImprovementType text references Improvements(Type),
+    YieldType text references Yields(Type),
+    Yield integer default 0
+);

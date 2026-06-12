@@ -108,3 +108,13 @@ create table Trait_BuildingClassFaithCost (
 
 alter table Civilizations add SpecialGAText text default 'TXT_KEY_GOLDEN_AGE_ANNOUNCE';
 alter table Civilizations add SpecialGAHelpText text default 'TXT_KEY_TP_GOLDEN_AGE_EFFECT';
+alter table Traits add NaturalWonderYieldModifierPerEra int default 0;
+alter table Traits add GoldenAgeTechChainBoost boolean default 0;
+--******************** Adjacent Improvement Yield ********************--
+create table Trait_AdjacentImprovementYieldChanges (
+    TraitType text references Traits(Type),
+    ImprovementType text references Improvements(Type),
+    OtherImprovementType text references Improvements(Type),
+    YieldType text references Yields(Type),
+    Yield integer default 0
+);

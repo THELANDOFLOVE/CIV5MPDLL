@@ -102,6 +102,7 @@ public:
 	int GetNaturalWonderFirstFinderGold() const;
 	int GetNaturalWonderSubsequentFinderGold() const;
 	int GetNaturalWonderYieldModifier() const;
+	int GetNaturalWonderYieldModifierPerEra() const;
 	int GetNaturalWonderHappinessModifier() const;
 	int GetNearbyImprovementCombatBonus() const;
 	int GetNearbyImprovementBonusRange() const;
@@ -186,6 +187,7 @@ public:
 	bool IsNoHillsImprovementMaintenance() const;
 	bool IsTechBoostFromCapitalScienceBuildings() const;
 	bool IsArtistGoldenAgeTechBoost() const;
+	bool IsGoldenAgeTechChainBoost() const;
 	bool IsStaysAliveZeroCities() const;
 	bool IsFaithFromUnimprovedForest() const;
 #if defined(MOD_TRAITS_ANY_BELIEF)
@@ -264,6 +266,16 @@ public:
 	int GetUnimprovedFeatureYieldChanges(FeatureTypes eIndex1, YieldTypes eIndex2) const;
 	int GetCityYieldModifierFromAdjacentFeature(FeatureTypes eIndex1, YieldTypes eIndex2) const;
 	int GetCityYieldPerAdjacentFeature(FeatureTypes eIndex1, YieldTypes eIndex2) const;
+
+	// AdjacentImprovementYieldChanges
+	struct AdjacentImprovementYieldChange {
+		int m_iImprovementType;
+		int m_iOtherImprovementType;
+		int m_iYieldType;
+		int m_iYield;
+	};
+	const std::vector<AdjacentImprovementYieldChange>& GetAdjacentImprovementYieldChanges() const { return m_vAdjacentImprovementYieldChanges; }
+
 	FreeResourceXCities GetFreeResourceXCities(ResourceTypes eResource) const;
 
 	bool IsFreePromotionUnitCombat(const int promotionID, const int unitCombatID) const;
@@ -394,6 +406,7 @@ protected:
 	int m_iNaturalWonderFirstFinderGold;
 	int m_iNaturalWonderSubsequentFinderGold;
 	int m_iNaturalWonderYieldModifier;
+	int m_iNaturalWonderYieldModifierPerEra;
 	int m_iNaturalWonderHappinessModifier;
 	int m_iNearbyImprovementCombatBonus;
 	int m_iNearbyImprovementBonusRange;
@@ -477,6 +490,7 @@ protected:
 	bool m_bNoHillsImprovementMaintenance;
 	bool m_bTechBoostFromCapitalScienceBuildings;
 	bool m_bArtistGoldenAgeTechBoost;
+	bool m_bGoldenAgeTechChainBoost;
 	bool m_bStaysAliveZeroCities;
 	bool m_bFaithFromUnimprovedForest;
 	bool m_bWLKDCityNoResearchCost;
@@ -609,6 +623,10 @@ protected:
 	int m_iShareAllyResearchPercent = 0;
 	bool m_bCanPurchaseWonderInGoldenAge = false;
 	bool m_bCanDiplomaticMarriage = false;
+
+	// AdjacentImprovementYieldChanges
+	std::vector<AdjacentImprovementYieldChange> m_vAdjacentImprovementYieldChanges;
+
 private:
 	CvTraitEntry(const CvTraitEntry&);
 	CvTraitEntry& operator=(const CvTraitEntry&);
@@ -842,6 +860,10 @@ public:
 	int GetNaturalWonderYieldModifier() const
 	{
 		return m_iNaturalWonderYieldModifier;
+	};
+	int GetNaturalWonderYieldModifierPerEra() const
+	{
+		return m_iNaturalWonderYieldModifierPerEra;
 	};
 	int GetNaturalWonderHappinessModifier() const
 	{
@@ -1132,6 +1154,10 @@ public:
 	{
 		return m_bArtistGoldenAgeTechBoost;
 	};
+	bool IsGoldenAgeTechChainBoost() const
+	{
+		return m_bGoldenAgeTechChainBoost;
+	};
 	bool IsStaysAliveZeroCities() const
 	{
 		return m_bStaysAliveZeroCities;
@@ -1254,6 +1280,7 @@ public:
 	int GetMovesChangeUnitCombat(const int unitCombatID) const;
 	int GetMaintenanceModifierUnitCombat(const int unitCombatID) const;
 	int GetImprovementYieldChange(ImprovementTypes eImprovement, YieldTypes eYield) const;
+	int GetAdjacentImprovementYieldChange(ImprovementTypes eImprovement, ImprovementTypes eOtherImprovement, YieldTypes eYield) const;
 #if defined(MOD_API_UNIFIED_YIELDS) && defined(MOD_API_PLOT_YIELDS)
 	int GetPlotYieldChange(PlotTypes ePlot, YieldTypes eYield) const;
 #endif
@@ -1487,6 +1514,7 @@ private:
 	int m_iNaturalWonderFirstFinderGold;
 	int m_iNaturalWonderSubsequentFinderGold;
 	int m_iNaturalWonderYieldModifier;
+	int m_iNaturalWonderYieldModifierPerEra;
 	int m_iNaturalWonderHappinessModifier;
 	int m_iNearbyImprovementCombatBonus;
 	int m_iNearbyImprovementBonusRange;
@@ -1565,6 +1593,7 @@ private:
 	bool m_bNoHillsImprovementMaintenance = false;
 	bool m_bTechBoostFromCapitalScienceBuildings = false;
 	bool m_bArtistGoldenAgeTechBoost = false;
+	bool m_bGoldenAgeTechChainBoost = false;
 	bool m_bStaysAliveZeroCities = false;
 	bool m_bFaithFromUnimprovedForest = false;
 #if defined(MOD_TRAITS_ANY_BELIEF)

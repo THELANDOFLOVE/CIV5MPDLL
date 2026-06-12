@@ -78,6 +78,7 @@ CvTraitEntry::CvTraitEntry() :
 	m_iNaturalWonderFirstFinderGold(0),
 	m_iNaturalWonderSubsequentFinderGold(0),
 	m_iNaturalWonderYieldModifier(0),
+	m_iNaturalWonderYieldModifierPerEra(0),
 	m_iNaturalWonderHappinessModifier(0),
 	m_iNearbyImprovementCombatBonus(0),
 	m_iNearbyImprovementBonusRange(0),
@@ -162,6 +163,7 @@ CvTraitEntry::CvTraitEntry() :
 	m_bNoHillsImprovementMaintenance(false),
 	m_bTechBoostFromCapitalScienceBuildings(false),
 	m_bArtistGoldenAgeTechBoost(false),
+	m_bGoldenAgeTechChainBoost(false),
 	m_bStaysAliveZeroCities(false),
 	m_bFaithFromUnimprovedForest(false),
 	m_bWLKDCityNoResearchCost(false),
@@ -545,6 +547,11 @@ int CvTraitEntry::GetNaturalWonderSubsequentFinderGold() const
 int CvTraitEntry::GetNaturalWonderYieldModifier() const
 {
 	return m_iNaturalWonderYieldModifier;
+}
+/// Accessor:: modifier to bonuses for having natural wonders worked or in territory, scaled by current era
+int CvTraitEntry::GetNaturalWonderYieldModifierPerEra() const
+{
+	return m_iNaturalWonderYieldModifierPerEra;
 }
 
 /// Accessor: modifier to happiness received from finding natural wonders
@@ -940,6 +947,10 @@ bool CvTraitEntry::IsTechBoostFromCapitalScienceBuildings() const
 bool CvTraitEntry::IsArtistGoldenAgeTechBoost() const
 {
 	return m_bArtistGoldenAgeTechBoost;
+}
+bool CvTraitEntry::IsGoldenAgeTechChainBoost() const
+{
+	return m_bGoldenAgeTechChainBoost;
 }
 /// Accessor:: does this civ still exist with zero cities?
 bool CvTraitEntry::IsStaysAliveZeroCities() const
@@ -1726,6 +1737,7 @@ bool CvTraitEntry::CacheResults(Database::Results& kResults, CvDatabaseUtility& 
 	m_iNaturalWonderFirstFinderGold         = kResults.GetInt("NaturalWonderFirstFinderGold");
 	m_iNaturalWonderSubsequentFinderGold    = kResults.GetInt("NaturalWonderSubsequentFinderGold");
 	m_iNaturalWonderYieldModifier           = kResults.GetInt("NaturalWonderYieldModifier");
+	m_iNaturalWonderYieldModifierPerEra      = kResults.GetInt("NaturalWonderYieldModifierPerEra");
 	m_iNaturalWonderHappinessModifier       = kResults.GetInt("NaturalWonderHappinessModifier");
 	m_iNearbyImprovementCombatBonus			= kResults.GetInt("NearbyImprovementCombatBonus");
 	m_iNearbyImprovementBonusRange			= kResults.GetInt("NearbyImprovementBonusRange");
@@ -1887,6 +1899,7 @@ bool CvTraitEntry::CacheResults(Database::Results& kResults, CvDatabaseUtility& 
 	m_bNoHillsImprovementMaintenance = kResults.GetBool("NoHillsImprovementMaintenance");
 	m_bTechBoostFromCapitalScienceBuildings = kResults.GetBool("TechBoostFromCapitalScienceBuildings");
 	m_bArtistGoldenAgeTechBoost = kResults.GetBool("ArtistGoldenAgeTechBoost");
+	m_bGoldenAgeTechChainBoost = kResults.GetBool("GoldenAgeTechChainBoost");
 	m_bStaysAliveZeroCities = kResults.GetBool("StaysAliveZeroCities");
 	m_bFaithFromUnimprovedForest = kResults.GetBool("FaithFromUnimprovedForest");
 
@@ -2116,6 +2129,33 @@ bool CvTraitEntry::CacheResults(Database::Results& kResults, CvDatabaseUtility& 
 
 			m_ppiImprovementYieldChanges[ImprovementID][YieldID] = yield;
 		}
+	}
+	//AdjacentImprovementYieldChanges
+	{
+		std::string strKey("Trait_AdjacentImprovementYieldChanges");
+		Database::Results* pResults = kUtility.GetResults(strKey);
+		if (pResults == NULL)
+		{
+			pResults = kUtility.PrepareResults(strKey,
+				"SELECT Imp1.ID as ImprovementID, Imp2.ID as OtherImprovementID, "
+				"Yields.ID as YieldID, Yield "
+				"FROM Trait_AdjacentImprovementYieldChanges "
+				"INNER JOIN Improvements AS Imp1 ON ImprovementType = Imp1.Type "
+				"INNER JOIN Improvements AS Imp2 ON OtherImprovementType = Imp2.Type "
+				"INNER JOIN Yields ON YieldType = Yields.Type "
+				"WHERE TraitType = ?");
+		}
+		pResults->Bind(1, szTraitType);
+		while (pResults->Step())
+		{
+			AdjacentImprovementYieldChange change;
+			change.m_iImprovementType = pResults->GetInt(0);
+			change.m_iOtherImprovementType = pResults->GetInt(1);
+			change.m_iYieldType = pResults->GetInt(2);
+			change.m_iYield = pResults->GetInt(3);
+			m_vAdjacentImprovementYieldChanges.push_back(change);
+		}
+		pResults->Reset();
 	}
 
 #if defined(MOD_API_UNIFIED_YIELDS) && defined(MOD_API_PLOT_YIELDS)
@@ -2757,6 +2797,7 @@ void CvPlayerTraits::InitPlayerTraits()
 			m_iNaturalWonderFirstFinderGold += trait->GetNaturalWonderFirstFinderGold();
 			m_iNaturalWonderSubsequentFinderGold += trait->GetNaturalWonderSubsequentFinderGold();
 			m_iNaturalWonderYieldModifier += trait->GetNaturalWonderYieldModifier();
+			m_iNaturalWonderYieldModifierPerEra += trait->GetNaturalWonderYieldModifierPerEra();
 			m_iNaturalWonderHappinessModifier += trait->GetNaturalWonderHappinessModifier();
 			m_iNearbyImprovementCombatBonus += trait->GetNearbyImprovementCombatBonus();
 			m_iNearbyImprovementBonusRange += trait->GetNearbyImprovementBonusRange();
@@ -2903,6 +2944,10 @@ void CvPlayerTraits::InitPlayerTraits()
 			if(trait->IsArtistGoldenAgeTechBoost())
 			{
 				m_bArtistGoldenAgeTechBoost = true;
+			}
+			if(trait->IsGoldenAgeTechChainBoost())
+			{
+				m_bGoldenAgeTechChainBoost = true;
 			}
 			if(trait->IsStaysAliveZeroCities())
 			{
@@ -3326,6 +3371,7 @@ void CvPlayerTraits::Reset()
 	m_iNaturalWonderFirstFinderGold = 0;
 	m_iNaturalWonderSubsequentFinderGold = 0;
 	m_iNaturalWonderYieldModifier = 0;
+	m_iNaturalWonderYieldModifierPerEra = 0;
 	m_iNaturalWonderHappinessModifier = 0;
 	m_iNearbyImprovementCombatBonus = 0;
 	m_iNearbyImprovementBonusRange = 0;
@@ -3402,6 +3448,7 @@ void CvPlayerTraits::Reset()
 	m_bNoHillsImprovementMaintenance = false;
 	m_bTechBoostFromCapitalScienceBuildings = false;
 	m_bArtistGoldenAgeTechBoost = false;
+	m_bGoldenAgeTechChainBoost = false;
 	m_bStaysAliveZeroCities = false;
 	m_bFaithFromUnimprovedForest = false;
 	m_bWLKDCityNoResearchCost = false;
@@ -3734,6 +3781,33 @@ int CvPlayerTraits::GetImprovementYieldChange(ImprovementTypes eImprovement, Yie
 	}
 
 	return m_ppaaiImprovementYieldChange[(int)eImprovement][(int)eYield];
+}
+
+/// Get adjacent improvement yield change from traits
+int CvPlayerTraits::GetAdjacentImprovementYieldChange(ImprovementTypes eImprovement, ImprovementTypes eOtherImprovement, YieldTypes eYield) const
+{
+	int rtnValue = 0;
+	for (int i = 0; i < GC.getNumTraitInfos(); i++)
+	{
+		if (HasTrait((TraitTypes)i))
+		{
+			CvTraitEntry* pTrait = GC.getTraitInfo((TraitTypes)i);
+			if (pTrait)
+			{
+				const auto& vChanges = pTrait->GetAdjacentImprovementYieldChanges();
+				for (const auto& change : vChanges)
+				{
+					if ((int)change.m_iImprovementType == (int)eImprovement &&
+						(int)change.m_iOtherImprovementType == (int)eOtherImprovement &&
+						(int)change.m_iYieldType == (int)eYield)
+					{
+						rtnValue += change.m_iYield;
+					}
+				}
+			}
+		}
+	}
+	return rtnValue;
 }
 
 #if defined(MOD_API_UNIFIED_YIELDS) && defined(MOD_API_PLOT_YIELDS)
@@ -4727,6 +4801,7 @@ void CvPlayerTraits::Read(FDataStream& kStream)
 	kStream >> m_iNaturalWonderSubsequentFinderGold;
 
 	kStream >> m_iNaturalWonderYieldModifier;
+	MOD_SERIALIZE_READ(159, kStream, m_iNaturalWonderYieldModifierPerEra, 0);
 	kStream >> m_iNaturalWonderHappinessModifier;
 
 	kStream >> m_iNearbyImprovementCombatBonus;
@@ -4920,6 +4995,7 @@ void CvPlayerTraits::Read(FDataStream& kStream)
 
 	kStream >> m_bTechBoostFromCapitalScienceBuildings;
 	kStream >> m_bArtistGoldenAgeTechBoost;
+	MOD_SERIALIZE_READ(159, kStream, m_bGoldenAgeTechChainBoost, false);
 	kStream >> m_bStaysAliveZeroCities;
 
 	kStream >> m_bFaithFromUnimprovedForest;
@@ -5260,6 +5336,7 @@ void CvPlayerTraits::Write(FDataStream& kStream)
 	kStream << m_iNaturalWonderFirstFinderGold;
 	kStream << m_iNaturalWonderSubsequentFinderGold;
 	kStream << m_iNaturalWonderYieldModifier;
+	MOD_SERIALIZE_WRITE(kStream, m_iNaturalWonderYieldModifierPerEra);
 	kStream << m_iNaturalWonderHappinessModifier;
 	kStream << m_iNearbyImprovementCombatBonus;
 	kStream << m_iNearbyImprovementBonusRange;
@@ -5337,6 +5414,7 @@ void CvPlayerTraits::Write(FDataStream& kStream)
 	kStream << m_bNoHillsImprovementMaintenance;
 	kStream << m_bTechBoostFromCapitalScienceBuildings;
 	kStream << m_bArtistGoldenAgeTechBoost;
+	MOD_SERIALIZE_WRITE(kStream, m_bGoldenAgeTechChainBoost);
 	kStream << m_bStaysAliveZeroCities;
 	kStream << m_bFaithFromUnimprovedForest;
 #if defined(MOD_TRAITS_ANY_BELIEF)

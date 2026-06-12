@@ -4528,6 +4528,13 @@ void CvCityCulture::CalculateBaseTourismBeforeModifiers(CvString& toolTipSink)
 			iPercent += iReligionPercent;
 		}
 	}
+	int iTotalX = m_pCity->GetCityBuildings()->GetLandmarksTourismPerXForeignFollowers();
+	if(iTotalX > 0)
+	{
+		int iForeignFollowers = kPlayer.GetReligions()->GetNumForeignFollowers(false);
+		int iBonus = iForeignFollowers / iTotalX;
+		iPercent += iBonus;
+	}
 #endif
 	if (iPercent > 0)
 	{

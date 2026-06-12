@@ -170,6 +170,8 @@ public:
 	int GetOutsideCapitalLandAttackMod() const;
 	int GetOnCapitalLandDefenseMod() const;
 	int GetOutsideCapitalLandDefenseMod() const;
+	int GetFixDamagePerPromotionMod() const;
+	int GetFixReducePerPromotionMod() const;
 	int GetBarbarianCombatBonus() const;
 	int GetAOEDamageOnKill() const;
 	int GetAOEDamageOnPillage() const;
@@ -281,6 +283,12 @@ public:
 	int GetAttackChanceFromAttackDamageFormula() const;
 	int GetMovementFromAttackDamageFormula() const;
 	int GetHealPercentFromAttackDamageFormula() const;
+	int GetGoldAttackBonusFormula() const;
+	int GetGoldDefenseBonusFormula() const;
+	int GetCultureAttackBonusFormula() const;
+	int GetCultureDefenseBonusFormula() const;
+	int GetFaithAttackBonusFormula() const;
+	int GetFaithDefenseBonusFormula() const;
 #endif
 #if defined(MOD_TROOPS_AND_CROPS_FOR_SP)
 	bool IsCrops() const;
@@ -309,6 +317,7 @@ public:
 	bool IsHealOutsideFriendly() const;
 	bool IsHillsDoubleMove() const;
 	bool IsRiverDoubleMove() const;
+	bool IsPeaceForCS() const;
 	bool IsIgnoreTerrainCost() const;
 #if defined(MOD_API_PLOT_BASED_DAMAGE)
 	bool IsIgnoreTerrainDamage() const;
@@ -517,6 +526,8 @@ public:
 	int GetOutsideFriendlyLandsInflictDamageChange() const;
 
 	int GetInstantYieldPerReligionFollowerConverted(YieldTypes eIndex) const;
+	int GetExploreYield(YieldTypes eIndex) const;
+	int GetEraPercent(YieldTypes eYield) const;
 
 protected:
 	int m_iLayerAnimationPath;
@@ -663,6 +674,12 @@ protected:
 	int m_eAttackChanceFromAttackDamageFormula;
 	int m_eMovementFromAttackDamageFormula;
 	int m_eHealPercentFromAttackDamageFormula;
+	int m_eGoldAttackBonusFormula;
+	int m_eGoldDefenseBonusFormula;
+	int m_eCultureAttackBonusFormula;
+	int m_eCultureDefenseBonusFormula;
+	int m_eFaithAttackBonusFormula;
+	int m_eFaithDefenseBonusFormula;
 #endif
 #if defined(MOD_TROOPS_AND_CROPS_FOR_SP)
 	bool m_bCrops;
@@ -777,6 +794,8 @@ protected:
 	int m_iOutsideCapitalLandAttackMod;
 	int m_iOnCapitalLandDefenseMod;
 	int m_iOutsideCapitalLandDefenseMod;
+	int m_iFixDamagePerPromotionMod;
+	int m_iFixReducePerPromotionMod;
 #endif
 
 	bool m_bCannotBeChosen;
@@ -795,6 +814,7 @@ protected:
 	bool m_bHealOutsideFriendly;
 	bool m_bHillsDoubleMove;
 	bool m_bRiverDoubleMove;
+	bool m_bPeaceForCS;
 	bool m_bIgnoreTerrainCost;
 #if defined(MOD_API_PLOT_BASED_DAMAGE)
 	bool m_bIgnoreTerrainDamage;
@@ -971,6 +991,8 @@ protected:
 	int m_iOutsideFriendlyLandsInflictDamageChange = 0;
 
 	std::tr1::array<int, NUM_YIELD_TYPES> m_aiInstantYieldPerReligionFollowerConverted;
+	std::tr1::array<int, NUM_YIELD_TYPES> m_aiExploreYield;
+	std::tr1::array<int, NUM_YIELD_TYPES> m_aiExploreEraPercent;
 };
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

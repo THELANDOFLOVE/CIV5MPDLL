@@ -1158,6 +1158,7 @@
     <Row Class="6" Name="PROMOTION_COLLATERAL_DAMAGE" Value="0"/>
     <Row Class="6" Name="PROMOTION_ADD_ENEMY_PROMOTIONS" Value="0"/>
     <Row Class="6" Name="PROMOTION_CITY_DESTROYER" Value="0"/>
+    <Row Class="4" Name="PROMOTION_INSTANT_MOVES" Value="0"/>
 
     <Row Class="6" Name="GLOBAL_PROMOTIONS_REMOVAL" Value="0"/>
 

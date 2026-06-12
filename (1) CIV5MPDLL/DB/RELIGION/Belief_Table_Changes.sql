@@ -48,6 +48,13 @@ create table Belief_ImprovementAdjacentCityYieldChanges (
     YieldType text references Yields(Type),
     Yield integer default 0
 );
+create table Belief_AdjacentImprovementYieldChanges (
+    BeliefType text references Beliefs(Type),
+    ImprovementType text references Improvements(Type),
+    OtherImprovementType text references Improvements(Type),
+    YieldType text references Yields(Type),
+    Yield integer default 0
+);
 --Need define Belief_MaxYieldModifierPerFollower before use this, Actual value = 100 + Modifier
 create table Belief_YieldModifierPerFollowerTimes100 (
     BeliefType text references Beliefs(Type),

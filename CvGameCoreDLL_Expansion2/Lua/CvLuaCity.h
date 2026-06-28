@@ -718,6 +718,7 @@ protected:
 	LUAAPIEXTN(CalculateTotalCorruptionScore, int);
 	LUAAPIEXTN(CalculateCorruptionScoreFromDistance, int);
 	LUAAPIEXTN(CalculateCorruptionScoreFromCoastalBonus, int);
+	LUAAPIEXTN(CalculateCorruptionScoreFromReligion, int);
 	LUAAPIEXTN(CalculateCorruptionScoreModifierFromSpy, int);
 	LUAAPIEXTN(CalculateCorruptionScoreModifierFromTrait, int);
 	LUAAPIEXTN(GetCorruptionScoreChangeFromBuilding, int);
@@ -726,9 +727,16 @@ protected:
 	LUAAPIEXTN(CalculateCorruptionScoreFromTrait, int);
 	LUAAPIEXTN(DecideCorruptionLevelForNormalCity, CorruptionLevelTypes, int);
 	LUAAPIEXTN(GetCorruptionScoreModifierFromPolicy, int);
+	LUAAPIEXTN(GetCorruptionScoreGlobalChangeFromBuilding, int);
+	LUAAPIEXTN(GetCorruptionScoreFromLocalHappiness, int);
+	
 	LUAAPIEXTN(GetMaxCorruptionLevel, int);
 	LUAAPIEXTN(IsCorruptionLevelReduceByOne, bool);
+	LUAAPIEXTN(GetReligionDamageModifier, int);
 #endif
+	static int lGetReligionTradeRouteHolyCityYield(lua_State* L);
+	static int lGetReligionTradeRouteHolyCityDestYield(lua_State* L);
+	static int lGetReligionTradeRouteSameReligionModifier(lua_State* L);
 	LUAAPIEXTN(GetHurryModifier, int);
 	LUAAPIEXTN(GetHurryModifierLocal, int);
 	LUAAPIEXTN(GetUnitMaxExperienceLocal, int);

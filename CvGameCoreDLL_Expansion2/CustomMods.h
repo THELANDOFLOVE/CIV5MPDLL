@@ -33,7 +33,7 @@
  ****************************************************************************/
 #define MOD_DLL_GUID {0xcf7d28a8, 0x1684, 0x4420, { 0xaf, 0x45, 0x11, 0x7, 0xc, 0xb, 0x8c, 0x4a }} // {CF7D28A8-1684-4420-AF45-11070C0B8C4A}
 #define MOD_DLL_NAME "CIV5 MPDLL"
-#define MOD_DLL_VERSION_NUMBER ((uint) 159)
+#define MOD_DLL_VERSION_NUMBER ((uint) 161)
 #define MOD_DLL_VERSION_STATUS ""			// a (alpha), b (beta) or blank (released)
 #define MOD_DLL_CUSTOM_BUILD_NAME ""
 
@@ -288,6 +288,8 @@
 #define MOD_PROMOTIONS_CROSS_ICE                    gCustomMods.isPROMOTIONS_CROSS_ICE()
 // Adds a HalfMove feature to the UnitPromotions_Terrains and UnitPromotions_Features tables
 #define MOD_PROMOTIONS_HALF_MOVE                    gCustomMods.isPROMOTIONS_HALF_MOVE()
+// Immediately grants extra movement points when gaining a promotion with MovesChange
+#define MOD_PROMOTION_INSTANT_MOVES                 gCustomMods.isPROMOTION_INSTANT_MOVES()
 // Permits Deep Water (Ocean) embarkation for hovering units - AFFECTS SAVE GAME DATA FORMAT
 #define MOD_PROMOTIONS_DEEP_WATER_EMBARKATION       gCustomMods.isPROMOTIONS_DEEP_WATER_EMBARKATION()
 // Permits naval units to transfer their moves to Great Admirals (like land units can to Great Generals) (v39)
@@ -1364,24 +1366,63 @@ enum BattleTypeTypes
 	} else {																	\
 		for (int iI = 0; iI < size; iI++) { (member)[iI] = def; }				\
 	}
+#define MOD_SERIALIZE_READ_UNORDERED_MAP(version, stream, map) \
+	if (uiDllSaveVersion >= version) { \
+		int iLen = 0; \
+		stream >> iLen; \
+		map.clear(); \
+		for (int i = 0; i < iLen; i++) { \
+			decltype(map)::key_type key = 0; \
+			decltype(map)::mapped_type value = 0; \
+			stream >> key; \
+			stream >> value; \
+			map[key] = value; \
+		} \
+	} else { \
+		map.clear(); \
+	}
+#define MOD_SERIALIZE_WRITE_UNORDERED_MAP(stream, map) \
+	CvAssert(uiDllSaveVersion == MOD_DLL_VERSION_NUMBER); \
+	stream << map.size(); \
+	for (auto iter = map.begin(); iter != map.end(); iter++) { \
+		stream << iter->first; \
+		stream << iter->second; \
+	}
 #define MOD_SERIALIZE_INIT_WRITE(stream) uint uiDllSaveVersion = MOD_DLL_VERSION_NUMBER; stream << uiDllSaveVersion
 #define MOD_SERIALIZE_WRITE(stream, member) CvAssert(uiDllSaveVersion == MOD_DLL_VERSION_NUMBER); stream << member
 #define MOD_SERIALIZE_WRITE_AUTO(stream, member) CvAssert(uiDllSaveVersion == MOD_DLL_VERSION_NUMBER); stream << member
 #define MOD_SERIALIZE_WRITE_ARRAY(stream, member, type, size) CvAssert(uiDllSaveVersion == MOD_DLL_VERSION_NUMBER); stream << ArrayWrapper<type>(size, member)
 #define MOD_SERIALIZE_WRITE_CONSTARRAY(stream, member, type, size) CvAssert(uiDllSaveVersion == MOD_DLL_VERSION_NUMBER); stream << ArrayWrapperConst<type>(size, member)
 #define MOD_SERIALIZE_WRITE_HASH(stream, member, type, size, obj) CvAssert(uiDllSaveVersion == MOD_DLL_VERSION_NUMBER); CvInfosSerializationHelper::WriteHashedDataArray<obj, type>(stream, member, size)
+#define MOD_SERIALIZE_READ_VECTOR(version, stream, member, size, def_val) \
+	if (uiDllSaveVersion >= version) { stream >> member; } \
+	else { member.clear(); member.resize(size, def_val); }
+#define MOD_SERIALIZE_WRITE_VECTOR(stream, member) CvAssert(uiDllSaveVersion == MOD_DLL_VERSION_NUMBER); stream << member
+#define MOD_SERIALIZE_READ_HASH_VECTOR(version, stream, member, size, def_val) \
+	if (uiDllSaveVersion >= version) { \
+		CvInfosSerializationHelper::ReadHashedDataArray(stream, member); \
+	} else { \
+		member.clear(); member.resize(size, def_val); \
+	}
+#define MOD_SERIALIZE_WRITE_HASH_VECTOR(stream, member, type) CvAssert(uiDllSaveVersion == MOD_DLL_VERSION_NUMBER); CvInfosSerializationHelper::WriteHashedDataArray<type>(stream, member)
 #else
 #define MOD_SERIALIZE_INIT_READ(stream) __noop
 #define MOD_SERIALIZE_READ(version, stream, member, def) __noop
 #define MOD_SERIALIZE_READ_AUTO(version, stream, member, size, def) __noop
 #define MOD_SERIALIZE_READ_ARRAY(version, stream, member, type, size, def) __noop
 #define MOD_SERIALIZE_READ_HASH(version, stream, member, type, size, def) __noop
+#define MOD_SERIALIZE_READ_UNORDERED_MAP(version, stream, map) __noop
 #define MOD_SERIALIZE_INIT_WRITE(stream) __noop
 #define MOD_SERIALIZE_WRITE(stream, member) __noop
 #define MOD_SERIALIZE_WRITE_AUTO(stream, member) __noop
 #define MOD_SERIALIZE_WRITE_ARRAY(stream, member, type, size) __noop
 #define MOD_SERIALIZE_WRITE_ARRAYCONST(stream, member, type, size) __noop
 #define MOD_SERIALIZE_WRITE_HASH(stream, member, type, size) __noop
+#define MOD_SERIALIZE_WRITE_UNORDERED_MAP(stream, map) __noop
+#define MOD_SERIALIZE_READ_VECTOR(version, stream, member, size, def_val) __noop
+#define MOD_SERIALIZE_WRITE_VECTOR(stream, member) __noop
+#define MOD_SERIALIZE_READ_HASH_VECTOR(version, stream, member, size, def_val) __noop
+#define MOD_SERIALIZE_WRITE_HASH_VECTOR(stream, member, type) __noop
 #endif
 
 #define SERIALIZE_READ_UNORDERED_MAP(stream, map) \
@@ -1403,8 +1444,8 @@ enum BattleTypeTypes
 	stream << map.size(); \
 	for (auto iter = map.begin(); iter != map.end(); iter++) \
 	{ \
-		stream << (int) iter->first; \
-		stream << (int) iter->second; \
+		stream << iter->first; \
+		stream << iter->second; \
 	} \
 }
 
@@ -1528,6 +1569,7 @@ public:
 	MOD_OPT_DECL(PROMOTIONS_CROSS_OCEANS);
 	MOD_OPT_DECL(PROMOTIONS_CROSS_ICE);
 	MOD_OPT_DECL(PROMOTIONS_HALF_MOVE);
+	MOD_OPT_DECL(PROMOTION_INSTANT_MOVES);
 	MOD_OPT_DECL(PROMOTIONS_DEEP_WATER_EMBARKATION);
 	MOD_OPT_DECL(PROMOTIONS_FLAGSHIP);
 	MOD_OPT_DECL(PROMOTIONS_UNIT_NAMING);

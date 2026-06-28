@@ -25,6 +25,13 @@ extern "C" ICvGameContext1* DllGetGameContext()
 typedef bool(__thiscall *SetRichPresence_t)(void* ThisPointer, const char* Key, const char* Value);
 typedef const char* (__thiscall *GetPersonaName_t)(void* ThisPointer, const char *);
 typedef bool (*SteamAPI_Init_t)();
+// VS2022 CRT compat stubs (VS2008 CRT lacks these symbols)
+extern "C" {
+    int __Init_thread_epoch = 0;
+    void __cdecl __std_terminate() { abort(); }
+}
+void __cdecl operator delete(void* ptr, unsigned int) throw() { ::operator delete(ptr); }
+
 //------------------------------------------------------------------------------
 BOOL APIENTRY DllMain(HANDLE hModule,
                       DWORD  ul_reason_for_call,

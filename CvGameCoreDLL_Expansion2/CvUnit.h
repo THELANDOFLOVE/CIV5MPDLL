@@ -102,6 +102,13 @@ struct CvUnitCaptureDefinition
 	}
 };
 
+// Combat bonus formula entry — container-based extensible formula storage
+struct CombatBonusFormulaEntry {
+	int m_iFormulaId;   // Lua formula ID (NO_LUA_FORMULA = none)
+	int m_iInputType;   // YieldTypes cast to int (determines the input value)
+	bool m_bIsAttack;   // true = attack, false = defense
+};
+
 class CvUnit : public CvGameObjectExtractable
 {
 
@@ -1046,6 +1053,11 @@ public:
 	void ChangeSiegeInflictDamageChange(int iChange);
 	void ChangeSiegeInflictDamageChangeMaxHPPercent(int iChange);
 
+	int GetFixDamagePerPromotionTotal() const;
+	void ChangeFixDamagePerPromotionTotal(int iChange);
+	int GetFixReducePerPromotionTotal() const;
+	void ChangeFixReducePerPromotionTotal(int iChange);
+
 	bool IsRangeBackWhenDefense() const;
 	void ChangeNumRangeBackWhenDefense(int iChange);
 
@@ -1088,6 +1100,10 @@ public:
 	int getRiverDoubleMoveCount() const;
 	bool isRiverDoubleMove() const;
 	void changeRiverDoubleMoveCount(int iChange);
+
+	int getPeaceForCSCount() const;
+	bool isPeaceForCSUnit() const;
+	void changePeaceForCSCount(int iChange);
 
 	int getImmuneToFirstStrikesCount() const;
 	void changeImmuneToFirstStrikesCount(int iChange);
@@ -1240,6 +1256,9 @@ public:
 	int getNumAttacksMadeThisTurn() const;
 	void changeExtraAttacks(int iChange);
 	void ChangeMadeAttackNum(int iChange);
+
+	int GetNumPromotions() const;
+	void ChangeNumPromotions(int iChange);
 
 	// Citadel
 	bool IsNearEnemyCitadel(int& iCitadelDamage);
@@ -1947,6 +1966,30 @@ public:
 
 	void setHealPercentFromAttackDamageFormula(int iValue);
 	const int GetHealPercentFromAttackDamageFormula() const;
+
+	// Combat bonus formula container API
+	void AddCombatBonusFormula(int iFormulaId, int iInputType, bool bIsAttack);
+	int GetCombatBonusFromFormulas(bool bIsAttack) const;
+	// Backward-compatible Lua wrappers
+	int GetGoldAttackBonus() const;
+	int GetGoldDefenseBonus() const;
+	int GetCultureAttackBonus() const;
+	int GetCultureDefenseBonus() const;
+	int GetFaithAttackBonus() const;
+	int GetFaithDefenseBonus() const;
+	int GetDynamicCombatModifierFromPromotions(const CvUnit* pOtherUnit, bool bAttacking) const;
+	const int GetDifferentReligionAttackModifier() const;
+	void ChangeDifferentReligionAttackModifier(int iValue);
+	const int GetDifferentReligionDefenseModifier() const;
+	void ChangeDifferentReligionDefenseModifier(int iValue);
+	const int GetGoldenAgeTurnAttackModifier() const;
+	void ChangeGoldenAgeTurnAttackModifier(int iValue);
+	const int GetGoldenAgeTurnDefenseModifier() const;
+	void ChangeGoldenAgeTurnDefenseModifier(int iValue);
+	const int GetFollowerCountCombatModifier() const;
+	void ChangeFollowerCountCombatModifier(int iValue);
+	const int GetFollowingCityCountCombatModifier() const;
+	void ChangeFollowingCityCountCombatModifier(int iValue);
 #endif
 #if defined(MOD_TROOPS_AND_CROPS_FOR_SP)
 	const int GetCrops() const;
@@ -2106,6 +2149,10 @@ public:
 	int GetInstantYieldPerReligionFollowerConverted(YieldTypes eIndex) const;
 	void ChangeInstantYieldPerReligionFollowerConverted(YieldTypes eIndex, int iChange);
 
+	int GetExploreYield(YieldTypes eIndex) const;
+	void ChangeExploreYield(YieldTypes eIndex, int iChange);
+	int GetEraPercent() const;
+
 	void ChangePromotionBuilds(BuildTypes eIndex,int iChange);
     bool IsPromotionBuilds(BuildTypes eIndex) const;
 
@@ -2183,6 +2230,7 @@ protected:
 	FAutoVariable<int, CvUnit> m_iHealOutsideFriendlyCount;
 	FAutoVariable<int, CvUnit> m_iHillsDoubleMoveCount;
 	FAutoVariable<int, CvUnit> m_iRiverDoubleMoveCount;
+	int m_iPeaceForCSCount;
 	FAutoVariable<int, CvUnit> m_iImmuneToFirstStrikesCount;
 	FAutoVariable<int, CvUnit> m_iExtraVisibilityRange;
 #if defined(MOD_PROMOTIONS_VARIABLE_RECON)
@@ -2602,6 +2650,13 @@ protected:
 	int m_eAttackChanceFromAttackDamageFormula;
 	int m_eMovementFromAttackDamageFormula;
 	int m_eHealPercentFromAttackDamageFormula;
+	std::vector<CombatBonusFormulaEntry> m_veCombatBonusFormulas;
+	int m_iDifferentReligionAttackModifier;
+	int m_iDifferentReligionDefenseModifier;
+	int m_iGoldenAgeTurnAttackModifier;
+	int m_iGoldenAgeTurnDefenseModifier;
+	int m_iFollowerCountCombatModifier;
+	int m_iFollowingCityCountCombatModifier;
 #endif
 #if defined(MOD_TROOPS_AND_CROPS_FOR_SP)
 	int m_iCrops;
@@ -2625,12 +2680,17 @@ protected:
 	int m_iSiegeInflictDamageChange = 0;
 	int m_iSiegeInflictDamageChangeMaxHPPercent = 0;
 
+	int m_iFixDamagePerPromotionTotal = 0;
+	int m_iFixReducePerPromotionTotal = 0;
+
 	int m_iNumRangeBackWhenDefense = 0;
 
 	int m_iHeavyChargeAddMoves = 0;
 	int m_iHeavyChargeExtraDamage = 0;
 	int m_iHeavyChargeCollateralFixed = 0;
 	int m_iHeavyChargeCollateralPercent = 0;
+
+	int m_iNumPromotions = 0;
 
 	int m_iOutsideFriendlyLandsInflictDamageChange = 0;
 	
@@ -2672,8 +2732,10 @@ protected:
 
 	int m_iCombatStrengthChangeFromKilledUnits = 0;
 	int m_iRangedCombatStrengthChangeFromKilledUnits = 0;
+    int m_iEraPercent = 0;
 
 	std::tr1::array<int, NUM_YIELD_TYPES> m_aiInstantYieldPerReligionFollowerConverted;
+	std::tr1::array<int, NUM_YIELD_TYPES> m_aiExploreYield;
 
 private:
 

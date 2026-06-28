@@ -51,3 +51,25 @@ create table Build_ResourceRemove (
     BuildType text references Builds(Type),
     ResourceType text references Resources(Type)
 );
+
+-- Build action modifies plot terrain (e.g., land reclamation/canal building)
+-- Empty/NULL TerrainType means this build does not involve terrain modification
+create table Build_TerrainChange (
+    BuildType text references Builds(Type),
+    TerrainType text references Terrains(Type)
+);
+
+-- Terrains where the build action is allowed (whitelist)
+-- When records exist, the build is only available on listed terrains; unrestricted when no records
+create table Build_ValidTerrains (
+    BuildType text references Builds(Type),
+    TerrainType text references Terrains(Type)
+);
+
+-- Build action requires adjacent terrain (at least one match among 6 adjacent plots)
+-- When records exist, the requirement must be met; unrestricted when no records
+create table Build_AdjacentTerrainRequired (
+    BuildType text references Builds(Type),
+    TerrainType text references Terrains(Type)
+);
+

@@ -213,6 +213,8 @@ CvCity::CvCity() :
 
 	, m_iResetDamageValue("CvCity::m_iResetDamageValue", m_syncArchive)
 	, m_iReduceDamageValue("CvCity::m_iReduceDamageValue", m_syncArchive)
+	, m_iFollowerCountDamageModifier("CvCity::m_iFollowerCountDamageModifier", m_syncArchive)
+	, m_iFollowingCityCountDamageModifier("CvCity::m_iFollowingCityCountDamageModifier", m_syncArchive)
 
 
 	, m_iWaterTileDamage("CvCity::m_iWaterTileDamage", m_syncArchive)
@@ -918,7 +920,7 @@ void CvCity::init(int iID, PlayerTypes eOwner, int iX, int iY, bool bBumpUnits, 
 			{
 				if(bGarrisonFreeMaintenance)
 				{
-					kPlayer.changeExtraUnitCost(iUnit->getUnitInfo().GetExtraMaintenanceCost());
+					kPlayer.changeExtraUnitCost(-iUnit->getUnitInfo().GetExtraMaintenanceCost());
 				}
 
 				if (getOwner() == iUnit->getOwner())
@@ -1108,6 +1110,8 @@ void CvCity::reset(int iID, PlayerTypes eOwner, int iX, int iY, bool bConstructo
 
 	m_iResetDamageValue = 0;
 	m_iReduceDamageValue = 0;
+	m_iFollowerCountDamageModifier = 0;
+	m_iFollowingCityCountDamageModifier = 0;
 
 
 	m_iWaterTileDamage = 0;
@@ -2132,7 +2136,7 @@ void CvCity::kill()
 
 		if(pLoopUnit)
 		{
-			if(bGarrisonFreeMaintenance && pLoopUnit->GetBaseCombatStrength(true/*bIgnoreEmbarked*/) > 0 && pLoopUnit->getDomainType() == DOMAIN_LAND)
+			if(bGarrisonFreeMaintenance && pLoopUnit->GetBaseCombatStrength(true/*bIgnoreEmbarked*/) > 0 && pLoopUnit->getDomainType() == DOMAIN_LAND && pLoopUnit->getOwner() == eOwner)
 			{
 				GET_PLAYER(eOwner).changeExtraUnitCost(pLoopUnit->getUnitInfo().GetExtraMaintenanceCost());
 			}
@@ -3815,6 +3819,37 @@ int CvCity::GetImprovementExtraYield(ImprovementTypes eImprovement, YieldTypes e
 	CvAssertMsg(eYield > -1 && eYield < NUM_YIELD_TYPES, "Invalid yield index.");
 	return ModifierLookup(m_yieldChanges[eYield].forImprovement, eImprovement);
 
+}
+
+//	--------------------------------------------------------------------------------
+/// Get adjacent improvement yield change from buildings in this city
+int CvCity::GetAdjacentImprovementYieldChangeFromBuildings(ImprovementTypes eImprovement, ImprovementTypes eOtherImprovement, YieldTypes eYield) const
+{
+	VALIDATE_OBJECT
+	int rtnValue = 0;
+	const std::vector<BuildingTypes>& vCached = GC.GetGameBuildings()->GetBuildingsWithAdjacentYield();
+	for (size_t i = 0; i < vCached.size(); i++)
+	{
+		BuildingTypes eBuilding = vCached[i];
+		if (GetCityBuildings()->GetNumActiveBuilding(eBuilding) > 0)
+		{
+			CvBuildingEntry* pBuilding = GC.getBuildingInfo(eBuilding);
+			if (pBuilding)
+			{
+				const auto& vChanges = pBuilding->GetAdjacentImprovementYieldChanges();
+				for (const auto& change : vChanges)
+				{
+					if ((int)change.m_iImprovementType == (int)eImprovement &&
+						(int)change.m_iOtherImprovementType == (int)eOtherImprovement &&
+						(int)change.m_iYieldType == (int)eYield)
+					{
+						rtnValue += change.m_iYield;
+					}
+				}
+			}
+		}
+	}
+	return rtnValue;
 }
 
 //	--------------------------------------------------------------------------------
@@ -7741,6 +7776,8 @@ void CvCity::processBuilding(BuildingTypes eBuilding, int iChange, bool bFirst, 
 
 		changeResetDamageValue(pBuildingInfo->GetResetDamageValue()* iChange);
 		changeReduceDamageValue(pBuildingInfo->GetReduceDamageValue()* iChange);
+		changeFollowerCountDamageModifier(pBuildingInfo->GetFollowerCountDamageModifier()* iChange);
+		changeFollowingCityCountDamageModifier(pBuildingInfo->GetFollowingCityCountDamageModifier()* iChange);
 
 		changeWaterTileDamage(pBuildingInfo->GetWaterTileDamage()* iChange);
 		changeWaterTileMovementReduce(pBuildingInfo->GetWaterTileMovementReduce()* iChange);
@@ -7809,6 +7846,7 @@ void CvCity::processBuilding(BuildingTypes eBuilding, int iChange, bool bFirst, 
 		m_pCityBuildings->ChangeBuildingProductionModifier(pBuildingInfo->GetBuildingProductionModifier() * iChange);
 		m_pCityBuildings->ChangeMissionaryExtraSpreads(pBuildingInfo->GetExtraMissionarySpreads() * iChange);
 		m_pCityBuildings->ChangeLandmarksTourismPercent(pBuildingInfo->GetLandmarksTourismPercent() * iChange);
+		m_pCityBuildings->ChangeLandmarksTourismPerXForeignFollowers(pBuildingInfo->GetLandmarksTourismPerXForeignFollowers() * iChange);
 		m_pCityBuildings->ChangeGreatWorksTourismModifier(pBuildingInfo->GetGreatWorksTourismModifier() * iChange);
 		m_pCityBuildings->ChangeNumBuildingsFromFaith((pBuildingInfo->GetFaithCost() > 0 && pBuildingInfo->IsUnlockedByBelief() && pBuildingInfo->GetProductionCost() == -1) ? iChange : 0);
 		ChangeWonderProductionModifier(pBuildingInfo->GetWonderProductionModifier() * iChange);
@@ -7884,8 +7922,9 @@ void CvCity::processBuilding(BuildingTypes eBuilding, int iChange, bool bFirst, 
 		ChangeCorruptionScoreChangeFromBuilding(pBuildingInfo->GetCorruptionScoreChange() * iChange);
 		ChangeCorruptionLevelChangeFromBuilding(pBuildingInfo->GetCorruptionLevelChange() * iChange);
 
-		if (pBuildingInfo->GetCorruptionScoreChange() * iChange != 0 || 
-			pBuildingInfo->GetCorruptionLevelChange() * iChange != 0)
+		if (pBuildingInfo->GetCorruptionScoreChange() * iChange != 0 ||
+			pBuildingInfo->GetCorruptionLevelChange() * iChange != 0 ||
+			pBuildingInfo->GetCorruptionScoreGlobalChange() * iChange != 0)
 		{
 			UpdateCorruption();
 		}
@@ -8556,6 +8595,11 @@ void CvCity::UpdateReligion(ReligionTypes eNewMajority)
 {
 	updateYield();
 
+#ifdef MOD_GLOBAL_CORRUPTION
+	// Ensure corruption cache is fresh before computing Belief_CorruptionScoreYieldRate
+	UpdateCorruption();
+#endif
+
 	// Reset city level yields
 	for(int iYield = 0; iYield < NUM_YIELD_TYPES; iYield++)
 	{
@@ -8609,6 +8653,41 @@ void CvCity::UpdateReligion(ReligionTypes eNewMajority)
 					}
 				}
 
+				if (pReligion)
+				{
+					int iLocalHappinessRate = pReligion->m_Beliefs.GetLocalHappinessYieldRate(eYield);
+					if (iLocalHappinessRate != 0)
+					{
+						iReligionYieldChange += GetLocalHappiness() * iLocalHappinessRate / 100;
+					}
+				}
+				if (eSecondaryPantheon != NO_BELIEF)
+				{
+					int iSecondaryRate = pSecondaryPantheon->GetLocalHappinessYieldRate(eYield);
+					if (iSecondaryRate != 0)
+					{
+						iReligionYieldChange += GetLocalHappiness() * iSecondaryRate / 100;
+					}
+				}
+
+
+					if (pReligion)
+					{
+						int iCorruptionRate = pReligion->m_Beliefs.GetCorruptionScoreYieldRate(eYield);
+						if (iCorruptionRate != 0)
+						{
+							// Use CalculateTotalCorruptionScore() directly to avoid stale cache
+							iReligionYieldChange += CalculateTotalCorruptionScore() * iCorruptionRate / 10000;
+						}
+					}
+					if (eSecondaryPantheon != NO_BELIEF)
+					{
+						int iSecCorruptionRate = pSecondaryPantheon->GetCorruptionScoreYieldRate(eYield);
+						if (iSecCorruptionRate != 0)
+						{
+							iReligionYieldChange += CalculateTotalCorruptionScore() * iSecCorruptionRate / 10000;
+						}
+					}
 				ChangeBaseYieldRateFromReligion(eYield, iReligionYieldChange);
 
 				if(IsRouteToCapitalConnected())
@@ -19935,6 +20014,8 @@ void CvCity::read(FDataStream& kStream)
 	
 	kStream >> m_iResetDamageValue;
 	kStream >> m_iReduceDamageValue;
+	MOD_SERIALIZE_READ(161, kStream, m_iFollowerCountDamageModifier, 0);
+	MOD_SERIALIZE_READ(161, kStream, m_iFollowingCityCountDamageModifier, 0);
 
 
 	kStream >> m_iWaterTileDamage;
@@ -20451,6 +20532,8 @@ void CvCity::write(FDataStream& kStream) const
 
 	kStream << m_iResetDamageValue;
 	kStream << m_iReduceDamageValue;
+	MOD_SERIALIZE_WRITE(kStream, m_iFollowerCountDamageModifier);
+	MOD_SERIALIZE_WRITE(kStream, m_iFollowingCityCountDamageModifier);
 
 	kStream << m_iWaterTileDamage;
 	kStream << m_iWaterTileMovementReduce;
@@ -21106,8 +21189,122 @@ void CvCity::changeReduceDamageValue(int iChange)
 		}
 }
 
+int CvCity::getFollowerCountDamageModifier() const
+{
+	VALIDATE_OBJECT
+	return m_iFollowerCountDamageModifier;
+}
 
+void CvCity::changeFollowerCountDamageModifier(int iChange)
+{
+	VALIDATE_OBJECT
+	if (iChange != 0)
+	{
+		m_iFollowerCountDamageModifier += iChange;
+	}
+}
 
+int CvCity::getFollowingCityCountDamageModifier() const
+{
+	VALIDATE_OBJECT
+	return m_iFollowingCityCountDamageModifier;
+}
+
+void CvCity::changeFollowingCityCountDamageModifier(int iChange)
+{
+	VALIDATE_OBJECT
+	if (iChange != 0)
+	{
+		m_iFollowingCityCountDamageModifier += iChange;
+	}
+}
+
+int CvCity::GetReligionDamageModifier() const
+{
+	VALIDATE_OBJECT
+	int iModifier = 0;
+#if defined(MOD_BUILDING_NEW_EFFECT_FOR_SP)
+	if (getFollowerCountDamageModifier() != 0 || getFollowingCityCountDamageModifier() != 0)
+	{
+		ReligionTypes eReligion = GetCityReligions()->GetReligiousMajority();
+		if (eReligion != NO_RELIGION && GetCityReligions()->IsHolyCityForReligion(eReligion))
+		{
+			if (getFollowerCountDamageModifier() != 0)
+			{
+				int iFollowers = GC.getGame().GetGameReligions()->GetNumFollowers(eReligion);
+				iModifier += getFollowerCountDamageModifier() * iFollowers / 100;
+			}
+			if (getFollowingCityCountDamageModifier() != 0)
+			{
+				int iCities = GC.getGame().GetGameReligions()->GetNumCitiesFollowing(eReligion);
+				iModifier += getFollowingCityCountDamageModifier() * iCities / 100;
+			}
+		}
+	}
+#endif
+	return iModifier;
+}
+
+int CvCity::GetReligionTradeRouteHolyCityYield(CvCity* pDestCity, YieldTypes eYield) const
+{
+	VALIDATE_OBJECT
+	int iValue = 0;
+	ReligionTypes eMajority = GetCityReligions()->GetReligiousMajority();
+	if (eMajority > RELIGION_PANTHEON && pDestCity)
+	{
+		const CvReligion* pReligion = GC.getGame().GetGameReligions()->GetReligion(eMajority, getOwner());
+		if (pReligion && pDestCity->getX() == pReligion->m_iHolyCityX && pDestCity->getY() == pReligion->m_iHolyCityY)
+		{
+			iValue += pReligion->m_Beliefs.GetTradeRouteToHolyCityYield(eYield);
+			BeliefTypes eSecondaryPantheon = GetCityReligions()->GetSecondaryReligionPantheonBelief();
+			if (eSecondaryPantheon != NO_BELIEF)
+			{
+				iValue += GC.GetGameBeliefs()->GetEntry(eSecondaryPantheon)->GetTradeRouteToHolyCityYield(eYield);
+			}
+		}
+	}
+	return iValue;
+}
+
+int CvCity::GetReligionTradeRouteHolyCityDestYield(CvCity* pDestCity, YieldTypes eYield) const
+{
+	VALIDATE_OBJECT
+	int iValue = 0;
+	ReligionTypes eMajority = GetCityReligions()->GetReligiousMajority();
+	if (eMajority > RELIGION_PANTHEON && pDestCity)
+	{
+		const CvReligion* pReligion = GC.getGame().GetGameReligions()->GetReligion(eMajority, getOwner());
+		if (pReligion && pDestCity->getX() == pReligion->m_iHolyCityX && pDestCity->getY() == pReligion->m_iHolyCityY)
+		{
+			iValue += pReligion->m_Beliefs.GetTradeRouteToHolyCityDestYield(eYield);
+			BeliefTypes eSecondaryPantheon = GetCityReligions()->GetSecondaryReligionPantheonBelief();
+			if (eSecondaryPantheon != NO_BELIEF)
+			{
+				iValue += GC.GetGameBeliefs()->GetEntry(eSecondaryPantheon)->GetTradeRouteToHolyCityDestYield(eYield);
+			}
+		}
+	}
+	return iValue;
+}
+
+int CvCity::GetReligionTradeRouteSameReligionModifier(CvCity* pDestCity, YieldTypes eYield) const
+{
+	VALIDATE_OBJECT
+	int iModifier = 0;
+	if (pDestCity)
+	{
+		ReligionTypes eOriginReligion = GetCityReligions()->GetReligiousMajority();
+		if (eOriginReligion > RELIGION_PANTHEON && eOriginReligion == pDestCity->GetCityReligions()->GetReligiousMajority())
+		{
+			const CvReligion* pReligion = GC.getGame().GetGameReligions()->GetReligion(eOriginReligion, getOwner());
+			if (pReligion)
+			{
+				iModifier = pReligion->m_Beliefs.GetTradeRouteSameReligionYieldModifier(eYield);
+			}
+		}
+	}
+	return iModifier;
+}
 
 //	--------------------------------------------------------------------------------
 int CvCity::getWaterTileDamage() const
@@ -23649,6 +23846,33 @@ int CvCity::CalculateCorruptionScoreFromResource() const
 	return resourceInfo != nullptr ? resourceInfo->GetCorruptionScoreChange() : 0;
 }
 
+int CvCity::CalculateCorruptionScoreFromReligion() const
+{
+	int iChange = 0;
+
+	ReligionTypes eMajority = GetCityReligions()->GetReligiousMajority();
+	if (eMajority >= RELIGION_PANTHEON)
+	{
+		const CvReligion* pReligion = GC.getGame().GetGameReligions()->GetReligion(eMajority, getOwner());
+		if (pReligion)
+		{
+			iChange += pReligion->m_Beliefs.GetCityCorruptionScoreChange();
+		}
+	}
+
+	BeliefTypes eSecondaryPantheon = GetCityReligions()->GetSecondaryReligionPantheonBelief();
+	if (eSecondaryPantheon != NO_BELIEF)
+	{
+		CvBeliefEntry* pBelief = GC.GetGameBeliefs()->GetEntry(eSecondaryPantheon);
+		if (pBelief)
+		{
+			iChange += pBelief->GetCityCorruptionScoreChange();
+		}
+	}
+
+	return iChange;
+}
+
 int CvCity::CalculateCorruptionScoreFromTrait() const
 {
 	CvPlayerAI& owner = GET_PLAYER(getOwner());
@@ -23669,8 +23893,12 @@ int CvCity::CalculateTotalCorruptionScore() const
 	score += CalculateCorruptionScoreFromDistance();
 	score += CalculateCorruptionScoreFromCoastalBonus();
 	score += CalculateCorruptionScoreFromResource();
+	score += CalculateCorruptionScoreFromReligion();
 	score += GetCorruptionScoreChangeFromBuilding();
+	score += GetCorruptionScoreGlobalChangeFromBuilding();
 	score += CalculateCorruptionScoreFromTrait();
+	if (owner.isGoldenAge()) score -= owner.GetGoldenAgeCorruptionScoreReduction();
+	score += GetCorruptionScoreFromLocalHappiness();
 	score = std::max(0, score);
 
 	// Score Modifier
@@ -23689,6 +23917,18 @@ int CvCity::GetCorruptionScoreModifierFromPolicy() const
 {
 	CvPlayerAI &owner = GET_PLAYER(getOwner());
 	return owner.GetCorruptionScoreModifierFromPolicy();
+}
+
+int CvCity::GetCorruptionScoreGlobalChangeFromBuilding() const
+{
+	CvPlayerAI &owner = GET_PLAYER(getOwner());
+	return owner.GetCorruptionScoreGlobalChangeFromBuilding();
+}
+
+int CvCity::GetCorruptionScoreFromLocalHappiness() const
+{
+	CvPlayerAI& owner = GET_PLAYER(getOwner());
+	return GetLocalHappiness() * owner.GetLocalHappinessCorruptionScoreMod() / 100;
 }
 
 int CvCity::CalculateCorruptionScoreFromDistance() const

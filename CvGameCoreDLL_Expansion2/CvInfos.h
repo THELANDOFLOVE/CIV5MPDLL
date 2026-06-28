@@ -1164,6 +1164,8 @@ public:
 	bool IsWater() const;
 	bool IsCanBeEmbarked() const;
 
+	int getTerrainChange() const { return m_iTerrainChange; }
+
 	// Arrays
 	int getFeatureTech(int i) const;
 	int getFeatureTime(int i) const;
@@ -1177,6 +1179,9 @@ public:
 	bool isFeatureRemoveOnly(int i) const;
 #endif
 	bool isResourceRemove(int i) const;
+
+	bool isTerrainMakesValid(int i) const;
+	bool isAdjacentTerrainRequired(int i) const;
 
 	virtual bool CacheResults(Database::Results& kResults, CvDatabaseUtility& kUtility);
 
@@ -1200,6 +1205,8 @@ protected:
 	bool m_bWater;
 	bool m_bCanBeEmbarked;
 
+	int m_iTerrainChange;
+
 	// Arrays
 	int* m_paiFeatureTech;
 	int* m_paiFeatureTime;
@@ -1212,6 +1219,8 @@ protected:
 	bool* m_pabFeatureRemoveOnly;
 #endif
 	bool* m_pabResourceRemove;
+	bool* m_pabTerrainMakesValid;
+	bool* m_pabAdjacentTerrainRequired;
 
 private:
 	CvBuildInfo(const CvBuildInfo&);

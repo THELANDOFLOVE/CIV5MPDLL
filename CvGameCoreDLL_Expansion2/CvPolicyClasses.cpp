@@ -220,6 +220,11 @@ CvPolicyEntry::CvPolicyEntry(void):
 	m_iFreePopulationCapital(0),
 	m_iExtraSpies(0),
 	m_iGreatScientistBeakerPolicyModifier(0),
+	m_iInstantTourismBombWhenFirstConquerMajorCapital(0),
+	m_iNaturalWonderFirstFinderPolicies(0),
+	m_iNaturalWonderFirstFinderTech(0),
+	m_iNaturalWonderSubsequentFinderPolicies(0),
+	m_iNaturalWonderSubsequentFinderTech(0),
 	m_iProductionBeakerMod(0),
 	m_bOneShot(false),
 	m_bIncludesOneShotFreeUnits(false),
@@ -553,6 +558,11 @@ bool CvPolicyEntry::CacheResults(Database::Results& kResults, CvDatabaseUtility&
 	m_iFreePopulationCapital = kResults.GetInt("FreePopulationCapital");
 	m_iExtraSpies = kResults.GetInt("ExtraSpies");
 	m_iGreatScientistBeakerPolicyModifier = kResults.GetInt("GreatScientistBeakerPolicyModifier");
+	m_iInstantTourismBombWhenFirstConquerMajorCapital = kResults.GetInt("InstantTourismBombWhenFirstConquerMajorCapital");
+	m_iNaturalWonderFirstFinderPolicies = kResults.GetInt("NaturalWonderFirstFinderPolicies");
+	m_iNaturalWonderFirstFinderTech = kResults.GetInt("NaturalWonderFirstFinderTech");
+	m_iNaturalWonderSubsequentFinderPolicies = kResults.GetInt("NaturalWonderSubsequentFinderPolicies");
+	m_iNaturalWonderSubsequentFinderTech = kResults.GetInt("NaturalWonderSubsequentFinderTech");
 	m_iProductionBeakerMod = kResults.GetInt("ProductionBeakerMod");
 	m_bOneShot = kResults.GetBool("OneShot");
 	m_bIncludesOneShotFreeUnits = kResults.GetBool("IncludesOneShotFreeUnits");
@@ -740,6 +750,34 @@ bool CvPolicyEntry::CacheResults(Database::Results& kResults, CvDatabaseUtility&
 
 			m_ppiImprovementYieldChanges[ImprovementID][YieldID] = yield;
 		}
+	}
+
+	//AdjacentImprovementYieldChanges
+	{
+		std::string strKey("Policy_AdjacentImprovementYieldChanges");
+		Database::Results* pResults = kUtility.GetResults(strKey);
+		if (pResults == NULL)
+		{
+			pResults = kUtility.PrepareResults(strKey,
+				"SELECT Imp1.ID as ImprovementID, Imp2.ID as OtherImprovementID, "
+				"Yields.ID as YieldID, Yield "
+				"FROM Policy_AdjacentImprovementYieldChanges "
+				"INNER JOIN Improvements AS Imp1 ON ImprovementType = Imp1.Type "
+				"INNER JOIN Improvements AS Imp2 ON OtherImprovementType = Imp2.Type "
+				"INNER JOIN Yields ON YieldType = Yields.Type "
+				"WHERE PolicyType = ?");
+		}
+		pResults->Bind(1, szPolicyType);
+		while (pResults->Step())
+		{
+			AdjacentImprovementYieldChange change;
+			change.m_iImprovementType = pResults->GetInt(0);
+			change.m_iOtherImprovementType = pResults->GetInt(1);
+			change.m_iYieldType = pResults->GetInt(2);
+			change.m_iYield = pResults->GetInt(3);
+			m_vAdjacentImprovementYieldChanges.push_back(change);
+		}
+		pResults->Reset();
 	}
 
 #if defined(MOD_API_UNIFIED_YIELDS) && defined(MOD_API_PLOT_YIELDS)
@@ -1237,6 +1275,8 @@ bool CvPolicyEntry::CacheResults(Database::Results& kResults, CvDatabaseUtility&
 
 #ifdef MOD_GLOBAL_CORRUPTION
 	m_iCorruptionScoreModifier = kResults.GetInt("CorruptionScoreModifier");
+	m_iGoldenAgeCorruptionScoreReduction = kResults.GetInt("GoldenAgeCorruptionScoreReduction");
+	m_iLocalHappinessCorruptionScoreMod = kResults.GetInt("LocalHappinessCorruptionScoreMod");
 	m_bCorruptionLevelReduceByOne = kResults.GetBool("CorruptionLevelReduceByOne");
 #endif
 
@@ -2479,6 +2519,28 @@ int CvPolicyEntry::GetGreatScientistBeakerPolicyModifier() const
 	return m_iGreatScientistBeakerPolicyModifier;
 
 }
+int CvPolicyEntry::GetInstantTourismBombWhenFirstConquerMajorCapital() const
+{
+	return m_iInstantTourismBombWhenFirstConquerMajorCapital;
+}
+
+int CvPolicyEntry::GetNaturalWonderFirstFinderTech() const
+{
+	return m_iNaturalWonderFirstFinderTech;
+}
+int CvPolicyEntry::GetNaturalWonderFirstFinderPolicies() const
+{
+	return m_iNaturalWonderFirstFinderPolicies;
+}
+int CvPolicyEntry::GetNaturalWonderSubsequentFinderPolicies() const
+{
+	return m_iNaturalWonderSubsequentFinderPolicies;
+}
+
+int CvPolicyEntry::GetNaturalWonderSubsequentFinderTech() const
+{
+	return m_iNaturalWonderSubsequentFinderTech;
+}
 
 int CvPolicyEntry::GetProductionBeakerMod() const
 {
@@ -3113,7 +3175,17 @@ bool CvPolicyEntry::GetCorruptionLevelReduceByOne() const
 
 bool CvPolicyEntry::IsInvolveCorruption() const
 {
-	return m_iCorruptionScoreModifier != 0 || m_bCorruptionLevelReduceByOne;
+	return m_iCorruptionScoreModifier != 0 || m_bCorruptionLevelReduceByOne || m_iGoldenAgeCorruptionScoreReduction != 0 || m_iLocalHappinessCorruptionScoreMod != 0;
+}
+
+int CvPolicyEntry::GetGoldenAgeCorruptionScoreReduction() const
+{
+	return m_iGoldenAgeCorruptionScoreReduction;
+}
+
+int CvPolicyEntry::GetLocalHappinessCorruptionScoreMod() const
+{
+	return m_iLocalHappinessCorruptionScoreMod;
 }
 
 int CvPolicyEntry::GetCorruptionLevelPolicyCostModifier(CorruptionLevelTypes level) const
@@ -3928,6 +4000,31 @@ int CvPlayerPolicies::GetImprovementCultureChange(ImprovementTypes eImprovement)
 		if(m_pabHasPolicy[i] && !IsPolicyBlocked((PolicyTypes)i))
 		{
 			rtnValue += m_pPolicies->GetPolicyEntry(i)->GetImprovementCultureChanges(eImprovement);
+		}
+	}
+
+	return rtnValue;
+}
+
+/// Get adjacent improvement yield change from policies
+int CvPlayerPolicies::GetAdjacentImprovementYieldChange(ImprovementTypes eImprovement, ImprovementTypes eOtherImprovement, YieldTypes eYield)
+{
+	int rtnValue = 0;
+
+	for (int i = 0; i < m_pPolicies->GetNumPolicies(); i++)
+	{
+		if (m_pabHasPolicy[i] && !IsPolicyBlocked((PolicyTypes)i))
+		{
+			const auto& vChanges = m_pPolicies->GetPolicyEntry(i)->GetAdjacentImprovementYieldChanges();
+			for (const auto& change : vChanges)
+			{
+				if ((int)change.m_iImprovementType == (int)eImprovement &&
+					(int)change.m_iOtherImprovementType == (int)eOtherImprovement &&
+					(int)change.m_iYieldType == (int)eYield)
+				{
+					rtnValue += change.m_iYield;
+				}
+			}
 		}
 	}
 

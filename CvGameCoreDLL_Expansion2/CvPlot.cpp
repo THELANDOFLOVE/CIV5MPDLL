@@ -2943,6 +2943,95 @@ bool CvPlot::canBuild(BuildTypes eBuild, PlayerTypes ePlayer, bool bTestVisible,
 		}
 	}
 
+	// TerrainChange Build extra validation:
+	//   - Cannot change terrain on a city plot (setPlotType would kill the city)
+	//   - Cannot change terrain on a plot with resources (resources would be destroyed)
+	//   - Water→Land: cannot have naval units on the plot (they can't survive on land)
+	//   - Land→Water: building player must have embarkation (otherwise the worker strands)
+	TerrainTypes eNewTerrain = (TerrainTypes)thisBuildInfo.getTerrainChange();
+	if (eNewTerrain != NO_TERRAIN)
+	{
+		if (getPlotCity() != NULL)
+			return false;
+
+		if (getResourceType() != NO_RESOURCE)
+			return false;
+
+		bool bNewWater = GC.getTerrainInfo(eNewTerrain)->isWater();
+		bool bOldWater = isWater();
+		if (bOldWater != bNewWater)
+		{
+			// Land→Water: building player MUST have embarkation, else worker strands
+			if (bNewWater)
+			{
+				if (!GET_TEAM(eTeam).canEmbark() && !GET_PLAYER(ePlayer).GetPlayerTraits()->IsEmbarkedAllWater())
+					return false;
+			}
+			// Water→Land: naval domain units cannot survive on land
+			else
+			{
+				const IDInfo* pUnitNode = headUnitNode();
+				while (pUnitNode != NULL)
+				{
+					CvUnit* pLoopUnit = ::getUnit(*pUnitNode);
+					pUnitNode = nextUnitNode(pUnitNode);
+					if (pLoopUnit)
+					{
+						if (pLoopUnit->getDomainType() == DOMAIN_SEA)
+							return false;
+					}
+				}
+			}
+		}
+
+		// TerrainChange Build is valid even without Improvement/Route/Feature
+		bValid = true;
+	}
+
+	// Build_ValidTerrains: if the table has entries, only those terrains are valid.
+	// Empty table = no terrain restriction (backward compatible).
+	{
+		bool bHasTerrainList = false;
+		for (int iI = 0; iI < GC.getNumTerrainInfos(); iI++)
+		{
+			if (thisBuildInfo.isTerrainMakesValid(iI))
+			{
+				bHasTerrainList = true;
+				break;
+			}
+		}
+		if (bHasTerrainList && !thisBuildInfo.isTerrainMakesValid(getTerrainType()))
+			return false;
+	}
+
+	// Build_AdjacentTerrainRequired: if entries exist, at least one adjacent plot must match
+	{
+		bool bHasAdjTerrainList = false;
+		for (int iI = 0; iI < GC.getNumTerrainInfos(); iI++)
+		{
+			if (thisBuildInfo.isAdjacentTerrainRequired(iI))
+			{
+				bHasAdjTerrainList = true;
+				break;
+			}
+		}
+		if (bHasAdjTerrainList)
+		{
+			bool bFoundAdjTerrain = false;
+			for (int iI = 0; iI < NUM_DIRECTION_TYPES; iI++)
+			{
+				CvPlot* pAdjacentPlot = plotDirection(getX(), getY(), ((DirectionTypes)iI));
+				if (pAdjacentPlot != NULL && thisBuildInfo.isAdjacentTerrainRequired(pAdjacentPlot->getTerrainType()))
+				{
+					bFoundAdjTerrain = true;
+					break;
+				}
+			}
+			if (!bFoundAdjTerrain)
+				return false;
+		}
+	}
+
 	return bValid;
 }
 
@@ -2995,6 +3084,16 @@ int CvPlot::getBuildTime(BuildTypes eBuild, PlayerTypes ePlayer) const
 	if (getFeatureType() != NO_FEATURE)
 	{
 		iTime += GC.getBuildInfo(eBuild)->getFeatureTime(getFeatureType());
+	}
+
+	// MOD_TRAIT_BUILD_COST_MODIFIER (positive = increases cost, negative = reduces cost)
+	if (ePlayer != NO_PLAYER)
+	{
+		int iTraitModifier = GET_PLAYER(ePlayer).GetPlayerTraits()->GetBuildCostChange(eBuild);
+		if (iTraitModifier != 0)
+		{
+			iTime += iTraitModifier;
+		}
 	}
 
 	iTime *= std::max(0, (GC.getTerrainInfo(getTerrainType())->getBuildModifier() + 100));
@@ -6668,7 +6767,7 @@ void CvPlot::setFeatureType(FeatureTypes eNewValue, int iVariety)
 
 #if defined(MOD_EVENTS_TERRAFORMING)
 		if (MOD_EVENTS_TERRAFORMING) {
-			GAMEEVENTINVOKE_HOOK(GAMEEVENT_TerraformingPlot, TERRAFORMINGEVENT_FEATURE, m_iX, m_iY, 0, eNewValue, m_eFeatureType, -1, -1);
+			GAMEEVENTINVOKE_HOOK(GAMEEVENT_TerraformingPlot, TERRAFORMINGEVENT_FEATURE, m_iX, m_iY, 0, eNewValue, (int)m_eFeatureType, -1, -1);
 		}
 #endif
 
@@ -8971,6 +9070,7 @@ int CvPlot::calculateNatureYield(YieldTypes eYield, TeamTypes eTeam, bool bIgnor
 #endif
 
 				iMod += GET_PLAYER((PlayerTypes)m_eOwner).GetPlayerTraits()->GetNaturalWonderYieldModifier();
+				iMod += GET_PLAYER((PlayerTypes)m_eOwner).GetPlayerTraits()->GetNaturalWonderYieldModifierPerEra() * GET_PLAYER((PlayerTypes)m_eOwner).GetCurrentEra();
 				if(iMod > 0)
 				{
 					iYieldChange *= (100 + iMod);
@@ -9154,6 +9254,25 @@ int CvPlot::calculateImprovementYieldChange(ImprovementTypes eImprovement, Yield
 #if defined(MOD_API_VP_ADJACENT_YIELD_BOOST)
 		iYield += ComputeYieldFromOtherAdjacentImprovement(*pImprovement, eYield);
 #endif
+		// Policy and Trait adjacent improvement yield bonuses
+		{
+			CvPlayerAI& kPlayer = GET_PLAYER(ePlayer);
+			for (int iI = 0; iI < NUM_DIRECTION_TYPES; ++iI)
+			{
+				CvPlot* pAdjacentPlot = plotDirection(getX(), getY(), ((DirectionTypes)iI));
+				if (pAdjacentPlot && pAdjacentPlot->getImprovementType() != NO_IMPROVEMENT
+					&& pAdjacentPlot->getOwner() == ePlayer)
+				{
+					ImprovementTypes eOtherImp = pAdjacentPlot->getImprovementType();
+					iYield += kPlayer.GetPlayerPolicies()->GetAdjacentImprovementYieldChange(
+						eOtherImp, eImprovement, eYield);
+					iYield += kPlayer.GetPlayerTraits()->GetAdjacentImprovementYieldChange(
+						eOtherImp, eImprovement, eYield);
+					iYield += kPlayer.GetAdjacentImprovementYieldChangeFromBuildingsGlobal(
+						eOtherImp, eImprovement, eYield);
+				}
+			}
+		}
 	}
 	if(eYield == YIELD_CULTURE && getOwner() != NO_PLAYER)
 	{
@@ -9349,11 +9468,52 @@ int CvPlot::calculateImprovementYieldChange(ImprovementTypes eImprovement, Yield
 					iReligionAdjacentCityYield += GC.GetGameBeliefs()->GetEntry(eSecondaryPantheon)->GetImprovementAdjacentCityYieldChange(eImprovement, eYield);
 				}
 				iYield += iReligionChange;
+				// Belief adjacent improvement yield bonuses
+				for (int iI = 0; iI < NUM_DIRECTION_TYPES; ++iI)
+				{
+					CvPlot* pAdjacentPlot = plotDirection(getX(), getY(), ((DirectionTypes)iI));
+					if (pAdjacentPlot && pAdjacentPlot->getImprovementType() != NO_IMPROVEMENT)
+					{
+						ImprovementTypes eOtherImp = pAdjacentPlot->getImprovementType();
+						iYield += pReligion->m_Beliefs.GetAdjacentImprovementYieldChange(
+							eOtherImp, eImprovement, eYield);
+						if (eSecondaryPantheon != NO_BELIEF)
+						{
+							CvBeliefEntry* pSecBelief = GC.GetGameBeliefs()->GetEntry(eSecondaryPantheon);
+							if (pSecBelief)
+							{
+								const auto& vChanges = pSecBelief->GetAdjacentImprovementYieldChanges();
+								for (const auto& change : vChanges)
+								{
+									if ((int)change.m_iImprovementType == (int)eOtherImp &&
+										(int)change.m_iOtherImprovementType == (int)eImprovement &&
+										(int)change.m_iYieldType == (int)eYield)
+									{
+										iYield += change.m_iYield;
+									}
+								}
+							}
+						}
+					}
+				}
 			}
 		}
 		
 		// Extra yield for improvements
 		iYield += pWorkingCity->GetImprovementExtraYield(eImprovement, eYield);
+			// Building adjacent improvement yield bonuses
+			{
+				for (int iI = 0; iI < NUM_DIRECTION_TYPES; ++iI)
+				{
+					CvPlot* pAdjacentPlot = plotDirection(getX(), getY(), ((DirectionTypes)iI));
+					if (pAdjacentPlot && pAdjacentPlot->getImprovementType() != NO_IMPROVEMENT)
+					{
+						ImprovementTypes eOtherImp = pAdjacentPlot->getImprovementType();
+						iYield += pWorkingCity->GetAdjacentImprovementYieldChangeFromBuildings(
+							eOtherImp, eImprovement, eYield);
+					}
+				}
+			}
 		if(ePlayer != NO_PLAYER) iYield += GET_PLAYER(ePlayer).GetImprovementExtraYield(eImprovement, eYield);
 	}
 
@@ -10255,13 +10415,114 @@ void CvPlot::SetNoSettling(PlayerTypes eMajor, bool bValue)
 
 //	--------------------------------------------------------------------------------
 #if defined(MOD_API_EXTENSIONS)
+//	--------------------------------------------------------------------------------
+// Helper: send Natural Wonder finder reward notifications to the active player
+//	--------------------------------------------------------------------------------
+static void SendNWFinderNotifications(
+	CvPlayerAI& player,
+	int iTraitTech, int iTraitPolicy,
+	int iPolicyTech, int iPolicyPolicy,
+	const char* szFinderKey,
+	const char* szFeatureKey,
+	int iX, int iY)
+{
+	CvNotifications* pNotifications = player.GetNotifications();
+	if (!pNotifications)
+		return;
+
+	if (iTraitTech > 0)
+	{
+		Localization::String strText = Localization::Lookup("TXT_KEY_NOTIFICATION_NW_FINDER_TECH");
+		strText << "TXT_KEY_NOTIFICATION_NW_SOURCE_TRAIT";
+		strText << szFinderKey;
+		strText << szFeatureKey;
+		strText << iTraitTech;
+		Localization::String strSummary = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_NW_FINDER");
+		pNotifications->Add(NOTIFICATION_FREE_TECH, strText.toUTF8(), strSummary.toUTF8(), iX, iY, 0);
+	}
+	if (iTraitPolicy > 0)
+	{
+		Localization::String strText = Localization::Lookup("TXT_KEY_NOTIFICATION_NW_FINDER_POLICY");
+		strText << "TXT_KEY_NOTIFICATION_NW_SOURCE_TRAIT";
+		strText << szFinderKey;
+		strText << szFeatureKey;
+		strText << iTraitPolicy;
+		Localization::String strSummary = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_NW_FINDER");
+		pNotifications->Add(NOTIFICATION_FREE_POLICY, strText.toUTF8(), strSummary.toUTF8(), iX, iY, 0);
+	}
+	if (iPolicyTech > 0)
+	{
+		Localization::String strText = Localization::Lookup("TXT_KEY_NOTIFICATION_NW_FINDER_TECH");
+		strText << "TXT_KEY_NOTIFICATION_NW_SOURCE_POLICY";
+		strText << szFinderKey;
+		strText << szFeatureKey;
+		strText << iPolicyTech;
+		Localization::String strSummary = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_NW_FINDER");
+		pNotifications->Add(NOTIFICATION_FREE_TECH, strText.toUTF8(), strSummary.toUTF8(), iX, iY, 0);
+	}
+	if (iPolicyPolicy > 0)
+	{
+		Localization::String strText = Localization::Lookup("TXT_KEY_NOTIFICATION_NW_FINDER_POLICY");
+		strText << "TXT_KEY_NOTIFICATION_NW_SOURCE_POLICY";
+		strText << szFinderKey;
+		strText << szFeatureKey;
+		strText << iPolicyPolicy;
+		Localization::String strSummary = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_NW_FINDER");
+		pNotifications->Add(NOTIFICATION_FREE_POLICY, strText.toUTF8(), strSummary.toUTF8(), iX, iY, 0);
+	}
+}
+
 bool CvPlot::setRevealed(TeamTypes eTeam, bool bNewValue, CvUnit* pUnit, bool bTerrainOnly, TeamTypes eFromTeam)
 #else
 bool CvPlot::setRevealed(TeamTypes eTeam, bool bNewValue, bool bTerrainOnly, TeamTypes eFromTeam)
 #endif
 {
 	int iI;
-	
+	if (bNewValue && !isRevealed(eTeam))  
+{
+#if defined(MOD_API_EXTENSIONS)
+    if (pUnit != NULL)  
+    {
+        int iEra = GET_TEAM(pUnit->getTeam()).GetCurrentEra();
+        int aiTotalYield[NUM_YIELD_TYPES] = {0};
+        
+        for (int i = 0; i < GC.getNumPromotionInfos(); i++)
+        {
+            PromotionTypes ePromotion = (PromotionTypes)i;
+            if (!pUnit->isHasPromotion(ePromotion)) continue;
+            
+            CvPromotionEntry* pkPromotion = GC.getPromotionInfo(ePromotion);
+            if (!pkPromotion) continue;
+            
+            for (int j = 0; j < NUM_YIELD_TYPES; j++)
+            {
+                YieldTypes eYield = (YieldTypes)j;
+                int iYieldBonus = pkPromotion->GetExploreYield(eYield);
+                if (iYieldBonus <= 0) continue;
+                int iEraPercent = pkPromotion->GetEraPercent(eYield);
+                iYieldBonus = iYieldBonus * (100 + iEra * iEraPercent) / 100;
+                
+                aiTotalYield[j] += iYieldBonus;
+            }
+        }
+        
+        for (int j = 0; j < NUM_YIELD_TYPES; j++)
+        {
+            YieldTypes eYield = (YieldTypes)j;
+            if (aiTotalYield[j] <= 0) continue;
+            
+            GET_PLAYER(pUnit->getOwner()).doInstantYield(eYield, aiTotalYield[j]);
+            
+            char text[256] = {0};
+            sprintf_s(text, "%s+%d[ENDCOLOR]%s", 
+                GC.getYieldInfo(eYield)->getColorString(), 
+                aiTotalYield[j], 
+                GC.getYieldInfo(eYield)->getIconString());
+            SHOW_PLOT_POPUP(this, pUnit->getOwner(), text, 0.0f);
+        }
+    }
+#endif
+}
 #if defined(MOD_EVENTS_TILE_REVEALED)
 	// We need to capture this value here, as a Natural Wonder may update it before we need it
 	int iRevealedMajors = getNumMajorCivsRevealed();
@@ -10383,6 +10644,29 @@ bool CvPlot::setRevealed(TeamTypes eTeam, bool bNewValue, bool bTerrainOnly, Tea
 									if(playerI.getTeam() == eTeam)
 									{
 										iFinderGold += playerI.GetPlayerTraits()->GetNaturalWonderFirstFinderGold();
+										int iTraitTech = playerI.GetPlayerTraits()->GetNaturalWonderFirstFinderTech();
+										int iTraitPolicy = playerI.GetPlayerTraits()->GetNaturalWonderFirstFinderPolicies();
+										int iPolicyTech = playerI.GetNaturalWonderFirstFinderTech();
+										int iPolicyPolicy = playerI.GetNaturalWonderFirstFinderPolicies();
+
+										int iTotalTech = iTraitTech + iPolicyTech;
+										int iTotalPolicy = iTraitPolicy + iPolicyPolicy;
+
+										if(iTotalTech > 0)
+										{
+											playerI.SetNumFreeTechs(playerI.GetNumFreeTechs() + iTotalTech);
+										}
+										if(iTotalPolicy > 0)
+										{
+											playerI.SetNumFreePolicies(playerI.GetNumFreePolicies() + iTotalPolicy);
+										}
+
+										if(playerI.GetID() == GC.getGame().getActivePlayer())
+										{
+											const char* szFeatureKey = GC.getFeatureInfo(getFeatureType())->GetTextKey();
+											SendNWFinderNotifications(playerI, iTraitTech, iTraitPolicy, iPolicyTech, iPolicyPolicy,
+												"TXT_KEY_NOTIFICATION_NW_FIRST", szFeatureKey, getX(), getY());
+										}
 									}
 								}
 							}
@@ -10398,6 +10682,29 @@ bool CvPlot::setRevealed(TeamTypes eTeam, bool bNewValue, bool bTerrainOnly, Tea
 									if(playerI.getTeam() == eTeam)
 									{
 										iFinderGold += playerI.GetPlayerTraits()->GetNaturalWonderSubsequentFinderGold();
+										int iTraitTech = playerI.GetPlayerTraits()->GetNaturalWonderSubsequentFinderTech();
+										int iTraitPolicy = playerI.GetPlayerTraits()->GetNaturalWonderSubsequentFinderPolicies();
+										int iPolicyTech = playerI.GetNaturalWonderSubsequentFinderTech();
+										int iPolicyPolicy = playerI.GetNaturalWonderSubsequentFinderPolicies();
+
+										int iTotalTech = iTraitTech + iPolicyTech;
+										int iTotalPolicy = iTraitPolicy + iPolicyPolicy;
+
+										if(iTotalTech > 0)
+										{
+											playerI.SetNumFreeTechs(playerI.GetNumFreeTechs() + iTotalTech);
+										}
+										if(iTotalPolicy > 0)
+										{
+											playerI.SetNumFreePolicies(playerI.GetNumFreePolicies() + iTotalPolicy);
+										}
+
+										if(playerI.GetID() == GC.getGame().getActivePlayer())
+										{
+											const char* szFeatureKey = GC.getFeatureInfo(getFeatureType())->GetTextKey();
+											SendNWFinderNotifications(playerI, iTraitTech, iTraitPolicy, iPolicyTech, iPolicyPolicy,
+												"TXT_KEY_NOTIFICATION_NW_SUBSEQUENT", szFeatureKey, getX(), getY());
+										}
 									}
 								}
 							}
@@ -10954,6 +11261,81 @@ bool CvPlot::changeBuildProgress(BuildTypes eBuild, int iChange, PlayerTypes ePl
 		if(getBuildProgress(eBuild) >= getBuildTime(eBuild, ePlayer))
 		{
 			m_paiBuildProgress[eBuild] = 0;
+
+			// ★★★ TerrainChange: must execute BEFORE improvement construction ★★★
+			// When setPlotType() is triggered by water↔land transition, it clears
+			// improvements/resources/routes/features. By doing terrain change first,
+			// the subsequent improvement/route construction happens on the new terrain.
+			{
+				TerrainTypes eNewTerrain = (TerrainTypes)pkBuildInfo->getTerrainChange();
+				if (eNewTerrain != NO_TERRAIN && eNewTerrain != getTerrainType())
+				{
+					bool bOldWater = GC.getTerrainInfo(getTerrainType())->isWater();
+					bool bNewWater = GC.getTerrainInfo(eNewTerrain)->isWater();
+
+					if (bOldWater != bNewWater)
+					{
+						// Water↔Land transition: switch plot type first.
+						// bEraseUnitsIfWater=false → do NOT kill units on the plot
+						// (the worker itself is a land unit and would die on land→water).
+						PlayerTypes eOwner = getOwner();
+						setPlotType(bNewWater ? PLOT_OCEAN : PLOT_LAND, true,  false, false);
+						if (eOwner != NO_PLAYER)
+							setOwner(eOwner, -1, false, false);
+
+						// After land→water conversion, auto-embark land units
+						if (bNewWater)
+						{
+							const IDInfo* pUnitNode = headUnitNode();
+							while (pUnitNode != NULL)
+							{
+								CvUnit* pLoopUnit = ::getUnit(*pUnitNode);
+								pUnitNode = nextUnitNode(pUnitNode);
+								if (pLoopUnit && pLoopUnit->getDomainType() == DOMAIN_LAND && !pLoopUnit->isEmbarked())
+								{
+									CvPlayer& kUnitPlayer = GET_PLAYER(pLoopUnit->getOwner());
+									if (GET_TEAM(kUnitPlayer.getTeam()).canEmbark() || kUnitPlayer.GetPlayerTraits()->IsEmbarkedAllWater())
+									{
+										pLoopUnit->setEmbarked(true);
+									}
+									// else: unit stranded on water — modder's responsibility
+									// to ensure embarkation tech is available before terraforming
+								}
+							}
+						}
+						// After water→land conversion, auto-disembark all embarked land units
+						else
+						{
+							const IDInfo* pUnitNode = headUnitNode();
+							while (pUnitNode != NULL)
+							{
+								CvUnit* pLoopUnit = ::getUnit(*pUnitNode);
+								pUnitNode = nextUnitNode(pUnitNode);
+								if (pLoopUnit && pLoopUnit->getDomainType() == DOMAIN_LAND && pLoopUnit->isEmbarked())
+								{
+									pLoopUnit->setEmbarked(false);
+								}
+							}
+						}
+					}
+
+					setTerrainType(eNewTerrain, false, false);
+					updateYield();
+					updateImpassable();
+
+					// Update 3D map graphics immediately
+					setLayoutDirty(true);
+					// Adjacent plots also need reblending (terrain texture transitions)
+					for (int iI = 0; iI < NUM_DIRECTION_TYPES; ++iI)
+					{
+						CvPlot* pAdjacentPlot = plotDirection(getX(), getY(), ((DirectionTypes)iI));
+						if (pAdjacentPlot != NULL)
+						{
+							pAdjacentPlot->setLayoutDirty(true);
+						}
+					}
+				}
+			}
 
 			// Constructed Improvement
 			if (eImprovement != NO_IMPROVEMENT)

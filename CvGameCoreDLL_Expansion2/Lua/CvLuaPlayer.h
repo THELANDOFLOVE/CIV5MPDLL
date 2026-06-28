@@ -1031,6 +1031,8 @@ protected:
 	static int lAddTemporaryDominanceZone(lua_State* L);
 
 	static int lGetNaturalWonderYieldModifier(lua_State* L);
+	static int lGetNaturalWonderYieldModifierPerEra(lua_State* L);
+	static int lGetImmigrationRegressandModifier(lua_State* L);
 
 	static int lGetPolicyBuildingClassYieldModifier(lua_State* L);
 	static int lGetPolicyBuildingClassYieldChange(lua_State* L);
@@ -1241,6 +1243,8 @@ protected:
 #ifdef MOD_GLOBAL_CORRUPTION
 	LUAAPIEXTN(IsCorruptionLevelReduceByOne, bool);
 	LUAAPIEXTN(GetCorruptionScoreModifierFromPolicy, int);
+	LUAAPIEXTN(GetCorruptionScoreGlobalChangeFromBuilding, int);
+	
 #endif
 
 #if defined(MOD_TROOPS_AND_CROPS_FOR_SP)

@@ -1128,6 +1128,8 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(AddTemporaryDominanceZone);
 
 	Method(GetNaturalWonderYieldModifier);
+	Method(GetNaturalWonderYieldModifierPerEra);
+	Method(GetImmigrationRegressandModifier);
 
 	Method(GetPolicyBuildingClassYieldModifier);
 	Method(GetPolicyBuildingClassYieldChange);
@@ -1334,6 +1336,8 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 
 	Method(IsCorruptionLevelReduceByOne);
 	Method(GetCorruptionScoreModifierFromPolicy);
+	Method(GetCorruptionScoreGlobalChangeFromBuilding);
+	
 
 #if defined(MOD_TROOPS_AND_CROPS_FOR_SP)
 	Method(GetDomainTroopsTotalTimes100);
@@ -10728,6 +10732,34 @@ int  CvLuaPlayer::lGetNaturalWonderYieldModifier(lua_State* L)
 	return 1;
 }
 //------------------------------------------------------------------------------
+int CvLuaPlayer::lGetNaturalWonderYieldModifierPerEra(lua_State* L)
+{
+	int iYieldModifierPerEra = 0;
+	CvPlayer* pkPlayer = GetInstance(L);
+	if(pkPlayer)
+	{
+		CvPlayerTraits* pkPlayerTraits = pkPlayer->GetPlayerTraits();
+		if(pkPlayerTraits)
+		{
+			iYieldModifierPerEra = pkPlayerTraits->GetNaturalWonderYieldModifierPerEra();
+		}
+	}
+
+	lua_pushinteger(L, iYieldModifierPerEra);
+	return 1;
+}
+//------------------------------------------------------------------------------
+int CvLuaPlayer::lGetImmigrationRegressandModifier(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	if(pkPlayer)
+	{
+		lua_pushinteger(L, pkPlayer->GetImmigrationRegressandModifier());
+		return 1;
+	}
+	return 0;
+}
+//------------------------------------------------------------------------------
 int CvLuaPlayer::lGetPolicyBuildingClassYieldModifier(lua_State* L)
 {
 	const BuildingClassTypes eBuildingClass = (BuildingClassTypes)luaL_checkint(L, 2);
@@ -12794,6 +12826,8 @@ int CvLuaPlayer::lGetGlobalYieldModifierFromResource(lua_State* L)
 
 LUAAPIIMPL(Player, IsCorruptionLevelReduceByOne)
 LUAAPIIMPL(Player, GetCorruptionScoreModifierFromPolicy)
+LUAAPIIMPL(Player, GetCorruptionScoreGlobalChangeFromBuilding)
+
 
 #if defined(MOD_TROOPS_AND_CROPS_FOR_SP)
 int CvLuaPlayer::lGetDomainTroopsTotalTimes100(lua_State* L)

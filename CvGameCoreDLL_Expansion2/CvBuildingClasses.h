@@ -241,6 +241,7 @@ public:
 	int GetGlobalRangedStrikeModifier() const;
 	int GetResearchTotalCostModifier() const;
 	int GetResearchTotalCostModifierGoldenAge() const;
+	int GetImmigrationRegressandModifier() const;
 	int GetResetDamageValue() const;
 	int GetReduceDamageValue() const;
 
@@ -278,6 +279,16 @@ public:
 
 	int GetImprovementYieldChangeGlobal(int i, int j) const;
 	int* GetImprovementYieldChangeGlobalArray(int i) const;
+
+	// AdjacentImprovementYieldChanges
+	struct AdjacentImprovementYieldChange {
+		int m_iImprovementType;
+		int m_iOtherImprovementType;
+		int m_iYieldType;
+		int m_iYield;
+	};
+	const std::vector<AdjacentImprovementYieldChange>& GetAdjacentImprovementYieldChanges() const { return m_vAdjacentImprovementYieldChanges; }
+	const std::vector<AdjacentImprovementYieldChange>& GetAdjacentImprovementYieldChangesGlobal() const { return m_vAdjacentImprovementYieldChangesGlobal; }
 
 	int GetFeatureYieldChangesGlobal(int i, int j) const;
 	int GetTerrainYieldChangesGlobal(int i, int j) const;
@@ -342,6 +353,7 @@ public:
 	int GetGlobalConversionModifier() const;
 #endif
 	int GetLandmarksTourismPercent() const;
+	int GetLandmarksTourismPerXForeignFollowers() const;
 	int GetInstantMilitaryIncrease() const;
 	int GetGreatWorksTourismModifier() const;
 	int GetXBuiltTriggersIdeologyChoice() const;
@@ -469,6 +481,7 @@ public:
 	int GetDomainEnemyCombatModifier(int i) const;
 	int GetDomainEnemyCombatModifierGlobal(int i) const;
 	int GetDomainFriendsCombatModifierLocal(int i) const;
+	int GetDomainFriendsCombatModifierGlobal(int i) const;
 #if defined(MOD_ROG_CORE)
 	int GetDomainFreeExperiencePerGreatWorkGlobal(int i) const;
 	int GetDomainFreeExperienceGlobal(int i) const;
@@ -526,6 +539,8 @@ public:
 	int GetTradeRouteLandGoldBonusGlobal() const;
 	bool IsAnyWater() const;
 	bool IsRiverOrCoastal() const;
+	int GetFollowerCountDamageModifier() const;
+	int GetFollowingCityCountDamageModifier() const;
 #endif
 	int GetNumFreeUnit() const;
 	int GetNumFreeUnitTotal() const;
@@ -594,6 +609,7 @@ public:
 
 #ifdef MOD_GLOBAL_CORRUPTION
 	int GetCorruptionScoreChange() const;
+	int GetCorruptionScoreGlobalChange() const;
 	int GetCorruptionLevelChange() const;
 	int GetCorruptionPolicyCostModifier() const;
 	int GetMinCorruptionLevelNeeded() const;
@@ -724,6 +740,7 @@ private:
 	int m_iGlobalRangedStrikeModifier;
 	int m_iResearchTotalCostModifier;
 	int m_iResearchTotalCostModifierGoldenAge;
+	int m_iImmigrationRegressandModifier;
 	int m_iWaterTileDamage;
 	int m_iWaterTileMovementReduce;
 	int m_iWaterTileTurnDamage;
@@ -827,6 +844,7 @@ private:
 #endif
 
 	int m_iLandmarksTourismPercent;
+	int m_iLandmarksTourismPerXForeignFollowers;
 	int m_iInstantMilitaryIncrease;
 	int m_iGreatWorksTourismModifier;
 	int m_iXBuiltTriggersIdeologyChoice;
@@ -936,6 +954,7 @@ private:
 	int* m_piDomainEnemyCombatModifier;
 	int* m_piDomainEnemyCombatModifierGlobal;
 	int* m_piDomainFriendsCombatModifierLocal;
+	int* m_piDomainFriendsCombatModifierGlobal;
 
 #if defined(MOD_ROG_CORE)
 	int* m_piDomainFreeExperiencePerGreatWorkGlobal;
@@ -991,6 +1010,8 @@ private:
 	int m_iTradeRouteLandGoldBonusGlobal;
 	bool m_bAnyWater;
 	bool m_bRiverOrCoastal;
+	int m_iFollowerCountDamageModifier;
+	int m_iFollowingCityCountDamageModifier;
 #endif
 	int m_iNumFreeUnit;
 	int m_iNumFreeUnitTotal;
@@ -1037,6 +1058,7 @@ private:
 
 #ifdef MOD_GLOBAL_CORRUPTION
 	int m_iCorruptionScoreChange = 0;
+	int m_iCorruptionScoreGlobalChange = 0;
 	int m_iCorruptionLevelChange = 0;
 	int m_iCorruptionPolicyCostModifier = 0;
 	int m_iMinCorruptionLevelNeeded = -1;
@@ -1063,6 +1085,10 @@ private:
 
 	std::tr1::array<int, YieldTypes::NUM_YIELD_TYPES> m_aTradeRouteFromTheCityYields;
 	std::tr1::array<int, YieldTypes::NUM_YIELD_TYPES> m_aTradeRouteFromTheCityYieldsPerEra;
+
+	// AdjacentImprovementYieldChanges
+	std::vector<AdjacentImprovementYieldChange> m_vAdjacentImprovementYieldChanges;
+	std::vector<AdjacentImprovementYieldChange> m_vAdjacentImprovementYieldChangesGlobal;
 };
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -1089,8 +1115,17 @@ public:
 
 	void DeleteArray();
 
+	// Cached building types with adjacent improvement yield entries
+	const std::vector<BuildingTypes>& GetBuildingsWithAdjacentYield() const;
+	const std::vector<BuildingTypes>& GetBuildingsWithAdjacentYieldGlobal() const;
+
 private:
+	void BuildAdjacentYieldCache() const;
+
 	std::vector<CvBuildingEntry*> m_paBuildingEntries;
+	mutable std::vector<BuildingTypes> m_vAdjacentYieldBuildingTypes;
+	mutable std::vector<BuildingTypes> m_vAdjacentYieldGlobalBuildingTypes;
+	mutable bool m_bAdjacentYieldCacheBuilt;
 };
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -1185,6 +1220,9 @@ public:
 	int GetGreatWorksTourismModifier() const;
 	void ChangeGreatWorksTourismModifier(int iChange);
 
+	int GetLandmarksTourismPerXForeignFollowers() const;
+	void ChangeLandmarksTourismPerXForeignFollowers(int iChange);
+
 #if defined(MOD_GLOBAL_GREATWORK_YIELDTYPES)
 	int GetThemingBonuses(YieldTypes eYield) const;
 #else
@@ -1221,6 +1259,7 @@ private:
 	int m_iBuildingDefenseMod;
 	int m_iMissionaryExtraSpreads;
 	int m_iLandmarksTourismPercent;
+	int m_iLandmarksTourismPerXForeignFollowers;
 	int m_iGreatWorksTourismModifier;
 
 	int m_iNumBuildingsFromFaith;

@@ -271,6 +271,15 @@ public:
 	int GetTourismByUnitClassCreated(int i) const;
 	int GetImprovementCultureChanges(int i) const;
 
+	// AdjacentImprovementYieldChanges
+	struct AdjacentImprovementYieldChange {
+		int m_iImprovementType;
+		int m_iOtherImprovementType;
+		int m_iYieldType;
+		int m_iYield;
+	};
+	const std::vector<AdjacentImprovementYieldChange>& GetAdjacentImprovementYieldChanges() const { return m_vAdjacentImprovementYieldChanges; }
+
 	int GetHurryModifier(int i) const;
 	bool IsSpecialistValid(int i) const;
 	int GetImprovementYieldChanges(int i, int j) const;
@@ -320,6 +329,11 @@ public:
 	int GetFreePopulationCapital() const;
 	int GetExtraSpies() const;
 	int GetGreatScientistBeakerPolicyModifier() const;
+	int GetInstantTourismBombWhenFirstConquerMajorCapital() const;
+	int GetNaturalWonderFirstFinderTech() const;
+	int GetNaturalWonderSubsequentFinderPolicies() const;
+	int GetNaturalWonderSubsequentFinderTech() const;
+	int GetNaturalWonderFirstFinderPolicies() const;
 	int GetProductionBeakerMod() const;
 	bool IsOneShot() const;
 	bool IncludesOneShotFreeUnits() const;
@@ -361,6 +375,8 @@ public:
 
 #ifdef MOD_GLOBAL_CORRUPTION
 	int GetCorruptionScoreModifier() const;
+	int GetLocalHappinessCorruptionScoreMod() const;
+	int GetGoldenAgeCorruptionScoreReduction() const;
 	bool GetCorruptionLevelReduceByOne() const;
 	bool IsInvolveCorruption() const;
 	int GetCorruptionLevelPolicyCostModifier(CorruptionLevelTypes level) const;
@@ -568,6 +584,11 @@ private:
 	int m_iFreePopulationCapital;
 	int m_iExtraSpies;
 	int m_iGreatScientistBeakerPolicyModifier;
+	int m_iInstantTourismBombWhenFirstConquerMajorCapital;
+	int m_iNaturalWonderFirstFinderTech;
+	int m_iNaturalWonderFirstFinderPolicies;
+	int m_iNaturalWonderSubsequentFinderTech;
+	int m_iNaturalWonderSubsequentFinderPolicies;
 	int m_iProductionBeakerMod;
 	bool m_bOneShot;
 	bool m_bIncludesOneShotFreeUnits;
@@ -674,9 +695,14 @@ private:
 
 	std::vector<PolicyResourceInfo> m_vCityResources;
 
+	// AdjacentImprovementYieldChanges
+	std::vector<AdjacentImprovementYieldChange> m_vAdjacentImprovementYieldChanges;
+
 #ifdef MOD_GLOBAL_CORRUPTION
 	int m_iCorruptionScoreModifier = 0;
+	int m_iGoldenAgeCorruptionScoreReduction = 0;
 	bool m_bCorruptionLevelReduceByOne = false;
+	int m_iLocalHappinessCorruptionScoreMod = 0;
 	std::vector<int> m_paiCorruptionLevelPolicyCostModifier;
 #endif
 };
@@ -825,6 +851,7 @@ public:
 	int GetBuildingClassProductionModifier(BuildingClassTypes eBuildingClass);
 	int GetBuildingClassTourismModifier(BuildingClassTypes eBuildingClass);
 	int GetImprovementCultureChange(ImprovementTypes eImprovement);
+	int GetAdjacentImprovementYieldChange(ImprovementTypes eImprovement, ImprovementTypes eOtherImprovement, YieldTypes eYield);
 	bool HasPolicyEncouragingGarrisons() const;
 	bool HasPolicyGrantingReformationBelief() const;
 	CvString GetWeLoveTheKingString();

@@ -101,7 +101,12 @@ public:
 	int GetFreeUnitClassType() const;
 	int GetNaturalWonderFirstFinderGold() const;
 	int GetNaturalWonderSubsequentFinderGold() const;
+	int GetNaturalWonderFirstFinderPolicies() const;
+	int GetNaturalWonderSubsequentFinderPolicies() const;
+	int GetNaturalWonderFirstFinderTech() const;
+	int GetNaturalWonderSubsequentFinderTech() const;
 	int GetNaturalWonderYieldModifier() const;
+	int GetNaturalWonderYieldModifierPerEra() const;
 	int GetNaturalWonderHappinessModifier() const;
 	int GetNearbyImprovementCombatBonus() const;
 	int GetNearbyImprovementBonusRange() const;
@@ -165,6 +170,7 @@ public:
 	int GetCiviliansFreePromotion() const;
 	int GetTradeRouteLandGoldBonus() const;
 	int GetTradeRouteSeaGoldBonus() const;
+	bool IsNewCityAutomaticReligion() const;
 #endif
 
 	TechTypes GetFreeUnitPrereqTech() const;
@@ -186,6 +192,7 @@ public:
 	bool IsNoHillsImprovementMaintenance() const;
 	bool IsTechBoostFromCapitalScienceBuildings() const;
 	bool IsArtistGoldenAgeTechBoost() const;
+	bool IsGoldenAgeTechChainBoost() const;
 	bool IsStaysAliveZeroCities() const;
 	bool IsFaithFromUnimprovedForest() const;
 #if defined(MOD_TRAITS_ANY_BELIEF)
@@ -233,6 +240,7 @@ public:
 	int GetPrereqPolicy() const;
 #endif
 	int GetResourceQuantityModifier(int i) const;
+	int GetBuildCostChange(int i) const;
 	int GetMovesChangeUnitCombat(const int unitCombatID) const;
 	int GetMaintenanceModifierUnitCombat(const int unitCombatID) const;
 	int GetImprovementYieldChanges(ImprovementTypes eIndex1, YieldTypes eIndex2) const;
@@ -264,6 +272,16 @@ public:
 	int GetUnimprovedFeatureYieldChanges(FeatureTypes eIndex1, YieldTypes eIndex2) const;
 	int GetCityYieldModifierFromAdjacentFeature(FeatureTypes eIndex1, YieldTypes eIndex2) const;
 	int GetCityYieldPerAdjacentFeature(FeatureTypes eIndex1, YieldTypes eIndex2) const;
+
+	// AdjacentImprovementYieldChanges
+	struct AdjacentImprovementYieldChange {
+		int m_iImprovementType;
+		int m_iOtherImprovementType;
+		int m_iYieldType;
+		int m_iYield;
+	};
+	const std::vector<AdjacentImprovementYieldChange>& GetAdjacentImprovementYieldChanges() const { return m_vAdjacentImprovementYieldChanges; }
+
 	FreeResourceXCities GetFreeResourceXCities(ResourceTypes eResource) const;
 
 	bool IsFreePromotionUnitCombat(const int promotionID, const int unitCombatID) const;
@@ -393,7 +411,12 @@ protected:
 	int m_iFreeUnitClassType;
 	int m_iNaturalWonderFirstFinderGold;
 	int m_iNaturalWonderSubsequentFinderGold;
+	int m_iNaturalWonderFirstFinderPolicies;
+	int m_iNaturalWonderSubsequentFinderPolicies;
+	int m_iNaturalWonderFirstFinderTech;
+	int m_iNaturalWonderSubsequentFinderTech;
 	int m_iNaturalWonderYieldModifier;
+	int m_iNaturalWonderYieldModifierPerEra;
 	int m_iNaturalWonderHappinessModifier;
 	int m_iNearbyImprovementCombatBonus;
 	int m_iNearbyImprovementBonusRange;
@@ -457,6 +480,7 @@ protected:
 	int m_iCiviliansFreePromotion;
 	int m_iTradeRouteLandGoldBonus;
 	int m_iTradeRouteSeaGoldBonus;
+	bool m_bNewCityAutomaticReligion;
 #endif
 
 	TechTypes m_eFreeUnitPrereqTech;
@@ -477,6 +501,7 @@ protected:
 	bool m_bNoHillsImprovementMaintenance;
 	bool m_bTechBoostFromCapitalScienceBuildings;
 	bool m_bArtistGoldenAgeTechBoost;
+	bool m_bGoldenAgeTechChainBoost;
 	bool m_bStaysAliveZeroCities;
 	bool m_bFaithFromUnimprovedForest;
 	bool m_bWLKDCityNoResearchCost;
@@ -523,6 +548,7 @@ protected:
 	int* m_paiGoldenAgeYieldModifier;
 	int* m_piStrategicResourceQuantityModifier;
 	int* m_piResourceQuantityModifiers;
+	int* m_piBuildCostChange;
 	int* m_piMovesChangeUnitCombats;
 	int* m_piMaintenanceModifierUnitCombats;
 	int** m_ppiImprovementYieldChanges;
@@ -609,6 +635,10 @@ protected:
 	int m_iShareAllyResearchPercent = 0;
 	bool m_bCanPurchaseWonderInGoldenAge = false;
 	bool m_bCanDiplomaticMarriage = false;
+
+	// AdjacentImprovementYieldChanges
+	std::vector<AdjacentImprovementYieldChange> m_vAdjacentImprovementYieldChanges;
+
 private:
 	CvTraitEntry(const CvTraitEntry&);
 	CvTraitEntry& operator=(const CvTraitEntry&);
@@ -839,9 +869,29 @@ public:
 	{
 		return m_iNaturalWonderSubsequentFinderGold;
 	};
+	int GetNaturalWonderFirstFinderPolicies() const
+	{
+		return m_iNaturalWonderFirstFinderPolicies;
+	};
+	int GetNaturalWonderSubsequentFinderPolicies() const
+	{
+		return m_iNaturalWonderSubsequentFinderPolicies;
+	};
+	int GetNaturalWonderFirstFinderTech() const
+	{
+		return m_iNaturalWonderFirstFinderTech;
+	};
+	int GetNaturalWonderSubsequentFinderTech() const
+	{
+		return m_iNaturalWonderSubsequentFinderTech;
+	};
 	int GetNaturalWonderYieldModifier() const
 	{
 		return m_iNaturalWonderYieldModifier;
+	};
+	int GetNaturalWonderYieldModifierPerEra() const
+	{
+		return m_iNaturalWonderYieldModifierPerEra;
 	};
 	int GetNaturalWonderHappinessModifier() const
 	{
@@ -1088,6 +1138,10 @@ public:
 	{
 		return m_bTrainedAll;
 	};
+	bool IsNewCityAutomaticReligion() const
+	{
+		return m_bNewCityAutomaticReligion;
+	};
 	bool IsCanConquerUC() const
 	{
 		return m_bCanConquerUC;
@@ -1131,6 +1185,10 @@ public:
 	bool IsArtistGoldenAgeTechBoost() const
 	{
 		return m_bArtistGoldenAgeTechBoost;
+	};
+	bool IsGoldenAgeTechChainBoost() const
+	{
+		return m_bGoldenAgeTechChainBoost;
 	};
 	bool IsStaysAliveZeroCities() const
 	{
@@ -1251,9 +1309,14 @@ public:
 	{
 		return ((uint)eResource < m_aiResourceQuantityModifier.size())?m_aiResourceQuantityModifier[(int)eResource]:0;
 	};
+	int GetBuildCostChange(BuildTypes eBuild) const
+	{
+		return ((uint)eBuild < m_aiBuildCostChange.size())?m_aiBuildCostChange[(int)eBuild]:0;
+	};
 	int GetMovesChangeUnitCombat(const int unitCombatID) const;
 	int GetMaintenanceModifierUnitCombat(const int unitCombatID) const;
 	int GetImprovementYieldChange(ImprovementTypes eImprovement, YieldTypes eYield) const;
+	int GetAdjacentImprovementYieldChange(ImprovementTypes eImprovement, ImprovementTypes eOtherImprovement, YieldTypes eYield) const;
 #if defined(MOD_API_UNIFIED_YIELDS) && defined(MOD_API_PLOT_YIELDS)
 	int GetPlotYieldChange(PlotTypes ePlot, YieldTypes eYield) const;
 #endif
@@ -1486,7 +1549,12 @@ private:
 	int m_iExtraEmbarkMoves;
 	int m_iNaturalWonderFirstFinderGold;
 	int m_iNaturalWonderSubsequentFinderGold;
+	int m_iNaturalWonderFirstFinderPolicies;
+	int m_iNaturalWonderSubsequentFinderPolicies;
+	int m_iNaturalWonderFirstFinderTech;
+	int m_iNaturalWonderSubsequentFinderTech;
 	int m_iNaturalWonderYieldModifier;
+	int m_iNaturalWonderYieldModifierPerEra;
 	int m_iNaturalWonderHappinessModifier;
 	int m_iNearbyImprovementCombatBonus;
 	int m_iNearbyImprovementBonusRange;
@@ -1554,6 +1622,7 @@ private:
 #endif
 	// Saved
 	bool m_bTrainedAll = false;
+	bool m_bNewCityAutomaticReligion = false;
 	bool m_bCanConquerUC = false;
 	bool m_bFightWellDamaged = false;
 	bool m_bBuyOwnedTiles = false;
@@ -1565,6 +1634,7 @@ private:
 	bool m_bNoHillsImprovementMaintenance = false;
 	bool m_bTechBoostFromCapitalScienceBuildings = false;
 	bool m_bArtistGoldenAgeTechBoost = false;
+	bool m_bGoldenAgeTechChainBoost = false;
 	bool m_bStaysAliveZeroCities = false;
 	bool m_bFaithFromUnimprovedForest = false;
 #if defined(MOD_TRAITS_ANY_BELIEF)
@@ -1614,6 +1684,7 @@ private:
 	int m_iGoldenAgeYieldRateModifier[NUM_YIELD_TYPES];
 	int m_iStrategicResourceQuantityModifier[NUM_TERRAIN_TYPES];
 	std::vector<int> m_aiResourceQuantityModifier;
+	std::vector<int> m_aiBuildCostChange;
 	std::vector<bool> m_abNoTrain;
 	FStaticVector<FreeTraitUnit, SAFE_ESTIMATE_NUM_FREE_UNITS, true, c_eCiv5GameplayDLL, 0> m_aFreeTraitUnits;
 	std::vector<int> m_aiBuildingClassFaithCost;

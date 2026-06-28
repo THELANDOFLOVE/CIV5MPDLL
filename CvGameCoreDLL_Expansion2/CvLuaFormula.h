@@ -283,12 +283,18 @@ namespace lua {
 
     class EvaluatorManager {
     public:
+        ~EvaluatorManager()
+        {
+            for (auto& pair : m_data) delete pair.second;
+            m_data.clear();
+        }
+
         Evaluator* GetEvaluator(const char* type);
         Evaluator* GetEvaluator(LuaFormulaTypes eType);
 
         bool Init(CvGlobals* gc);
     private:
-        CvGlobals* m_pGlobal = nullptr; // weak pointer
-        std::tr1::unordered_map<LuaFormulaTypes, Evaluator> m_data;
+        CvGlobals* m_pGlobal = nullptr;
+        std::tr1::unordered_map<LuaFormulaTypes, Evaluator*> m_data;
     };
 }

@@ -75,11 +75,19 @@ CvBeliefEntry::CvBeliefEntry() :
 	m_iSameReligionMinorRecoveryModifier(0),
 	m_iInquisitionFervorTimeModifier(0),
 	m_iCuttingBonusModifier(0),
+	m_iCityCorruptionScoreChange(0),
+	m_iFirstConversionCitiesPerGoldenAge(0),
+	m_iFirstConversionCitiesPerPop(0),
 	m_iCityExtraMissionarySpreads(0),
 	m_bAllowYieldPerBirth(false),
+	m_piLocalHappinessYieldRate(NULL),
+	m_piCorruptionScoreYieldRate(NULL),
 	m_piYieldPerBirth(NULL),
 	m_piLakePlotYieldChange(NULL),
 	m_piRiverPlotYieldChange(NULL),
+	m_piTradeRouteToHolyCityYield(NULL),
+	m_piTradeRouteToHolyCityDestYield(NULL),
+	m_piTradeRouteSameReligionYieldModifier(NULL),
 #endif
 
 	m_bPantheon(false),
@@ -163,6 +171,11 @@ CvBeliefEntry::~CvBeliefEntry()
 	SAFE_DELETE_ARRAY(m_piYieldPerBirth);
 	SAFE_DELETE_ARRAY(m_piLakePlotYieldChange);
 	SAFE_DELETE_ARRAY(m_piRiverPlotYieldChange);
+	SAFE_DELETE_ARRAY(m_piLocalHappinessYieldRate);
+	SAFE_DELETE_ARRAY(m_piCorruptionScoreYieldRate);
+	SAFE_DELETE_ARRAY(m_piTradeRouteToHolyCityYield);
+	SAFE_DELETE_ARRAY(m_piTradeRouteToHolyCityDestYield);
+	SAFE_DELETE_ARRAY(m_piTradeRouteSameReligionYieldModifier);
 
 	SAFE_DELETE_ARRAY(m_paiCityYieldChange);
 	SAFE_DELETE_ARRAY(m_paiHolyCityYieldChange);
@@ -894,6 +907,34 @@ int CvBeliefEntry::GetCuttingBonusModifier() const
 {
 	return m_iCuttingBonusModifier;
 }
+int CvBeliefEntry::GetCityCorruptionScoreChange() const
+{
+	return m_iCityCorruptionScoreChange;
+}
+int CvBeliefEntry::GetFirstConversionCitiesPerGoldenAge() const
+{
+	return m_iFirstConversionCitiesPerGoldenAge;
+}
+int CvBeliefEntry::GetFirstConversionCitiesPerPop() const
+{
+	return m_iFirstConversionCitiesPerPop;
+}
+int CvBeliefEntry::GetLocalHappinessYieldRate(int i) const
+{
+	return m_piLocalHappinessYieldRate ? m_piLocalHappinessYieldRate[i] : 0;
+}
+int CvBeliefEntry::GetTradeRouteToHolyCityYield(int i) const
+{
+	return m_piTradeRouteToHolyCityYield ? m_piTradeRouteToHolyCityYield[i] : 0;
+}
+int CvBeliefEntry::GetTradeRouteToHolyCityDestYield(int i) const
+{
+	return m_piTradeRouteToHolyCityDestYield ? m_piTradeRouteToHolyCityDestYield[i] : 0;
+}
+int CvBeliefEntry::GetTradeRouteSameReligionYieldModifier(int i) const
+{
+	return m_piTradeRouteSameReligionYieldModifier ? m_piTradeRouteSameReligionYieldModifier[i] : 0;
+}
 //Extra Missionary Spreads
 int CvBeliefEntry::GetCityExtraMissionarySpreads() const
 {
@@ -918,6 +959,10 @@ int CvBeliefEntry::GetLakePlotYieldChange(int i) const
 	return m_piLakePlotYieldChange ? m_piLakePlotYieldChange[i] : -1;
 }
 
+int CvBeliefEntry::GetCorruptionScoreYieldRate(int i) const
+{
+	return m_piCorruptionScoreYieldRate ? m_piCorruptionScoreYieldRate[i] : 0;
+}
 //River Yield
 int CvBeliefEntry::GetRiverPlotYieldChange(int i) const
 {
@@ -1077,6 +1122,9 @@ bool CvBeliefEntry::CacheResults(Database::Results& kResults, CvDatabaseUtility&
 	m_iSameReligionMinorRecoveryModifier = kResults.GetInt("SameReligionMinorRecoveryModifier");
 	m_iInquisitionFervorTimeModifier = kResults.GetInt("InquisitionFervorTimeModifier");
 	m_iCuttingBonusModifier = kResults.GetInt("CuttingBonusModifier");
+	m_iFirstConversionCitiesPerGoldenAge = kResults.GetInt("FirstConversionCitiesPerGoldenAge");
+	m_iFirstConversionCitiesPerPop = kResults.GetInt("FirstConversionCitiesPerPop");
+	m_iCityCorruptionScoreChange = kResults.GetInt("CityCorruptionScoreChange");
 #endif
 
 	m_bPantheon						  = kResults.GetBool("Pantheon");
@@ -1114,9 +1162,14 @@ bool CvBeliefEntry::CacheResults(Database::Results& kResults, CvDatabaseUtility&
 	//Arrays
 	const char* szBeliefType = GetType();
 #if defined(MOD_BELIEF_NEW_EFFECT_FOR_SP)
+	kUtility.PopulateArrayByValue(m_piLocalHappinessYieldRate, "Yields", "Belief_LocalHappinessYieldRate", "YieldType", "BeliefType", szBeliefType, "Rate");
+	kUtility.PopulateArrayByValue(m_piCorruptionScoreYieldRate, "Yields", "Belief_CorruptionScoreYieldRate", "YieldType", "BeliefType", szBeliefType, "Rate");
 	kUtility.SetYields(m_piYieldPerBirth, "Belief_YieldPerBirth", "BeliefType", szBeliefType);
 	kUtility.SetYields(m_piLakePlotYieldChange, "Belief_LakePlotYieldChanges", "BeliefType", szBeliefType);
 	kUtility.SetYields(m_piRiverPlotYieldChange, "Belief_RiverPlotYieldChanges", "BeliefType", szBeliefType);
+	kUtility.SetYields(m_piTradeRouteToHolyCityYield, "Belief_TradeRouteToHolyCityYield", "BeliefType", szBeliefType);
+	kUtility.SetYields(m_piTradeRouteToHolyCityDestYield, "Belief_TradeRouteToHolyCityDestYield", "BeliefType", szBeliefType);
+	kUtility.PopulateArrayByValue(m_piTradeRouteSameReligionYieldModifier, "Yields", "Belief_TradeRouteSameReligionYieldModifier", "YieldType", "BeliefType", szBeliefType, "Modifier");
 #endif
 	kUtility.SetYields(m_paiCityYieldChange, "Belief_CityYieldChanges", "BeliefType", szBeliefType);
 	kUtility.SetYields(m_paiHolyCityYieldChange, "Belief_HolyCityYieldChanges", "BeliefType", szBeliefType);
@@ -1174,6 +1227,33 @@ bool CvBeliefEntry::CacheResults(Database::Results& kResults, CvDatabaseUtility&
 
 			m_ppiImprovementYieldChanges[ImprovementID][YieldID] = yield;
 		}
+	}
+	//AdjacentImprovementYieldChanges
+	{
+		std::string strKey("Belief_AdjacentImprovementYieldChanges");
+		Database::Results* pResults = kUtility.GetResults(strKey);
+		if (pResults == NULL)
+		{
+			pResults = kUtility.PrepareResults(strKey,
+				"SELECT Imp1.ID as ImprovementID, Imp2.ID as OtherImprovementID, "
+				"Yields.ID as YieldID, Yield "
+				"FROM Belief_AdjacentImprovementYieldChanges "
+				"INNER JOIN Improvements AS Imp1 ON ImprovementType = Imp1.Type "
+				"INNER JOIN Improvements AS Imp2 ON OtherImprovementType = Imp2.Type "
+				"INNER JOIN Yields ON YieldType = Yields.Type "
+				"WHERE BeliefType = ?");
+		}
+		pResults->Bind(1, szBeliefType);
+		while (pResults->Step())
+		{
+			AdjacentImprovementYieldChange change;
+			change.m_iImprovementType = pResults->GetInt(0);
+			change.m_iOtherImprovementType = pResults->GetInt(1);
+			change.m_iYieldType = pResults->GetInt(2);
+			change.m_iYield = pResults->GetInt(3);
+			m_vAdjacentImprovementYieldChanges.push_back(change);
+		}
+		pResults->Reset();
 	}
 	//ImprovementAdjacentCityYieldChanges;
 	{
@@ -1591,6 +1671,9 @@ CvReligionBeliefs::CvReligionBeliefs(const CvReligionBeliefs& source)
 	m_iInquisitionFervorTimeModifier = source.m_iInquisitionFervorTimeModifier;
 	m_iNumInquisitorProhibitSpreadInAlly = source.m_iNumInquisitorProhibitSpreadInAlly;
 	m_iCuttingBonusModifier = source.m_iCuttingBonusModifier;
+	m_iFirstConversionCitiesPerGoldenAge = source.m_iFirstConversionCitiesPerGoldenAge;
+	m_iFirstConversionCitiesPerPop = source.m_iFirstConversionCitiesPerPop;
+	m_iCityCorruptionScoreChange = source.m_iCityCorruptionScoreChange;
 	m_iCityExtraMissionarySpreads = source.m_iCityExtraMissionarySpreads;
 	m_bAllowYieldPerBirth = source.m_bAllowYieldPerBirth;
 #endif
@@ -1663,6 +1746,9 @@ void CvReligionBeliefs::Reset()
 	m_iInquisitionFervorTimeModifier = 0;
 	m_iNumInquisitorProhibitSpreadInAlly = 0;
 	m_iCuttingBonusModifier = 0;
+	m_iFirstConversionCitiesPerGoldenAge = 0;
+	m_iFirstConversionCitiesPerPop = 0;
+	m_iCityCorruptionScoreChange = 0;
 	m_iCityExtraMissionarySpreads = 0;
 	m_bAllowYieldPerBirth = false;
 #endif
@@ -1745,6 +1831,9 @@ void CvReligionBeliefs::AddBelief(BeliefTypes eBelief, PlayerTypes ePlayer)
 	m_iInquisitionFervorTimeModifier += belief->GetInquisitionFervorTimeModifier();
 	m_iNumInquisitorProhibitSpreadInAlly += belief->IsInquisitorProhibitSpreadInAlly() ? 1 : 0;
 	m_iCuttingBonusModifier += belief->GetCuttingBonusModifier();
+	m_iFirstConversionCitiesPerGoldenAge += belief->GetFirstConversionCitiesPerGoldenAge();
+	m_iFirstConversionCitiesPerPop += belief->GetFirstConversionCitiesPerPop();
+	m_iCityCorruptionScoreChange += belief->GetCityCorruptionScoreChange();
 	m_iCityExtraMissionarySpreads += belief->GetCityExtraMissionarySpreads();
 	m_bAllowYieldPerBirth = m_bAllowYieldPerBirth || belief->AllowYieldPerBirth();
 #endif
@@ -2186,6 +2275,31 @@ int CvReligionBeliefs::GetImprovementAdjacentCityYieldChange(ImprovementTypes eI
 	return m_vImprovementAdjacentCityYieldChanges[eImprovement][eYield];
 }
 
+/// Get adjacent improvement yield change from beliefs
+int CvReligionBeliefs::GetAdjacentImprovementYieldChange(ImprovementTypes eImprovement, ImprovementTypes eOtherImprovement, YieldTypes eYield) const
+{
+	int rtnValue = 0;
+	CvBeliefXMLEntries* pBeliefs = GC.GetGameBeliefs();
+	for (BeliefList::const_iterator i = m_ReligionBeliefs.begin(); i != m_ReligionBeliefs.end(); ++i)
+	{
+		CvBeliefEntry* pBeliefEntry = pBeliefs->GetEntry(*i);
+		if (pBeliefEntry)
+		{
+			const auto& vChanges = pBeliefEntry->GetAdjacentImprovementYieldChanges();
+			for (const auto& change : vChanges)
+			{
+				if ((int)change.m_iImprovementType == (int)eImprovement &&
+					(int)change.m_iOtherImprovementType == (int)eOtherImprovement &&
+					(int)change.m_iYieldType == (int)eYield)
+				{
+					rtnValue += change.m_iYield;
+				}
+			}
+		}
+	}
+	return rtnValue;
+}
+
 /// Get yield change from beliefs for a specific building class
 int CvReligionBeliefs::GetBuildingClassYieldChange(BuildingClassTypes eBuildingClass, YieldTypes eYieldType, int iFollowers) const
 {
@@ -2559,6 +2673,63 @@ int CvReligionBeliefs::GetRiverPlotYieldChange(YieldTypes eYieldType) const
 	return rtnValue;
 }
 
+int CvReligionBeliefs::GetLocalHappinessYieldRate(YieldTypes eYieldType) const
+{
+	CvBeliefXMLEntries* pBeliefs = GC.GetGameBeliefs();
+	int rtnValue = 0;
+
+	for (BeliefList::const_iterator i = m_ReligionBeliefs.begin(); i != m_ReligionBeliefs.end(); i++)
+	{
+		rtnValue += pBeliefs->GetEntry(*i)->GetLocalHappinessYieldRate(eYieldType);
+	}
+
+	return rtnValue;
+}
+
+int CvReligionBeliefs::GetCorruptionScoreYieldRate(YieldTypes eYieldType) const
+{
+	CvBeliefXMLEntries* pBeliefs = GC.GetGameBeliefs();
+	int rtnValue = 0;
+	for (BeliefList::const_iterator i = m_ReligionBeliefs.begin(); i != m_ReligionBeliefs.end(); i++)
+	{
+		rtnValue += pBeliefs->GetEntry(*i)->GetCorruptionScoreYieldRate(eYieldType);
+	}
+	return rtnValue;
+}
+
+int CvReligionBeliefs::GetTradeRouteToHolyCityYield(YieldTypes eYieldType) const
+{
+	CvBeliefXMLEntries* pBeliefs = GC.GetGameBeliefs();
+	int rtnValue = 0;
+	for (BeliefList::const_iterator i = m_ReligionBeliefs.begin(); i != m_ReligionBeliefs.end(); i++)
+	{
+		rtnValue += pBeliefs->GetEntry(*i)->GetTradeRouteToHolyCityYield(eYieldType);
+	}
+	return rtnValue;
+}
+
+int CvReligionBeliefs::GetTradeRouteToHolyCityDestYield(YieldTypes eYieldType) const
+{
+	CvBeliefXMLEntries* pBeliefs = GC.GetGameBeliefs();
+	int rtnValue = 0;
+	for (BeliefList::const_iterator i = m_ReligionBeliefs.begin(); i != m_ReligionBeliefs.end(); i++)
+	{
+		rtnValue += pBeliefs->GetEntry(*i)->GetTradeRouteToHolyCityDestYield(eYieldType);
+	}
+	return rtnValue;
+}
+
+int CvReligionBeliefs::GetTradeRouteSameReligionYieldModifier(YieldTypes eYieldType) const
+{
+	CvBeliefXMLEntries* pBeliefs = GC.GetGameBeliefs();
+	int rtnValue = 0;
+	for (BeliefList::const_iterator i = m_ReligionBeliefs.begin(); i != m_ReligionBeliefs.end(); i++)
+	{
+		rtnValue += pBeliefs->GetEntry(*i)->GetTradeRouteSameReligionYieldModifier(eYieldType);
+	}
+	return rtnValue;
+}
+
 #endif
 
 // Get happiness boost from a resource
@@ -2778,6 +2949,9 @@ void CvReligionBeliefs::Read(FDataStream& kStream)
 	kStream >> m_iInquisitionFervorTimeModifier;
 	kStream >> m_iNumInquisitorProhibitSpreadInAlly;
 	kStream >> m_iCuttingBonusModifier;
+	MOD_SERIALIZE_READ(161, kStream, m_iFirstConversionCitiesPerGoldenAge, 0);
+	MOD_SERIALIZE_READ(161, kStream, m_iFirstConversionCitiesPerPop, 0);
+	MOD_SERIALIZE_READ(161, kStream, m_iCityCorruptionScoreChange, 0);
 	kStream >> m_iCityExtraMissionarySpreads;
 	kStream >> m_bAllowYieldPerBirth;
 #endif
@@ -2846,6 +3020,9 @@ void CvReligionBeliefs::Write(FDataStream& kStream) const
 	kStream << m_iInquisitionFervorTimeModifier;
 	kStream << m_iNumInquisitorProhibitSpreadInAlly;
 	kStream << m_iCuttingBonusModifier;
+	MOD_SERIALIZE_WRITE(kStream, m_iFirstConversionCitiesPerGoldenAge);
+	MOD_SERIALIZE_WRITE(kStream, m_iFirstConversionCitiesPerPop);
+	MOD_SERIALIZE_WRITE(kStream, m_iCityCorruptionScoreChange);
 	kStream << m_iCityExtraMissionarySpreads;
 	kStream << m_bAllowYieldPerBirth;
 #endif

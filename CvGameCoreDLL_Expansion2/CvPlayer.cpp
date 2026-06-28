@@ -271,6 +271,12 @@ CvPlayer::CvPlayer() :
 	, m_iDomesticGreatGeneralRateModFromBldgs("CvPlayer::m_iDomesticGreatGeneralRateModFromBldgs", m_syncArchive)
 	, m_iGreatScientistBeakerModifier(0)
 	, m_iGreatScientistBeakerPolicyModifier(0)
+	, m_iInstantTourismBombWhenFirstConquerMajorCapital(0)
+	, m_iNaturalWonderFirstFinderTech(0)
+	, m_iNaturalWonderFirstFinderPolicies(0)
+	, m_iNaturalWonderSubsequentFinderTech(0)
+	, m_iNaturalWonderSubsequentFinderPolicies(0)
+
 	, m_iProductionBeakerMod(0)
 	, m_iGreatPersonExpendGold(0)
 	, m_iMaxGlobalBuildingProductionModifier("CvPlayer::m_iMaxGlobalBuildingProductionModifier", m_syncArchive)
@@ -389,6 +395,7 @@ CvPlayer::CvPlayer() :
 	, m_iGlobalRangedStrikeModifier(0)
 	, m_iResearchTotalCostModifier(0)
 	, m_iResearchTotalCostModifierGoldenAge(0)
+	, m_iImmigrationRegressandModifier(0)
 	, m_iLiberatedInfluence(0)
 	, m_iExtraUnitPlayerInstances(0)
 	, m_iConquestCasualtiesModifier(0)
@@ -461,6 +468,7 @@ CvPlayer::CvPlayer() :
 	, m_aiDomainFreeExperiencePerGreatWorkGlobal()
 	, m_aiDomainFreeExperiencesPerTurnGlobal()
 	, m_aiDomainEnemyCombatModifierGlobal()
+	, m_aiDomainFriendsCombatModifierGlobal()
 	, m_piDomainFreeExperience()
 	, m_piUnitTypePrmoteHealGlobal()
 #endif
@@ -1069,6 +1077,11 @@ void CvPlayer::uninit()
 	m_iGreatScientistRateModifier = 0;
 	m_iGreatScientistBeakerModifier = 0;
 	m_iGreatScientistBeakerPolicyModifier = 0;
+	m_iInstantTourismBombWhenFirstConquerMajorCapital = 0;
+	m_iNaturalWonderFirstFinderTech = 0;
+	m_iNaturalWonderFirstFinderPolicies = 0;
+	m_iNaturalWonderSubsequentFinderTech = 0;
+	m_iNaturalWonderSubsequentFinderPolicies = 0;
 	m_iProductionBeakerMod = 0;
 	m_iGreatEngineerRateModifier = 0;
 	m_iGreatPersonExpendGold = 0;
@@ -1182,6 +1195,7 @@ void CvPlayer::uninit()
 	m_iGlobalRangedStrikeModifier = 0;
 	m_iResearchTotalCostModifier = 0;
 	m_iResearchTotalCostModifierGoldenAge = 0;
+	m_iImmigrationRegressandModifier = 0;
 	m_iLiberatedInfluence = 0;
 	m_iExtraUnitPlayerInstances = 0;
 	m_iConquestCasualtiesModifier = 0;
@@ -1262,6 +1276,9 @@ void CvPlayer::uninit()
 #endif
 #ifdef MOD_GLOBAL_CORRUPTION
 	m_iCorruptionScoreModifierFromPolicy = 0;
+	m_iGoldenAgeCorruptionScoreReduction = 0;
+	m_iLocalHappinessCorruptionScoreMod = 0;
+	m_iCorruptionScoreGlobalChangeFromBuilding = 0;
 	m_iCorruptionLevelReduceByOneRC = 0;
 	m_iCorruptionPolicyCostModifier = 0;
 #endif
@@ -1347,6 +1364,8 @@ void CvPlayer::reset(PlayerTypes eID, bool bConstructorCall)
 	m_aiDomainFreeExperiencesPerTurnGlobal.resize(NUM_DOMAIN_TYPES, 0);
 	m_aiDomainEnemyCombatModifierGlobal.clear();
 	m_aiDomainEnemyCombatModifierGlobal.resize(NUM_DOMAIN_TYPES, 0);
+	m_aiDomainFriendsCombatModifierGlobal.clear();
+	m_aiDomainFriendsCombatModifierGlobal.resize(NUM_DOMAIN_TYPES, 0);
 
 	m_piDomainFreeExperience.clear();
 	m_piUnitTypePrmoteHealGlobal.clear();
@@ -2538,11 +2557,11 @@ CvCity* CvPlayer::acquireCity(CvCity* pOldCity, bool bConquest, bool bGift, bool
 
 	if (bConquest)
 	{
-		if (GetPlayerTraits()->GetInstantTourismBombWhenFirstConquerMajorCapital() > 0 && pOldCity->IsOriginalMajorCapital())
+		if ((GetPlayerTraits()->GetInstantTourismBombWhenFirstConquerMajorCapital() > 0 || GetInstantTourismBombWhenFirstConquerMajorCapital() > 0) && pOldCity->IsOriginalMajorCapital())
 		{
 			if (!pOldCity->isEverOwned(GetID()))
 			{
-				const int iValue = GetCulture()->GetTourismBlastStrength(GetPlayerTraits()->GetInstantTourismBombWhenFirstConquerMajorCapital());
+				const int iValue = GetCulture()->GetTourismBlastStrength(GetPlayerTraits()->GetInstantTourismBombWhenFirstConquerMajorCapital() + GetInstantTourismBombWhenFirstConquerMajorCapital());
 				if (iValue > 0)
 				{
 					GetCulture()->AddTourismAllKnownCivs(iValue);
@@ -5874,6 +5893,22 @@ void CvPlayer::UpdateNotifications()
 void CvPlayer::UpdateReligion()
 {
 	DoUpdateHappiness();
+
+#ifdef MOD_GLOBAL_CORRUPTION
+	// Guard against recursion: CvCity::UpdateReligion() calls us back at its end
+	if (m_bUpdatingReligion)
+		return;
+	m_bUpdatingReligion = true;
+
+	// Update each city's religion yields after belief changes (e.g., corruption score)
+	int iLoop = 0;
+	for(CvCity* pCity = firstCity(&iLoop); pCity != NULL; pCity = nextCity(&iLoop))
+	{
+		pCity->UpdateReligion(pCity->GetCityReligions()->GetReligiousMajority());
+	}
+
+	m_bUpdatingReligion = false;
+#endif
 }
 
 //	--------------------------------------------------------------------------------
@@ -7572,6 +7607,7 @@ void CvPlayer::receiveGoody(CvPlot* pPlot, GoodyTypes eGoody, CvUnit* pUnit)
 #else
 		pUnit->changeExperience(kGoodyInfo.getExperience());
 #endif
+		pUnit->testPromotionReady();
 	}
 
 	// Unit Heal
@@ -8229,6 +8265,14 @@ void CvPlayer::found(int iX, int iY)
 	}
 
 	SetTurnsSinceSettledLastCity(0);
+
+	// Trait: automatically set new city religion to founded religion
+	if (GetPlayerTraits()->IsNewCityAutomaticReligion())
+	{
+		ReligionTypes eOurReligion = GC.getGame().GetGameReligions()->GetFounderBenefitsReligion(GetID());
+		if (eOurReligion != NO_RELIGION)
+			eReligion = eOurReligion;
+	}
 
 	CvCity* pCity = initCity(iX, iY, true, true, eReligion);
 	CvAssertMsg(pCity != NULL, "City is not assigned a valid value");
@@ -10072,6 +10116,11 @@ void CvPlayer::processBuilding(BuildingTypes eBuilding, int iChange, bool bFirst
 			{
 				ChangeDomainEnemyCombatModifierGlobal(eDomain, iNewValue);
 			}
+			iNewValue = pBuildingInfo->GetDomainFriendsCombatModifierGlobal(iDomains);
+			if (iNewValue != 0)
+			{
+				ChangeDomainFriendsCombatModifierGlobal(eDomain, iNewValue);
+			}
 			iNewValue = pBuildingInfo->GetDomainFreeExperienceGlobal(iDomains);
 			if (iNewValue > 0)
 			{
@@ -10107,6 +10156,18 @@ void CvPlayer::processBuilding(BuildingTypes eBuilding, int iChange, bool bFirst
 	ChangeGlobalRangedStrikeModifier(pBuildingInfo->GetGlobalRangedStrikeModifier()* iChange);
 	ChangeResearchTotalCostModifier(pBuildingInfo->GetResearchTotalCostModifier()* iChange);
 	ChangeResearchTotalCostModifierGoldenAge(pBuildingInfo->GetResearchTotalCostModifierGoldenAge()* iChange);
+	ChangeImmigrationRegressandModifier(pBuildingInfo->GetImmigrationRegressandModifier() * iChange);
+#ifdef MOD_GLOBAL_CORRUPTION
+	ChangeCorruptionScoreGlobalChangeFromBuilding(pBuildingInfo->GetCorruptionScoreGlobalChange() * iChange);
+	if (pBuildingInfo->GetCorruptionScoreGlobalChange() * iChange != 0)
+	{
+		int iLoop = 0;
+		for (CvCity* pLoopCity = firstCity(&iLoop); pLoopCity != NULL; pLoopCity = nextCity(&iLoop))
+		{
+			pLoopCity->UpdateCorruption();
+		}
+	}
+#endif
 	ChangeLiberatedInfluence(pBuildingInfo->GetLiberatedInfluence()* iChange);
 	ChangeExtraUnitPlayerInstances(pBuildingInfo->GetExtraUnitPlayerInstances()* iChange);
 	ChangeWaterTileDamageGlobal(pBuildingInfo->GetWaterTileDamageGlobal()* iChange);
@@ -13529,6 +13590,11 @@ int CvPlayer::GetHappinessFromNaturalWonders() const
 		iHappiness *= (100 + m_pTraits->GetNaturalWonderHappinessModifier());
 		iHappiness /= 100;
 	}
+	if(m_pTraits->GetNaturalWonderYieldModifierPerEra() > 0)
+	{
+		iHappiness *= (100 + m_pTraits->GetNaturalWonderYieldModifierPerEra() * GetCurrentEra());
+		iHappiness /= 100;
+	}
 
 
 
@@ -13540,6 +13606,12 @@ int CvPlayer::GetHappinessFromNaturalWonders() const
 		if (m_pTraits->GetNaturalWonderYieldModifier() > 0)
 		{
 			iPlotHappiness *= (100 + m_pTraits->GetNaturalWonderYieldModifier());
+			iPlotHappiness /= 100;
+		}
+
+		if (m_pTraits->GetNaturalWonderYieldModifierPerEra() != 0)
+		{
+			iPlotHappiness *= (100 + m_pTraits->GetNaturalWonderYieldModifierPerEra() * GetCurrentEra());
 			iPlotHappiness /= 100;
 		}
 
@@ -16325,6 +16397,88 @@ void CvPlayer::ChangeGreatScientistBeakerPolicyMod(int iChange)
 	SetGreatScientistBeakerPolicyMod(GetGreatScientistBeakerPolicyMod() + iChange);
 }
 
+//	--------------------------------------------------------------------------------
+int CvPlayer::GetInstantTourismBombWhenFirstConquerMajorCapital() const
+{
+	return m_iInstantTourismBombWhenFirstConquerMajorCapital;
+}
+
+//	--------------------------------------------------------------------------------
+void CvPlayer::ChangeInstantTourismBombWhenFirstConquerMajorCapital(int iChange)
+{
+	m_iInstantTourismBombWhenFirstConquerMajorCapital += iChange;
+}
+//	--------------------------------------------------------------------------------
+void CvPlayer::SetInstantTourismBombWhenFirstConquerMajorCapital(int iValue)
+{
+	m_iInstantTourismBombWhenFirstConquerMajorCapital = iValue;
+}
+
+//	--------------------------------------------------------------------------------
+//	--------------------------------------------------------------------------------
+int CvPlayer::GetNaturalWonderFirstFinderPolicies() const
+{
+	return m_iNaturalWonderFirstFinderPolicies;
+}
+
+//	--------------------------------------------------------------------------------
+void CvPlayer::ChangeNaturalWonderFirstFinderPolicies(int iChange)
+{
+	m_iNaturalWonderFirstFinderPolicies += iChange;
+}
+//	--------------------------------------------------------------------------------
+void CvPlayer::SetNaturalWonderFirstFinderPolicies(int iValue)
+{
+	m_iNaturalWonderFirstFinderPolicies = iValue;
+}
+//	--------------------------------------------------------------------------------
+int CvPlayer::GetNaturalWonderFirstFinderTech() const
+{
+	return m_iNaturalWonderFirstFinderTech;
+}
+
+//	--------------------------------------------------------------------------------
+void CvPlayer::ChangeNaturalWonderFirstFinderTech(int iChange)
+{
+	m_iNaturalWonderFirstFinderTech += iChange;
+}
+//	--------------------------------------------------------------------------------
+void CvPlayer::SetNaturalWonderFirstFinderTech(int iValue)
+{
+	m_iNaturalWonderFirstFinderTech = iValue;
+}
+//	--------------------------------------------------------------------------------
+int CvPlayer::GetNaturalWonderSubsequentFinderTech() const
+{
+	return m_iNaturalWonderSubsequentFinderTech;
+}
+
+//	--------------------------------------------------------------------------------
+void CvPlayer::ChangeNaturalWonderSubsequentFinderTech(int iChange)
+{
+	m_iNaturalWonderSubsequentFinderTech += iChange;
+}
+//	--------------------------------------------------------------------------------
+void CvPlayer::SetNaturalWonderSubsequentFinderTech(int iValue)
+{
+	m_iNaturalWonderSubsequentFinderTech = iValue;
+}
+//	--------------------------------------------------------------------------------
+int CvPlayer::GetNaturalWonderSubsequentFinderPolicies() const
+{
+	return m_iNaturalWonderSubsequentFinderPolicies;
+}
+
+//	--------------------------------------------------------------------------------
+void CvPlayer::ChangeNaturalWonderSubsequentFinderPolicies(int iChange)
+{
+	m_iNaturalWonderSubsequentFinderPolicies += iChange;
+}
+//	--------------------------------------------------------------------------------
+void CvPlayer::SetNaturalWonderSubsequentFinderPolicies(int iValue)
+{
+	m_iNaturalWonderSubsequentFinderPolicies = iValue;
+}
 
 //	--------------------------------------------------------------------------------
 // Do we get extra beakers from using Great Scientists?
@@ -17809,6 +17963,25 @@ void CvPlayer::ChangeDomainEnemyCombatModifierGlobal(DomainTypes eIndex, int iCh
 	CvAssertMsg(eIndex >= 0, "eIndex expected to be >= 0");
 	CvAssertMsg(eIndex < NUM_DOMAIN_TYPES, "eIndex expected to be < NUM_DOMAIN_TYPES");
 	m_aiDomainEnemyCombatModifierGlobal[eIndex] += iChange;
+}
+
+//	--------------------------------------------------------------------------------
+int CvPlayer::GetDomainFriendsCombatModifierGlobal(DomainTypes eIndex) const
+{
+	VALIDATE_OBJECT
+	CvAssertMsg(eIndex >= 0, "eIndex expected to be >= 0");
+	CvAssertMsg(eIndex < NUM_DOMAIN_TYPES, "eIndex expected to be < NUM_DOMAIN_TYPES");
+	return m_aiDomainFriendsCombatModifierGlobal[eIndex];
+}
+
+
+//	--------------------------------------------------------------------------------
+void CvPlayer::ChangeDomainFriendsCombatModifierGlobal(DomainTypes eIndex, int iChange)
+{
+	VALIDATE_OBJECT
+	CvAssertMsg(eIndex >= 0, "eIndex expected to be >= 0");
+	CvAssertMsg(eIndex < NUM_DOMAIN_TYPES, "eIndex expected to be < NUM_DOMAIN_TYPES");
+	m_aiDomainFriendsCombatModifierGlobal[eIndex] += iChange;
 }
 
 //	--------------------------------------------------------------------------------
@@ -21273,6 +21446,40 @@ int CvPlayer::GetImprovementExtraYield(ImprovementTypes eImprovement, YieldTypes
 	CvAssertMsg(eYield >= 0, "eIndex2 is expected to be non-negative (invalid Index)");
 	CvAssertMsg(eYield < NUM_YIELD_TYPES, "eIndex2 is expected to be within maximum bounds (invalid Index)");
 	return m_ppiImprovementYieldChange[eImprovement][eYield];
+}
+
+//	--------------------------------------------------------------------------------
+/// Get adjacent improvement yield change from buildings with Global scope (any city in the empire)
+int CvPlayer::GetAdjacentImprovementYieldChangeFromBuildingsGlobal(ImprovementTypes eImprovement, ImprovementTypes eOtherImprovement, YieldTypes eYield) const
+{
+	int rtnValue = 0;
+	int iLoop = 0;
+	const std::vector<BuildingTypes>& vCached = GC.GetGameBuildings()->GetBuildingsWithAdjacentYieldGlobal();
+	for (const CvCity* pLoopCity = firstCity(&iLoop); pLoopCity != NULL; pLoopCity = nextCity(&iLoop))
+	{
+		for (size_t i = 0; i < vCached.size(); i++)
+		{
+			BuildingTypes eBuilding = vCached[i];
+			if (pLoopCity->GetCityBuildings()->GetNumActiveBuilding(eBuilding) > 0)
+			{
+				CvBuildingEntry* pBuilding = GC.getBuildingInfo(eBuilding);
+				if (pBuilding)
+				{
+					const auto& vChanges = pBuilding->GetAdjacentImprovementYieldChangesGlobal();
+					for (const auto& change : vChanges)
+					{
+						if ((int)change.m_iImprovementType == (int)eImprovement &&
+							(int)change.m_iOtherImprovementType == (int)eOtherImprovement &&
+							(int)change.m_iYieldType == (int)eYield)
+						{
+							rtnValue += change.m_iYield;
+						}
+					}
+				}
+			}
+		}
+	}
+	return rtnValue;
 }
 
 //	--------------------------------------------------------------------------------
@@ -27004,6 +27211,11 @@ void CvPlayer::processPolicies(PolicyTypes ePolicy, int iChange)
 	ChangeStrategicResourceMod(pPolicy->GetStrategicResourceMod() * iChange);
 	ChangeAbleToAnnexCityStatesCount((pPolicy->IsAbleToAnnexCityStates()) ? iChange : 0);
 	ChangeGreatScientistBeakerPolicyMod(pPolicy->GetGreatScientistBeakerPolicyModifier() * iChange);
+	ChangeInstantTourismBombWhenFirstConquerMajorCapital(pPolicy->GetInstantTourismBombWhenFirstConquerMajorCapital() * iChange);
+	ChangeNaturalWonderFirstFinderPolicies(pPolicy->GetNaturalWonderFirstFinderPolicies() * iChange);
+	ChangeNaturalWonderFirstFinderTech(pPolicy->GetNaturalWonderFirstFinderTech() * iChange);
+	ChangeNaturalWonderSubsequentFinderPolicies(pPolicy->GetNaturalWonderSubsequentFinderPolicies() * iChange);
+	ChangeNaturalWonderSubsequentFinderTech(pPolicy->GetNaturalWonderSubsequentFinderTech() * iChange);
 	ChangeProductionBeakerMod(pPolicy->GetProductionBeakerMod() * iChange);
 	changeCityCaptureHealGlobal(pPolicy->GetCityCaptureHealGlobal() * iChange);
 	changeOriginalCapitalCaptureTech(pPolicy->GetOriginalCapitalCaptureTech() * iChange);
@@ -27369,6 +27581,8 @@ void CvPlayer::processPolicies(PolicyTypes ePolicy, int iChange)
 		ChangeCorruptionLevelReduceByOneRC(iChange);
 	}
 	ChangeCorruptionScoreModifierFromPolicy(iChange * pPolicy->GetCorruptionScoreModifier());
+	ChangeGoldenAgeCorruptionScoreReduction(iChange * pPolicy->GetGoldenAgeCorruptionScoreReduction());
+	ChangeLocalHappinessCorruptionScoreMod(iChange * pPolicy->GetLocalHappinessCorruptionScoreMod());
 #endif
 
 	bool bGarrisonFreeMaintenance = pPolicy->IsGarrisonFreeMaintenance();
@@ -28243,6 +28457,11 @@ void CvPlayer::Read(FDataStream& kStream)
 	}
 
 	kStream >> m_iGreatScientistBeakerPolicyModifier;
+	MOD_SERIALIZE_READ(160, kStream, m_iInstantTourismBombWhenFirstConquerMajorCapital, 0);
+	MOD_SERIALIZE_READ(160, kStream, m_iNaturalWonderFirstFinderTech, 0);
+	MOD_SERIALIZE_READ(160, kStream, m_iNaturalWonderFirstFinderPolicies, 0);
+	MOD_SERIALIZE_READ(160, kStream, m_iNaturalWonderSubsequentFinderPolicies, 0);
+	MOD_SERIALIZE_READ(160, kStream, m_iNaturalWonderSubsequentFinderTech, 0);
 	kStream >> m_iProductionBeakerMod;
 	if (uiVersion >= 13)
 	{
@@ -28405,6 +28624,7 @@ void CvPlayer::Read(FDataStream& kStream)
 	kStream >> m_iGlobalRangedStrikeModifier;
 	kStream >> m_iResearchTotalCostModifier;
 	kStream >> m_iResearchTotalCostModifierGoldenAge;
+	MOD_SERIALIZE_READ(159, kStream, m_iImmigrationRegressandModifier, 0);
 	kStream >> m_iLiberatedInfluence;
 	kStream >> m_iExtraUnitPlayerInstances;
 	MOD_SERIALIZE_READ(159, kStream, m_iConquestCasualtiesModifier, 0);
@@ -28505,6 +28725,7 @@ void CvPlayer::Read(FDataStream& kStream)
 	kStream >> m_aiDomainFreeExperiencePerGreatWorkGlobal;
 	kStream >> m_aiDomainFreeExperiencesPerTurnGlobal;
 	kStream >> m_aiDomainEnemyCombatModifierGlobal;
+	MOD_SERIALIZE_READ_VECTOR(160, kStream, m_aiDomainFriendsCombatModifierGlobal, NUM_DOMAIN_TYPES, 0);
 	kStream >> m_piDomainFreeExperience;
 	kStream >> m_piUnitTypePrmoteHealGlobal;
 #endif
@@ -28847,6 +29068,9 @@ void CvPlayer::Read(FDataStream& kStream)
 
 #ifdef MOD_GLOBAL_CORRUPTION
 	kStream >> m_iCorruptionScoreModifierFromPolicy;
+	MOD_SERIALIZE_READ(160, kStream, m_iCorruptionScoreGlobalChangeFromBuilding, 0);
+	MOD_SERIALIZE_READ(161, kStream, m_iGoldenAgeCorruptionScoreReduction, 0);
+	MOD_SERIALIZE_READ(161, kStream, m_iLocalHappinessCorruptionScoreMod, 0);
 	kStream >> m_iCorruptionLevelReduceByOneRC;
 	kStream >> m_iCorruptionPolicyCostModifier;
 	
@@ -29052,6 +29276,11 @@ void CvPlayer::Write(FDataStream& kStream) const
 	kStream << m_iGreatScientistRateModifier;
 	kStream << m_iGreatScientistBeakerModifier;
 	kStream << m_iGreatScientistBeakerPolicyModifier;
+	MOD_SERIALIZE_WRITE(kStream, m_iInstantTourismBombWhenFirstConquerMajorCapital);
+	MOD_SERIALIZE_WRITE(kStream, m_iNaturalWonderFirstFinderTech);
+	MOD_SERIALIZE_WRITE(kStream, m_iNaturalWonderFirstFinderPolicies);
+	MOD_SERIALIZE_WRITE(kStream, m_iNaturalWonderSubsequentFinderPolicies);
+	MOD_SERIALIZE_WRITE(kStream, m_iNaturalWonderSubsequentFinderTech);
 	kStream << m_iProductionBeakerMod;
 	kStream << m_iGreatEngineerRateModifier;
 	kStream << m_iGreatPersonExpendGold;
@@ -29179,6 +29408,7 @@ void CvPlayer::Write(FDataStream& kStream) const
 	kStream << m_iGlobalRangedStrikeModifier;
 	kStream << m_iResearchTotalCostModifier;
 	kStream << m_iResearchTotalCostModifierGoldenAge;
+	MOD_SERIALIZE_WRITE(kStream, m_iImmigrationRegressandModifier);
 	kStream << m_iLiberatedInfluence;
 	kStream << m_iExtraUnitPlayerInstances;
 	MOD_SERIALIZE_WRITE(kStream, m_iConquestCasualtiesModifier);
@@ -29261,6 +29491,7 @@ void CvPlayer::Write(FDataStream& kStream) const
 	kStream << m_aiDomainFreeExperiencePerGreatWorkGlobal;
 	kStream << m_aiDomainFreeExperiencesPerTurnGlobal;
 	kStream << m_aiDomainEnemyCombatModifierGlobal;
+	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiDomainFriendsCombatModifierGlobal);
 	kStream << m_piDomainFreeExperience;
 	kStream << m_piUnitTypePrmoteHealGlobal;
 #endif
@@ -29550,6 +29781,9 @@ void CvPlayer::Write(FDataStream& kStream) const
 
 #ifdef MOD_GLOBAL_CORRUPTION
 	kStream << m_iCorruptionScoreModifierFromPolicy;
+	MOD_SERIALIZE_WRITE(kStream, m_iCorruptionScoreGlobalChangeFromBuilding);
+	MOD_SERIALIZE_WRITE(kStream, m_iGoldenAgeCorruptionScoreReduction);
+	MOD_SERIALIZE_WRITE(kStream, m_iLocalHappinessCorruptionScoreMod);
 	kStream << m_iCorruptionLevelReduceByOneRC;
 	kStream << m_iCorruptionPolicyCostModifier;
 
@@ -30250,6 +30484,19 @@ void CvPlayer::ChangeResearchTotalCostModifierGoldenAge(int iChange)
 	}
 }
 
+//	--------------------------------------------------------------------------------
+int CvPlayer::GetImmigrationRegressandModifier() const
+{
+	return m_iImmigrationRegressandModifier;
+}
+
+void CvPlayer::ChangeImmigrationRegressandModifier(int iChange)
+{
+	if (iChange != 0)
+	{
+		m_iImmigrationRegressandModifier += iChange;
+	}
+}
 
 //	--------------------------------------------------------------------------------
 int CvPlayer::GetLiberatedInfluence() const
@@ -33381,6 +33628,36 @@ int CvPlayer::GetCorruptionScoreModifierFromPolicy() const
 void CvPlayer::ChangeCorruptionScoreModifierFromPolicy(int change)
 {
 	m_iCorruptionScoreModifierFromPolicy += change;
+}
+
+int CvPlayer::GetGoldenAgeCorruptionScoreReduction() const
+{
+	return m_iGoldenAgeCorruptionScoreReduction;
+}
+
+void CvPlayer::ChangeGoldenAgeCorruptionScoreReduction(int change)
+{
+	m_iGoldenAgeCorruptionScoreReduction += change;
+}
+
+int CvPlayer::GetLocalHappinessCorruptionScoreMod() const
+{
+	return m_iLocalHappinessCorruptionScoreMod;
+}
+
+void CvPlayer::ChangeLocalHappinessCorruptionScoreMod(int change)
+{
+	m_iLocalHappinessCorruptionScoreMod += change;
+}
+
+int CvPlayer::GetCorruptionScoreGlobalChangeFromBuilding() const
+{
+	return m_iCorruptionScoreGlobalChangeFromBuilding;
+}
+
+void CvPlayer::ChangeCorruptionScoreGlobalChangeFromBuilding(int change)
+{
+	m_iCorruptionScoreGlobalChangeFromBuilding += change;
 }
 
 int CvPlayer::GetCorruptionLevelReduceByOneRC() const

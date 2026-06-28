@@ -307,6 +307,8 @@ create table Building_CityWithWorldWonderYieldModifierGlobal (
 	YieldType text not null references Yields(Type),
 	Yield integer not null default 0
 );
+alter table Buildings add ImmigrationRegressandModifier integer default 0;
+alter table Buildings add LandmarksTourismPerXForeignFollowers integer default 0;
 --******************** New Multiplier ********************--
 create table Building_YieldMultiplier (
 	BuildingType text not null references Buildings(Type),
@@ -364,6 +366,11 @@ create table Building_DomainEnemyCombatModifierGlobal (
 	Modifier integer default 0
 );
 create table Building_DomainFriendsCombatModifierLocal (
+	BuildingType text not null references Buildings(Type),
+	DomainType text not null references Domains(Type),
+	Modifier integer default 0
+);
+create table Building_DomainFriendsCombatModifierGlobal (
 	BuildingType text not null references Buildings(Type),
 	DomainType text not null references Domains(Type),
 	Modifier integer default 0
@@ -461,3 +468,20 @@ create table Building_SpecificGreatPersonRateModifier (
 	SpecialistType text not null references Specialists(Type),
 	Modifier integer not null default 0
 );
+--******************** Adjacent Improvement Yield ********************--
+create table Building_AdjacentImprovementYieldChanges (
+    BuildingType text references Buildings(Type),
+    ImprovementType text references Improvements(Type),
+    OtherImprovementType text references Improvements(Type),
+    YieldType text references Yields(Type),
+    Yield integer default 0
+);
+create table Building_AdjacentImprovementYieldChangesGlobal (
+    BuildingType text references Buildings(Type),
+    ImprovementType text references Improvements(Type),
+    OtherImprovementType text references Improvements(Type),
+    YieldType text references Yields(Type),
+    Yield integer default 0
+);
+alter table Buildings add column FollowerCountDamageModifier integer default 0;
+alter table Buildings add column FollowingCityCountDamageModifier integer default 0;

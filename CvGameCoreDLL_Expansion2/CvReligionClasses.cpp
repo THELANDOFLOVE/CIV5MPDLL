@@ -124,6 +124,7 @@ CvReligion::CvReligion()
 	, m_iTurnFounded(-1)
 	, m_bPantheon(false)
 	, m_bEnhanced(false)
+	, m_iNumFirstConversions(0)
 {
 	ZeroMemory(m_szCustomName, sizeof(m_szCustomName));
 }
@@ -135,6 +136,7 @@ CvReligion::CvReligion(ReligionTypes eReligion, PlayerTypes eFounder, CvCity* pH
 	, m_eOriginalFounder(eFounder)
 	, m_bPantheon(bPantheon)
 	, m_bEnhanced(false)
+	, m_iNumFirstConversions(0)
 {
 	if(pHolyCity)
 	{
@@ -183,6 +185,8 @@ FDataStream& operator>>(FDataStream& loadFrom, CvReligion& writeTo)
 		loadFrom >> writeTo.m_szCustomName;
 	}
 
+	MOD_SERIALIZE_READ(161, loadFrom, writeTo.m_iNumFirstConversions, 0);
+
 	writeTo.m_Beliefs.Read(loadFrom);
 
 	return loadFrom;
@@ -204,6 +208,8 @@ FDataStream& operator<<(FDataStream& saveTo, const CvReligion& readFrom)
 	saveTo << readFrom.m_bPantheon;
 	saveTo << readFrom.m_bEnhanced;
 	saveTo << readFrom.m_szCustomName;
+
+	MOD_SERIALIZE_WRITE(saveTo, readFrom.m_iNumFirstConversions);
 
 	readFrom.m_Beliefs.Write(saveTo);
 
@@ -1100,6 +1106,17 @@ void CvGameReligions::FoundReligion(PlayerTypes ePlayer, ReligionTypes eReligion
 	// Update game systems
 	kPlayer.UpdateReligion();
 	kPlayer.GetReligions()->SetFoundingReligion(false);
+
+	// Trait: all existing cities immediately follow the new religion
+	if (kPlayer.GetPlayerTraits()->IsNewCityAutomaticReligion())
+	{
+		int iLoopCity;
+		CvCity* pLoopCity;
+		for(pLoopCity = kPlayer.firstCity(&iLoopCity); pLoopCity != NULL; pLoopCity = kPlayer.nextCity(&iLoopCity))
+		{
+			pLoopCity->GetCityReligions()->AdoptReligionFully(kReligion.m_eReligion);
+		}
+	}
 
 	// In case we have another prophet sitting around, make sure he's set to this religion
 	int iLoopUnit;
@@ -4619,6 +4636,9 @@ void CvCityReligions::CityConvertsReligion(ReligionTypes eMajority, ReligionType
 	CvGameReligions* pReligions = GC.getGame().GetGameReligions();
 
 	m_pCity->UpdateReligion(eMajority);
+#if defined(MOD_GLOBAL_CORRUPTION)
+	m_pCity->UpdateCorruption();
+#endif
 
 	if(eOldMajority > RELIGION_PANTHEON)
 	{
@@ -4652,6 +4672,53 @@ void CvCityReligions::CityConvertsReligion(ReligionTypes eMajority, ReligionType
 #else
 					GC.GetEngineUserInterface()->AddPopupText(m_pCity->getX(), m_pCity->getY(), text, 0.5f);
 #endif
+				}
+			}
+
+			int iGoldenAgeThreshold = pNewReligion->m_Beliefs.GetFirstConversionCitiesPerGoldenAge();
+			int iCitiesPerPop = pNewReligion->m_Beliefs.GetFirstConversionCitiesPerPop();
+
+			if (iGoldenAgeThreshold > 0 || iCitiesPerPop > 0)
+			{
+				SetPaidAdoptionBonus(true);
+				CvReligion* pMutableReligion = const_cast<CvReligion*>(pNewReligion);
+				pMutableReligion->m_iNumFirstConversions++;
+
+				bool bShowPopup = (pNewReligion->m_eFounder == GC.getGame().getActivePlayer());
+
+				if (iGoldenAgeThreshold > 0 && pMutableReligion->m_iNumFirstConversions % iGoldenAgeThreshold == 0)
+				{
+					CvPlayerAI& kFounder = GET_PLAYER(pNewReligion->m_eFounder);
+					kFounder.changeGoldenAgeTurns(kFounder.getGoldenAgeLength());
+
+					if (bShowPopup)
+					{
+						CvString strBuffer = GetLocalizedText("TXT_KEY_NOTIFICATION_BELIEF_FIRST_CONVERSION_GOLDEN_AGE");
+#if defined(SHOW_PLOT_POPUP)
+						SHOW_PLOT_POPUP(m_pCity->plot(), NO_PLAYER, strBuffer, 0.5f);
+#else
+						GC.GetEngineUserInterface()->AddPopupText(m_pCity->getX(), m_pCity->getY(), strBuffer, 0.5f);
+#endif
+					}
+				}
+
+				if (iCitiesPerPop > 0 && pMutableReligion->m_iNumFirstConversions % iCitiesPerPop == 0)
+				{
+					CvCity* pHolyCity = GC.getMap().plot(pNewReligion->m_iHolyCityX, pNewReligion->m_iHolyCityY)->getPlotCity();
+					if (pHolyCity)
+					{
+						pHolyCity->changePopulation(1, true);
+
+						if (bShowPopup)
+						{
+							CvString strBuffer = GetLocalizedText("TXT_KEY_NOTIFICATION_BELIEF_FIRST_CONVERSION_POPULATION", pHolyCity->getName());
+#if defined(SHOW_PLOT_POPUP)
+							SHOW_PLOT_POPUP(pHolyCity->plot(), NO_PLAYER, strBuffer, 0.5f);
+#else
+							GC.GetEngineUserInterface()->AddPopupText(pHolyCity->getX(), pHolyCity->getY(), strBuffer, 0.5f);
+#endif
+						}
+					}
 				}
 			}
 		}

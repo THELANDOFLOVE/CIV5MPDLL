@@ -468,11 +468,44 @@
 		<Row Tag="TXT_KEY_CITYBANNER_CORRUPTION_SCORE_FROM_BUILDING">
 			<Text>来自建筑: {1_score}</Text>
 		</Row>
+		<Row Tag="TXT_KEY_CITYBANNER_CORRUPTION_SCORE_GLOBAL_CHANGE_FROM_BUILDING">
+			<Text>来自建筑的全局变化: {1_score}</Text>
+		</Row>
+		<Row Tag="TXT_KEY_CITYBANNER_CORRUPTION_SCORE_FROM_BUILDING_GLOBAL">
+			<Text>来自建筑(全局): {1_score}</Text>
+		</Row>
+		<Row Tag="TXT_KEY_NOTIFICATION_NW_FINDER_TECH">
+			<Text>因为你拥有的{1_Source}，{2_Order}发现{3_Feature}后，获得了{4_Num}项免费科技。</Text>
+		</Row>
+		<Row Tag="TXT_KEY_NOTIFICATION_NW_FINDER_POLICY">
+			<Text>因为你拥有的{1_Source}，{2_Order}发现{3_Feature}后，获得了{4_Num}项免费政策。</Text>
+		</Row>
+		<Row Tag="TXT_KEY_NOTIFICATION_SUMMARY_NW_FINDER">
+			<Text>自然奇观探索奖励</Text>
+		</Row>
+		<Row Tag="TXT_KEY_NOTIFICATION_NW_SOURCE_TRAIT">
+			<Text>领袖特性</Text>
+		</Row>
+		<Row Tag="TXT_KEY_NOTIFICATION_NW_SOURCE_POLICY">
+			<Text>政策</Text>
+		</Row>
+		<Row Tag="TXT_KEY_NOTIFICATION_NW_FIRST">
+			<Text>首次</Text>
+		</Row>
+		<Row Tag="TXT_KEY_NOTIFICATION_NW_SUBSEQUENT">
+			<Text></Text>
+		</Row>
 		<Row Tag="TXT_KEY_CITYBANNER_CORRUPTION_SCORE_FROM_RESOURCE">
 			<Text>来自资源: {1_score}</Text>
 		</Row>
 		<Row Tag="TXT_KEY_CITYBANNER_CORRUPTION_SCORE_FROM_TRAIT">
 			<Text>來自领袖特性: {1_score}</Text>
+		</Row>
+		<Row Tag="TXT_KEY_CITYBANNER_CORRUPTION_SCORE_FROM_RELIGION">
+			<Text>来自宗教: {1_score}</Text>
+		</Row>
+		<Row Tag="TXT_KEY_CITYBANNER_CORRUPTION_SCORE_FROM_LOCAL_HAPPINESS">
+			<Text>来自本地幸福度: {1_score}</Text>
 		</Row>
 		<Row Tag="TXT_KEY_CITYBANNER_CORRUPTION_SCORE_MOD_FROM_SPY">
 			<Text>来自间谍: {1_score}%</Text>
@@ -829,6 +862,15 @@
 		</Row>
 		<Row Tag="TXT_KEY_MPDLL_ERROR_VERSION">
 			<Text>[COLOR_NEGATIVE_TEXT]MPDLL出现错误，如果你使用的都是最新版本，请和管理员联系[COLOR_NEGATIVE_TEXT]</Text>
+		</Row>
+		<Row Tag="TXT_KEY_POST_COMBAT_PROMOTION_NO_AVAILABLE">
+			<Text>[COLOR_NEGATIVE_TEXT]无法获得新的战后晋升，所有候选晋升已被获取。[ENDCOLOR]</Text>
+		</Row>
+		<Row Tag="TXT_KEY_NOTIFICATION_BELIEF_FIRST_CONVERSION_GOLDEN_AGE">
+			<Text>[COLOR_YELLOW]由于你采取的信条，一次[ICON_GOLDEN_AGE]黄金时代开启了！[ENDCOLOR]</Text>
+		</Row>
+		<Row Tag="TXT_KEY_NOTIFICATION_BELIEF_FIRST_CONVERSION_POPULATION">
+			<Text>[COLOR_YELLOW]由于你采取的信条，{1_CityName}获得了+1[ICON_CITIZEN]人口！[ENDCOLOR]</Text>
 		</Row>
 	</Language_zh_CN>
 

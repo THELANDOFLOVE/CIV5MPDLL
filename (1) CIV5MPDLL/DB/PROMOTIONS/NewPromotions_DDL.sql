@@ -84,6 +84,13 @@ alter table UnitPromotions add AttackChanceFromAttackDamage text references LuaF
 alter table UnitPromotions add MovementFromAttackDamage text references LuaFormula(Type);
 alter table UnitPromotions add HealPercentFromAttackDamage text references LuaFormula(Type);
 
+alter table UnitPromotions add GoldAttackBonusFormula text references LuaFormula(Type);
+alter table UnitPromotions add GoldDefenseBonusFormula text references LuaFormula(Type);
+alter table UnitPromotions add CultureAttackBonusFormula text references LuaFormula(Type);
+alter table UnitPromotions add CultureDefenseBonusFormula text references LuaFormula(Type);
+alter table UnitPromotions add FaithAttackBonusFormula text references LuaFormula(Type);
+alter table UnitPromotions add FaithDefenseBonusFormula text references LuaFormula(Type);
+
 alter table UnitPromotions add StrongerDamaged boolean default 0;
 alter table UnitPromotions add FightWellDamaged boolean default 0;
 alter table UnitPromotions add NoResourcePunishment boolean default 0;
@@ -116,6 +123,7 @@ alter table UnitPromotions add AdjacentSapExperience integer default 0;
 alter table UnitPromotions add Immobile boolean default 0;
 alter table UnitPromotions add LostAllMovesAttackCity integer default 0;
 alter table UnitPromotions add RiverDoubleMove boolean default 0;
+alter table UnitPromotions add PeaceForCS boolean default 0;
 alter table UnitPromotions add ExtraMoveTimesXX integer default 0;
 alter table UnitPromotions add RangeAttackCostModifier integer default 0;
 alter table UnitPromotions add SetUpCostModifier integer default 0;
@@ -144,6 +152,12 @@ alter table UnitPromotions add MilitaryMightMod integer default 0;
 alter table UnitPromotions add ShowInUnitPanel integer default 1;
 alter table UnitPromotions add ShowInTooltip integer default 1;
 alter table UnitPromotions add ShowInPedia integer default 1;
+create table UnitPromotions_ExploreYield (
+    PromotionType text references UnitPromotions(Type), 
+    YieldType text references Yields(Type),   
+    Yield integer default 0,              
+    EraPercent integer default 0              
+);
 
 -- Allow build from promotion
 create table Promotion_Builds (

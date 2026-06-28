@@ -456,6 +456,12 @@ protected:
 	static int lGetHPHealedIfDefeatEnemyGlobal(lua_State* L);
 	static int lGetNumOriginalCapitalDefenseMod(lua_State* L);
 	static int lGetNumOriginalCapitalAttackMod(lua_State* L);
+	static int lGetGoldAttackBonus(lua_State* L);
+	static int lGetCultureAttackBonus(lua_State* L);
+	static int lGetFaithAttackBonus(lua_State* L);
+	static int lGetGoldDefenseBonus(lua_State* L);
+	static int lGetCultureDefenseBonus(lua_State* L);
+	static int lGetFaithDefenseBonus(lua_State* L);
 	static int lGetBarbarianCombatBonus(lua_State* L);
 	static int lGetNumSpyDefenseMod(lua_State* L);
 	static int lGetNumSpyAttackMod(lua_State* L);
@@ -478,6 +484,8 @@ protected:
 #endif
 	static int lGetDamageFixValueToUnit(lua_State* L);
 	static int lGetDamageFixValueToCity(lua_State* L);
+	static int lGetFixDamagePerPromotionTotalMod(lua_State* L);
+	static int lGetFixReducePerPromotionTotalMod(lua_State* L);
 	static int lGetDamageCombatModifier(lua_State* L);
 	static int lDomainAttack(lua_State* L);
 	static int lDomainDefense(lua_State* L);
@@ -608,6 +616,7 @@ protected:
 	static int lGetNumAttacks(lua_State* L);
 	static int lChangeMadeAttackNum(lua_State* L);
 	static int lGetNumAttacksMadeThisTurn(lua_State* L);
+	static int lGetNumPromotions(lua_State* L);
 
 	static int lisOutOfInterceptions(lua_State* L);
 	static int lSetMadeInterception(lua_State* L);
@@ -789,6 +798,12 @@ protected:
 	LUAAPIEXTN(GetAllyCityStateCombatModifier, int);
 	LUAAPIEXTN(GetHappinessCombatModifier, int);
 	LUAAPIEXTN(GetResourceCombatModifier, int);
+	LUAAPIEXTN(GetDifferentReligionAttackModifier, int);
+	LUAAPIEXTN(GetDifferentReligionDefenseModifier, int);
+	LUAAPIEXTN(GetGoldenAgeTurnAttackModifier, int);
+	LUAAPIEXTN(GetGoldenAgeTurnDefenseModifier, int);
+	LUAAPIEXTN(GetFollowerCountCombatModifier, int);
+	LUAAPIEXTN(GetFollowingCityCountCombatModifier, int);
 	LUAAPIEXTN(GetNearbyUnitPromotionBonus, int);
 	LUAAPIEXTN(GetBarbarianCombatBonusTotal, int);
 	LUAAPIEXTN(IsBatchMark, bool);

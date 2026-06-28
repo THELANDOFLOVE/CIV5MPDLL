@@ -104,6 +104,15 @@ public:
 	int GetResourceQuantityModifier(int i) const;
 	int GetImprovementYieldChange(ImprovementTypes eIndex1, YieldTypes eIndex2) const;
 	int GetImprovementAdjacentCityYieldChange(ImprovementTypes eIndex1, YieldTypes eIndex2) const;
+
+	// AdjacentImprovementYieldChanges
+	struct AdjacentImprovementYieldChange {
+		int m_iImprovementType;
+		int m_iOtherImprovementType;
+		int m_iYieldType;
+		int m_iYield;
+	};
+	const std::vector<AdjacentImprovementYieldChange>& GetAdjacentImprovementYieldChanges() const { return m_vAdjacentImprovementYieldChanges; }
 	int GetBuildingClassYieldChange(int i, int j) const;
 	int GetBuildingClassHappiness(int i) const;
 	int GetBuildingClassTourism(int i) const;
@@ -148,6 +157,14 @@ public:
 	int GetSameReligionMinorRecoveryModifier() const;
 	int GetInquisitionFervorTimeModifier() const;
 	int GetCuttingBonusModifier() const;
+	int GetCityCorruptionScoreChange() const;
+	int GetFirstConversionCitiesPerGoldenAge() const;
+	int GetFirstConversionCitiesPerPop() const;
+	int GetLocalHappinessYieldRate(int i) const;
+	int GetCorruptionScoreYieldRate(int i) const;
+	int GetTradeRouteToHolyCityYield(int i) const;
+	int GetTradeRouteToHolyCityDestYield(int i) const;
+	int GetTradeRouteSameReligionYieldModifier(int i) const;
 	int GetCityExtraMissionarySpreads() const;
 	bool AllowYieldPerBirth() const;
 	int GetYieldPerBirth(int i) const;
@@ -228,11 +245,19 @@ protected:
 	int m_iSameReligionMinorRecoveryModifier;
 	int m_iInquisitionFervorTimeModifier;
 	int m_iCuttingBonusModifier;
+	int m_iCityCorruptionScoreChange;
+	int m_iFirstConversionCitiesPerGoldenAge;
+	int m_iFirstConversionCitiesPerPop;
 	int m_iCityExtraMissionarySpreads;
 	bool m_bAllowYieldPerBirth;
+	int* m_piLocalHappinessYieldRate;
+	int* m_piCorruptionScoreYieldRate;
 	int* m_piYieldPerBirth;
 	int* m_piLakePlotYieldChange;
 	int* m_piRiverPlotYieldChange;
+	int* m_piTradeRouteToHolyCityYield;
+	int* m_piTradeRouteToHolyCityDestYield;
+	int* m_piTradeRouteSameReligionYieldModifier;
 #endif
 
 	bool m_bPantheon;
@@ -308,6 +333,9 @@ protected:
 	bool* m_pbFaithPurchaseUnitEraEnabled;
     bool* m_pbBuildingClassEnabled;
 
+
+	// AdjacentImprovementYieldChanges
+	std::vector<AdjacentImprovementYieldChange> m_vAdjacentImprovementYieldChanges;
 private:
 	CvBeliefEntry(const CvBeliefEntry&);
 	CvBeliefEntry& operator=(const CvBeliefEntry&);
@@ -511,6 +539,18 @@ public:
 	{
 		return m_iCuttingBonusModifier;
 	}
+	int GetCityCorruptionScoreChange() const
+	{
+		return m_iCityCorruptionScoreChange;
+	}
+	int GetFirstConversionCitiesPerGoldenAge() const
+	{
+		return m_iFirstConversionCitiesPerGoldenAge;
+	}
+	int GetFirstConversionCitiesPerPop() const
+	{
+		return m_iFirstConversionCitiesPerPop;
+	}
 	int GetCityExtraMissionarySpreads() const
 	{
 		return m_iCityExtraMissionarySpreads;
@@ -564,6 +604,7 @@ public:
 	int GetResourceQuantityModifier(ResourceTypes eResource) const;
 	int GetImprovementYieldChange(ImprovementTypes eImprovement, YieldTypes eYield) const;
 	int GetImprovementAdjacentCityYieldChange(ImprovementTypes eIndex1, YieldTypes eIndex2) const;
+	int GetAdjacentImprovementYieldChange(ImprovementTypes eImprovement, ImprovementTypes eOtherImprovement, YieldTypes eYield) const;
 	int GetBuildingClassYieldChange(BuildingClassTypes eBuildingClass, YieldTypes eYieldType, int iFollowers) const;
 	int GetBuildingClassHappiness(BuildingClassTypes eBuildingClass, int iFollowers) const;
 	int GetBuildingClassTourism(BuildingClassTypes eBuildingClass) const;
@@ -596,6 +637,11 @@ public:
 	int GetYieldPerBirth(YieldTypes eYieldType) const;
 	int GetLakePlotYieldChange(YieldTypes eYieldType) const;
 	int GetRiverPlotYieldChange(YieldTypes eYieldType) const;
+	int GetLocalHappinessYieldRate(YieldTypes eYieldType) const;
+	int GetCorruptionScoreYieldRate(YieldTypes eYieldType) const;
+	int GetTradeRouteToHolyCityYield(YieldTypes eYieldType) const;
+	int GetTradeRouteToHolyCityDestYield(YieldTypes eYieldType) const;
+	int GetTradeRouteSameReligionYieldModifier(YieldTypes eYieldType) const;
 #endif
 	int GetResourceHappiness(ResourceTypes eResource) const;
 	int GetYieldChangeAnySpecialist(YieldTypes eYieldType) const;
@@ -655,6 +701,9 @@ private:
 	int m_iInquisitionFervorTimeModifier;
 	int m_iNumInquisitorProhibitSpreadInAlly;
 	int m_iCuttingBonusModifier;
+	int m_iCityCorruptionScoreChange;
+	int m_iFirstConversionCitiesPerGoldenAge;
+	int m_iFirstConversionCitiesPerPop;
 	int m_iCityExtraMissionarySpreads;
 	bool m_bAllowYieldPerBirth;
 #endif

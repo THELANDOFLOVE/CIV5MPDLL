@@ -149,6 +149,8 @@ CvPromotionEntry::CvPromotionEntry():
 	m_iOutsideCapitalLandAttackMod(0),
 	m_iOnCapitalLandDefenseMod(0),
 	m_iOutsideCapitalLandDefenseMod(0),
+	m_iFixDamagePerPromotionMod(0),
+	m_iFixReducePerPromotionMod(0),
 	m_iMultiAttackBonus(0),
 	m_iNumAttacksMadeThisTurnAttackMod(0),
 	m_iNumSpyDefenseMod(0),
@@ -222,6 +224,18 @@ CvPromotionEntry::CvPromotionEntry():
 	m_eAttackChanceFromAttackDamageFormula(NO_LUA_FORMULA),
 	m_eMovementFromAttackDamageFormula(NO_LUA_FORMULA),
 	m_eHealPercentFromAttackDamageFormula(NO_LUA_FORMULA),
+	m_eGoldAttackBonusFormula(NO_LUA_FORMULA),
+	m_eGoldDefenseBonusFormula(NO_LUA_FORMULA),
+	m_eCultureAttackBonusFormula(NO_LUA_FORMULA),
+	m_eCultureDefenseBonusFormula(NO_LUA_FORMULA),
+	m_eFaithAttackBonusFormula(NO_LUA_FORMULA),
+	m_eFaithDefenseBonusFormula(NO_LUA_FORMULA),
+	m_iDifferentReligionAttackModifier(0),
+	m_iDifferentReligionDefenseModifier(0),
+	m_iGoldenAgeTurnAttackModifier(0),
+	m_iGoldenAgeTurnDefenseModifier(0),
+	m_iFollowerCountCombatModifier(0),
+	m_iFollowingCityCountCombatModifier(0),
 #endif
 #if defined(MOD_TROOPS_AND_CROPS_FOR_SP)
 	m_bCrops(false),
@@ -250,6 +264,7 @@ CvPromotionEntry::CvPromotionEntry():
 	m_bHillsDoubleMove(false),
 	m_bIgnoreTerrainCost(false),
 	m_bRiverDoubleMove(false),
+	m_bPeaceForCS(false),
 #if defined(MOD_API_PLOT_BASED_DAMAGE)
 	m_bIgnoreTerrainDamage(false),
 	m_bIgnoreFeatureDamage(false),
@@ -462,6 +477,7 @@ bool CvPromotionEntry::CacheResults(Database::Results& kResults, CvDatabaseUtili
 	m_bHillsDoubleMove = kResults.GetBool("HillsDoubleMove");
 	m_bIgnoreTerrainCost = kResults.GetBool("IgnoreTerrainCost");
 	m_bRiverDoubleMove = kResults.GetBool("RiverDoubleMove");
+	m_bPeaceForCS = kResults.GetBool("PeaceForCS");
 #if defined(MOD_API_PLOT_BASED_DAMAGE)
 	m_bIgnoreTerrainDamage = kResults.GetBool("IgnoreTerrainDamage");
 	m_bIgnoreFeatureDamage = kResults.GetBool("IgnoreFeatureDamage");
@@ -780,6 +796,18 @@ bool CvPromotionEntry::CacheResults(Database::Results& kResults, CvDatabaseUtili
 	m_eAttackChanceFromAttackDamageFormula = (int)static_cast<LuaFormulaTypes>(GC.getInfoTypeForString(kResults.GetText("AttackChanceFromAttackDamage")));
 	m_eMovementFromAttackDamageFormula = (int)static_cast<LuaFormulaTypes>(GC.getInfoTypeForString(kResults.GetText("MovementFromAttackDamage")));
 	m_eHealPercentFromAttackDamageFormula = (int)static_cast<LuaFormulaTypes>(GC.getInfoTypeForString(kResults.GetText("HealPercentFromAttackDamage")));
+	m_eGoldAttackBonusFormula = (int)static_cast<LuaFormulaTypes>(GC.getInfoTypeForString(kResults.GetText("GoldAttackBonusFormula")));
+	m_eGoldDefenseBonusFormula = (int)static_cast<LuaFormulaTypes>(GC.getInfoTypeForString(kResults.GetText("GoldDefenseBonusFormula")));
+	m_eCultureAttackBonusFormula = (int)static_cast<LuaFormulaTypes>(GC.getInfoTypeForString(kResults.GetText("CultureAttackBonusFormula")));
+	m_eCultureDefenseBonusFormula = (int)static_cast<LuaFormulaTypes>(GC.getInfoTypeForString(kResults.GetText("CultureDefenseBonusFormula")));
+	m_eFaithAttackBonusFormula = (int)static_cast<LuaFormulaTypes>(GC.getInfoTypeForString(kResults.GetText("FaithAttackBonusFormula")));
+	m_eFaithDefenseBonusFormula = (int)static_cast<LuaFormulaTypes>(GC.getInfoTypeForString(kResults.GetText("FaithDefenseBonusFormula")));
+	m_iDifferentReligionAttackModifier = kResults.GetInt("DifferentReligionAttackModifier");
+	m_iDifferentReligionDefenseModifier = kResults.GetInt("DifferentReligionDefenseModifier");
+	m_iGoldenAgeTurnAttackModifier = kResults.GetInt("GoldenAgeTurnAttackModifier");
+	m_iGoldenAgeTurnDefenseModifier = kResults.GetInt("GoldenAgeTurnDefenseModifier");
+	m_iFollowerCountCombatModifier = kResults.GetInt("FollowerCountCombatModifier");
+	m_iFollowingCityCountCombatModifier = kResults.GetInt("FollowingCityCountCombatModifier");
 #endif
 #if defined(MOD_TROOPS_AND_CROPS_FOR_SP)
 	m_bCrops = kResults.GetBool("IsCrops");
@@ -894,6 +922,9 @@ bool CvPromotionEntry::CacheResults(Database::Results& kResults, CvDatabaseUtili
 	m_iHeavyChargeCollateralPercent = kResults.GetInt("HeavyChargeCollateralPercent");
 
 	m_iOutsideFriendlyLandsInflictDamageChange = kResults.GetInt("OutsideFriendlyLandsInflictDamageChange");
+
+	m_iFixDamagePerPromotionMod = kResults.GetInt("FixDamagePerPromotionMod");
+	m_iFixReducePerPromotionMod = kResults.GetInt("FixReducePerPromotionMod");
 
 	const char* szPromotionPrereq = kResults.GetText("PromotionPrereq");
 	m_iPrereqPromotion = GC.getInfoTypeForString(szPromotionPrereq, true);
@@ -1664,6 +1695,38 @@ bool CvPromotionEntry::CacheResults(Database::Results& kResults, CvDatabaseUtili
 
 		pResults->Reset();
 	}
+	{
+		for (int i = 0; i < NUM_YIELD_TYPES; ++i) {
+			m_aiExploreYield[i] = 0;
+			m_aiExploreEraPercent[i] = 0;  
+		}
+		std::string sqlKey = "UnitPromotions_ExploreYield";
+		Database::Results* pResults = kUtility.GetResults(sqlKey);
+		if (pResults == nullptr) {
+			const char* sql = "SELECT YieldType, Yield, EraPercent FROM UnitPromotions_ExploreYield WHERE PromotionType = ?";
+			pResults = kUtility.PrepareResults(sqlKey, sql);
+		}
+		
+		CvAssert(pResults);
+		if (pResults == nullptr) {
+			return false;
+		}
+		
+		pResults->Bind(1, szPromotionType);
+		
+		while (pResults->Step()) {
+			const YieldTypes yieldType = (YieldTypes)GC.getInfoTypeForString(pResults->GetText(0));
+			if (yieldType == -1) {
+				continue;
+			}
+			const int yieldValue = pResults->GetInt(1);
+			const int eraPercent = pResults->GetInt(2);  
+			
+			m_aiExploreYield[yieldType] = yieldValue;
+			m_aiExploreEraPercent[yieldType] = eraPercent;  
+		}
+		pResults->Reset();
+	}
 
 	kUtility.PopulateArrayByExistence(m_pbPostCombatRandomPromotion,
 		"UnitPromotions",
@@ -2131,6 +2194,14 @@ int CvPromotionEntry::GetOnCapitalLandDefenseMod() const
 int CvPromotionEntry::GetOutsideCapitalLandDefenseMod() const
 {
 	return m_iOutsideCapitalLandDefenseMod;
+}
+int CvPromotionEntry::GetFixDamagePerPromotionMod() const
+{
+	return m_iFixDamagePerPromotionMod;
+}
+int CvPromotionEntry::GetFixReducePerPromotionMod() const
+{
+	return m_iFixReducePerPromotionMod;
 }
 #endif
 
@@ -2759,6 +2830,66 @@ int CvPromotionEntry::GetHealPercentFromAttackDamageFormula() const
 {
 	return m_eHealPercentFromAttackDamageFormula;
 }
+
+int CvPromotionEntry::GetGoldAttackBonusFormula() const
+{
+	return m_eGoldAttackBonusFormula;
+}
+
+int CvPromotionEntry::GetGoldDefenseBonusFormula() const
+{
+	return m_eGoldDefenseBonusFormula;
+}
+
+int CvPromotionEntry::GetCultureAttackBonusFormula() const
+{
+	return m_eCultureAttackBonusFormula;
+}
+
+int CvPromotionEntry::GetCultureDefenseBonusFormula() const
+{
+	return m_eCultureDefenseBonusFormula;
+}
+
+int CvPromotionEntry::GetFaithAttackBonusFormula() const
+{
+	return m_eFaithAttackBonusFormula;
+}
+
+int CvPromotionEntry::GetFaithDefenseBonusFormula() const
+{
+	return m_eFaithDefenseBonusFormula;
+}
+
+int CvPromotionEntry::GetDifferentReligionAttackModifier() const
+{
+	return m_iDifferentReligionAttackModifier;
+}
+
+int CvPromotionEntry::GetDifferentReligionDefenseModifier() const
+{
+	return m_iDifferentReligionDefenseModifier;
+}
+
+int CvPromotionEntry::GetGoldenAgeTurnAttackModifier() const
+{
+	return m_iGoldenAgeTurnAttackModifier;
+}
+
+int CvPromotionEntry::GetGoldenAgeTurnDefenseModifier() const
+{
+	return m_iGoldenAgeTurnDefenseModifier;
+}
+
+int CvPromotionEntry::GetFollowerCountCombatModifier() const
+{
+	return m_iFollowerCountCombatModifier;
+}
+
+int CvPromotionEntry::GetFollowingCityCountCombatModifier() const
+{
+	return m_iFollowingCityCountCombatModifier;
+}
 #endif
 #if defined(MOD_TROOPS_AND_CROPS_FOR_SP)
 bool CvPromotionEntry::IsCrops() const
@@ -2891,6 +3022,12 @@ bool CvPromotionEntry::IsHillsDoubleMove() const
 bool CvPromotionEntry::IsRiverDoubleMove() const
 {
 	return m_bRiverDoubleMove;
+}
+
+/// Accessor: Does this promotion allow peaceful CS intrusion?
+bool CvPromotionEntry::IsPeaceForCS() const
+{
+	return m_bPeaceForCS;
 }
 
 /// Accessor: Ignores terrain movement penalties
@@ -3934,6 +4071,20 @@ int CvPromotionEntry::GetInstantYieldPerReligionFollowerConverted(YieldTypes eIn
 	}
 	return m_aiInstantYieldPerReligionFollowerConverted[eIndex];
 }
+int CvPromotionEntry::GetExploreYield(YieldTypes eIndex) const
+{
+	if (eIndex < 0 || eIndex >= NUM_YIELD_TYPES)
+	{
+		return 0;
+	}
+	return m_aiExploreYield[eIndex];
+}
+int CvPromotionEntry::GetEraPercent(YieldTypes eYield) const
+{
+    if (eYield < 0 || eYield >= NUM_YIELD_TYPES)
+        return 0;
+    return m_aiExploreEraPercent[eYield];
+}
 
 #ifdef MOD_PROMOTION_ADD_ENEMY_PROMOTIONS
 bool CvPromotionEntry::GetAddEnemyPromotionImmune() const
@@ -4347,7 +4498,7 @@ PromotionTypes CvUnitPromotions::ChangePromotionAfterCombat(PromotionTypes eInde
 		CvPromotionEntry *pkEntry = m_pPromotions->GetEntry(eIndex);
 		if (pkEntry && pkEntry->IsPostCombatRandomPromotion(iI))
 		{
-			if (!pkEntry->ArePostCombatPromotionsExclusive() || !IsInUseByPlayer((PromotionTypes)iI, m_pUnit->getOwner()))
+			if (pkEntry->ArePostCombatPromotionsExclusive() ? !IsInUseByPlayer((PromotionTypes)iI, m_pUnit->getOwner()) : !m_pUnit->isHasPromotion((PromotionTypes)iI))
 			{
 #if defined(MOD_EVENTS_UNIT_UPGRADES)
 				if (MOD_EVENTS_UNIT_UPGRADES) {

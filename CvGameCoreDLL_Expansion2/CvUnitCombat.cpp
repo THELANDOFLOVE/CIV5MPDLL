@@ -4731,11 +4731,31 @@ void CityDamageChangeInterveneNoCondition(CvCity* thisCity, int* enemyInflictDam
 	{
 		*enemyInflictDamage += thisCity->getReduceDamageValue();
 	}
+#if defined(MOD_BUILDING_NEW_EFFECT_FOR_SP)
+	if (thisCity->getFollowerCountDamageModifier() != 0 || thisCity->getFollowingCityCountDamageModifier() != 0)
+	{
+		ReligionTypes eReligion = thisCity->GetCityReligions()->GetReligiousMajority();
+		if (eReligion != NO_RELIGION && thisCity->GetCityReligions()->IsHolyCityForReligion(eReligion))
+		{
+			if (thisCity->getFollowerCountDamageModifier() != 0)
+			{
+				int iFollowers = GC.getGame().GetGameReligions()->GetNumFollowers(eReligion);
+				*enemyInflictDamage += thisCity->getFollowerCountDamageModifier() * iFollowers / 100;
+			}
+			if (thisCity->getFollowingCityCountDamageModifier() != 0)
+			{
+				int iCities = GC.getGame().GetGameReligions()->GetNumCitiesFollowing(eReligion);
+				*enemyInflictDamage += thisCity->getFollowingCityCountDamageModifier() * iCities / 100;
+			}
+		}
+	}
+#endif
 }
 
 void CityDamageChangeIntervene(InflictDamageContext* ctx)
 {
 	CityDamageChangeInterveneNoCondition(ctx->pDefenderCity, ctx->piAttackInflictDamage);
+	CityDamageChangeInterveneNoCondition(ctx->pAttackerCity, ctx->piAttackInflictDamage);
 }
 
 void UnitAttackInflictDamageIntervene(InflictDamageContext* ctx)
@@ -4771,6 +4791,47 @@ void UnitDefenseInflictDamageIntervene(InflictDamageContext* ctx)
 	}
 }
 
+void FixReduceDamageIntervene(InflictDamageContext* ctx)
+{
+	if (ctx->pAttackerUnit != nullptr && ctx->piDefenseInflictDamage != nullptr)
+	{
+		const int iFixReducePerPromotion = ctx->pAttackerUnit->GetFixReducePerPromotionTotal();
+		if (iFixReducePerPromotion != 0)
+		{
+			*ctx->piDefenseInflictDamage -= ctx->pAttackerUnit->GetNumPromotions() * iFixReducePerPromotion / 100;
+		}
+	}
+
+	if (ctx->pDefenderUnit != nullptr && ctx->piAttackInflictDamage != nullptr)
+	{
+		const int iFixReducePerPromotion = ctx->pDefenderUnit->GetFixReducePerPromotionTotal();
+		if (iFixReducePerPromotion != 0)
+		{
+			*ctx->piAttackInflictDamage -= ctx->pDefenderUnit->GetNumPromotions() * iFixReducePerPromotion / 100;
+		}
+	}
+}
+
+void FixAddDamageIntervene(InflictDamageContext* ctx)
+{
+	if (ctx->pAttackerUnit != nullptr && ctx->piAttackInflictDamage != nullptr)
+	{
+		const int iFixDamagePerPromotion = ctx->pAttackerUnit->GetFixDamagePerPromotionTotal();
+		if (iFixDamagePerPromotion != 0)
+		{
+			*ctx->piAttackInflictDamage += ctx->pAttackerUnit->GetNumPromotions() * iFixDamagePerPromotion / 100;
+		}
+	}
+
+	if (ctx->pDefenderUnit != nullptr && ctx->piDefenseInflictDamage != nullptr && ctx->pAttackerCity == nullptr)
+	{
+		const int iFixDamagePerPromotion = ctx->pDefenderUnit->GetFixDamagePerPromotionTotal();
+		if (iFixDamagePerPromotion != 0)
+		{
+			*ctx->piDefenseInflictDamage += ctx->pDefenderUnit->GetNumPromotions() * iFixDamagePerPromotion / 100;
+		}
+	}
+}
 void SiegeInflictDamageIntervene(InflictDamageContext* ctx)
 {
 	// Unit VS City
@@ -4861,6 +4922,8 @@ void CvUnitCombat::InterveneInflictDamage(InflictDamageContext* ctx)
 	CityDamageChangeIntervene(ctx);
 	UnitAttackInflictDamageIntervene(ctx);
 	UnitDefenseInflictDamageIntervene(ctx);
+	FixReduceDamageIntervene(ctx);
+	FixAddDamageIntervene(ctx);
 	SiegeInflictDamageIntervene(ctx);
 	OutsideFriendlyLandsDamageIntervene(ctx);
 

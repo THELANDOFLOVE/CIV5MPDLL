@@ -113,8 +113,21 @@ create table Policy_GreatPersonOutputModifierPerGWs (
     GreatPersonType text references GreatPersons(Type),
     Modifier integer default 0
 );
+alter table Policies add column InstantTourismBombWhenFirstConquerMajorCapital integer not null default 0;
+alter table Policies add column NaturalWonderFirstFinderTech integer not null default 0;
+alter table Policies add column NaturalWonderFirstFinderPolicies integer not null default 0;
+alter table Policies add column NaturalWonderSubsequentFinderPolicies integer not null default 0;
+alter table Policies add column NaturalWonderSubsequentFinderTech integer not null default 0;
 --******************** New Condition ********************--
 create table PolicyBranch_CivilizationLocked (
     PolicyBranchType text references PolicyBranchTypes(Type),
     CivilizationType text references Civilizations(Type)
+);
+--******************** Adjacent Improvement Yield ********************--
+create table Policy_AdjacentImprovementYieldChanges (
+    PolicyType text references Policies(Type),
+    ImprovementType text references Improvements(Type),
+    OtherImprovementType text references Improvements(Type),
+    YieldType text references Yields(Type),
+    Yield integer default 0
 );

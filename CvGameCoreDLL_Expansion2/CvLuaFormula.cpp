@@ -63,7 +63,7 @@ namespace lua {
 			return nullptr;
 		}
 
-		return &it->second;
+		return it->second;
 	}
 
 	bool EvaluatorManager::Init(CvGlobals* gc)
@@ -74,16 +74,19 @@ namespace lua {
 		}
 
 		m_pGlobal = gc;
+		for (auto& pair : m_data) delete pair.second;
 		m_data.clear();
+
 		EvaluatorFactory factory;
 		for (auto* formula : gc->GetLuaFormulaEntries())
 		{
-			Evaluator evaluator;
-			if (!factory.Init(formula, &evaluator))
+			Evaluator* evaluator = new Evaluator();
+			if (!factory.Init(formula, evaluator))
 			{
+				delete evaluator;
 				continue;
 			}
-			m_data[static_cast<LuaFormulaTypes>(formula->GetID())] = static_cast<Evaluator&&>(evaluator);
+			m_data[static_cast<LuaFormulaTypes>(formula->GetID())] = evaluator;
 		}
 
 		return true;

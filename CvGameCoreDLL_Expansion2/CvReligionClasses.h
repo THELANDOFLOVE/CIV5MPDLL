@@ -96,6 +96,7 @@ public:
 	int m_iTurnFounded;
 	bool m_bPantheon;
 	bool m_bEnhanced;
+	int m_iNumFirstConversions;
 	char m_szCustomName[128];
 	CvReligionBeliefs m_Beliefs;
 };

@@ -42,6 +42,10 @@ create table Trait_GoldenAgeYieldModifiers (
     YieldType text references Yields(Type),
     Yield integer default 0
 );
+alter table Traits add NaturalWonderSubsequentFinderPolicies int default 0;
+alter table Traits add NaturalWonderSubsequentFinderTech int default 0;
+alter table Traits add NaturalWonderFirstFinderPolicies int default 0;
+alter table Traits add NaturalWonderFirstFinderTech int default 0;
 --******************** New Unit/Combat Bonus ********************--
 alter table Traits add TrainedAll boolean default 0;
 alter table Traits add NoDoDeficit boolean default 0;
@@ -108,3 +112,19 @@ create table Trait_BuildingClassFaithCost (
 
 alter table Civilizations add SpecialGAText text default 'TXT_KEY_GOLDEN_AGE_ANNOUNCE';
 alter table Civilizations add SpecialGAHelpText text default 'TXT_KEY_TP_GOLDEN_AGE_EFFECT';
+alter table Traits add NaturalWonderYieldModifierPerEra int default 0;
+alter table Traits add GoldenAgeTechChainBoost boolean default 0;
+--******************** Adjacent Improvement Yield ********************--
+create table Trait_AdjacentImprovementYieldChanges (
+    TraitType text references Traits(Type),
+    ImprovementType text references Improvements(Type),
+    OtherImprovementType text references Improvements(Type),
+    YieldType text references Yields(Type),
+    Yield integer default 0
+);
+alter table Traits add NewCityAutomaticReligion boolean default 0;
+create table Trait_BuildCostChange (
+    TraitType text references Traits(Type),
+    BuildType text references Builds(Type),
+    Change int default 0
+);

@@ -9,6 +9,7 @@ ALTER TABLE Resolutions ADD COLUMN 'GlobalAttackModifier' integer default 0;
 ALTER TABLE Resolutions ADD COLUMN 'GlobalWarCasualtiesChanges' integer default 0;
 -- Vassal/Suzerain submission resolution columns (all default 0 for reuse)
 ALTER TABLE Resolutions ADD COLUMN 'VassalTaxPercent' INTEGER DEFAULT 0;
+ALTER TABLE Resolutions ADD COLUMN 'VassalTechDiscount' INTEGER DEFAULT 0;
 ALTER TABLE Resolutions ADD COLUMN 'VassalTaxScience' BOOLEAN DEFAULT 0;
 ALTER TABLE Resolutions ADD COLUMN 'VassalTaxCulture' BOOLEAN DEFAULT 0;
 ALTER TABLE Resolutions ADD COLUMN 'VassalTaxFaith'   BOOLEAN DEFAULT 0;
@@ -42,3 +43,9 @@ ALTER TABLE Resolutions ADD COLUMN 'IMOOceanRouteGoldModifier' INTEGER DEFAULT 0
 ALTER TABLE Resolutions ADD COLUMN 'IMOForbidWeakPlunder' BOOLEAN DEFAULT 0;
 -- World Bank: the interval in turns between interest payments (0 falls back to 10 in code)
 ALTER TABLE Resolutions ADD COLUMN 'WorldBankIntervalTurns' INTEGER DEFAULT 0;
+ALTER TABLE Resolutions ADD COLUMN 'VassalDemandCityPopulationPercent' INTEGER DEFAULT 0;
+ALTER TABLE Resolutions ADD COLUMN 'VassalDemandGoldPercent' INTEGER DEFAULT 0;
+ALTER TABLE Resolutions ADD COLUMN 'VassalDemandGoldPerTurnPercent' INTEGER DEFAULT 0;
+ALTER TABLE Resolutions ADD COLUMN 'VassalDemandLuxuryResourcePercent' INTEGER DEFAULT 0;
+ALTER TABLE Resolutions ADD COLUMN 'VassalDemandStrategicResourcePercent' INTEGER DEFAULT 0;
+ALTER TABLE Resolutions ADD COLUMN 'VassalDemandCooldownTurns' INTEGER DEFAULT 0;

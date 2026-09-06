@@ -711,6 +711,7 @@ public:
 
 	// Human Demand
 	void DoDemandMade(PlayerTypes ePlayer);
+	void DoDemandMadeWithCooldown(PlayerTypes ePlayer, int iCooldownTurns);
 	bool IsDemandTooSoon(PlayerTypes ePlayer) const;
 	short GetDemandTooSoonNumTurns(PlayerTypes ePlayer) const;
 

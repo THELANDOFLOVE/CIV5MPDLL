@@ -144,6 +144,13 @@ struct CvResolutionEffects
 #if defined(MOD_GLOBAL_SUZERAIN)
 	bool bSubmitSuzerain;
 	int iVassalTaxPercent;
+	int iVassalTechDiscount;
+	int iVassalDemandCityPopulationPercent;
+	int iVassalDemandGoldPercent;
+	int iVassalDemandGoldPerTurnPercent;
+	int iVassalDemandLuxuryResourcePercent;
+	int iVassalDemandStrategicResourcePercent;
+	int iVassalDemandCooldownTurns;
 	bool bVassalTaxScience;
 	bool bVassalTaxCulture;
 	bool bVassalTaxFaith;
@@ -1329,6 +1336,13 @@ public:
 #endif
 #if defined(MOD_GLOBAL_SUZERAIN)
 	int GetVassalTaxPercent() const;
+	int GetVassalTechDiscount() const;
+	int GetVassalDemandCityPopulationPercent() const;
+	int GetVassalDemandGoldPercent() const;
+	int GetVassalDemandGoldPerTurnPercent() const;
+	int GetVassalDemandLuxuryResourcePercent() const;
+	int GetVassalDemandStrategicResourcePercent() const;
+	int GetVassalDemandCooldownTurns() const;
 	bool IsVassalTaxScience() const;
 	bool IsVassalTaxCulture() const;
 	bool IsVassalTaxFaith() const;
@@ -1398,6 +1412,13 @@ protected:
 #endif
 #if defined(MOD_GLOBAL_SUZERAIN)
 	int m_iVassalTaxPercent;
+	int m_iVassalTechDiscount;
+	int m_iVassalDemandCityPopulationPercent;
+	int m_iVassalDemandGoldPercent;
+	int m_iVassalDemandGoldPerTurnPercent;
+	int m_iVassalDemandLuxuryResourcePercent;
+	int m_iVassalDemandStrategicResourcePercent;
+	int m_iVassalDemandCooldownTurns;
 	bool m_bVassalTaxScience;
 	bool m_bVassalTaxCulture;
 	bool m_bVassalTaxFaith;

@@ -40,6 +40,7 @@ enum TradeableItems
 	TRADE_ITEM_VOTE_COMMITMENT,
 	TRADE_ITEM_DIPLOMATIC_MARRIAGE,
 	TRADE_ITEM_DUAL_EMPIRE_TREATY,
+	TRADE_ITEM_TECHS,
 	NUM_TRADEABLE_ITEMS,
 };
 FDataStream& operator>>(FDataStream&, TradeableItems&);
@@ -169,6 +170,9 @@ public:
 #if defined(MOD_AI_MP_DIPLOMACY)
 	bool AreAllTradeItemsValid();
 #endif
+#if defined(MOD_GLOBAL_SUZERAIN)
+	bool ValidateVassalDemand() const;
+#endif
 
 	bool IsPossibleToTradeItem(PlayerTypes ePlayer, PlayerTypes eToPlayer, TradeableItems eItem, int iData1 = -1, int iData2 = -1, int iData3 = -1, bool bFlag1 = false, bool bCheckOtherPlayerValidity = true, bool bFinalizing = false);
 	int GetNumResource(PlayerTypes ePlayer, ResourceTypes eResource);
@@ -180,6 +184,7 @@ public:
 	void AddResourceTrade(PlayerTypes eFrom, ResourceTypes eResource, int iAmount, int iDuration);
 	void AddCityTrade(PlayerTypes eFrom, int iCityID);
 	void AddUnitTrade(PlayerTypes eFrom, int iUnitID);
+	void AddTechTrade(PlayerTypes eFrom, TechTypes eTech);
 	void AddAllowEmbassy(PlayerTypes eFrom);
 	void AddOpenBorders(PlayerTypes eFrom, int iDuration);
 	void AddDefensivePact(PlayerTypes eFrom, int iDuration);
@@ -206,6 +211,7 @@ public:
 	bool IsResourceTrade(PlayerTypes eFrom, ResourceTypes eResource);
 	bool ChangeResourceTrade(PlayerTypes eFrom, ResourceTypes eResource, int iAmount, int iDuration);
 	bool IsCityTrade(PlayerTypes eFrom, int x, int y);
+	bool IsTechTrade(PlayerTypes eFrom, TechTypes eTech);
 	void ChangeThirdPartyWarDuration(PlayerTypes eFrom, TeamTypes eThirdPartyTeam, int iNewDuration);
 	void ChangeThirdPartyPeaceDuration(PlayerTypes eFrom, TeamTypes eThirdPartyTeam, int iNewDuration);
 	void ChangeThirdPartyEmbargoDuration(PlayerTypes eFrom, PlayerTypes eThirdParty, int iNewDuration);
@@ -229,6 +235,7 @@ public:
 	void RemoveResourceTrade(ResourceTypes eResource);
 	void RemoveCityTrade(PlayerTypes eFrom, int iCityID);
 	void RemoveUnitTrade(int iUnitID);
+	void RemoveTechTrade(TechTypes eTech);
 	void RemoveThirdPartyPeace(PlayerTypes eFrom, TeamTypes eThirdPartyTeam);
 	void RemoveThirdPartyWar(PlayerTypes eFrom, TeamTypes eThirdPartyTeam);
 	void RemoveThirdPartyEmbargo(PlayerTypes eFrom, PlayerTypes eThirdParty);

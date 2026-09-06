@@ -230,6 +230,13 @@ CvResolutionEffects::CvResolutionEffects(void)
 #if defined(MOD_GLOBAL_SUZERAIN)
 	bSubmitSuzerain = false;
 	iVassalTaxPercent = 0;
+	iVassalTechDiscount = 0;
+	iVassalDemandCityPopulationPercent = 0;
+	iVassalDemandGoldPercent = 0;
+	iVassalDemandGoldPerTurnPercent = 0;
+	iVassalDemandLuxuryResourcePercent = 0;
+	iVassalDemandStrategicResourcePercent = 0;
+	iVassalDemandCooldownTurns = 0;
 	bVassalTaxScience = false;
 	bVassalTaxCulture = false;
 	bVassalTaxFaith = false;
@@ -293,8 +300,21 @@ CvResolutionEffects::CvResolutionEffects(ResolutionTypes eType)
 		// resolution that only sets a tax type.
 		bSubmitSuzerain = (pInfo->GetVassalTaxPercent() > 0 || pInfo->IsVassalGetUC()
 			|| pInfo->IsVassalTaxScience() || pInfo->IsVassalTaxCulture()
-			|| pInfo->IsVassalTaxFaith() || pInfo->IsVassalTaxGold());
+			|| pInfo->IsVassalTaxFaith() || pInfo->IsVassalTaxGold()
+			|| pInfo->GetVassalDemandCityPopulationPercent() > 0
+			|| pInfo->GetVassalDemandGoldPercent() > 0
+			|| pInfo->GetVassalDemandGoldPerTurnPercent() > 0
+			|| pInfo->GetVassalDemandLuxuryResourcePercent() > 0
+			|| pInfo->GetVassalDemandStrategicResourcePercent() > 0
+			|| pInfo->GetVassalDemandCooldownTurns() > 0);
 		iVassalTaxPercent = pInfo->GetVassalTaxPercent();
+		iVassalTechDiscount = pInfo->GetVassalTechDiscount();
+		iVassalDemandCityPopulationPercent = pInfo->GetVassalDemandCityPopulationPercent();
+		iVassalDemandGoldPercent = pInfo->GetVassalDemandGoldPercent();
+		iVassalDemandGoldPerTurnPercent = pInfo->GetVassalDemandGoldPerTurnPercent();
+		iVassalDemandLuxuryResourcePercent = pInfo->GetVassalDemandLuxuryResourcePercent();
+		iVassalDemandStrategicResourcePercent = pInfo->GetVassalDemandStrategicResourcePercent();
+		iVassalDemandCooldownTurns = pInfo->GetVassalDemandCooldownTurns();
 		bVassalTaxScience = pInfo->IsVassalTaxScience();
 		bVassalTaxCulture = pInfo->IsVassalTaxCulture();
 		bVassalTaxFaith = pInfo->IsVassalTaxFaith();
@@ -446,6 +466,13 @@ void CvResolutionEffects::AddOngoingEffects(const CvResolutionEffects* pOtherEff
 #if defined(MOD_GLOBAL_SUZERAIN)
 	bSubmitSuzerain						|= pOtherEffects->bSubmitSuzerain;
 	iVassalTaxPercent						+= pOtherEffects->iVassalTaxPercent;
+	iVassalTechDiscount					+= pOtherEffects->iVassalTechDiscount;
+	iVassalDemandCityPopulationPercent += pOtherEffects->iVassalDemandCityPopulationPercent;
+	iVassalDemandGoldPercent			+= pOtherEffects->iVassalDemandGoldPercent;
+	iVassalDemandGoldPerTurnPercent += pOtherEffects->iVassalDemandGoldPerTurnPercent;
+	iVassalDemandLuxuryResourcePercent += pOtherEffects->iVassalDemandLuxuryResourcePercent;
+	iVassalDemandStrategicResourcePercent += pOtherEffects->iVassalDemandStrategicResourcePercent;
+	iVassalDemandCooldownTurns		+= pOtherEffects->iVassalDemandCooldownTurns;
 	bVassalTaxScience						|= pOtherEffects->bVassalTaxScience;
 	bVassalTaxCulture						|= pOtherEffects->bVassalTaxCulture;
 	bVassalTaxFaith							|= pOtherEffects->bVassalTaxFaith;
@@ -591,6 +618,13 @@ FDataStream& operator>>(FDataStream& loadFrom, CvResolutionEffects& writeTo)
 	MOD_SERIALIZE_READ(163, loadFrom, writeTo.bVassalForcePeace, false);
 	MOD_SERIALIZE_READ(163, loadFrom, writeTo.bVassalNoDenounce, false);
 	MOD_SERIALIZE_READ(163, loadFrom, writeTo.bVassalGetUC, false);
+	MOD_SERIALIZE_READ(164, loadFrom, writeTo.iVassalTechDiscount, 0);
+	MOD_SERIALIZE_READ(164, loadFrom, writeTo.iVassalDemandCityPopulationPercent, 0);
+	MOD_SERIALIZE_READ(164, loadFrom, writeTo.iVassalDemandGoldPercent, 0);
+	MOD_SERIALIZE_READ(164, loadFrom, writeTo.iVassalDemandGoldPerTurnPercent, 0);
+	MOD_SERIALIZE_READ(164, loadFrom, writeTo.iVassalDemandLuxuryResourcePercent, 0);
+	MOD_SERIALIZE_READ(164, loadFrom, writeTo.iVassalDemandStrategicResourcePercent, 0);
+	MOD_SERIALIZE_READ(164, loadFrom, writeTo.iVassalDemandCooldownTurns, 0);
 #endif
 
 
@@ -656,6 +690,13 @@ FDataStream& operator<<(FDataStream& saveTo, const CvResolutionEffects& readFrom
 	MOD_SERIALIZE_WRITE(saveTo, readFrom.bVassalForcePeace);
 	MOD_SERIALIZE_WRITE(saveTo, readFrom.bVassalNoDenounce);
 	MOD_SERIALIZE_WRITE(saveTo, readFrom.bVassalGetUC);
+	MOD_SERIALIZE_WRITE(saveTo, readFrom.iVassalTechDiscount);
+	MOD_SERIALIZE_WRITE(saveTo, readFrom.iVassalDemandCityPopulationPercent);
+	MOD_SERIALIZE_WRITE(saveTo, readFrom.iVassalDemandGoldPercent);
+	MOD_SERIALIZE_WRITE(saveTo, readFrom.iVassalDemandGoldPerTurnPercent);
+	MOD_SERIALIZE_WRITE(saveTo, readFrom.iVassalDemandLuxuryResourcePercent);
+	MOD_SERIALIZE_WRITE(saveTo, readFrom.iVassalDemandStrategicResourcePercent);
+	MOD_SERIALIZE_WRITE(saveTo, readFrom.iVassalDemandCooldownTurns);
 #endif
 
 	return saveTo;
@@ -11759,6 +11800,13 @@ CvResolutionEntry::CvResolutionEntry(void)
 	m_eCivilizationType = NO_CIVILIZATION;
 #if defined(MOD_GLOBAL_SUZERAIN)
 	m_iVassalTaxPercent = 0;
+	m_iVassalTechDiscount = 0;
+	m_iVassalDemandCityPopulationPercent = 0;
+	m_iVassalDemandGoldPercent = 0;
+	m_iVassalDemandGoldPerTurnPercent = 0;
+	m_iVassalDemandLuxuryResourcePercent = 0;
+	m_iVassalDemandStrategicResourcePercent = 0;
+	m_iVassalDemandCooldownTurns = 0;
 	m_bVassalTaxScience = false;
 	m_bVassalTaxCulture = false;
 	m_bVassalTaxFaith = false;
@@ -11840,6 +11888,13 @@ bool CvResolutionEntry::CacheResults(Database::Results& kResults, CvDatabaseUtil
 #endif
 #if defined(MOD_GLOBAL_SUZERAIN)
 	m_iVassalTaxPercent = kResults.GetInt("VassalTaxPercent");
+	m_iVassalTechDiscount = kResults.GetInt("VassalTechDiscount");
+	m_iVassalDemandCityPopulationPercent = kResults.GetInt("VassalDemandCityPopulationPercent");
+	m_iVassalDemandGoldPercent = kResults.GetInt("VassalDemandGoldPercent");
+	m_iVassalDemandGoldPerTurnPercent = kResults.GetInt("VassalDemandGoldPerTurnPercent");
+	m_iVassalDemandLuxuryResourcePercent = kResults.GetInt("VassalDemandLuxuryResourcePercent");
+	m_iVassalDemandStrategicResourcePercent = kResults.GetInt("VassalDemandStrategicResourcePercent");
+	m_iVassalDemandCooldownTurns = kResults.GetInt("VassalDemandCooldownTurns");
 	m_bVassalTaxScience = kResults.GetBool("VassalTaxScience");
 	m_bVassalTaxCulture = kResults.GetBool("VassalTaxCulture");
 	m_bVassalTaxFaith   = kResults.GetBool("VassalTaxFaith");
@@ -12081,6 +12136,16 @@ int CvResolutionEntry::GetVassalTaxPercent() const
 {
 	return m_iVassalTaxPercent;
 }
+int CvResolutionEntry::GetVassalTechDiscount() const
+{
+	return m_iVassalTechDiscount;
+}
+int CvResolutionEntry::GetVassalDemandCityPopulationPercent() const { return m_iVassalDemandCityPopulationPercent; }
+int CvResolutionEntry::GetVassalDemandGoldPercent() const { return m_iVassalDemandGoldPercent; }
+int CvResolutionEntry::GetVassalDemandGoldPerTurnPercent() const { return m_iVassalDemandGoldPerTurnPercent; }
+int CvResolutionEntry::GetVassalDemandLuxuryResourcePercent() const { return m_iVassalDemandLuxuryResourcePercent; }
+int CvResolutionEntry::GetVassalDemandStrategicResourcePercent() const { return m_iVassalDemandStrategicResourcePercent; }
+int CvResolutionEntry::GetVassalDemandCooldownTurns() const { return m_iVassalDemandCooldownTurns; }
 bool CvResolutionEntry::IsVassalTaxScience() const
 {
 	return m_bVassalTaxScience;

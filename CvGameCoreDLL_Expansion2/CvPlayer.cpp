@@ -3655,6 +3655,11 @@ CvCity* CvPlayer::acquireCity(CvCity* pOldCity, bool bConquest, bool bGift, bool
 				pPlot->setOwner(pNewCity->getOwner(), /*iAcquireCityID*/ pNewCity->GetID(), /*bCheckUnits*/ true, /*bUpdateResources*/ true);
 		}
 
+		// Ownership changes can cache the city plot yield before the new city is fully attached.
+		// Recalculate it now so the minimum city yields are always applied after a transfer.
+		if (pNewCity->plot() != NULL)
+			pNewCity->plot()->updateYield();
+
 		// Is this City being Occupied?
 		if(pNewCity->getOriginalOwner() != GetID())
 		{
@@ -5548,6 +5553,9 @@ void CvPlayer::doTurn()
 	bool bHasActiveDiploRequest = false;
 	if(isAlive() && isMajorCiv())
 	{
+#if defined(MOD_GLOBAL_SUZERAIN)
+		DoVassalLevy();
+#endif
 		GetTrade()->DoTurn();
 		GetMilitaryAI()->ResetCounters();
 		GetGrandStrategyAI()->DoTurn();
@@ -11550,8 +11558,123 @@ int CvPlayer::calculateResearchModifier(TechTypes eTech)
 		iModifier /= 100;
 	}
 
+#if defined(MOD_GLOBAL_SUZERAIN)
+	// The overlord gains a research discount for technologies already discovered by its vassals.
+	// The per-vassal discount is configured on the suzerain resolution (VassalTechDiscount).
+	if (HasAnyVassal())
+	{
+		int iDiscountPerVassal = GetVassalTechDiscount();
+		if (iDiscountPerVassal > 0)
+		{
+			int iVassalsKnowingTech = 0;
+			const std::vector<int>& vVassals = GetVassals();
+			for (size_t i = 0; i < vVassals.size(); ++i)
+			{
+				const PlayerTypes eVassal = (PlayerTypes)vVassals[i];
+				if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS)
+					continue;
+				const CvPlayer& kVassal = GET_PLAYER(eVassal);
+				if (kVassal.isAlive() && GET_TEAM(kVassal.getTeam()).GetTeamTechs()->HasTech(eTech))
+					++iVassalsKnowingTech;
+			}
+			if (iVassalsKnowingTech > 0)
+				iModifier = std::max(1, iModifier - std::min(99, iVassalsKnowingTech * iDiscountPerVassal));
+		}
+	}
+#endif
+
 	return iModifier;
 }
+
+#if defined(MOD_GLOBAL_SUZERAIN)
+// The overlord receives one levy unit from each living vassal every ten game-speed turns.
+void CvPlayer::DoVassalLevy()
+{
+	CvCity* pCapital = getCapitalCity();
+	if (!isAlive() || !isMajorCiv() || !HasAnyVassal() || pCapital == NULL)
+		return;
+	const int iInterval = std::max(1, (10 * GC.getGame().getGameSpeedInfo().getTrainPercent()) / 100);
+	if (GC.getGame().getGameTurn() <= 0 || GC.getGame().getGameTurn() % iInterval != 0)
+		return;
+
+	int iCreated = 0;
+	const std::vector<int>& vVassals = GetVassals();
+	for (size_t iVassal = 0; iVassal < vVassals.size(); ++iVassal)
+	{
+		const PlayerTypes eVassal = (PlayerTypes)vVassals[iVassal];
+		if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS || !GET_PLAYER(eVassal).isAlive())
+			continue;
+		const CvPlayer& kVassal = GET_PLAYER(eVassal);
+		UnitTypes eBestUnit = NO_UNIT;
+		int iBestCost = -1;
+		for (int iClass = 0; iClass < GC.getNumUnitClassInfos(); ++iClass)
+		{
+			const UnitClassTypes eClass = (UnitClassTypes)iClass;
+			if (GC.getGame().isUnitClassMaxedOut(eClass) || GET_TEAM(getTeam()).isUnitClassMaxedOut(eClass) || isUnitClassMaxedOut(eClass))
+				continue;
+			const UnitTypes eUnit = (UnitTypes)kVassal.getCivilizationInfo().getCivilizationUnits(iClass);
+			CvUnitEntry* pInfo = eUnit == NO_UNIT ? NULL : GC.getUnitInfo(eUnit);
+			if (pInfo == NULL || (pInfo->GetCombat() <= 0 && pInfo->GetRangedCombat() <= 0))
+				continue;
+			if (pInfo->GetPolicyType() != NO_POLICY || pInfo->IsFound())
+				continue;
+			const TechTypes ePrereq = (TechTypes)pInfo->GetPrereqAndTech();
+			if (ePrereq != NO_TECH && !GET_TEAM(kVassal.getTeam()).GetTeamTechs()->HasTech(ePrereq))
+				continue;
+			const TechTypes eObsolete = (TechTypes)pInfo->GetObsoleteTech();
+			if (eObsolete != NO_TECH && (GET_TEAM(kVassal.getTeam()).GetTeamTechs()->HasTech(eObsolete) || GET_TEAM(getTeam()).GetTeamTechs()->HasTech(eObsolete)))
+				continue;
+			if (pInfo->GetDomainType() == DOMAIN_SEA && !pCapital->isCoastal(GC.getMIN_WATER_SIZE_FOR_OCEAN()))
+				continue;
+			bool bHasResources = true;
+			for (int iResource = 0; iResource < GC.getNumResourceInfos(); ++iResource)
+			{
+				if (pInfo->GetResourceQuantityRequirement(iResource) > getNumResourceAvailable((ResourceTypes)iResource))
+				{
+					bHasResources = false;
+					break;
+				}
+			}
+			if (bHasResources && pInfo->GetProductionCost() > iBestCost)
+			{
+				eBestUnit = eUnit;
+				iBestCost = pInfo->GetProductionCost();
+			}
+		}
+		if (eBestUnit != NO_UNIT)
+		{
+			CvUnit* pNewUnit = initUnit(eBestUnit, pCapital->getX(), pCapital->getY());
+			if (pNewUnit != NULL)
+			{
+				pCapital->addProductionExperience(pNewUnit);
+				CvUnitEntry* pBestInfo = GC.getUnitInfo(eBestUnit);
+				if (pBestInfo != NULL)
+				{
+					for (int iResource = 0; iResource < GC.getNumResourceInfos(); ++iResource)
+					{
+						int iReq = pBestInfo->GetResourceQuantityRequirement(iResource);
+						if (iReq > 0)
+							changeNumResourceTotal((ResourceTypes)iResource, -iReq);
+					}
+				}
+				++iCreated;
+			}
+		}
+	}
+
+	if (iCreated > 0 && GetID() == GC.getGame().getActivePlayer())
+	{
+		CvNotifications* pNotifications = GetNotifications();
+		if (pNotifications != NULL)
+		{
+			Localization::String strText = Localization::Lookup("TXT_KEY_NOTIFICATION_TIANDAO_VASSAL_LEVY");
+			strText << iCreated;
+			Localization::String strSummary = Localization::Lookup("TXT_KEY_NOTIFICATION_TIANDAO_VASSAL_LEVY_SUMMARY");
+			pNotifications->Add(NOTIFICATION_GENERIC, strText.toUTF8(), strSummary.toUTF8(), pCapital->getX(), pCapital->getY(), -1);
+		}
+	}
+}
+#endif
 
 //	--------------------------------------------------------------------------------
 int CvPlayer::calculateGoldRate() const
@@ -34480,6 +34603,118 @@ int CvPlayer::GetVassalTaxPercentFor(PlayerTypes eVassal) const
 		if (!pRes->GetEffects()->bVassalTaxGold) continue;
 		int iTaxPercent = pRes->GetEffects()->iVassalTaxPercent;
 		return (iTaxPercent > 0) ? iTaxPercent : 0;
+	}
+	return 0;
+}
+
+int CvPlayer::GetVassalDemandCityPopulationPercentFor(PlayerTypes eVassal) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	CvLeague* pLeague = GC.getGame().GetGameLeagues()->GetActiveLeague();
+	if (!pLeague) return 0;
+	int iValue = 0;
+	ActiveResolutionList v = pLeague->GetActiveResolutions();
+	for (uint i = 0; i < v.size(); ++i)
+	{
+		CvActiveResolution* r = &v[i];
+		if (r->GetEffects()->bSubmitSuzerain && r->GetProposerDecision()->GetProposer() == GetID() && (PlayerTypes)r->GetProposerDecision()->GetDecision() == eVassal)
+			iValue += r->GetEffects()->iVassalDemandCityPopulationPercent;
+	}
+	return std::max(0, std::min(100, iValue));
+}
+
+int CvPlayer::GetVassalDemandGoldPercentFor(PlayerTypes eVassal) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	CvLeague* pLeague = GC.getGame().GetGameLeagues()->GetActiveLeague();
+	if (!pLeague) return 0;
+	int iValue = 0;
+	ActiveResolutionList v = pLeague->GetActiveResolutions();
+	for (uint i = 0; i < v.size(); ++i)
+	{
+		CvActiveResolution* r = &v[i];
+		if (r->GetEffects()->bSubmitSuzerain && r->GetProposerDecision()->GetProposer() == GetID() && (PlayerTypes)r->GetProposerDecision()->GetDecision() == eVassal)
+			iValue += r->GetEffects()->iVassalDemandGoldPercent;
+	}
+	return std::max(0, std::min(100, iValue));
+}
+
+int CvPlayer::GetVassalDemandGoldPerTurnPercentFor(PlayerTypes eVassal) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	CvLeague* pLeague = GC.getGame().GetGameLeagues()->GetActiveLeague();
+	if (!pLeague) return 0;
+	int iValue = 0;
+	ActiveResolutionList v = pLeague->GetActiveResolutions();
+	for (uint i = 0; i < v.size(); ++i)
+	{
+		CvActiveResolution* r = &v[i];
+		if (r->GetEffects()->bSubmitSuzerain && r->GetProposerDecision()->GetProposer() == GetID() && (PlayerTypes)r->GetProposerDecision()->GetDecision() == eVassal)
+			iValue += r->GetEffects()->iVassalDemandGoldPerTurnPercent;
+	}
+	return std::max(0, std::min(100, iValue));
+}
+
+int CvPlayer::GetVassalDemandLuxuryResourcePercentFor(PlayerTypes eVassal) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	CvLeague* pLeague = GC.getGame().GetGameLeagues()->GetActiveLeague();
+	if (!pLeague) return 0;
+	int iValue = 0;
+	ActiveResolutionList v = pLeague->GetActiveResolutions();
+	for (uint i = 0; i < v.size(); ++i)
+	{
+		CvActiveResolution* r = &v[i];
+		if (r->GetEffects()->bSubmitSuzerain && r->GetProposerDecision()->GetProposer() == GetID() && (PlayerTypes)r->GetProposerDecision()->GetDecision() == eVassal)
+			iValue += r->GetEffects()->iVassalDemandLuxuryResourcePercent;
+	}
+	return std::max(0, std::min(100, iValue));
+}
+
+int CvPlayer::GetVassalDemandStrategicResourcePercentFor(PlayerTypes eVassal) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	CvLeague* pLeague = GC.getGame().GetGameLeagues()->GetActiveLeague();
+	if (!pLeague) return 0;
+	int iValue = 0;
+	ActiveResolutionList v = pLeague->GetActiveResolutions();
+	for (uint i = 0; i < v.size(); ++i)
+	{
+		CvActiveResolution* r = &v[i];
+		if (r->GetEffects()->bSubmitSuzerain && r->GetProposerDecision()->GetProposer() == GetID() && (PlayerTypes)r->GetProposerDecision()->GetDecision() == eVassal)
+			iValue += r->GetEffects()->iVassalDemandStrategicResourcePercent;
+	}
+	return std::max(0, std::min(100, iValue));
+}
+
+int CvPlayer::GetVassalDemandCooldownTurnsFor(PlayerTypes eVassal) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	CvLeague* pLeague = GC.getGame().GetGameLeagues()->GetActiveLeague();
+	if (!pLeague) return 0;
+	int iValue = 0;
+	ActiveResolutionList v = pLeague->GetActiveResolutions();
+	for (uint i = 0; i < v.size(); ++i)
+	{
+		CvActiveResolution* r = &v[i];
+		if (r->GetEffects()->bSubmitSuzerain && r->GetProposerDecision()->GetProposer() == GetID() && (PlayerTypes)r->GetProposerDecision()->GetDecision() == eVassal)
+			iValue += r->GetEffects()->iVassalDemandCooldownTurns;
+	}
+	return std::max(0, iValue);
+}
+int CvPlayer::GetVassalTechDiscount() const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	CvLeague* pLeague = GC.getGame().GetGameLeagues()->GetActiveLeague();
+	if (!pLeague) return 0;
+	ActiveResolutionList vActiveResolutions = pLeague->GetActiveResolutions();
+	for (uint iRes = 0; iRes < vActiveResolutions.size(); iRes++)
+	{
+		CvActiveResolution* pRes = &vActiveResolutions[iRes];
+		if (!pRes->GetEffects()->bSubmitSuzerain) continue;
+		if (pRes->GetProposerDecision()->GetProposer() != GetID()) continue;
+		if (pRes->GetEffects()->iVassalTechDiscount > 0)
+			return pRes->GetEffects()->iVassalTechDiscount;
 	}
 	return 0;
 }

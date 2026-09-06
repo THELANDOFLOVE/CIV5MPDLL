@@ -386,7 +386,28 @@ DemandResponseTypes CvDealAI::DoHumanDemand(CvDeal* pDeal)
 	int iValueWillingToGiveUp = 0;
 
 	CvDiplomacyAI* pDiploAI = GET_PLAYER(eMyPlayer).GetDiplomacyAI();
-	
+
+	bool bVassalDemand = false;
+#if defined(MOD_GLOBAL_SUZERAIN)
+	if (MOD_GLOBAL_SUZERAIN && eFromPlayer >= 0 && eFromPlayer < MAX_MAJOR_CIVS)
+	{
+		bVassalDemand = GET_PLAYER(eMyPlayer).GetOverlord() == eFromPlayer;
+	}
+#endif
+
+	// Overlord demands use resolution-configured item limits and are validated as one aggregate deal.
+	if (bVassalDemand)
+	{
+		pDeal->SetDemandingPlayer(eFromPlayer);
+		const int iCooldownTurns = GET_PLAYER(eFromPlayer).GetVassalDemandCooldownTurnsFor(eMyPlayer);
+		if (iCooldownTurns > 0 && pDiploAI->IsDemandTooSoon(eFromPlayer))
+			eResponse = DEMAND_RESPONSE_REFUSE_TOO_SOON;
+		else
+			eResponse = pDeal->ValidateVassalDemand() ? DEMAND_RESPONSE_ACCEPT : DEMAND_RESPONSE_REFUSE_TOO_MUCH;
+	}
+
+	if (!bVassalDemand)
+	{
 		// Too soon for another demand?
 		if(pDiploAI->IsDemandTooSoon(eFromPlayer))
 			eResponse = DEMAND_RESPONSE_REFUSE_TOO_SOON;
@@ -475,6 +496,7 @@ DemandResponseTypes CvDealAI::DoHumanDemand(CvDeal* pDeal)
 				// Are they going to say no matter what?
 				if(iAsyncRand > iOddsOfGivingIn)
 					eResponse = DEMAND_RESPONSE_REFUSE_HOSTILE;
+			}
 		}
 	}
 
@@ -725,6 +747,8 @@ bool CvDealAI::DoEqualizeDealWithHuman(CvDeal* pDeal, PlayerTypes eOtherPlayer, 
 
 			DoAddVoteCommitmentToThem(pDeal, eOtherPlayer, bDontChangeTheirExistingItems, iTotalValueToMe, iValueImOffering, iValueTheyreOffering, iAmountOverWeWillRequest, bUseEvenValue);
 			DoAddVoteCommitmentToUs(pDeal, eOtherPlayer, bDontChangeMyExistingItems, iTotalValueToMe, iValueImOffering, iValueTheyreOffering, iAmountUnderWeWillOffer, bUseEvenValue);
+			DoAddTechToThem(pDeal, eOtherPlayer, bDontChangeTheirExistingItems, iTotalValueToMe, iValueImOffering, iValueTheyreOffering, iAmountOverWeWillRequest, bUseEvenValue);
+			DoAddTechToUs(pDeal, eOtherPlayer, bDontChangeMyExistingItems, iTotalValueToMe, iValueImOffering, iValueTheyreOffering, iAmountUnderWeWillOffer, bUseEvenValue);
 
 			DoAddEmbassyToThem(pDeal, eOtherPlayer, bDontChangeTheirExistingItems, iTotalValueToMe, iValueImOffering, iValueTheyreOffering, iAmountOverWeWillRequest, bUseEvenValue);
 			DoAddEmbassyToUs(pDeal, eOtherPlayer, bDontChangeMyExistingItems, iTotalValueToMe, iValueImOffering, iValueTheyreOffering, iAmountUnderWeWillOffer, bUseEvenValue);
@@ -826,6 +850,8 @@ bool CvDealAI::DoEqualizeDealWithAI(CvDeal* pDeal, PlayerTypes eOtherPlayer)
 
 		DoAddVoteCommitmentToThem(pCounterDeal, eOtherPlayer, /*bDontChangeTheirExistingItems*/ false, iTotalValue, iEvenValueImOffering, iEvenValueTheyreOffering, iAmountOverWeWillRequest, bUseEvenValue);
 		DoAddVoteCommitmentToUs(pCounterDeal, eOtherPlayer, /*bDontChangeMyExistingItems*/ false, iTotalValue, iEvenValueImOffering, iEvenValueTheyreOffering, iAmountUnderWeWillOffer, bUseEvenValue);
+		DoAddTechToThem(pCounterDeal, eOtherPlayer, /*bDontChangeTheirExistingItems*/ false, iTotalValue, iEvenValueImOffering, iEvenValueTheyreOffering, iAmountOverWeWillRequest, bUseEvenValue);
+		DoAddTechToUs(pCounterDeal, eOtherPlayer, /*bDontChangeMyExistingItems*/ false, iTotalValue, iEvenValueImOffering, iEvenValueTheyreOffering, iAmountUnderWeWillOffer, bUseEvenValue);
 
 		DoAddResourceToThem(pCounterDeal, eOtherPlayer, /*bDontChangeTheirExistingItems*/ false, iTotalValue, iEvenValueImOffering, iEvenValueTheyreOffering, iAmountOverWeWillRequest, iDealDuration, bUseEvenValue);
 		DoAddResourceToUs(pCounterDeal, eOtherPlayer, /*bDontChangeMyExistingItems*/ false, iTotalValue, iEvenValueImOffering, iEvenValueTheyreOffering, iAmountUnderWeWillOffer, iDealDuration, bUseEvenValue);
@@ -979,6 +1005,8 @@ int CvDealAI::GetTradeItemValue(TradeableItems eItem, bool bFromMe, PlayerTypes 
 		iItemValue = GetThirdPartyWarValue(bFromMe, eOtherPlayer, /*eWithTeam*/ (TeamTypes) iData1);
 	else if(eItem == TRADE_ITEM_VOTE_COMMITMENT)
 		iItemValue = GetVoteCommitmentValue(bFromMe, eOtherPlayer, iData1, iData2, iData3, bFlag1, bUseEvenValue);
+	else if(eItem == TRADE_ITEM_TECHS)
+		iItemValue = GetTechValue((TechTypes)iData1, bFromMe, eOtherPlayer);
 
 	// TODO
 
@@ -987,6 +1015,91 @@ int CvDealAI::GetTradeItemValue(TradeableItems eItem, bool bFromMe, PlayerTypes 
 	return iItemValue;
 }
 
+// Technology value used by overlord technology sales.
+int CvDealAI::GetTechValue(TechTypes eTech, bool bFromMe, PlayerTypes eOtherPlayer)
+{
+	CvTechEntry* pTechInfo = eTech == NO_TECH ? NULL : GC.getTechInfo(eTech);
+	if (pTechInfo == NULL)
+		return INT_MAX;
+
+	// The buyer is the player who would otherwise research this technology.
+	CvPlayer& kBuyer = bFromMe ? GET_PLAYER(eOtherPlayer) : *GetPlayer();
+	const int iTurnsLeft = kBuyer.GetPlayerTechs()->GetResearchTurnsLeft(eTech, true);
+	if (iTurnsLeft == INT_MAX)
+		return INT_MAX;
+
+	int iTechModifier = 0;
+	for (int i = 0; i < GC.getNumUnitInfos(); ++i)
+	{
+		CvUnitEntry* pUnit = GC.getUnitInfo((UnitTypes)i);
+		if (pUnit != NULL && pUnit->GetPrereqAndTech() == eTech)
+			iTechModifier += pUnit->GetNukeDamageLevel() > 0 ? 2 : 1;
+	}
+	for (int i = 0; i < GC.getNumBuildingInfos(); ++i)
+	{
+		CvBuildingEntry* pBuilding = GC.getBuildingInfo((BuildingTypes)i);
+		if (pBuilding != NULL && pBuilding->GetPrereqAndTech() == eTech)
+			iTechModifier += 2;
+	}
+	for (int i = 0; i < GC.getNumProjectInfos(); ++i)
+	{
+		CvProjectEntry* pProject = GC.getProjectInfo((ProjectTypes)i);
+		if (pProject != NULL && pProject->GetTechPrereq() == eTech)
+			iTechModifier += 2;
+	}
+	for (int i = 0; i < GC.getNumBuildInfos(); ++i)
+	{
+		CvBuildInfo* pBuild = GC.getBuildInfo((BuildTypes)i);
+		if (pBuild != NULL && pBuild->getTechPrereq() == eTech)
+			iTechModifier += 2;
+	}
+	for (int i = 0; i < GC.getNumResourceInfos(); ++i)
+	{
+		CvResourceInfo* pResource = GC.getResourceInfo((ResourceTypes)i);
+		if (pResource == NULL)
+			continue;
+		TechTypes eRevealTech = (TechTypes)pResource->getTechReveal();
+		if (eRevealTech == eTech)
+			iTechModifier += 2;
+	}
+	if (pTechInfo->IsTechTrading() && !GC.getGame().isOption(GAMEOPTION_NO_SCIENCE))
+		iTechModifier += 2;
+	if (pTechInfo->IsResearchAgreementTradingAllowed() && !GC.getGame().isOption(GAMEOPTION_NO_SCIENCE))
+		iTechModifier += 2;
+
+	// Research time is the base value. Era and unlocks raise the value of later technologies.
+	long long iValue = std::max(10, iTurnsLeft);
+	iValue *= std::max(100, GC.getGame().getGameSpeedInfo().getResearchPercent());
+	iValue *= std::max(1, pTechInfo->GetEra() + 1);
+	iValue = iValue * (100 + iTechModifier) / 100;
+
+	// Policies expose this modifier on CvPolicyEntry rather than PolicyModifierType.
+	int iPolicyModifier = 0;
+	CvPlayerPolicies* pPolicies = kBuyer.GetPlayerPolicies();
+	for (int i = 0; i < GC.getNumPolicyInfos(); ++i)
+	{
+		if (pPolicies->HasPolicy((PolicyTypes)i) && !pPolicies->IsPolicyBlocked((PolicyTypes)i))
+			iPolicyModifier += GC.getPolicyInfo((PolicyTypes)i)->GetMedianTechPercentChange();
+	}
+	iPolicyModifier = std::max(0, std::min(100, iPolicyModifier));
+	iValue = iValue * (100 - iPolicyModifier) / 100;
+
+	// Match the normal deal AI approach adjustment while keeping the value deterministic for both sides.
+	MajorCivApproachTypes eApproach = GetPlayer()->GetDiplomacyAI()->GetMajorCivApproach(eOtherPlayer, false);
+	int iApproachModifier = 100;
+	switch (eApproach)
+	{
+	case MAJOR_CIV_APPROACH_WAR: iApproachModifier = bFromMe ? 250 : 50; break;
+	case MAJOR_CIV_APPROACH_HOSTILE: iApproachModifier = bFromMe ? 150 : 50; break;
+	case MAJOR_CIV_APPROACH_GUARDED: iApproachModifier = bFromMe ? 125 : 75; break;
+	case MAJOR_CIV_APPROACH_DECEPTIVE: iApproachModifier = bFromMe ? 100 : 110; break;
+	case MAJOR_CIV_APPROACH_AFRAID: iApproachModifier = bFromMe ? 80 : 100; break;
+	case MAJOR_CIV_APPROACH_FRIENDLY: iApproachModifier = bFromMe ? 90 : 110; break;
+	default: break;
+	}
+	iValue = iValue * iApproachModifier / 100;
+	return std::max(1000, (int)std::min(iValue, (long long)INT_MAX / 2));
+}
 /// How much Gold should be provided if we're trying to make it worth iValue?
 int CvDealAI::GetGoldForForValueExchange(int iGoldOrValue, bool bNumGoldFromValue, bool bFromMe, PlayerTypes eOtherPlayer, bool bUseEvenValue, bool bRoundUp)
 {
@@ -2587,6 +2700,66 @@ void CvDealAI::DoAddVoteCommitmentToUs(CvDeal* pDeal, PlayerTypes eThem, bool bD
 				}
 			}
 		}
+	}
+}
+
+/// See if adding a technology to their side of the deal helps even out pDeal.
+void CvDealAI::DoAddTechToThem(CvDeal* pDeal, PlayerTypes eThem, bool bDontChangeTheirExistingItems, int& iTotalValue, int& iValueImOffering, int& iValueTheyreOffering, int iAmountOverWeWillRequest, bool bUseEvenValue)
+{
+	if (bDontChangeTheirExistingItems || iTotalValue >= 0)
+		return;
+
+	PlayerTypes eMyPlayer = GetPlayer()->GetID();
+	TechTypes eBestTech = NO_TECH;
+	int iBestValue = 0;
+	for (int iTechLoop = 0; iTechLoop < GC.getNumTechInfos(); ++iTechLoop)
+	{
+		TechTypes eTech = (TechTypes)iTechLoop;
+		if (!pDeal->IsPossibleToTradeItem(eThem, eMyPlayer, TRADE_ITEM_TECHS, eTech))
+			continue;
+
+		int iItemValue = GetTradeItemValue(TRADE_ITEM_TECHS, false, eThem, eTech, -1, -1, false, -1, bUseEvenValue);
+		if (iItemValue > iBestValue && iItemValue + iTotalValue <= iAmountOverWeWillRequest)
+		{
+			eBestTech = eTech;
+			iBestValue = iItemValue;
+		}
+	}
+
+	if (eBestTech != NO_TECH)
+	{
+		pDeal->AddTechTrade(eThem, eBestTech);
+		iTotalValue = GetDealValue(pDeal, iValueImOffering, iValueTheyreOffering, bUseEvenValue);
+	}
+}
+
+/// See if adding a technology to our side of the deal helps even out pDeal.
+void CvDealAI::DoAddTechToUs(CvDeal* pDeal, PlayerTypes eThem, bool bDontChangeMyExistingItems, int& iTotalValue, int& iValueImOffering, int& iValueTheyreOffering, int iAmountUnderWeWillOffer, bool bUseEvenValue)
+{
+	if (bDontChangeMyExistingItems || iTotalValue <= 0)
+		return;
+
+	PlayerTypes eMyPlayer = GetPlayer()->GetID();
+	TechTypes eBestTech = NO_TECH;
+	int iBestValue = 0;
+	for (int iTechLoop = 0; iTechLoop < GC.getNumTechInfos(); ++iTechLoop)
+	{
+		TechTypes eTech = (TechTypes)iTechLoop;
+		if (!pDeal->IsPossibleToTradeItem(eMyPlayer, eThem, TRADE_ITEM_TECHS, eTech))
+			continue;
+
+		int iItemValue = GetTradeItemValue(TRADE_ITEM_TECHS, true, eThem, eTech, -1, -1, false, -1, bUseEvenValue);
+		if (iItemValue > iBestValue && -iItemValue + iTotalValue >= iAmountUnderWeWillOffer)
+		{
+			eBestTech = eTech;
+			iBestValue = iItemValue;
+		}
+	}
+
+	if (eBestTech != NO_TECH)
+	{
+		pDeal->AddTechTrade(eMyPlayer, eBestTech);
+		iTotalValue = GetDealValue(pDeal, iValueImOffering, iValueTheyreOffering, bUseEvenValue);
 	}
 }
 

@@ -1987,6 +1987,13 @@ public:
 	int GetFaithToOverlord() const;
 	int GetGoldToOverlord() const;
 	int GetVassalTaxPercentFor(PlayerTypes eVassal) const;
+	int GetVassalTechDiscount() const;
+	int GetVassalDemandCityPopulationPercentFor(PlayerTypes eVassal) const;
+	int GetVassalDemandGoldPercentFor(PlayerTypes eVassal) const;
+	int GetVassalDemandGoldPerTurnPercentFor(PlayerTypes eVassal) const;
+	int GetVassalDemandLuxuryResourcePercentFor(PlayerTypes eVassal) const;
+	int GetVassalDemandStrategicResourcePercentFor(PlayerTypes eVassal) const;
+	int GetVassalDemandCooldownTurnsFor(PlayerTypes eVassal) const;
 	int GetGoldFromVassalDeals() const;
 	int GetGoldFromVassalDealsLumpSum() const;
 	void ResetGoldFromVassalDeals();
@@ -1994,6 +2001,8 @@ public:
 	void RecordVassalDealGPT(PlayerTypes eVassal, PlayerTypes eCounterparty, int iTax);
 	void RecordVassalDealGPTEnd(PlayerTypes eVassal, int iTax);
 	void NotifyVassalDealTax(PlayerTypes eVassal, PlayerTypes eCounterparty, int iTax, bool bPerTurn);
+	// Levy from vassals; the state is derived each turn and is not serialized.
+	void DoVassalLevy();
 #endif
 	int GetExtraUnitPlayerInstances() const;
 	void SetExtraUnitPlayerInstances(int iValue);

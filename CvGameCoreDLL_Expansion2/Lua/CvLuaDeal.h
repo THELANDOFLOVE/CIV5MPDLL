@@ -129,6 +129,10 @@ protected:
 	{
 		return BasicLuaMethod(L, &CvDeal::AddUnitTrade);
 	};
+	static int lAddTechTrade(lua_State* L)
+	{
+		return BasicLuaMethod(L, &CvDeal::AddTechTrade);
+	};
 	static int lAddAllowEmbassy(lua_State* L)
 	{
 		return BasicLuaMethod(L, &CvDeal::AddAllowEmbassy);
@@ -231,6 +235,10 @@ protected:
 	static int lRemoveUnitTrade(lua_State* L)
 	{
 		return BasicLuaMethod(L, &CvDeal::RemoveUnitTrade);
+	};
+	static int lRemoveTechTrade(lua_State* L)
+	{
+		return BasicLuaMethod(L, &CvDeal::RemoveTechTrade);
 	};
 	static int lRemoveThirdPartyPeace(lua_State* L)
 	{

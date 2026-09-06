@@ -501,6 +501,26 @@ bool CvDeal::IsPossibleToTradeItem(PlayerTypes ePlayer, PlayerTypes eToPlayer, T
 	{
 		return false;
 	}
+	// Technology sale: only the overlord may sell a technology to a direct vassal.
+	else if(eItem == TRADE_ITEM_TECHS)
+	{
+		if (GC.getGame().isOption(GAMEOPTION_NO_SCIENCE))
+			return false;
+#if defined(MOD_GLOBAL_SUZERAIN)
+		if (!MOD_GLOBAL_SUZERAIN || pToPlayer->GetOverlord() != ePlayer)
+			return false;
+#else
+		return false;
+#endif
+		TechTypes eTech = (TechTypes)iData1;
+		CvTechEntry* pTechInfo = eTech == NO_TECH ? NULL : GC.getTechInfo(eTech);
+		if (pTechInfo == NULL || pTechInfo->IsRepeat() || !pFromTeam->GetTeamTechs()->HasTech(eTech))
+			return false;
+		if (!pToPlayer->GetPlayerTechs()->CanResearch(eTech, false))
+			return false;
+		if (!bFinalizing && IsTechTrade(ePlayer, eTech))
+			return false;
+	}
 	// Embassy
 	else if(eItem == TRADE_ITEM_ALLOW_EMBASSY)
 	{
@@ -1168,6 +1188,22 @@ void CvDeal::AddUnitTrade(PlayerTypes eFrom, int iUnitID)
 	}
 }
 
+/// Insert a technology trade.
+void CvDeal::AddTechTrade(PlayerTypes eFrom, TechTypes eTech)
+{
+	CvAssertMsg(eFrom == m_eFromPlayer || eFrom == m_eToPlayer, "DEAL: Adding deal item for a player that's not actually in this deal!");
+	if (IsPossibleToTradeItem(eFrom, GetOtherPlayer(eFrom), TRADE_ITEM_TECHS, eTech))
+	{
+		CvTradedItem item;
+		item.m_eItemType = TRADE_ITEM_TECHS;
+		item.m_iDuration = 0;
+		item.m_iFinalTurn = -1;
+		item.m_iData1 = (int)eTech;
+		item.m_eFromPlayer = eFrom;
+		m_TradedItems.push_back(item);
+	}
+}
+
 /// Insert adding an embassy to the deal
 void CvDeal::AddAllowEmbassy(PlayerTypes eFrom)
 {
@@ -1771,6 +1807,17 @@ bool CvDeal::IsDualEmpireTreaty(PlayerTypes eFrom)
 	return false;
 }
 
+bool CvDeal::IsTechTrade(PlayerTypes eFrom, TechTypes eTech)
+{
+	TradedItemList::iterator it;
+	for (it = m_TradedItems.begin(); it != m_TradedItems.end(); ++it)
+	{
+		if (it->m_eItemType == TRADE_ITEM_TECHS && it->m_eFromPlayer == eFrom && (TechTypes)it->m_iData1 == eTech)
+			return true;
+	}
+	return false;
+}
+
 CvDeal::DealRenewStatus CvDeal::GetItemTradeableState(TradeableItems eTradeItem)
 {
 	switch(eTradeItem)
@@ -1788,6 +1835,7 @@ CvDeal::DealRenewStatus CvDeal::GetItemTradeableState(TradeableItems eTradeItem)
 	case TRADE_ITEM_VOTE_COMMITMENT:
 	case TRADE_ITEM_DIPLOMATIC_MARRIAGE:
 	case TRADE_ITEM_DUAL_EMPIRE_TREATY:
+	case TRADE_ITEM_TECHS:
 		return DEAL_NONRENEWABLE;
 		break;
 
@@ -1891,6 +1939,19 @@ void CvDeal::RemoveUnitTrade(int iUnitID)
 	{
 		if(it->m_eItemType == TRADE_ITEM_UNITS &&
 		        it->m_iData1 == iUnitID)
+		{
+			m_TradedItems.erase(it);
+			break;
+		}
+	}
+}
+
+void CvDeal::RemoveTechTrade(TechTypes eTech)
+{
+	TradedItemList::iterator it;
+	for (it = m_TradedItems.begin(); it != m_TradedItems.end(); ++it)
+	{
+		if (it->m_eItemType == TRADE_ITEM_TECHS && (TechTypes)it->m_iData1 == eTech)
 		{
 			m_TradedItems.erase(it);
 			break;
@@ -2248,8 +2309,87 @@ bool CvGameDeals::RemoveProposedDeal(PlayerTypes eFromPlayer, PlayerTypes eToPla
 	return true;
 }
 
+#endif
+
+#if defined(MOD_GLOBAL_SUZERAIN)
+bool CvDeal::ValidateVassalDemand() const
+{
+	const PlayerTypes eOverlord = GetDemandingPlayer();
+	if (eOverlord == NO_PLAYER || eOverlord < 0 || eOverlord >= MAX_MAJOR_CIVS) return true;
+	const PlayerTypes eVassal = GetOtherPlayer(eOverlord);
+	if (eVassal == NO_PLAYER || eVassal < 0 || eVassal >= MAX_MAJOR_CIVS || GET_PLAYER(eVassal).GetOverlord() != eOverlord) return true;
+	const CvPlayer& kOverlord = GET_PLAYER(eOverlord);
+	const CvPlayer& kVassal = GET_PLAYER(eVassal);
+	int iGold = 0;
+	int iGoldPerTurn = 0;
+	int iCityPopulation = 0;
+	std::vector<int> vResourceDemand(GC.getNumResourceInfos(), 0);
+	bool bHasItem = false;
+	for (TradedItemList::const_iterator it = m_TradedItems.begin(); it != m_TradedItems.end(); ++it)
+	{
+		if (it->m_eFromPlayer != eVassal) return false;
+		bHasItem = true;
+		switch (it->m_eItemType)
+		{
+		case TRADE_ITEM_GOLD:
+			if (it->m_iData1 < 0 || iGold > INT_MAX - it->m_iData1) return false;
+			iGold += it->m_iData1;
+			break;
+		case TRADE_ITEM_GOLD_PER_TURN:
+			if (it->m_iData1 < 0 || iGoldPerTurn > INT_MAX - it->m_iData1) return false;
+			iGoldPerTurn += it->m_iData1;
+			break;
+		case TRADE_ITEM_CITIES:
+		{
+			CvPlot* pPlot = GC.getMap().plot(it->m_iData1, it->m_iData2);
+			CvCity* pCity = pPlot ? pPlot->getPlotCity() : NULL;
+			if (pCity == NULL || pCity->getOwner() != eVassal) return false;
+			for (TradedItemList::const_iterator itPrevious = m_TradedItems.begin(); itPrevious != it; ++itPrevious)
+			{
+				if (itPrevious->m_eItemType == TRADE_ITEM_CITIES && itPrevious->m_iData1 == it->m_iData1 && itPrevious->m_iData2 == it->m_iData2) return false;
+			}
+			iCityPopulation += pCity->getPopulation();
+			break;
+		}
+		case TRADE_ITEM_RESOURCES:
+		{
+			const ResourceTypes eResource = (ResourceTypes)it->m_iData1;
+			if (eResource < 0 || eResource >= GC.getNumResourceInfos() || it->m_iData2 < 0) return false;
+			if (vResourceDemand[eResource] > INT_MAX - it->m_iData2) return false;
+			if (vResourceDemand[eResource] > INT_MAX - it->m_iData2) return false;
+			vResourceDemand[eResource] += it->m_iData2;
+			break;
+		}
+		default: return false;
+		}
+	}
+	if (!bHasItem) return false;
+	const int iCityPercent = kOverlord.GetVassalDemandCityPopulationPercentFor(eVassal);
+	const int iGoldPercent = kOverlord.GetVassalDemandGoldPercentFor(eVassal);
+	const int iGPTPercent = kOverlord.GetVassalDemandGoldPerTurnPercentFor(eVassal);
+	const int iLuxuryPercent = kOverlord.GetVassalDemandLuxuryResourcePercentFor(eVassal);
+	const int iStrategicPercent = kOverlord.GetVassalDemandStrategicResourcePercentFor(eVassal);
+	if (iGold > (std::max(0, kVassal.GetTreasury()->GetGold()) * iGoldPercent) / 100) return false;
+	if (iGoldPerTurn > (std::max(0, kVassal.calculateGoldRate()) * iGPTPercent) / 100) return false;
+	if (iCityPopulation > (std::max(0, kVassal.getTotalPopulation()) * iCityPercent) / 100) return false;
+	for (int iResource = 0; iResource < GC.getNumResourceInfos(); ++iResource)
+	{
+		if (vResourceDemand[iResource] <= 0) continue;
+		CvResourceInfo* pResource = GC.getResourceInfo((ResourceTypes)iResource);
+		if (pResource == NULL) return false;
+		const int iPercent = pResource->getResourceUsage() == RESOURCEUSAGE_LUXURY ? iLuxuryPercent : (pResource->getResourceUsage() == RESOURCEUSAGE_STRATEGIC ? iStrategicPercent : 0);
+		if (iPercent <= 0 || vResourceDemand[iResource] > (std::max(0, kVassal.getNumResourceAvailable((ResourceTypes)iResource, false)) * iPercent) / 100) return false;
+	}
+	return true;
+}
+#endif
+
+#if defined(MOD_AI_MP_DIPLOMACY)
 bool CvDeal::AreAllTradeItemsValid()
 {
+#if defined(MOD_GLOBAL_SUZERAIN)
+	if (GetDemandingPlayer() != NO_PLAYER && !ValidateVassalDemand()) return false;
+#endif
 	TradedItemList::iterator iter;
 	for (iter = m_TradedItems.begin(); iter != m_TradedItems.end(); ++iter)
 	{
@@ -2352,6 +2492,10 @@ bool CvGameDeals::FinalizeDeal(PlayerTypes eFromPlayer, PlayerTypes eToPlayer, b
 
 	if(bFoundIt)
 	{
+#if defined(MOD_GLOBAL_SUZERAIN)
+		if (kDeal.GetDemandingPlayer() != NO_PLAYER && !kDeal.ValidateVassalDemand())
+			bValid = false;
+#endif
 
 		TradedItemList::iterator iter;
 		for(iter = kDeal.m_TradedItems.begin(); iter != kDeal.m_TradedItems.end(); ++iter)
@@ -2538,6 +2682,10 @@ void CvGameDeals::FinalizeDealValidAndAccepted(PlayerTypes eFromPlayer, PlayerTy
 			CvCity* pCity = GC.getMap().plot(it->m_iData1, it->m_iData2)->getPlotCity();
 			if(pCity != NULL)
 				GET_PLAYER(eAcceptedToPlayer).acquireCity(pCity, false, true);
+		}
+		else if (it->m_eItemType == TRADE_ITEM_TECHS)
+		{
+			GET_TEAM(eToTeam).setHasTech((TechTypes)it->m_iData1, true, eAcceptedToPlayer, true, true);
 		}
 		else if(it->m_eItemType == TRADE_ITEM_ALLOW_EMBASSY)
 		{
@@ -2784,6 +2932,10 @@ bool CvGameDeals::FinalizeDeal(PlayerTypes eFromPlayer, PlayerTypes eToPlayer, b
 
 	if(bFoundIt)
 	{
+#if defined(MOD_GLOBAL_SUZERAIN)
+		if (kDeal.GetDemandingPlayer() != NO_PLAYER && !kDeal.ValidateVassalDemand())
+			bValid = false;
+#endif
 
 		TradedItemList::iterator iter;
 		for(iter = kDeal.m_TradedItems.begin(); iter != kDeal.m_TradedItems.end(); ++iter)
@@ -2957,6 +3109,10 @@ bool CvGameDeals::FinalizeDeal(PlayerTypes eFromPlayer, PlayerTypes eToPlayer, b
 					CvCity* pCity = GC.getMap().plot(it->m_iData1, it->m_iData2)->getPlotCity();
 					if(pCity != NULL)
 						GET_PLAYER(eAcceptedToPlayer).acquireCity(pCity, false, true);
+				}
+				else if (it->m_eItemType == TRADE_ITEM_TECHS)
+				{
+					GET_TEAM(eToTeam).setHasTech((TechTypes)it->m_iData1, true, eAcceptedToPlayer, true, true);
 				}
 				else if(it->m_eItemType == TRADE_ITEM_ALLOW_EMBASSY)
 				{
@@ -4248,6 +4404,9 @@ void CvGameDeals::LogDealComplete(CvDeal* pDeal)
 			case TRADE_ITEM_VOTE_COMMITMENT:
 				strTemp.Format("***** Vote Commitment: ID %d, Choice %d *****", itemIter->m_iData1, itemIter->m_iData2);
 				break;
+			case TRADE_ITEM_TECHS:
+				strTemp.Format("***** Technology Trade: ID %d *****", itemIter->m_iData1);
+				break;
 			default:
 				strTemp.Format("***** UNKNOWN TRADE!!! *****");
 				break;
@@ -4453,6 +4612,9 @@ void CvGameDeals::LogDealFailed(CvDeal* pDeal, bool bNoRenew, bool bNotAccepted,
 				break;
 			case TRADE_ITEM_DUAL_EMPIRE_TREATY:
 				strTemp.Format("***** Dual Empire Treaty *****");
+				break;
+			case TRADE_ITEM_TECHS:
+				strTemp.Format("***** Technology Trade: ID %d *****", itemIter->m_iData1);
 				break;
 			default:
 				strTemp.Format("***** UNKNOWN TRADE!!! *****");

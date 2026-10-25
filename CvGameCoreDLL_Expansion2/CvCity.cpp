@@ -14140,6 +14140,16 @@ int CvCity::getBaseYieldRateModifier(YieldTypes eIndex, int iExtra, CvString* to
 	// note: player->invalidateYieldRankCache() must be called for anything that is checked here
 	// so if any extra checked things are added here, the cache needs to be invalidated
 
+#if defined(MOD_GLOBAL_SUZERAIN)
+	// Mandate punishment: the punished civ's cities lose a share of food and production.
+	if (owner.IsUnderMandatePunishment() && (eIndex == YIELD_FOOD || eIndex == YIELD_PRODUCTION))
+	{
+		int iPenalty = GC.getDefineINT("TIANDAO_MANDATE_TIANFA_YIELD_PERCENT", false);
+		if (iPenalty > 0)
+			iModifier -= iPenalty;
+	}
+#endif
+
 	return std::max(0, iModifier);
 }
 

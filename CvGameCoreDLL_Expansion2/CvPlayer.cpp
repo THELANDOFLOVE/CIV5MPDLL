@@ -34991,20 +34991,6 @@ bool CvPlayer::DoTianfa(PlayerTypes eTarget)
 		kTarget.m_iPunishUnhappiness = iUnhappiness;
 	}
 
-	int iFood = TiandaoDefineInt("TIANDAO_MANDATE_TIANFA_FOOD");
-	int iProduction = TiandaoDefineInt("TIANDAO_MANDATE_TIANFA_PRODUCTION");
-	kTarget.m_iPunishFood = iFood;
-	kTarget.m_iPunishProduction = iProduction;
-
-	int iLoop = 0;
-	for (CvCity* pCity = kTarget.firstCity(&iLoop); pCity != NULL; pCity = kTarget.nextCity(&iLoop))
-	{
-		if (iFood != 0)
-			pCity->ChangeBaseYieldRateFromMisc(YIELD_FOOD, -iFood);
-		if (iProduction != 0)
-			pCity->ChangeBaseYieldRateFromMisc(YIELD_PRODUCTION, -iProduction);
-	}
-
 	int iCSInfluence = TiandaoDefineInt("TIANDAO_MANDATE_TIANFA_CS_INFLUENCE");
 	if (iCSInfluence > 0)
 	{
@@ -35070,15 +35056,6 @@ void CvPlayer::DoMandatePunishmentTurn()
 
 	if (m_iPunishUnhappiness != 0)
 		ChangeUnhappinessMod(-m_iPunishUnhappiness);
-
-	int iLoop = 0;
-	for (CvCity* pCity = firstCity(&iLoop); pCity != NULL; pCity = nextCity(&iLoop))
-	{
-		if (m_iPunishFood != 0)
-			pCity->ChangeBaseYieldRateFromMisc(YIELD_FOOD, m_iPunishFood);
-		if (m_iPunishProduction != 0)
-			pCity->ChangeBaseYieldRateFromMisc(YIELD_PRODUCTION, m_iPunishProduction);
-	}
 
 	m_iPunishEndTurn = 0;
 	m_iPunishBy = NO_PLAYER;

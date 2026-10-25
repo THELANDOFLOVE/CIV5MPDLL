@@ -439,7 +439,6 @@ CvPlayer::CvPlayer() :
 	, m_iPunishUnhappiness("CvPlayer::m_iPunishUnhappiness", m_syncArchive)
 	, m_iPunishFood("CvPlayer::m_iPunishFood", m_syncArchive)
 	, m_iPunishProduction("CvPlayer::m_iPunishProduction", m_syncArchive)
-	, m_aiVassalGreatTributeTurn("CvPlayer::m_aiVassalGreatTributeTurn", m_syncArchive)
 	, m_aScienceTimes100FromVassals()
 	, m_aCultureFromVassals()
 	, m_aFaithFromVassals()
@@ -1333,8 +1332,6 @@ void CvPlayer::uninit()
 	m_iPunishUnhappiness = 0;
 	m_iPunishFood = 0;
 	m_iPunishProduction = 0;
-	m_aiVassalGreatTributeTurn.clear();
-	m_aiVassalGreatTributeTurn.resize(MAX_MAJOR_CIVS, 0);
 #endif
 	m_iExtraUnitPlayerInstances = 0;
 	m_iConquestCasualtiesModifier = 0;
@@ -31248,7 +31245,6 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ(165, kStream, m_iVassalCourtPolicy, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalBreachCount, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalBreachTurn, MAX_MAJOR_CIVS, 0);
-		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalGreatTributeTurn, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iMandate, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iFengshanEra, -1);
 		MOD_SERIALIZE_READ(165, kStream, m_iBlessingFood, 0);
@@ -32169,7 +32165,6 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE(kStream, m_iVassalCourtPolicy);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalBreachCount);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalBreachTurn);
-	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalGreatTributeTurn);
 	MOD_SERIALIZE_WRITE(kStream, m_iMandate);
 	MOD_SERIALIZE_WRITE(kStream, m_iFengshanEra);
 	MOD_SERIALIZE_WRITE(kStream, m_iBlessingFood);
@@ -35219,47 +35214,6 @@ void CvPlayer::DoVassalTributeTurn()
 		kVassal.GetTreasury()->ChangeGold(-iPay);
 		GetTreasury()->ChangeGold(iPay);
 	}
-}
-
-//--------------------------------------------------------------------------------
-bool CvPlayer::CanVassalGreatTribute(PlayerTypes eVassal) const
-{
-	if (!MOD_GLOBAL_SUZERAIN) return false;
-	if (!IsOverlordOf(eVassal)) return false;
-	if (GetVassalRank(eVassal) <= 0) return false; // great tribute requires a title
-	if (!IsVassalCourtTurn()) return false;
-
-	int iInterval = TiandaoDefineInt("TIANDAO_TRIBUTE_GREAT_INTERVAL");
-	if (iInterval <= 0) return false;
-
-	if ((size_t)eVassal >= m_aiVassalGreatTributeTurn.size()) return true;
-	int iLast = m_aiVassalGreatTributeTurn[eVassal];
-	if (iLast == 0) return true;
-	return GC.getGame().getGameTurn() - iLast >= iInterval;
-}
-
-//--------------------------------------------------------------------------------
-bool CvPlayer::DoVassalGreatTribute(PlayerTypes eVassal)
-{
-	if (!CanVassalGreatTribute(eVassal)) return false;
-
-	CvPlayer& kVassal = GET_PLAYER(eVassal);
-	CvCity* pBest = NULL;
-	int iLoop = 0;
-	for (CvCity* pCity = kVassal.firstCity(&iLoop); pCity != NULL; pCity = kVassal.nextCity(&iLoop))
-	{
-		if (pCity->isCapital()) continue;
-		if (pBest == NULL || pCity->getPopulation() < pBest->getPopulation())
-			pBest = pCity;
-	}
-	if (pBest == NULL) return false;
-
-	acquireCity(pBest, false, true);
-
-	if ((size_t)eVassal >= m_aiVassalGreatTributeTurn.size())
-		m_aiVassalGreatTributeTurn.resize(MAX_MAJOR_CIVS, 0);
-	m_aiVassalGreatTributeTurn.setAt((size_t)eVassal, GC.getGame().getGameTurn());
-	return true;
 }
 
 //--------------------------------------------------------------------------------

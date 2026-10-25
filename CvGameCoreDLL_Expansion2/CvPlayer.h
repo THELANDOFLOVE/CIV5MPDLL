@@ -2024,8 +2024,6 @@ public:
 	bool DoVassalOverlordVictory();
 	void DoVassalOverlordVictoryCheck();
 	void DoVassalTributeTurn();
-	bool CanVassalGreatTribute(PlayerTypes eVassal) const;
-	bool DoVassalGreatTribute(PlayerTypes eVassal);
 	void DoVassalLoyaltyDecay();
 	void RefreshUCFromVassals();
 	void ClearUCFromVassals();
@@ -3087,8 +3085,6 @@ protected:
 	FAutoVariable<int, CvPlayer> m_iPunishUnhappiness;
 	FAutoVariable<int, CvPlayer> m_iPunishFood;
 	FAutoVariable<int, CvPlayer> m_iPunishProduction;
-	// Turn of the last great tribute taken from each vassal
-	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalGreatTributeTurn;
 	// UC caches from vassals
 	std::tr1::unordered_set<UnitTypes> m_sUUFromVassals;
 	std::tr1::unordered_set<BuildingTypes> m_sUBFromVassals;

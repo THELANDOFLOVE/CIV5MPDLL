@@ -1428,8 +1428,6 @@ protected:
 	LUAAPIEXTN(DoRangzai, bool);
 	LUAAPIEXTN(CanTianfa, bool, ePlayer);
 	LUAAPIEXTN(DoTianfa, bool, ePlayer);
-	LUAAPIEXTN(CanVassalGreatTribute, bool, ePlayer);
-	LUAAPIEXTN(DoVassalGreatTribute, bool, ePlayer);
 	LUAAPIEXTN(IsUnderMandatePunishment, bool);
 	LUAAPIEXTN(GetPunishBy, int);
 	LUAAPIEXTN(CanMandateVictory, bool);

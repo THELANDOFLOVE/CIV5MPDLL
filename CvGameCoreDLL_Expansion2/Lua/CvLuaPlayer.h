@@ -1420,6 +1420,10 @@ protected:
 	LUAAPIEXTN(GetMandate, int);
 	LUAAPIEXTN(GetMandateMax, int);
 	LUAAPIEXTN(IsMandateFull, bool);
+	LUAAPIEXTN(CanFengshan, bool);
+	LUAAPIEXTN(DoFengshan, bool);
+	LUAAPIEXTN(CanMandateVictory, bool);
+	LUAAPIEXTN(DoMandateVictory, bool);
 	LUAAPIEXTN(GetScienceTimes100FromVassals, unsigned long long);
 	LUAAPIEXTN(GetCultureFromVassals, int);
 	LUAAPIEXTN(GetFaithFromVassals, int);

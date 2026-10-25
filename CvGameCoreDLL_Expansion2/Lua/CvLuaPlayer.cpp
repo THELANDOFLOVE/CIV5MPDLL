@@ -139,6 +139,8 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoVassalAid);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSetVassalCourtPolicy);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoVassalPunish);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoFengshan);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoMandateVictory);
 
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSetLostUC);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lChangeFreeBuildingCount);
@@ -1527,6 +1529,10 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(GetMandate);
 	Method(GetMandateMax);
 	Method(IsMandateFull);
+	Method(CanFengshan);
+	Method(DoFengshan);
+	Method(CanMandateVictory);
+	Method(DoMandateVictory);
 	Method(GetScienceTimes100FromVassals);
 	Method(GetCultureFromVassals);
 	Method(GetFaithFromVassals);
@@ -7531,6 +7537,38 @@ int CvLuaPlayer::lIsMandateFull(lua_State* L)
 {
 	CvPlayerAI* pkPlayer = GetInstance(L);
 	lua_pushboolean(L, pkPlayer->IsMandateFull());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool CanFengshan();
+int CvLuaPlayer::lCanFengshan(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	lua_pushboolean(L, pkPlayer->CanFengshan());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool DoFengshan();
+int CvLuaPlayer::lDoFengshan(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	lua_pushboolean(L, pkPlayer->DoFengshan());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool CanMandateVictory();
+int CvLuaPlayer::lCanMandateVictory(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	lua_pushboolean(L, pkPlayer->CanMandateVictory());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool DoMandateVictory();
+int CvLuaPlayer::lDoMandateVictory(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	lua_pushboolean(L, pkPlayer->DoMandateVictory());
 	return 1;
 }
 //------------------------------------------------------------------------------

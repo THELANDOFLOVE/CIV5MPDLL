@@ -2003,6 +2003,10 @@ public:
 	int GetMandateMax() const;
 	void ChangeMandate(int iChange);
 	bool IsMandateFull() const;
+	bool CanFengshan() const;
+	bool DoFengshan();
+	bool CanMandateVictory() const;
+	bool DoMandateVictory();
 	void DoVassalLoyaltyDecay();
 	void RefreshUCFromVassals();
 	void ClearUCFromVassals();
@@ -3051,6 +3055,8 @@ protected:
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalBreachTurn;
 	// Mandate of Heaven, 0..TIANDAO_MANDATE_MAX
 	FAutoVariable<int, CvPlayer> m_iMandate;
+	// Era of the last Fengshan, -1 when never used
+	FAutoVariable<int, CvPlayer> m_iFengshanEra;
 	// UC caches from vassals
 	std::tr1::unordered_set<UnitTypes> m_sUUFromVassals;
 	std::tr1::unordered_set<BuildingTypes> m_sUBFromVassals;

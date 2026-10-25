@@ -429,6 +429,7 @@ CvPlayer::CvPlayer() :
 	, m_aiVassalBreachCount("CvPlayer::m_aiVassalBreachCount", m_syncArchive)
 	, m_aiVassalBreachTurn("CvPlayer::m_aiVassalBreachTurn", m_syncArchive)
 	, m_iMandate("CvPlayer::m_iMandate", m_syncArchive)
+	, m_iFengshanEra("CvPlayer::m_iFengshanEra", m_syncArchive)
 	, m_aScienceTimes100FromVassals()
 	, m_aCultureFromVassals()
 	, m_aFaithFromVassals()
@@ -1312,6 +1313,7 @@ void CvPlayer::uninit()
 	m_aiVassalBreachCount.resize(MAX_MAJOR_CIVS, 0);
 	m_aiVassalBreachTurn.clear();
 	m_aiVassalBreachTurn.resize(MAX_MAJOR_CIVS, 0);
+	m_iFengshanEra = -1;
 #endif
 	m_iExtraUnitPlayerInstances = 0;
 	m_iConquestCasualtiesModifier = 0;
@@ -31211,6 +31213,7 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalBreachCount, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalBreachTurn, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iMandate, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iFengshanEra, -1);
 		{
 			int iVassalCount = 0;
 			MOD_SERIALIZE_READ(163, kStream, iVassalCount, 0);
@@ -32121,6 +32124,7 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalBreachCount);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalBreachTurn);
 	MOD_SERIALIZE_WRITE(kStream, m_iMandate);
+	MOD_SERIALIZE_WRITE(kStream, m_iFengshanEra);
 	{
 		int iVassalCount = (int)m_vecVassals.size();
 		kStream << iVassalCount;
@@ -34783,6 +34787,57 @@ bool CvPlayer::IsMandateFull() const
 	if (!MOD_GLOBAL_SUZERAIN) return false;
 	int iMax = GetMandateMax();
 	return iMax > 0 && m_iMandate >= iMax;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::CanFengshan() const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+
+	int iCost = TiandaoDefineInt("TIANDAO_MANDATE_FENGSHAN_COST");
+	if (iCost <= 0) return false;
+	if (m_iMandate < iCost) return false;
+	return m_iFengshanEra != (int)GetCurrentEra();
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::DoFengshan()
+{
+	if (!CanFengshan()) return false;
+
+	ChangeMandate(-TiandaoDefineInt("TIANDAO_MANDATE_FENGSHAN_COST"));
+	ChangeNumFreeGreatPeople(1);
+
+	int iLoyalty = TiandaoDefineInt("TIANDAO_MANDATE_FENGSHAN_LOYALTY");
+	for (size_t i = 0; i < m_vecVassals.size(); i++)
+	{
+		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
+		if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) continue;
+		ChangeVassalLoyalty(eVassal, iLoyalty);
+	}
+
+	m_iFengshanEra = (int)GetCurrentEra();
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::CanMandateVictory() const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	return IsMandateFull();
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::DoMandateVictory()
+{
+	if (!CanMandateVictory()) return false;
+
+	VictoryTypes eVictory = (VictoryTypes)GC.getInfoTypeForString("VICTORY_DIPLOMATIC", true);
+	if (eVictory == NO_VICTORY) return false;
+
+	ChangeMandate(-GetMandateMax());
+	GC.getGame().setWinner(getTeam(), eVictory);
+	return true;
 }
 
 //--------------------------------------------------------------------------------

@@ -3519,18 +3519,38 @@ bool CvCity::canConstruct(BuildingTypes eBuilding, bool bContinue, bool bTestVis
 	}
 
 #if defined(MOD_GLOBAL_SUZERAIN)
-	// A vassal may only build a world wonder its overlord has approved.
+	// A wonder placed in an overlord's reward pool is reserved: only that
+	// overlord, or a vassal it explicitly approved, may build it.
 	if (MOD_GLOBAL_SUZERAIN)
 	{
-		PlayerTypes eOverlord = kPlayer.GetOverlord();
-		if (eOverlord != NO_PLAYER)
+		BuildingClassTypes eBuildingClass = (BuildingClassTypes)pkBuildingInfo->GetBuildingClassType();
+		CvBuildingClassInfo* pBuildingClass = GC.getBuildingClassInfo(eBuildingClass);
+		if (pBuildingClass != NULL && isWorldWonderClass(*pBuildingClass))
 		{
-			BuildingClassTypes eBuildingClass = (BuildingClassTypes)pkBuildingInfo->GetBuildingClassType();
-			CvBuildingClassInfo* pBuildingClass = GC.getBuildingClassInfo(eBuildingClass);
-			if (pBuildingClass != NULL && isWorldWonderClass(*pBuildingClass)
-				&& !GET_PLAYER(eOverlord).CanVassalBuildWonder(getOwner(), eBuilding))
+			PlayerTypes eCityOwner = getOwner();
+			PlayerTypes eOverlord = kPlayer.GetOverlord();
+
+			if (eOverlord != NO_PLAYER)
 			{
-				return false;
+				if (!GET_PLAYER(eOverlord).CanVassalBuildWonder(eCityOwner, eBuilding))
+					return false;
+			}
+			else
+			{
+				for (int i = 0; i < MAX_MAJOR_CIVS; i++)
+				{
+					PlayerTypes eOther = (PlayerTypes)i;
+					if (eOther == eCityOwner) continue;
+
+					CvPlayer& kOther = GET_PLAYER(eOther);
+					if (!kOther.isAlive()) continue;
+
+					for (int j = 0; j < kOther.GetVassalWonderPoolCount(); j++)
+					{
+						if (kOther.GetVassalWonderPoolEntry(j) == (int)eBuilding)
+							return false;
+					}
+				}
 			}
 		}
 	}

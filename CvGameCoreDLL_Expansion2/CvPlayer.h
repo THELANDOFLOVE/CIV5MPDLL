@@ -1990,6 +1990,8 @@ public:
 	int GetVassalCourtInterval() const;
 	bool IsVassalCourtTurn() const;
 	bool IsVassalLosingWar(PlayerTypes eVassal) const;
+	bool IsVassalMismanaging(PlayerTypes eVassal) const;
+	bool DoVassalAid(PlayerTypes eVassal);
 	void DoVassalLoyaltyDecay();
 	void RefreshUCFromVassals();
 	void ClearUCFromVassals();

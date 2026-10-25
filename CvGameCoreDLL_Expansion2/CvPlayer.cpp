@@ -34564,6 +34564,33 @@ bool CvPlayer::IsVassalLosingWar(PlayerTypes eVassal) const
 }
 
 //--------------------------------------------------------------------------------
+bool CvPlayer::IsVassalMismanaging(PlayerTypes eVassal) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (!IsOverlordOf(eVassal)) return false;
+
+	CvPlayer& kVassal = GET_PLAYER(eVassal);
+	if (!kVassal.isAlive()) return false;
+	return kVassal.calculateGoldRate() < 0;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::DoVassalAid(PlayerTypes eVassal)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (!IsOverlordOf(eVassal)) return false;
+
+	int iAid = TiandaoDefineInt("TIANDAO_VASSAL_AID_GOLD");
+	if (iAid <= 0) return false;
+	if (GetTreasury()->GetGold() < iAid) return false;
+
+	GetTreasury()->ChangeGold(-iAid);
+	GET_PLAYER(eVassal).GetTreasury()->ChangeGold(iAid);
+	ChangeVassalLoyalty(eVassal, TiandaoDefineInt("TIANDAO_LOYALTY_AID"));
+	return true;
+}
+
+//--------------------------------------------------------------------------------
 void CvPlayer::DoVassalLoyaltyDecay()
 {
 	if (!MOD_GLOBAL_SUZERAIN) return;

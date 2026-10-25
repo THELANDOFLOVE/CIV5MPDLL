@@ -1937,6 +1937,17 @@ public:
 	void SetPermanentAlly(PlayerTypes eMinor, bool bValue);
 
 #if defined(MOD_GLOBAL_SUZERAIN)
+	enum TiandaoMemorialField {
+		TIANDAO_MEMORIAL_TYPE = 0,
+		TIANDAO_MEMORIAL_LEVEL,
+		TIANDAO_MEMORIAL_MINISTRY,
+		TIANDAO_MEMORIAL_VASSAL,
+		TIANDAO_MEMORIAL_TARGET,
+		TIANDAO_MEMORIAL_CREATED,
+		TIANDAO_MEMORIAL_DEADLINE,
+		TIANDAO_MEMORIAL_STATE,
+		TIANDAO_MEMORIAL_STRIDE
+	};
 	// Vassal suzerain relationship
 	PlayerTypes GetOverlord() const;
 	void SetOverlord(PlayerTypes e);
@@ -1971,6 +1982,11 @@ public:
 	bool CanVassalRevolt(PlayerTypes eVassal) const;
 	bool DoVassalRevolt(PlayerTypes eVassal);
 	void DoVassalRevoltCheck();
+	int GetVassalMemorialCount() const;
+	int GetVassalMemorialField(int iIndex, int iField) const;
+	int AddVassalMemorial(int iType, int iLevel, int iMinistry, PlayerTypes eVassal, PlayerTypes eTarget, int iDeadlineTurns);
+	bool ResolveVassalMemorial(int iIndex, bool bApprove);
+	void DoVassalMemorialTurn();
 	void DoVassalLoyaltyDecay();
 	void RefreshUCFromVassals();
 	void ClearUCFromVassals();
@@ -3010,6 +3026,8 @@ protected:
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalGiftCount;
 	// 1 while the current war on a vassal has already been answered
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalProtectHandled;
+	// Vassal memorials, flat array of TIANDAO_MEMORIAL_STRIDE ints per entry
+	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalMemorials;
 	// UC caches from vassals
 	std::tr1::unordered_set<UnitTypes> m_sUUFromVassals;
 	std::tr1::unordered_set<BuildingTypes> m_sUBFromVassals;

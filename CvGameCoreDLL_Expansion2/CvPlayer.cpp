@@ -424,6 +424,7 @@ CvPlayer::CvPlayer() :
 	, m_aiVassalRank("CvPlayer::m_aiVassalRank", m_syncArchive)
 	, m_aiVassalGiftCount("CvPlayer::m_aiVassalGiftCount", m_syncArchive)
 	, m_aiVassalProtectHandled("CvPlayer::m_aiVassalProtectHandled", m_syncArchive)
+	, m_aiVassalMemorials("CvPlayer::m_aiVassalMemorials", m_syncArchive)
 	, m_aScienceTimes100FromVassals()
 	, m_aCultureFromVassals()
 	, m_aFaithFromVassals()
@@ -1302,6 +1303,7 @@ void CvPlayer::uninit()
 	m_aiVassalGiftCount.resize(MAX_MAJOR_CIVS, 0);
 	m_aiVassalProtectHandled.clear();
 	m_aiVassalProtectHandled.resize(MAX_MAJOR_CIVS, 0);
+	m_aiVassalMemorials.clear();
 #endif
 	m_iExtraUnitPlayerInstances = 0;
 	m_iConquestCasualtiesModifier = 0;
@@ -5470,6 +5472,7 @@ void CvPlayer::doTurn()
 		DoVassalCallToArms();
 		ResetVassalGiftCounts();
 		ResetVassalProtectFlags();
+		DoVassalMemorialTurn();
 		DoVassalLoyaltyDecay();
 		DoVassalRevoltCheck();
 	}
@@ -31195,6 +31198,7 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalRank, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalGiftCount, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalProtectHandled, MAX_MAJOR_CIVS, 0);
+		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalMemorials, 0, 0);
 		{
 			int iVassalCount = 0;
 			MOD_SERIALIZE_READ(163, kStream, iVassalCount, 0);
@@ -32100,6 +32104,7 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalRank);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalGiftCount);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalProtectHandled);
+	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalMemorials);
 	{
 		int iVassalCount = (int)m_vecVassals.size();
 		kStream << iVassalCount;
@@ -34407,6 +34412,121 @@ void CvPlayer::DoVassalRevoltCheck()
 		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i - 1];
 		if (CanVassalRevolt(eVassal))
 			DoVassalRevolt(eVassal);
+	}
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetVassalMemorialCount() const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	return (int)m_aiVassalMemorials.size() / TIANDAO_MEMORIAL_STRIDE;
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetVassalMemorialField(int iIndex, int iField) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	if (iIndex < 0 || iField < 0 || iField >= TIANDAO_MEMORIAL_STRIDE) return 0;
+
+	int iOffset = iIndex * TIANDAO_MEMORIAL_STRIDE + iField;
+	if ((size_t)iOffset >= m_aiVassalMemorials.size()) return 0;
+	return m_aiVassalMemorials[iOffset];
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::AddVassalMemorial(int iType, int iLevel, int iMinistry, PlayerTypes eVassal, PlayerTypes eTarget, int iDeadlineTurns)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return -1;
+	if (iDeadlineTurns <= 0) return -1;
+
+	int iIndex = GetVassalMemorialCount();
+	m_aiVassalMemorials.push_back(iType);
+	m_aiVassalMemorials.push_back(iLevel);
+	m_aiVassalMemorials.push_back(iMinistry);
+	m_aiVassalMemorials.push_back((int)eVassal);
+	m_aiVassalMemorials.push_back((int)eTarget);
+	m_aiVassalMemorials.push_back(GC.getGame().getGameTurn());
+	m_aiVassalMemorials.push_back(GC.getGame().getGameTurn() + iDeadlineTurns);
+	m_aiVassalMemorials.push_back(0);
+	return iIndex;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (iIndex < 0 || iIndex >= GetVassalMemorialCount()) return false;
+
+	int iStateOffset = iIndex * TIANDAO_MEMORIAL_STRIDE + TIANDAO_MEMORIAL_STATE;
+	if (m_aiVassalMemorials[iStateOffset] != 0) return false;
+
+	int iType = GetVassalMemorialField(iIndex, TIANDAO_MEMORIAL_TYPE);
+	PlayerTypes eVassal = (PlayerTypes)GetVassalMemorialField(iIndex, TIANDAO_MEMORIAL_VASSAL);
+
+	bool bOk = false;
+	if (iType == 0) // protect request
+		bOk = DoVassalProtect(eVassal, bApprove);
+
+	m_aiVassalMemorials.setAt(iStateOffset, (bApprove && bOk) ? 1 : 2);
+	return bOk;
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::DoVassalMemorialTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+
+	int iDeadlineTurns = TiandaoDefineInt("TIANDAO_MEMORIAL_URGENT_TURNS");
+	if (iDeadlineTurns <= 0) return; // not configured = memorials off
+
+	// One urgent protect memorial per threatened vassal.
+	for (size_t i = 0; i < m_vecVassals.size(); i++)
+	{
+		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
+		if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) continue;
+		if ((size_t)eVassal < m_aiVassalProtectHandled.size() && m_aiVassalProtectHandled[eVassal] != 0)
+			continue;
+
+		PlayerTypes eAggressor = GetVassalAggressor(eVassal);
+		if (eAggressor == NO_PLAYER) continue;
+
+		bool bPending = false;
+		int iCount = GetVassalMemorialCount();
+		for (int m = 0; m < iCount; m++)
+		{
+			if (GetVassalMemorialField(m, TIANDAO_MEMORIAL_TYPE) == 0
+				&& GetVassalMemorialField(m, TIANDAO_MEMORIAL_VASSAL) == (int)eVassal
+				&& GetVassalMemorialField(m, TIANDAO_MEMORIAL_STATE) == 0)
+			{
+				bPending = true;
+				break;
+			}
+		}
+		if (bPending) continue;
+
+		AddVassalMemorial(0, 0, 3, eVassal, eAggressor, iDeadlineTurns);
+	}
+
+	// Expire overdue memorials.
+	int iNeglect = TiandaoDefineInt("TIANDAO_LOYALTY_NEGLECT");
+	int iTurn = GC.getGame().getGameTurn();
+	int iCount = GetVassalMemorialCount();
+	for (int m = 0; m < iCount; m++)
+	{
+		if (GetVassalMemorialField(m, TIANDAO_MEMORIAL_STATE) != 0) continue;
+
+		int iDeadline = GetVassalMemorialField(m, TIANDAO_MEMORIAL_DEADLINE);
+		if (iDeadline <= 0 || iTurn < iDeadline) continue;
+
+		PlayerTypes eVassal = (PlayerTypes)GetVassalMemorialField(m, TIANDAO_MEMORIAL_VASSAL);
+		if (GetVassalAggressor(eVassal) != NO_PLAYER)
+		{
+			bool bOk = DoVassalProtect(eVassal, false);
+			if (bOk && iNeglect != 0)
+				ChangeVassalLoyalty(eVassal, iNeglect);
+		}
+
+		m_aiVassalMemorials.setAt(m * TIANDAO_MEMORIAL_STRIDE + TIANDAO_MEMORIAL_STATE, 3);
 	}
 }
 

@@ -135,6 +135,7 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoVassalProtect);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoVassalMediate);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoReturnCityToVassal);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lResolveVassalMemorial);
 
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSetLostUC);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lChangeFreeBuildingCount);
@@ -1506,6 +1507,9 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(GetVassalExecutionTier);
 	Method(GetVassalRevoltScore);
 	Method(CanVassalRevolt);
+	Method(GetVassalMemorialCount);
+	Method(GetVassalMemorialField);
+	Method(ResolveVassalMemorial);
 	Method(GetScienceTimes100FromVassals);
 	Method(GetCultureFromVassals);
 	Method(GetFaithFromVassals);
@@ -7362,6 +7366,34 @@ int CvLuaPlayer::lCanVassalRevolt(lua_State* L)
 	CvPlayerAI* pkPlayer = GetInstance(L);
 	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
 	lua_pushboolean(L, pkPlayer->CanVassalRevolt(e));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetVassalMemorialCount();
+int CvLuaPlayer::lGetVassalMemorialCount(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->GetVassalMemorialCount());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetVassalMemorialField(int iIndex, int iField);
+int CvLuaPlayer::lGetVassalMemorialField(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	int iIndex = lua_tointeger(L, 2);
+	int iField = lua_tointeger(L, 3);
+	lua_pushinteger(L, pkPlayer->GetVassalMemorialField(iIndex, iField));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool ResolveVassalMemorial(int iIndex, bool bApprove);
+int CvLuaPlayer::lResolveVassalMemorial(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	int iIndex = lua_tointeger(L, 2);
+	bool bApprove = luaL_optbool(L, 3, false);
+	lua_pushboolean(L, pkPlayer->ResolveVassalMemorial(iIndex, bApprove));
 	return 1;
 }
 //------------------------------------------------------------------------------

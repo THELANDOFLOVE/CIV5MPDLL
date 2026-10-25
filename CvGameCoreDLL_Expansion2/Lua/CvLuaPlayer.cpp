@@ -1512,6 +1512,7 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(ResolveVassalMemorial);
 	Method(GetVassalCourtInterval);
 	Method(IsVassalCourtTurn);
+	Method(IsVassalLosingWar);
 	Method(GetScienceTimes100FromVassals);
 	Method(GetCultureFromVassals);
 	Method(GetFaithFromVassals);
@@ -7412,6 +7413,15 @@ int CvLuaPlayer::lIsVassalCourtTurn(lua_State* L)
 {
 	CvPlayerAI* pkPlayer = GetInstance(L);
 	lua_pushboolean(L, pkPlayer->IsVassalCourtTurn());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool IsVassalLosingWar(PlayerTypes e);
+int CvLuaPlayer::lIsVassalLosingWar(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->IsVassalLosingWar(e));
 	return 1;
 }
 //------------------------------------------------------------------------------

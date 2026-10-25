@@ -34550,6 +34550,20 @@ bool CvPlayer::IsVassalCourtTurn() const
 }
 
 //--------------------------------------------------------------------------------
+bool CvPlayer::IsVassalLosingWar(PlayerTypes eVassal) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (!IsOverlordOf(eVassal)) return false;
+	if ((size_t)eVassal < m_aiVassalProtectHandled.size() && m_aiVassalProtectHandled[eVassal] != 0)
+		return false;
+
+	PlayerTypes eAggressor = GetVassalAggressor(eVassal);
+	if (eAggressor == NO_PLAYER) return false;
+
+	return GET_PLAYER(eVassal).GetMilitaryMight() < GET_PLAYER(eAggressor).GetMilitaryMight();
+}
+
+//--------------------------------------------------------------------------------
 void CvPlayer::DoVassalLoyaltyDecay()
 {
 	if (!MOD_GLOBAL_SUZERAIN) return;

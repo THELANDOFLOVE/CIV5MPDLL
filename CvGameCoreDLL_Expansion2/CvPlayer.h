@@ -1989,6 +1989,7 @@ public:
 	void DoVassalMemorialTurn();
 	int GetVassalCourtInterval() const;
 	bool IsVassalCourtTurn() const;
+	bool IsVassalLosingWar(PlayerTypes eVassal) const;
 	void DoVassalLoyaltyDecay();
 	void RefreshUCFromVassals();
 	void ClearUCFromVassals();

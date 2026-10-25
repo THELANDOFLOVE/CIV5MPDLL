@@ -34366,6 +34366,11 @@ bool CvPlayer::CanVassalRevolt(PlayerTypes eVassal) const
 	if (!MOD_GLOBAL_SUZERAIN) return false;
 	if (!IsOverlordOf(eVassal)) return false;
 
+	// High loyalty means the vassal stays even if the overlord has no army.
+	int iLoyaltyFloor = TiandaoDefineInt("TIANDAO_REVOLT_LOYALTY_FLOOR");
+	if (iLoyaltyFloor > 0 && GetVassalLoyalty(eVassal) >= iLoyaltyFloor)
+		return false;
+
 	int iThreshold = TiandaoDefineInt("TIANDAO_REVOLT_THRESHOLD");
 	if (iThreshold <= 0) return false;
 	return GetVassalRevoltScore(eVassal) >= iThreshold;

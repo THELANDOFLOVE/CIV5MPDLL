@@ -1417,6 +1417,9 @@ protected:
 	LUAAPIEXTN(IsVassalIncompetent, bool, ePlayer);
 	LUAAPIEXTN(CanPunishVassal, bool, ePlayer);
 	LUAAPIEXTN(DoVassalPunish, bool, ePlayer);
+	LUAAPIEXTN(GetMandate, int);
+	LUAAPIEXTN(GetMandateMax, int);
+	LUAAPIEXTN(IsMandateFull, bool);
 	LUAAPIEXTN(GetScienceTimes100FromVassals, unsigned long long);
 	LUAAPIEXTN(GetCultureFromVassals, int);
 	LUAAPIEXTN(GetFaithFromVassals, int);

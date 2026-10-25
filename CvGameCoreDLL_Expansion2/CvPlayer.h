@@ -1999,6 +1999,10 @@ public:
 	bool IsVassalIncompetent(PlayerTypes eVassal) const;
 	bool CanPunishVassal(PlayerTypes eVassal) const;
 	bool DoVassalPunish(PlayerTypes eVassal);
+	int GetMandate() const;
+	int GetMandateMax() const;
+	void ChangeMandate(int iChange);
+	bool IsMandateFull() const;
 	void DoVassalLoyaltyDecay();
 	void RefreshUCFromVassals();
 	void ClearUCFromVassals();
@@ -3045,6 +3049,8 @@ protected:
 	// Broken-obligation record: count and the turn of the last breach
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalBreachCount;
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalBreachTurn;
+	// Mandate of Heaven, 0..TIANDAO_MANDATE_MAX
+	FAutoVariable<int, CvPlayer> m_iMandate;
 	// UC caches from vassals
 	std::tr1::unordered_set<UnitTypes> m_sUUFromVassals;
 	std::tr1::unordered_set<BuildingTypes> m_sUBFromVassals;

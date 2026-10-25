@@ -1524,6 +1524,9 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(IsVassalIncompetent);
 	Method(CanPunishVassal);
 	Method(DoVassalPunish);
+	Method(GetMandate);
+	Method(GetMandateMax);
+	Method(IsMandateFull);
 	Method(GetScienceTimes100FromVassals);
 	Method(GetCultureFromVassals);
 	Method(GetFaithFromVassals);
@@ -7504,6 +7507,30 @@ int CvLuaPlayer::lDoVassalPunish(lua_State* L)
 	CvPlayerAI* pkPlayer = GetInstance(L);
 	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
 	lua_pushboolean(L, pkPlayer->DoVassalPunish(e));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetMandate();
+int CvLuaPlayer::lGetMandate(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->GetMandate());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetMandateMax();
+int CvLuaPlayer::lGetMandateMax(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->GetMandateMax());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool IsMandateFull();
+int CvLuaPlayer::lIsMandateFull(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	lua_pushboolean(L, pkPlayer->IsMandateFull());
 	return 1;
 }
 //------------------------------------------------------------------------------

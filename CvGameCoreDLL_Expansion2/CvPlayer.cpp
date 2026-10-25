@@ -428,6 +428,7 @@ CvPlayer::CvPlayer() :
 	, m_iVassalCourtPolicy("CvPlayer::m_iVassalCourtPolicy", m_syncArchive)
 	, m_aiVassalBreachCount("CvPlayer::m_aiVassalBreachCount", m_syncArchive)
 	, m_aiVassalBreachTurn("CvPlayer::m_aiVassalBreachTurn", m_syncArchive)
+	, m_iMandate("CvPlayer::m_iMandate", m_syncArchive)
 	, m_aScienceTimes100FromVassals()
 	, m_aCultureFromVassals()
 	, m_aFaithFromVassals()
@@ -31209,6 +31210,7 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ(165, kStream, m_iVassalCourtPolicy, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalBreachCount, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalBreachTurn, MAX_MAJOR_CIVS, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iMandate, 0);
 		{
 			int iVassalCount = 0;
 			MOD_SERIALIZE_READ(163, kStream, iVassalCount, 0);
@@ -32118,6 +32120,7 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE(kStream, m_iVassalCourtPolicy);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalBreachCount);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalBreachTurn);
+	MOD_SERIALIZE_WRITE(kStream, m_iMandate);
 	{
 		int iVassalCount = (int)m_vecVassals.size();
 		kStream << iVassalCount;
@@ -34133,6 +34136,7 @@ void CvPlayer::DoVassalRankUp(PlayerTypes eVassal)
 	// TODO: consume Mandate here once the Mandate system is implemented.
 	SetVassalRank(eVassal, 1);
 	ChangeVassalLoyalty(eVassal, TiandaoDefineInt("TIANDAO_LOYALTY_RANK"));
+	ChangeMandate(TiandaoDefineInt("TIANDAO_MANDATE_RANK"));
 }
 
 //--------------------------------------------------------------------------------
@@ -34171,6 +34175,7 @@ void CvPlayer::DoVassalGift(PlayerTypes eVassal)
 	GET_PLAYER(eVassal).GetTreasury()->ChangeGold(iGold);
 	ChangeVassalLoyalty(eVassal, iLoyalty);
 	m_aiVassalGiftCount.setAt((size_t)eVassal, m_aiVassalGiftCount[eVassal] + 1);
+	ChangeMandate(TiandaoDefineInt("TIANDAO_MANDATE_GIFT"));
 }
 
 //--------------------------------------------------------------------------------
@@ -34230,6 +34235,7 @@ bool CvPlayer::DoVassalProtect(PlayerTypes eVassal, bool bProtect)
 			GET_TEAM(getTeam()).declareWar(eAggressorTeam, false, GetID());
 		}
 		ChangeVassalLoyalty(eVassal, TiandaoDefineInt("TIANDAO_LOYALTY_PROTECT"));
+		ChangeMandate(TiandaoDefineInt("TIANDAO_MANDATE_PROTECT"));
 	}
 	else
 	{
@@ -34280,6 +34286,7 @@ bool CvPlayer::DoVassalMediate(PlayerTypes eA, PlayerTypes eB)
 
 	ChangeVassalLoyalty(eA, TiandaoDefineInt("TIANDAO_LOYALTY_MEDIATE"));
 	ChangeVassalLoyalty(eB, TiandaoDefineInt("TIANDAO_LOYALTY_MEDIATE"));
+	ChangeMandate(TiandaoDefineInt("TIANDAO_MANDATE_MEDIATE"));
 	return true;
 }
 
@@ -34304,6 +34311,7 @@ bool CvPlayer::DoReturnCityToVassal(CvCity* pCity)
 	PlayerTypes eVassal = pCity->getPreviousOwner();
 	GET_PLAYER(eVassal).acquireCity(pCity, false, true);
 	ChangeVassalLoyalty(eVassal, TiandaoDefineInt("TIANDAO_LOYALTY_RETURN_CITY"));
+	ChangeMandate(TiandaoDefineInt("TIANDAO_MANDATE_RETURN_CITY"));
 	return true;
 }
 
@@ -34646,6 +34654,7 @@ bool CvPlayer::DoVassalAid(PlayerTypes eVassal)
 	GetTreasury()->ChangeGold(-iAid);
 	GET_PLAYER(eVassal).GetTreasury()->ChangeGold(iAid);
 	ChangeVassalLoyalty(eVassal, TiandaoDefineInt("TIANDAO_LOYALTY_AID"));
+	ChangeMandate(TiandaoDefineInt("TIANDAO_MANDATE_AID"));
 	return true;
 }
 
@@ -34737,6 +34746,43 @@ bool CvPlayer::DoVassalPunish(PlayerTypes eVassal)
 		GET_TEAM(eOverlordTeam).declareWar(eVassalTeam, false, GetID());
 	}
 	return true;
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetMandate() const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	return m_iMandate;
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetMandateMax() const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	return TiandaoDefineInt("TIANDAO_MANDATE_MAX");
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::ChangeMandate(int iChange)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (iChange == 0) return;
+
+	int iMax = GetMandateMax();
+	if (iMax <= 0) return; // not configured = mandate off
+
+	int iValue = m_iMandate + iChange;
+	if (iValue < 0) iValue = 0;
+	if (iValue > iMax) iValue = iMax;
+	m_iMandate = iValue;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::IsMandateFull() const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	int iMax = GetMandateMax();
+	return iMax > 0 && m_iMandate >= iMax;
 }
 
 //--------------------------------------------------------------------------------

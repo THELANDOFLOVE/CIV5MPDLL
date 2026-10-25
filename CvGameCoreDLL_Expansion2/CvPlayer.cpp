@@ -34824,7 +34824,31 @@ bool CvPlayer::DoFengshan()
 bool CvPlayer::CanMandateVictory() const
 {
 	if (!MOD_GLOBAL_SUZERAIN) return false;
-	return IsMandateFull();
+	if (!IsMandateFull()) return false;
+
+	// Early eras may spend a full mandate on rewards, but cannot end the game.
+	CvString sRequiredEra = GC.getDefineSTRING("TIANDAO_MANDATE_VICTORY_ERA", false);
+	if (sRequiredEra.empty()) return false;
+	EraTypes eRequiredEra = (EraTypes)GC.getInfoTypeForString(sRequiredEra.c_str(), true);
+	if (eRequiredEra == NO_ERA || GetCurrentEra() < eRequiredEra)
+		return false;
+
+	// The mandate must actually be backed by enough vassals.
+	int iPercent = TiandaoDefineInt("TIANDAO_MANDATE_VICTORY_VASSAL_PERCENT");
+	if (iPercent <= 0) return false;
+
+	int iAliveMajors = 0;
+	int iVassals = 0;
+	for (int i = 0; i < MAX_MAJOR_CIVS; i++)
+	{
+		if (i == GetID()) continue;
+		CvPlayer& kOther = GET_PLAYER((PlayerTypes)i);
+		if (!kOther.isAlive() || !kOther.isMajorCiv()) continue;
+		iAliveMajors++;
+		if (kOther.IsVassalOf(GetID())) iVassals++;
+	}
+	if (iAliveMajors <= 0) return false;
+	return iVassals * 100 >= iAliveMajors * iPercent;
 }
 
 //--------------------------------------------------------------------------------

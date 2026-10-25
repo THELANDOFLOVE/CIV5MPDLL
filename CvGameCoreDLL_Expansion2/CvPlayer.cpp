@@ -5503,6 +5503,7 @@ void CvPlayer::doTurn()
 		ResetVassalGiftCounts();
 		ResetVassalProtectFlags();
 		DoVassalMemorialTurn();
+		DoVassalCourtGiftTurn();
 		DoVassalLoyaltyDecay();
 		DoVassalRevoltCheck();
 		DoVassalOverlordVictoryCheck();
@@ -35182,6 +35183,64 @@ void CvPlayer::DoVassalOverlordVictoryCheck()
 	if (GC.getGame().getWinner() != NO_TEAM) return;
 	if (CanVassalOverlordVictory())
 		DoVassalOverlordVictory();
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::DoVassalCourtGiftTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (m_vecVassals.empty()) return;
+	if (!IsVassalCourtTurn()) return;
+
+	int iGold = TiandaoDefineInt("TIANDAO_COURT_GIFT_GOLD");
+	int iResource = TiandaoDefineInt("TIANDAO_COURT_GIFT_RESOURCE");
+	int iLoyalty = TiandaoDefineInt("TIANDAO_COURT_GIFT_LOYALTY");
+
+	for (size_t i = 0; i < m_vecVassals.size(); i++)
+	{
+		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
+		if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) continue;
+
+		CvPlayer& kVassal = GET_PLAYER(eVassal);
+		if (!kVassal.isAlive()) continue;
+
+		bool bGave = false;
+
+		if (iGold > 0)
+		{
+			int iPay = std::min(iGold, (int)kVassal.GetTreasury()->GetGold());
+			if (iPay > 0)
+			{
+				kVassal.GetTreasury()->ChangeGold(-iPay);
+				GetTreasury()->ChangeGold(iPay);
+				bGave = true;
+			}
+		}
+
+		if (iResource > 0)
+		{
+			for (int r = 0; r < GC.getNumResourceInfos(); r++)
+			{
+				ResourceTypes eResource = (ResourceTypes)r;
+				CvResourceInfo* pInfo = GC.getResourceInfo(eResource);
+				if (pInfo == NULL) continue;
+
+				ResourceUsageTypes eUsage = pInfo->getResourceUsage();
+				if (eUsage != RESOURCEUSAGE_STRATEGIC && eUsage != RESOURCEUSAGE_LUXURY) continue;
+
+				int iAvailable = kVassal.getNumResourceAvailable(eResource, false);
+				if (iAvailable <= 0) continue;
+
+				int iGift = std::min(iResource, iAvailable);
+				kVassal.changeNumResourceTotal(eResource, -iGift);
+				changeNumResourceTotal(eResource, iGift);
+				bGave = true;
+			}
+		}
+
+		if (bGave && iLoyalty != 0)
+			ChangeVassalLoyalty(eVassal, iLoyalty);
+	}
 }
 
 //--------------------------------------------------------------------------------

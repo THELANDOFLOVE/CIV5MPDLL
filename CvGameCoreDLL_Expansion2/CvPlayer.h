@@ -2023,6 +2023,7 @@ public:
 	bool CanVassalOverlordVictory() const;
 	bool DoVassalOverlordVictory();
 	void DoVassalOverlordVictoryCheck();
+	void DoVassalCourtGiftTurn();
 	void DoVassalLoyaltyDecay();
 	void RefreshUCFromVassals();
 	void ClearUCFromVassals();

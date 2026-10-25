@@ -5505,7 +5505,6 @@ void CvPlayer::doTurn()
 		DoVassalMemorialTurn();
 		DoVassalLoyaltyDecay();
 		DoVassalRevoltCheck();
-		DoVassalTributeTurn();
 		DoVassalOverlordVictoryCheck();
 	}
 #endif
@@ -35183,37 +35182,6 @@ void CvPlayer::DoVassalOverlordVictoryCheck()
 	if (GC.getGame().getWinner() != NO_TEAM) return;
 	if (CanVassalOverlordVictory())
 		DoVassalOverlordVictory();
-}
-
-//--------------------------------------------------------------------------------
-void CvPlayer::DoVassalTributeTurn()
-{
-	if (!MOD_GLOBAL_SUZERAIN) return;
-	if (m_vecVassals.empty()) return;
-
-	int iInterval = TiandaoDefineInt("TIANDAO_TRIBUTE_MINOR_INTERVAL");
-	if (iInterval <= 0) return;
-
-	int iTurn = GC.getGame().getGameTurn();
-	if (iTurn <= 0 || (iTurn % iInterval) != 0) return;
-
-	int iGold = TiandaoDefineInt("TIANDAO_TRIBUTE_MINOR_GOLD");
-	if (iGold <= 0) return;
-
-	for (size_t i = 0; i < m_vecVassals.size(); i++)
-	{
-		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
-		if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) continue;
-
-		CvPlayer& kVassal = GET_PLAYER(eVassal);
-		if (!kVassal.isAlive()) continue;
-
-		int iPay = std::min(iGold, (int)kVassal.GetTreasury()->GetGold());
-		if (iPay <= 0) continue;
-
-		kVassal.GetTreasury()->ChangeGold(-iPay);
-		GetTreasury()->ChangeGold(iPay);
-	}
 }
 
 //--------------------------------------------------------------------------------

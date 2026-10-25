@@ -1430,6 +1430,9 @@ protected:
 	LUAAPIEXTN(DoTianfa, bool, ePlayer);
 	LUAAPIEXTN(IsUnderMandatePunishment, bool);
 	LUAAPIEXTN(GetPunishBy, int);
+	LUAAPIEXTN(GetVassalWonderPoolCapacity, int);
+	LUAAPIEXTN(GetVassalWonderPoolCount, int);
+	LUAAPIEXTN(GetVassalWonderPoolEntry, int, iIndex);
 	LUAAPIEXTN(CanMandateVictory, bool);
 	LUAAPIEXTN(DoMandateVictory, bool);
 	LUAAPIEXTN(GetScienceTimes100FromVassals, unsigned long long);

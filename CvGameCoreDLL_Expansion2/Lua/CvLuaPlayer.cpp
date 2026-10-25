@@ -1542,6 +1542,9 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(DoTianfa);
 	Method(IsUnderMandatePunishment);
 	Method(GetPunishBy);
+	Method(GetVassalWonderPoolCapacity);
+	Method(GetVassalWonderPoolCount);
+	Method(GetVassalWonderPoolEntry);
 	Method(CanMandateVictory);
 	Method(DoMandateVictory);
 	Method(GetScienceTimes100FromVassals);
@@ -7630,6 +7633,31 @@ int CvLuaPlayer::lGetPunishBy(lua_State* L)
 {
 	CvPlayerAI* pkPlayer = GetInstance(L);
 	lua_pushinteger(L, pkPlayer->GetPunishBy());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetVassalWonderPoolCapacity();
+int CvLuaPlayer::lGetVassalWonderPoolCapacity(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->GetVassalWonderPoolCapacity());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetVassalWonderPoolCount();
+int CvLuaPlayer::lGetVassalWonderPoolCount(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->GetVassalWonderPoolCount());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetVassalWonderPoolEntry(int iIndex);
+int CvLuaPlayer::lGetVassalWonderPoolEntry(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	int iIndex = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetVassalWonderPoolEntry(iIndex));
 	return 1;
 }
 //------------------------------------------------------------------------------

@@ -439,6 +439,8 @@ CvPlayer::CvPlayer() :
 	, m_iPunishUnhappiness("CvPlayer::m_iPunishUnhappiness", m_syncArchive)
 	, m_iPunishFood("CvPlayer::m_iPunishFood", m_syncArchive)
 	, m_iPunishProduction("CvPlayer::m_iPunishProduction", m_syncArchive)
+	, m_aiWonderPool("CvPlayer::m_aiWonderPool", m_syncArchive)
+	, m_iWonderPoolEra("CvPlayer::m_iWonderPoolEra", m_syncArchive)
 	, m_aScienceTimes100FromVassals()
 	, m_aCultureFromVassals()
 	, m_aFaithFromVassals()
@@ -1332,6 +1334,8 @@ void CvPlayer::uninit()
 	m_iPunishUnhappiness = 0;
 	m_iPunishFood = 0;
 	m_iPunishProduction = 0;
+	m_aiWonderPool.clear();
+	m_iWonderPoolEra = -1;
 #endif
 	m_iExtraUnitPlayerInstances = 0;
 	m_iConquestCasualtiesModifier = 0;
@@ -5504,6 +5508,7 @@ void CvPlayer::doTurn()
 		ResetVassalProtectFlags();
 		DoVassalMemorialTurn();
 		DoVassalCourtGiftTurn();
+		DoVassalWonderPoolTurn();
 		DoVassalLoyaltyDecay();
 		DoVassalRevoltCheck();
 		DoVassalOverlordVictoryCheck();
@@ -31256,6 +31261,8 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ(165, kStream, m_iPunishUnhappiness, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iPunishFood, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iPunishProduction, 0);
+		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiWonderPool, 0, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iWonderPoolEra, -1);
 		{
 			int iVassalCount = 0;
 			MOD_SERIALIZE_READ(163, kStream, iVassalCount, 0);
@@ -32176,6 +32183,8 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE(kStream, m_iPunishUnhappiness);
 	MOD_SERIALIZE_WRITE(kStream, m_iPunishFood);
 	MOD_SERIALIZE_WRITE(kStream, m_iPunishProduction);
+	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiWonderPool);
+	MOD_SERIALIZE_WRITE(kStream, m_iWonderPoolEra);
 	{
 		int iVassalCount = (int)m_vecVassals.size();
 		kStream << iVassalCount;
@@ -35240,6 +35249,85 @@ void CvPlayer::DoVassalCourtGiftTurn()
 
 		if (bGave && iLoyalty != 0)
 			ChangeVassalLoyalty(eVassal, iLoyalty);
+	}
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetVassalWonderPoolCapacity() const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+
+	int iPerOverlord = TiandaoDefineInt("TIANDAO_WONDER_POOL_PER_OVERLORD");
+	int iPerVassal = TiandaoDefineInt("TIANDAO_WONDER_POOL_PER_VASSAL");
+	int iCapacity = iPerOverlord + (int)m_vecVassals.size() * iPerVassal;
+	return iCapacity > 0 ? iCapacity : 0;
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetVassalWonderPoolCount() const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	return (int)m_aiWonderPool.size();
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetVassalWonderPoolEntry(int iIndex) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return -1;
+	if (iIndex < 0 || (size_t)iIndex >= m_aiWonderPool.size()) return -1;
+	return m_aiWonderPool[iIndex];
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::RefreshVassalWonderPool()
+{
+	m_aiWonderPool.clear();
+
+	int iCapacity = GetVassalWonderPoolCapacity();
+	if (iCapacity <= 0) return;
+
+	for (int i = 0; i < GC.getNumBuildingInfos() && (int)m_aiWonderPool.size() < iCapacity; i++)
+	{
+		BuildingTypes eBuilding = (BuildingTypes)i;
+		CvBuildingEntry* pBuilding = GC.getBuildingInfo(eBuilding);
+		if (pBuilding == NULL) continue;
+
+		BuildingClassTypes eClass = (BuildingClassTypes)pBuilding->GetBuildingClassType();
+		CvBuildingClassInfo* pClass = GC.getBuildingClassInfo(eClass);
+		if (pClass == NULL) continue;
+		if (!isWorldWonderClass(*pClass)) continue;
+		if (GC.getGame().isBuildingClassMaxedOut(eClass)) continue;
+
+		m_aiWonderPool.push_back((int)eBuilding);
+	}
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::DoVassalWonderPoolTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (m_vecVassals.empty()) return;
+
+	// Drop entries that were built by anyone.
+	for (size_t i = m_aiWonderPool.size(); i > 0; i--)
+	{
+		BuildingTypes eBuilding = (BuildingTypes)m_aiWonderPool[i - 1];
+		CvBuildingEntry* pBuilding = GC.getBuildingInfo(eBuilding);
+		if (pBuilding == NULL)
+		{
+			m_aiWonderPool.erase(i - 1);
+			continue;
+		}
+
+		BuildingClassTypes eClass = (BuildingClassTypes)pBuilding->GetBuildingClassType();
+		if (GC.getGame().isBuildingClassMaxedOut(eClass))
+			m_aiWonderPool.erase(i - 1);
+	}
+
+	if (m_iWonderPoolEra != (int)GetCurrentEra())
+	{
+		m_iWonderPoolEra = (int)GetCurrentEra();
+		RefreshVassalWonderPool();
 	}
 }
 

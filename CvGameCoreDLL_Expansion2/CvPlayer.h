@@ -2024,6 +2024,11 @@ public:
 	bool DoVassalOverlordVictory();
 	void DoVassalOverlordVictoryCheck();
 	void DoVassalCourtGiftTurn();
+	int GetVassalWonderPoolCapacity() const;
+	int GetVassalWonderPoolCount() const;
+	int GetVassalWonderPoolEntry(int iIndex) const;
+	void RefreshVassalWonderPool();
+	void DoVassalWonderPoolTurn();
 	void DoVassalLoyaltyDecay();
 	void RefreshUCFromVassals();
 	void ClearUCFromVassals();
@@ -3085,6 +3090,9 @@ protected:
 	FAutoVariable<int, CvPlayer> m_iPunishUnhappiness;
 	FAutoVariable<int, CvPlayer> m_iPunishFood;
 	FAutoVariable<int, CvPlayer> m_iPunishProduction;
+	// Era-scoped wonder reward pool and the era it was filled for
+	FAutoVariable<std::vector<int>, CvPlayer> m_aiWonderPool;
+	FAutoVariable<int, CvPlayer> m_iWonderPoolEra;
 	// UC caches from vassals
 	std::tr1::unordered_set<UnitTypes> m_sUUFromVassals;
 	std::tr1::unordered_set<BuildingTypes> m_sUBFromVassals;

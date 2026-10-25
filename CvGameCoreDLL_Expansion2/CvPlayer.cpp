@@ -34308,6 +34308,33 @@ void CvPlayer::DoVassalCallToArms()
 }
 
 //--------------------------------------------------------------------------------
+// Five execution tiers: 0 refuse, 1 evade, 2 delay, 3 normal, 4 eager.
+// The loyalty weight is the master switch; a missing row keeps the framework off.
+// Military, distance and interest are reserved slots with zero weight for now.
+int CvPlayer::GetVassalExecutionTier(PlayerTypes eVassal) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	if (!IsOverlordOf(eVassal)) return 0;
+
+	int iLoyaltyWeight = TiandaoDefineInt("TIANDAO_EXECUTION_WEIGHT_LOYALTY");
+	if (iLoyaltyWeight <= 0) return 0;
+
+	int iScore = GetVassalLoyalty(eVassal) * iLoyaltyWeight / 100;
+
+	int iTierActive = TiandaoDefineInt("TIANDAO_EXECUTION_TIER_ACTIVE");
+	int iTierNormal = TiandaoDefineInt("TIANDAO_EXECUTION_TIER_NORMAL");
+	int iTierDelay = TiandaoDefineInt("TIANDAO_EXECUTION_TIER_DELAY");
+	int iTierEvade = TiandaoDefineInt("TIANDAO_EXECUTION_TIER_EVADE");
+
+	if (iTierActive <= 0) return 0;
+	if (iScore >= iTierActive) return 4;
+	if (iTierNormal > 0 && iScore >= iTierNormal) return 3;
+	if (iTierDelay > 0 && iScore >= iTierDelay) return 2;
+	if (iTierEvade > 0 && iScore >= iTierEvade) return 1;
+	return 0;
+}
+
+//--------------------------------------------------------------------------------
 void CvPlayer::DoVassalLoyaltyDecay()
 {
 	if (!MOD_GLOBAL_SUZERAIN) return;

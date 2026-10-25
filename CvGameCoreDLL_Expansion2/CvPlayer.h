@@ -1966,6 +1966,7 @@ public:
 	bool CanReturnCityToVassal(CvCity* pCity) const;
 	bool DoReturnCityToVassal(CvCity* pCity);
 	void DoVassalCallToArms();
+	int GetVassalExecutionTier(PlayerTypes eVassal) const;
 	void DoVassalLoyaltyDecay();
 	void RefreshUCFromVassals();
 	void ClearUCFromVassals();

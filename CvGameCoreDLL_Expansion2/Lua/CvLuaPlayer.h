@@ -1400,6 +1400,7 @@ protected:
 	LUAAPIEXTN(DoVassalMediate, bool, eA, eB);
 	LUAAPIEXTN(CanReturnCityToVassal, bool, pCity);
 	LUAAPIEXTN(DoReturnCityToVassal, bool, pCity);
+	LUAAPIEXTN(GetVassalExecutionTier, int, ePlayer);
 	LUAAPIEXTN(GetScienceTimes100FromVassals, unsigned long long);
 	LUAAPIEXTN(GetCultureFromVassals, int);
 	LUAAPIEXTN(GetFaithFromVassals, int);

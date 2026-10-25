@@ -35279,34 +35279,52 @@ int CvPlayer::GetVassalWonderPoolEntry(int iIndex) const
 }
 
 //--------------------------------------------------------------------------------
-void CvPlayer::RefreshVassalWonderPool()
+bool CvPlayer::CanAddVassalWonderToPool(BuildingTypes eBuilding) const
 {
-	m_aiWonderPool.clear();
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (eBuilding == NO_BUILDING) return false;
+	if (GetVassalWonderPoolCount() >= GetVassalWonderPoolCapacity()) return false;
 
-	int iCapacity = GetVassalWonderPoolCapacity();
-	if (iCapacity <= 0) return;
+	CvBuildingEntry* pBuilding = GC.getBuildingInfo(eBuilding);
+	if (pBuilding == NULL) return false;
 
-	for (int i = 0; i < GC.getNumBuildingInfos() && (int)m_aiWonderPool.size() < iCapacity; i++)
+	BuildingClassTypes eClass = (BuildingClassTypes)pBuilding->GetBuildingClassType();
+	CvBuildingClassInfo* pClass = GC.getBuildingClassInfo(eClass);
+	if (pClass == NULL || !isWorldWonderClass(*pClass)) return false;
+	if (GC.getGame().isBuildingClassMaxedOut(eClass)) return false;
+
+	for (size_t i = 0; i < m_aiWonderPool.size(); i++)
+		if (m_aiWonderPool[i] == (int)eBuilding) return false;
+
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::AddVassalWonderToPool(BuildingTypes eBuilding)
+{
+	if (!CanAddVassalWonderToPool(eBuilding)) return false;
+	m_aiWonderPool.push_back((int)eBuilding);
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::RemoveVassalWonderFromPool(BuildingTypes eBuilding)
+{
+	for (size_t i = 0; i < m_aiWonderPool.size(); i++)
 	{
-		BuildingTypes eBuilding = (BuildingTypes)i;
-		CvBuildingEntry* pBuilding = GC.getBuildingInfo(eBuilding);
-		if (pBuilding == NULL) continue;
-
-		BuildingClassTypes eClass = (BuildingClassTypes)pBuilding->GetBuildingClassType();
-		CvBuildingClassInfo* pClass = GC.getBuildingClassInfo(eClass);
-		if (pClass == NULL) continue;
-		if (!isWorldWonderClass(*pClass)) continue;
-		if (GC.getGame().isBuildingClassMaxedOut(eClass)) continue;
-
-		m_aiWonderPool.push_back((int)eBuilding);
+		if (m_aiWonderPool[i] == (int)eBuilding)
+		{
+			m_aiWonderPool.erase(i);
+			return true;
+		}
 	}
+	return false;
 }
 
 //--------------------------------------------------------------------------------
 void CvPlayer::DoVassalWonderPoolTurn()
 {
 	if (!MOD_GLOBAL_SUZERAIN) return;
-	if (m_vecVassals.empty()) return;
 
 	// Drop entries that were built by anyone.
 	for (size_t i = m_aiWonderPool.size(); i > 0; i--)
@@ -35324,10 +35342,11 @@ void CvPlayer::DoVassalWonderPoolTurn()
 			m_aiWonderPool.erase(i - 1);
 	}
 
+	// A new era starts with an empty pool; the overlord picks again.
 	if (m_iWonderPoolEra != (int)GetCurrentEra())
 	{
 		m_iWonderPoolEra = (int)GetCurrentEra();
-		RefreshVassalWonderPool();
+		m_aiWonderPool.clear();
 	}
 }
 

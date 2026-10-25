@@ -2027,7 +2027,9 @@ public:
 	int GetVassalWonderPoolCapacity() const;
 	int GetVassalWonderPoolCount() const;
 	int GetVassalWonderPoolEntry(int iIndex) const;
-	void RefreshVassalWonderPool();
+	bool CanAddVassalWonderToPool(BuildingTypes eBuilding) const;
+	bool AddVassalWonderToPool(BuildingTypes eBuilding);
+	bool RemoveVassalWonderFromPool(BuildingTypes eBuilding);
 	void DoVassalWonderPoolTurn();
 	void DoVassalLoyaltyDecay();
 	void RefreshUCFromVassals();

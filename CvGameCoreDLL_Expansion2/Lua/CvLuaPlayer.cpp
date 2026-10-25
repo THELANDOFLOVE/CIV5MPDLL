@@ -139,6 +139,8 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoVassalAid);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSetVassalCourtPolicy);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoVassalPunish);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lAddVassalWonderToPool);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lRemoveVassalWonderFromPool);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoFengshan);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoQifeng);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoRangzai);
@@ -1545,6 +1547,9 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(GetVassalWonderPoolCapacity);
 	Method(GetVassalWonderPoolCount);
 	Method(GetVassalWonderPoolEntry);
+	Method(CanAddVassalWonderToPool);
+	Method(AddVassalWonderToPool);
+	Method(RemoveVassalWonderFromPool);
 	Method(CanMandateVictory);
 	Method(DoMandateVictory);
 	Method(GetScienceTimes100FromVassals);
@@ -7658,6 +7663,33 @@ int CvLuaPlayer::lGetVassalWonderPoolEntry(lua_State* L)
 	CvPlayerAI* pkPlayer = GetInstance(L);
 	int iIndex = lua_tointeger(L, 2);
 	lua_pushinteger(L, pkPlayer->GetVassalWonderPoolEntry(iIndex));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool CanAddVassalWonderToPool(BuildingTypes e);
+int CvLuaPlayer::lCanAddVassalWonderToPool(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	BuildingTypes e = (BuildingTypes)lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->CanAddVassalWonderToPool(e));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool AddVassalWonderToPool(BuildingTypes e);
+int CvLuaPlayer::lAddVassalWonderToPool(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	BuildingTypes e = (BuildingTypes)lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->AddVassalWonderToPool(e));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool RemoveVassalWonderFromPool(BuildingTypes e);
+int CvLuaPlayer::lRemoveVassalWonderFromPool(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	BuildingTypes e = (BuildingTypes)lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->RemoveVassalWonderFromPool(e));
 	return 1;
 }
 //------------------------------------------------------------------------------

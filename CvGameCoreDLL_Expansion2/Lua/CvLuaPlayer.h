@@ -1433,6 +1433,9 @@ protected:
 	LUAAPIEXTN(GetVassalWonderPoolCapacity, int);
 	LUAAPIEXTN(GetVassalWonderPoolCount, int);
 	LUAAPIEXTN(GetVassalWonderPoolEntry, int, iIndex);
+	LUAAPIEXTN(CanAddVassalWonderToPool, bool, eBuilding);
+	LUAAPIEXTN(AddVassalWonderToPool, bool, eBuilding);
+	LUAAPIEXTN(RemoveVassalWonderFromPool, bool, eBuilding);
 	LUAAPIEXTN(CanMandateVictory, bool);
 	LUAAPIEXTN(DoMandateVictory, bool);
 	LUAAPIEXTN(GetScienceTimes100FromVassals, unsigned long long);

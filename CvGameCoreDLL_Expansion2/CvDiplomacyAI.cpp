@@ -24726,14 +24726,37 @@ int CvDiplomacyAI::GetDiploModifiers(PlayerTypes eToPlayer, std::vector<Opinion>
 	iModifier = GetScenarioModifier3(eToPlayer);
 	if (iModifier != 0) {
 		iValue += iModifier;
-		
+
 		Opinion kOpinion;
 		kOpinion.m_iValue = iModifier;
 		Localization::String strOpinion = Localization::Lookup("TXT_KEY_SPECIFIC_DIPLO_STRING_3");
 		kOpinion.m_str = strOpinion.toUTF8();
 		aOpinions.push_back(kOpinion);
 	}
-	
+
+#if defined(MOD_GLOBAL_SUZERAIN)
+	// Mandate punishment: the punisher and its vassals dislike the punished civ.
+	if (GET_PLAYER(eToPlayer).IsUnderMandatePunishment())
+	{
+		PlayerTypes eBy = GET_PLAYER(eToPlayer).GetPunishBy();
+		if (eBy != NO_PLAYER
+			&& (m_pPlayer->GetID() == eBy || m_pPlayer->IsVassalOf(eBy)))
+		{
+			int iPenalty = GC.getDefineINT("TIANDAO_MANDATE_TIANFA_DIPLO_PENALTY", false);
+			if (iPenalty > 0)
+			{
+				iValue -= iPenalty;
+
+				Opinion kOpinion;
+				kOpinion.m_iValue = -iPenalty;
+				Localization::String strOpinion = Localization::Lookup("TXT_KEY_DIPLO_MODIFIER_TIANDAO_PUNISHED");
+				kOpinion.m_str = strOpinion.toUTF8();
+				aOpinions.push_back(kOpinion);
+			}
+		}
+	}
+#endif
+
 	if (MOD_EVENTS_DIPLO_MODIFIERS)
 	{
 		PlayerTypes eFromPlayer = m_pPlayer->GetID();

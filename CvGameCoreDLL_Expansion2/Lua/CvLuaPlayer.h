@@ -1426,6 +1426,10 @@ protected:
 	LUAAPIEXTN(DoQifeng, bool);
 	LUAAPIEXTN(CanRangzai, bool);
 	LUAAPIEXTN(DoRangzai, bool);
+	LUAAPIEXTN(CanTianfa, bool, ePlayer);
+	LUAAPIEXTN(DoTianfa, bool, ePlayer);
+	LUAAPIEXTN(IsUnderMandatePunishment, bool);
+	LUAAPIEXTN(GetPunishBy, int);
 	LUAAPIEXTN(CanMandateVictory, bool);
 	LUAAPIEXTN(DoMandateVictory, bool);
 	LUAAPIEXTN(GetScienceTimes100FromVassals, unsigned long long);

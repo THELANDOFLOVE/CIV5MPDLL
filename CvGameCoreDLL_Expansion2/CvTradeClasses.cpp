@@ -3266,6 +3266,15 @@ bool CvPlayerTrade::IsConnectedToPlayer(PlayerTypes eOtherPlayer)
 //	--------------------------------------------------------------------------------
 bool CvPlayerTrade::CanCreateTradeRoute(CvCity* pOriginCity, CvCity* pDestCity, DomainTypes eDomain, TradeConnectionType eConnectionType, bool bIgnoreExisting, bool bCheckPath /* = true */)
 {
+#if defined(MOD_GLOBAL_SUZERAIN)
+	// Mandate punishment: the punished civ cannot trade with the punisher or its vassals.
+	if (pOriginCity != NULL && pDestCity != NULL
+		&& GET_PLAYER(pOriginCity->getOwner()).IsTradeBlockedWith(pDestCity->getOwner()))
+	{
+		return false;
+	}
+#endif
+
 	CvGameTrade* pTrade = GC.getGame().GetGameTrade();
 
 	// if you can't see the plot, you're not allowed to connect it

@@ -142,6 +142,7 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoFengshan);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoQifeng);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoRangzai);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoTianfa);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoMandateVictory);
 
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSetLostUC);
@@ -1537,6 +1538,10 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(DoQifeng);
 	Method(CanRangzai);
 	Method(DoRangzai);
+	Method(CanTianfa);
+	Method(DoTianfa);
+	Method(IsUnderMandatePunishment);
+	Method(GetPunishBy);
 	Method(CanMandateVictory);
 	Method(DoMandateVictory);
 	Method(GetScienceTimes100FromVassals);
@@ -7591,6 +7596,40 @@ int CvLuaPlayer::lDoRangzai(lua_State* L)
 {
 	CvPlayerAI* pkPlayer = GetInstance(L);
 	lua_pushboolean(L, pkPlayer->DoRangzai());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool CanTianfa(PlayerTypes e);
+int CvLuaPlayer::lCanTianfa(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->CanTianfa(e));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool DoTianfa(PlayerTypes e);
+int CvLuaPlayer::lDoTianfa(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->DoTianfa(e));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool IsUnderMandatePunishment();
+int CvLuaPlayer::lIsUnderMandatePunishment(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	lua_pushboolean(L, pkPlayer->IsUnderMandatePunishment());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetPunishBy();
+int CvLuaPlayer::lGetPunishBy(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->GetPunishBy());
 	return 1;
 }
 //------------------------------------------------------------------------------

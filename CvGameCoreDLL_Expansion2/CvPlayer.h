@@ -2012,6 +2012,12 @@ public:
 	void RemoveMandateBlessing();
 	void ApplyMandateBlessing(int iFood, int iProduction, int iCulture, int iTurns);
 	void DoMandateBlessingTurn();
+	bool CanTianfa(PlayerTypes eTarget) const;
+	bool DoTianfa(PlayerTypes eTarget);
+	bool IsUnderMandatePunishment() const;
+	PlayerTypes GetPunishBy() const;
+	bool IsTradeBlockedWith(PlayerTypes eOther) const;
+	void DoMandatePunishmentTurn();
 	bool CanMandateVictory() const;
 	bool DoMandateVictory();
 	void DoVassalLoyaltyDecay();
@@ -3069,6 +3075,12 @@ protected:
 	FAutoVariable<int, CvPlayer> m_iBlessingProduction;
 	FAutoVariable<int, CvPlayer> m_iBlessingCulture;
 	FAutoVariable<int, CvPlayer> m_iBlessingEndTurn;
+	// Mandate punishment applied to this player
+	FAutoVariable<int, CvPlayer> m_iPunishEndTurn;
+	FAutoVariable<int, CvPlayer> m_iPunishBy;
+	FAutoVariable<int, CvPlayer> m_iPunishUnhappiness;
+	FAutoVariable<int, CvPlayer> m_iPunishFood;
+	FAutoVariable<int, CvPlayer> m_iPunishProduction;
 	// UC caches from vassals
 	std::tr1::unordered_set<UnitTypes> m_sUUFromVassals;
 	std::tr1::unordered_set<BuildingTypes> m_sUBFromVassals;

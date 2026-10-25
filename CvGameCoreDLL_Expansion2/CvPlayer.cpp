@@ -434,6 +434,11 @@ CvPlayer::CvPlayer() :
 	, m_iBlessingProduction("CvPlayer::m_iBlessingProduction", m_syncArchive)
 	, m_iBlessingCulture("CvPlayer::m_iBlessingCulture", m_syncArchive)
 	, m_iBlessingEndTurn("CvPlayer::m_iBlessingEndTurn", m_syncArchive)
+	, m_iPunishEndTurn("CvPlayer::m_iPunishEndTurn", m_syncArchive)
+	, m_iPunishBy("CvPlayer::m_iPunishBy", m_syncArchive)
+	, m_iPunishUnhappiness("CvPlayer::m_iPunishUnhappiness", m_syncArchive)
+	, m_iPunishFood("CvPlayer::m_iPunishFood", m_syncArchive)
+	, m_iPunishProduction("CvPlayer::m_iPunishProduction", m_syncArchive)
 	, m_aScienceTimes100FromVassals()
 	, m_aCultureFromVassals()
 	, m_aFaithFromVassals()
@@ -1322,6 +1327,11 @@ void CvPlayer::uninit()
 	m_iBlessingProduction = 0;
 	m_iBlessingCulture = 0;
 	m_iBlessingEndTurn = 0;
+	m_iPunishEndTurn = 0;
+	m_iPunishBy = NO_PLAYER;
+	m_iPunishUnhappiness = 0;
+	m_iPunishFood = 0;
+	m_iPunishProduction = 0;
 #endif
 	m_iExtraUnitPlayerInstances = 0;
 	m_iConquestCasualtiesModifier = 0;
@@ -5488,6 +5498,7 @@ void CvPlayer::doTurn()
 	if (MOD_GLOBAL_SUZERAIN)
 	{
 		DoMandateBlessingTurn();
+		DoMandatePunishmentTurn();
 		DoVassalCallToArms();
 		ResetVassalGiftCounts();
 		ResetVassalProtectFlags();
@@ -31227,6 +31238,11 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ(165, kStream, m_iBlessingProduction, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iBlessingCulture, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iBlessingEndTurn, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iPunishEndTurn, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iPunishBy, NO_PLAYER);
+		MOD_SERIALIZE_READ(165, kStream, m_iPunishUnhappiness, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iPunishFood, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iPunishProduction, 0);
 		{
 			int iVassalCount = 0;
 			MOD_SERIALIZE_READ(163, kStream, iVassalCount, 0);
@@ -32142,6 +32158,11 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE(kStream, m_iBlessingProduction);
 	MOD_SERIALIZE_WRITE(kStream, m_iBlessingCulture);
 	MOD_SERIALIZE_WRITE(kStream, m_iBlessingEndTurn);
+	MOD_SERIALIZE_WRITE(kStream, m_iPunishEndTurn);
+	MOD_SERIALIZE_WRITE(kStream, m_iPunishBy);
+	MOD_SERIALIZE_WRITE(kStream, m_iPunishUnhappiness);
+	MOD_SERIALIZE_WRITE(kStream, m_iPunishFood);
+	MOD_SERIALIZE_WRITE(kStream, m_iPunishProduction);
 	{
 		int iVassalCount = (int)m_vecVassals.size();
 		kStream << iVassalCount;
@@ -34933,6 +34954,137 @@ void CvPlayer::DoMandateBlessingTurn()
 	if (m_iBlessingEndTurn <= 0) return;
 	if (GC.getGame().getGameTurn() >= m_iBlessingEndTurn)
 		RemoveMandateBlessing();
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::CanTianfa(PlayerTypes eTarget) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (eTarget == NO_PLAYER || eTarget == GetID()) return false;
+	if (eTarget < 0 || eTarget >= MAX_MAJOR_CIVS) return false;
+
+	CvPlayer& kTarget = GET_PLAYER(eTarget);
+	if (!kTarget.isAlive() || !kTarget.isMajorCiv()) return false;
+	if (kTarget.IsUnderMandatePunishment()) return false;
+
+	int iCost = TiandaoDefineInt("TIANDAO_MANDATE_TIANFA_COST");
+	return iCost > 0 && m_iMandate >= iCost;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::DoTianfa(PlayerTypes eTarget)
+{
+	if (!CanTianfa(eTarget)) return false;
+
+	ChangeMandate(-TiandaoDefineInt("TIANDAO_MANDATE_TIANFA_COST"));
+
+	CvPlayer& kTarget = GET_PLAYER(eTarget);
+	int iTurns = TiandaoDefineInt("TIANDAO_MANDATE_TIANFA_TURNS");
+
+	kTarget.m_iPunishEndTurn = GC.getGame().getGameTurn() + iTurns;
+	kTarget.m_iPunishBy = GetID();
+
+	int iUnhappiness = TiandaoDefineInt("TIANDAO_MANDATE_TIANFA_UNHAPPINESS");
+	if (iUnhappiness != 0)
+	{
+		kTarget.ChangeUnhappinessMod(iUnhappiness);
+		kTarget.m_iPunishUnhappiness = iUnhappiness;
+	}
+
+	int iFood = TiandaoDefineInt("TIANDAO_MANDATE_TIANFA_FOOD");
+	int iProduction = TiandaoDefineInt("TIANDAO_MANDATE_TIANFA_PRODUCTION");
+	kTarget.m_iPunishFood = iFood;
+	kTarget.m_iPunishProduction = iProduction;
+
+	int iLoop = 0;
+	for (CvCity* pCity = kTarget.firstCity(&iLoop); pCity != NULL; pCity = kTarget.nextCity(&iLoop))
+	{
+		if (iFood != 0)
+			pCity->ChangeBaseYieldRateFromMisc(YIELD_FOOD, -iFood);
+		if (iProduction != 0)
+			pCity->ChangeBaseYieldRateFromMisc(YIELD_PRODUCTION, -iProduction);
+	}
+
+	int iCSInfluence = TiandaoDefineInt("TIANDAO_MANDATE_TIANFA_CS_INFLUENCE");
+	if (iCSInfluence > 0)
+	{
+		for (int iMinor = 0; iMinor < MAX_CIV_PLAYERS; iMinor++)
+		{
+			CvPlayer& kMinor = GET_PLAYER((PlayerTypes)iMinor);
+			if (!kMinor.isAlive() || !kMinor.isMinorCiv()) continue;
+			CvMinorCivAI* pMinorAI = kMinor.GetMinorCivAI();
+			if (pMinorAI != NULL)
+				pMinorAI->ChangeFriendshipWithMajor(eTarget, -iCSInfluence);
+		}
+	}
+
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::IsUnderMandatePunishment() const
+{
+	return MOD_GLOBAL_SUZERAIN && m_iPunishEndTurn > 0;
+}
+
+//--------------------------------------------------------------------------------
+PlayerTypes CvPlayer::GetPunishBy() const
+{
+	return (PlayerTypes)(int)m_iPunishBy;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::IsTradeBlockedWith(PlayerTypes eOther) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (eOther == NO_PLAYER) return false;
+
+	int iPunishEndTurn = m_iPunishEndTurn;
+	int iPunishBy = m_iPunishBy;
+
+	if (iPunishEndTurn > 0 && iPunishBy != (int)NO_PLAYER)
+	{
+		if ((int)eOther == iPunishBy) return true;
+		if (GET_PLAYER(eOther).IsVassalOf((PlayerTypes)iPunishBy)) return true;
+	}
+
+	CvPlayer& kOther = GET_PLAYER(eOther);
+	if (kOther.IsUnderMandatePunishment())
+	{
+		PlayerTypes eBy = kOther.GetPunishBy();
+		if (eBy != NO_PLAYER)
+		{
+			if (GetID() == eBy) return true;
+			if (IsVassalOf(eBy)) return true;
+		}
+	}
+	return false;
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::DoMandatePunishmentTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (m_iPunishEndTurn <= 0) return;
+	if (GC.getGame().getGameTurn() < m_iPunishEndTurn) return;
+
+	if (m_iPunishUnhappiness != 0)
+		ChangeUnhappinessMod(-m_iPunishUnhappiness);
+
+	int iLoop = 0;
+	for (CvCity* pCity = firstCity(&iLoop); pCity != NULL; pCity = nextCity(&iLoop))
+	{
+		if (m_iPunishFood != 0)
+			pCity->ChangeBaseYieldRateFromMisc(YIELD_FOOD, m_iPunishFood);
+		if (m_iPunishProduction != 0)
+			pCity->ChangeBaseYieldRateFromMisc(YIELD_PRODUCTION, m_iPunishProduction);
+	}
+
+	m_iPunishEndTurn = 0;
+	m_iPunishBy = NO_PLAYER;
+	m_iPunishUnhappiness = 0;
+	m_iPunishFood = 0;
+	m_iPunishProduction = 0;
 }
 
 //--------------------------------------------------------------------------------

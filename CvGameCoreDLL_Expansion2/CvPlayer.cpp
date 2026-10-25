@@ -34531,6 +34531,25 @@ void CvPlayer::DoVassalMemorialTurn()
 }
 
 //--------------------------------------------------------------------------------
+int CvPlayer::GetVassalCourtInterval() const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	return TiandaoDefineInt("TIANDAO_COURT_INTERVAL");
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::IsVassalCourtTurn() const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+
+	int iInterval = GetVassalCourtInterval();
+	if (iInterval <= 0) return false;
+
+	int iTurn = GC.getGame().getGameTurn();
+	return iTurn > 0 && (iTurn % iInterval) == 0;
+}
+
+//--------------------------------------------------------------------------------
 void CvPlayer::DoVassalLoyaltyDecay()
 {
 	if (!MOD_GLOBAL_SUZERAIN) return;

@@ -1987,6 +1987,8 @@ public:
 	int AddVassalMemorial(int iType, int iLevel, int iMinistry, PlayerTypes eVassal, PlayerTypes eTarget, int iDeadlineTurns);
 	bool ResolveVassalMemorial(int iIndex, bool bApprove);
 	void DoVassalMemorialTurn();
+	int GetVassalCourtInterval() const;
+	bool IsVassalCourtTurn() const;
 	void DoVassalLoyaltyDecay();
 	void RefreshUCFromVassals();
 	void ClearUCFromVassals();

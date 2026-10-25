@@ -1510,6 +1510,8 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(GetVassalMemorialCount);
 	Method(GetVassalMemorialField);
 	Method(ResolveVassalMemorial);
+	Method(GetVassalCourtInterval);
+	Method(IsVassalCourtTurn);
 	Method(GetScienceTimes100FromVassals);
 	Method(GetCultureFromVassals);
 	Method(GetFaithFromVassals);
@@ -7394,6 +7396,22 @@ int CvLuaPlayer::lResolveVassalMemorial(lua_State* L)
 	int iIndex = lua_tointeger(L, 2);
 	bool bApprove = luaL_optbool(L, 3, false);
 	lua_pushboolean(L, pkPlayer->ResolveVassalMemorial(iIndex, bApprove));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetVassalCourtInterval();
+int CvLuaPlayer::lGetVassalCourtInterval(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->GetVassalCourtInterval());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool IsVassalCourtTurn();
+int CvLuaPlayer::lIsVassalCourtTurn(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	lua_pushboolean(L, pkPlayer->IsVassalCourtTurn());
 	return 1;
 }
 //------------------------------------------------------------------------------

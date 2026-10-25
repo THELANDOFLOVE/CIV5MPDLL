@@ -1406,6 +1406,8 @@ protected:
 	LUAAPIEXTN(GetVassalMemorialCount, int);
 	LUAAPIEXTN(GetVassalMemorialField, int, iIndex, iField);
 	LUAAPIEXTN(ResolveVassalMemorial, bool, iIndex, bApprove);
+	LUAAPIEXTN(GetVassalCourtInterval, int);
+	LUAAPIEXTN(IsVassalCourtTurn, bool);
 	LUAAPIEXTN(GetScienceTimes100FromVassals, unsigned long long);
 	LUAAPIEXTN(GetCultureFromVassals, int);
 	LUAAPIEXTN(GetFaithFromVassals, int);

@@ -137,6 +137,7 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoReturnCityToVassal);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lResolveVassalMemorial);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoVassalAid);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSetVassalCourtPolicy);
 
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSetLostUC);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lChangeFreeBuildingCount);
@@ -1516,6 +1517,8 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(IsVassalLosingWar);
 	Method(IsVassalMismanaging);
 	Method(DoVassalAid);
+	Method(GetVassalCourtPolicy);
+	Method(SetVassalCourtPolicy);
 	Method(GetScienceTimes100FromVassals);
 	Method(GetCultureFromVassals);
 	Method(GetFaithFromVassals);
@@ -7443,6 +7446,23 @@ int CvLuaPlayer::lDoVassalAid(lua_State* L)
 	CvPlayerAI* pkPlayer = GetInstance(L);
 	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
 	lua_pushboolean(L, pkPlayer->DoVassalAid(e));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetVassalCourtPolicy();
+int CvLuaPlayer::lGetVassalCourtPolicy(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->GetVassalCourtPolicy());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool SetVassalCourtPolicy(int iPolicy);
+int CvLuaPlayer::lSetVassalCourtPolicy(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	int iPolicy = lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->SetVassalCourtPolicy(iPolicy));
 	return 1;
 }
 //------------------------------------------------------------------------------

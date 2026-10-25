@@ -1992,6 +1992,8 @@ public:
 	bool IsVassalLosingWar(PlayerTypes eVassal) const;
 	bool IsVassalMismanaging(PlayerTypes eVassal) const;
 	bool DoVassalAid(PlayerTypes eVassal);
+	int GetVassalCourtPolicy() const;
+	bool SetVassalCourtPolicy(int iPolicy);
 	void DoVassalLoyaltyDecay();
 	void RefreshUCFromVassals();
 	void ClearUCFromVassals();
@@ -3033,6 +3035,8 @@ protected:
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalProtectHandled;
 	// Vassal memorials, flat array of TIANDAO_MEMORIAL_STRIDE ints per entry
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalMemorials;
+	// Court policy: 0 none, 1 military, 2 science, 3 culture, 4 economy
+	FAutoVariable<int, CvPlayer> m_iVassalCourtPolicy;
 	// UC caches from vassals
 	std::tr1::unordered_set<UnitTypes> m_sUUFromVassals;
 	std::tr1::unordered_set<BuildingTypes> m_sUBFromVassals;

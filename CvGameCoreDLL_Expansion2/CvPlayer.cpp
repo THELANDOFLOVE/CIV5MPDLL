@@ -425,6 +425,7 @@ CvPlayer::CvPlayer() :
 	, m_aiVassalGiftCount("CvPlayer::m_aiVassalGiftCount", m_syncArchive)
 	, m_aiVassalProtectHandled("CvPlayer::m_aiVassalProtectHandled", m_syncArchive)
 	, m_aiVassalMemorials("CvPlayer::m_aiVassalMemorials", m_syncArchive)
+	, m_iVassalCourtPolicy("CvPlayer::m_iVassalCourtPolicy", m_syncArchive)
 	, m_aScienceTimes100FromVassals()
 	, m_aCultureFromVassals()
 	, m_aFaithFromVassals()
@@ -31199,6 +31200,7 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalGiftCount, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalProtectHandled, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalMemorials, 0, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iVassalCourtPolicy, 0);
 		{
 			int iVassalCount = 0;
 			MOD_SERIALIZE_READ(163, kStream, iVassalCount, 0);
@@ -32105,6 +32107,7 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalGiftCount);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalProtectHandled);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalMemorials);
+	MOD_SERIALIZE_WRITE(kStream, m_iVassalCourtPolicy);
 	{
 		int iVassalCount = (int)m_vecVassals.size();
 		kStream << iVassalCount;
@@ -34587,6 +34590,37 @@ bool CvPlayer::DoVassalAid(PlayerTypes eVassal)
 	GetTreasury()->ChangeGold(-iAid);
 	GET_PLAYER(eVassal).GetTreasury()->ChangeGold(iAid);
 	ChangeVassalLoyalty(eVassal, TiandaoDefineInt("TIANDAO_LOYALTY_AID"));
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetVassalCourtPolicy() const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	return m_iVassalCourtPolicy;
+}
+
+//--------------------------------------------------------------------------------
+// 1 military, 2 science, 3 culture, 4 economy. Loyal vassals follow and gain
+// loyalty; the same policy cannot be re-applied to farm the bonus.
+bool CvPlayer::SetVassalCourtPolicy(int iPolicy)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (iPolicy < 1 || iPolicy > 4) return false;
+	if (m_vecVassals.empty()) return false;
+	if (iPolicy == m_iVassalCourtPolicy) return false;
+
+	m_iVassalCourtPolicy = iPolicy;
+
+	int iMinLoyalty = TiandaoDefineInt("TIANDAO_COURT_POLICY_MIN_LOYALTY");
+	int iGain = TiandaoDefineInt("TIANDAO_COURT_POLICY_LOYALTY");
+	for (size_t i = 0; i < m_vecVassals.size(); i++)
+	{
+		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
+		if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) continue;
+		if (GetVassalLoyalty(eVassal) >= iMinLoyalty)
+			ChangeVassalLoyalty(eVassal, iGain);
+	}
 	return true;
 }
 

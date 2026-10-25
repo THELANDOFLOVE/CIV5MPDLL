@@ -3518,6 +3518,24 @@ bool CvCity::canConstruct(BuildingTypes eBuilding, bool bContinue, bool bTestVis
 		return false;
 	}
 
+#if defined(MOD_GLOBAL_SUZERAIN)
+	// A vassal may only build a world wonder its overlord has approved.
+	if (MOD_GLOBAL_SUZERAIN)
+	{
+		PlayerTypes eOverlord = kPlayer.GetOverlord();
+		if (eOverlord != NO_PLAYER)
+		{
+			BuildingClassTypes eBuildingClass = (BuildingClassTypes)pkBuildingInfo->GetBuildingClassType();
+			CvBuildingClassInfo* pBuildingClass = GC.getBuildingClassInfo(eBuildingClass);
+			if (pBuildingClass != NULL && isWorldWonderClass(*pBuildingClass)
+				&& !GET_PLAYER(eOverlord).CanVassalBuildWonder(getOwner(), eBuilding))
+			{
+				return false;
+			}
+		}
+	}
+#endif
+
 	if(pkBuildingInfo->IsNoPuppet() && IsPuppet() && !kPlayer.GetPlayerTraits()->IsNoAnnexing())
 	{
 		return false;

@@ -2030,6 +2030,10 @@ public:
 	bool CanAddVassalWonderToPool(BuildingTypes eBuilding) const;
 	bool AddVassalWonderToPool(BuildingTypes eBuilding);
 	bool RemoveVassalWonderFromPool(BuildingTypes eBuilding);
+	bool RequestVassalWonder(BuildingTypes eBuilding);
+	int GetWonderRequest() const;
+	bool ApproveVassalWonderRequest(PlayerTypes eVassal, bool bApprove);
+	bool CanVassalBuildWonder(PlayerTypes eVassal, BuildingTypes eBuilding) const;
 	void DoVassalWonderPoolTurn();
 	void DoVassalLoyaltyDecay();
 	void RefreshUCFromVassals();
@@ -3095,6 +3099,9 @@ protected:
 	// Era-scoped wonder reward pool and the era it was filled for
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiWonderPool;
 	FAutoVariable<int, CvPlayer> m_iWonderPoolEra;
+	// A vassal's pending wonder request, and the overlord's approvals per vassal
+	FAutoVariable<int, CvPlayer> m_iWonderRequest;
+	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalWonderApproval;
 	// UC caches from vassals
 	std::tr1::unordered_set<UnitTypes> m_sUUFromVassals;
 	std::tr1::unordered_set<BuildingTypes> m_sUBFromVassals;

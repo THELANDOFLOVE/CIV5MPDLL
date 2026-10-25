@@ -441,6 +441,8 @@ CvPlayer::CvPlayer() :
 	, m_iPunishProduction("CvPlayer::m_iPunishProduction", m_syncArchive)
 	, m_aiWonderPool("CvPlayer::m_aiWonderPool", m_syncArchive)
 	, m_iWonderPoolEra("CvPlayer::m_iWonderPoolEra", m_syncArchive)
+	, m_iWonderRequest("CvPlayer::m_iWonderRequest", m_syncArchive)
+	, m_aiVassalWonderApproval("CvPlayer::m_aiVassalWonderApproval", m_syncArchive)
 	, m_aScienceTimes100FromVassals()
 	, m_aCultureFromVassals()
 	, m_aFaithFromVassals()
@@ -1336,6 +1338,9 @@ void CvPlayer::uninit()
 	m_iPunishProduction = 0;
 	m_aiWonderPool.clear();
 	m_iWonderPoolEra = -1;
+	m_iWonderRequest = NO_BUILDING;
+	m_aiVassalWonderApproval.clear();
+	m_aiVassalWonderApproval.resize(MAX_MAJOR_CIVS, NO_BUILDING);
 #endif
 	m_iExtraUnitPlayerInstances = 0;
 	m_iConquestCasualtiesModifier = 0;
@@ -31263,6 +31268,8 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ(165, kStream, m_iPunishProduction, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiWonderPool, 0, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iWonderPoolEra, -1);
+		MOD_SERIALIZE_READ(165, kStream, m_iWonderRequest, NO_BUILDING);
+		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalWonderApproval, MAX_MAJOR_CIVS, NO_BUILDING);
 		{
 			int iVassalCount = 0;
 			MOD_SERIALIZE_READ(163, kStream, iVassalCount, 0);
@@ -32185,6 +32192,8 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE(kStream, m_iPunishProduction);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiWonderPool);
 	MOD_SERIALIZE_WRITE(kStream, m_iWonderPoolEra);
+	MOD_SERIALIZE_WRITE(kStream, m_iWonderRequest);
+	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalWonderApproval);
 	{
 		int iVassalCount = (int)m_vecVassals.size();
 		kStream << iVassalCount;
@@ -35319,6 +35328,98 @@ bool CvPlayer::RemoveVassalWonderFromPool(BuildingTypes eBuilding)
 		}
 	}
 	return false;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::RequestVassalWonder(BuildingTypes eBuilding)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (eBuilding == NO_BUILDING) return false;
+
+	PlayerTypes eOverlord = GetOverlord();
+	if (eOverlord == NO_PLAYER) return false;
+
+	CvPlayer& kOverlord = GET_PLAYER(eOverlord);
+	bool bInPool = false;
+	for (int i = 0; i < kOverlord.GetVassalWonderPoolCount(); i++)
+	{
+		if (kOverlord.GetVassalWonderPoolEntry(i) == (int)eBuilding)
+		{
+			bInPool = true;
+			break;
+		}
+	}
+	if (!bInPool) return false;
+
+	CvBuildingEntry* pBuilding = GC.getBuildingInfo(eBuilding);
+	if (pBuilding == NULL) return false;
+	BuildingClassTypes eClass = (BuildingClassTypes)pBuilding->GetBuildingClassType();
+	if (GC.getGame().isBuildingClassMaxedOut(eClass)) return false;
+
+	m_iWonderRequest = (int)eBuilding;
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetWonderRequest() const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return NO_BUILDING;
+	return m_iWonderRequest;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::ApproveVassalWonderRequest(PlayerTypes eVassal, bool bApprove)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (!IsOverlordOf(eVassal)) return false;
+
+	CvPlayer& kVassal = GET_PLAYER(eVassal);
+	BuildingTypes eBuilding = (BuildingTypes)kVassal.GetWonderRequest();
+	if (eBuilding == NO_BUILDING) return false;
+
+	bool bApproved = false;
+
+	if (bApprove)
+	{
+		bool bInPool = false;
+		for (int i = 0; i < GetVassalWonderPoolCount(); i++)
+		{
+			if (GetVassalWonderPoolEntry(i) == (int)eBuilding)
+			{
+				bInPool = true;
+				break;
+			}
+		}
+
+		CvBuildingEntry* pBuilding = GC.getBuildingInfo(eBuilding);
+		bool bAvailable = bInPool && pBuilding != NULL;
+		if (bAvailable)
+		{
+			BuildingClassTypes eClass = (BuildingClassTypes)pBuilding->GetBuildingClassType();
+			bAvailable = !GC.getGame().isBuildingClassMaxedOut(eClass);
+		}
+
+		if (bAvailable)
+		{
+			if ((size_t)eVassal >= m_aiVassalWonderApproval.size())
+				m_aiVassalWonderApproval.resize(MAX_MAJOR_CIVS, NO_BUILDING);
+			m_aiVassalWonderApproval.setAt((size_t)eVassal, (int)eBuilding);
+			RemoveVassalWonderFromPool(eBuilding);
+			bApproved = true;
+		}
+	}
+
+	kVassal.m_iWonderRequest = NO_BUILDING;
+	return bApproved;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::CanVassalBuildWonder(PlayerTypes eVassal, BuildingTypes eBuilding) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return true;
+	if (!IsOverlordOf(eVassal)) return false;
+	if ((size_t)eVassal >= m_aiVassalWonderApproval.size()) return false;
+	return m_aiVassalWonderApproval[eVassal] == (int)eBuilding;
 }
 
 //--------------------------------------------------------------------------------

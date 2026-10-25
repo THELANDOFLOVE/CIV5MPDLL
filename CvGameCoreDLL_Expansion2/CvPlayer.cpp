@@ -430,6 +430,10 @@ CvPlayer::CvPlayer() :
 	, m_aiVassalBreachTurn("CvPlayer::m_aiVassalBreachTurn", m_syncArchive)
 	, m_iMandate("CvPlayer::m_iMandate", m_syncArchive)
 	, m_iFengshanEra("CvPlayer::m_iFengshanEra", m_syncArchive)
+	, m_iBlessingFood("CvPlayer::m_iBlessingFood", m_syncArchive)
+	, m_iBlessingProduction("CvPlayer::m_iBlessingProduction", m_syncArchive)
+	, m_iBlessingCulture("CvPlayer::m_iBlessingCulture", m_syncArchive)
+	, m_iBlessingEndTurn("CvPlayer::m_iBlessingEndTurn", m_syncArchive)
 	, m_aScienceTimes100FromVassals()
 	, m_aCultureFromVassals()
 	, m_aFaithFromVassals()
@@ -1314,6 +1318,10 @@ void CvPlayer::uninit()
 	m_aiVassalBreachTurn.clear();
 	m_aiVassalBreachTurn.resize(MAX_MAJOR_CIVS, 0);
 	m_iFengshanEra = -1;
+	m_iBlessingFood = 0;
+	m_iBlessingProduction = 0;
+	m_iBlessingCulture = 0;
+	m_iBlessingEndTurn = 0;
 #endif
 	m_iExtraUnitPlayerInstances = 0;
 	m_iConquestCasualtiesModifier = 0;
@@ -5479,6 +5487,7 @@ void CvPlayer::doTurn()
 #if defined(MOD_GLOBAL_SUZERAIN)
 	if (MOD_GLOBAL_SUZERAIN)
 	{
+		DoMandateBlessingTurn();
 		DoVassalCallToArms();
 		ResetVassalGiftCounts();
 		ResetVassalProtectFlags();
@@ -31214,6 +31223,10 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalBreachTurn, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iMandate, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iFengshanEra, -1);
+		MOD_SERIALIZE_READ(165, kStream, m_iBlessingFood, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iBlessingProduction, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iBlessingCulture, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iBlessingEndTurn, 0);
 		{
 			int iVassalCount = 0;
 			MOD_SERIALIZE_READ(163, kStream, iVassalCount, 0);
@@ -32125,6 +32138,10 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalBreachTurn);
 	MOD_SERIALIZE_WRITE(kStream, m_iMandate);
 	MOD_SERIALIZE_WRITE(kStream, m_iFengshanEra);
+	MOD_SERIALIZE_WRITE(kStream, m_iBlessingFood);
+	MOD_SERIALIZE_WRITE(kStream, m_iBlessingProduction);
+	MOD_SERIALIZE_WRITE(kStream, m_iBlessingCulture);
+	MOD_SERIALIZE_WRITE(kStream, m_iBlessingEndTurn);
 	{
 		int iVassalCount = (int)m_vecVassals.size();
 		kStream << iVassalCount;
@@ -34818,6 +34835,104 @@ bool CvPlayer::DoFengshan()
 
 	m_iFengshanEra = (int)GetCurrentEra();
 	return true;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::CanQifeng() const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	int iCost = TiandaoDefineInt("TIANDAO_MANDATE_QIFENG_COST");
+	return iCost > 0 && m_iMandate >= iCost;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::DoQifeng()
+{
+	if (!CanQifeng()) return false;
+
+	ChangeMandate(-TiandaoDefineInt("TIANDAO_MANDATE_QIFENG_COST"));
+	ApplyMandateBlessing(TiandaoDefineInt("TIANDAO_MANDATE_QIFENG_FOOD"), 0, 0,
+		TiandaoDefineInt("TIANDAO_MANDATE_QIFENG_TURNS"));
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::CanRangzai() const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	int iCost = TiandaoDefineInt("TIANDAO_MANDATE_RANGZAI_COST");
+	return iCost > 0 && m_iMandate >= iCost;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::DoRangzai()
+{
+	if (!CanRangzai()) return false;
+
+	ChangeMandate(-TiandaoDefineInt("TIANDAO_MANDATE_RANGZAI_COST"));
+	ApplyMandateBlessing(0,
+		TiandaoDefineInt("TIANDAO_MANDATE_RANGZAI_PRODUCTION"),
+		TiandaoDefineInt("TIANDAO_MANDATE_RANGZAI_CULTURE"),
+		TiandaoDefineInt("TIANDAO_MANDATE_RANGZAI_TURNS"));
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::RemoveMandateBlessing()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (m_iBlessingEndTurn <= 0) return;
+
+	int iLoop = 0;
+	for (CvCity* pCity = firstCity(&iLoop); pCity != NULL; pCity = nextCity(&iLoop))
+	{
+		if (m_iBlessingFood != 0)
+			pCity->ChangeBaseYieldRateFromMisc(YIELD_FOOD, -m_iBlessingFood);
+		if (m_iBlessingProduction != 0)
+			pCity->ChangeBaseYieldRateFromMisc(YIELD_PRODUCTION, -m_iBlessingProduction);
+		if (m_iBlessingCulture != 0)
+			pCity->ChangeBaseYieldRateFromMisc(YIELD_CULTURE, -m_iBlessingCulture);
+	}
+
+	m_iBlessingFood = 0;
+	m_iBlessingProduction = 0;
+	m_iBlessingCulture = 0;
+	m_iBlessingEndTurn = 0;
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::ApplyMandateBlessing(int iFood, int iProduction, int iCulture, int iTurns)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+
+	RemoveMandateBlessing();
+	if (iTurns <= 0) return;
+	if (iFood == 0 && iProduction == 0 && iCulture == 0) return;
+
+	int iLoop = 0;
+	for (CvCity* pCity = firstCity(&iLoop); pCity != NULL; pCity = nextCity(&iLoop))
+	{
+		if (iFood != 0)
+			pCity->ChangeBaseYieldRateFromMisc(YIELD_FOOD, iFood);
+		if (iProduction != 0)
+			pCity->ChangeBaseYieldRateFromMisc(YIELD_PRODUCTION, iProduction);
+		if (iCulture != 0)
+			pCity->ChangeBaseYieldRateFromMisc(YIELD_CULTURE, iCulture);
+	}
+
+	m_iBlessingFood = iFood;
+	m_iBlessingProduction = iProduction;
+	m_iBlessingCulture = iCulture;
+	m_iBlessingEndTurn = GC.getGame().getGameTurn() + iTurns;
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::DoMandateBlessingTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (m_iBlessingEndTurn <= 0) return;
+	if (GC.getGame().getGameTurn() >= m_iBlessingEndTurn)
+		RemoveMandateBlessing();
 }
 
 //--------------------------------------------------------------------------------

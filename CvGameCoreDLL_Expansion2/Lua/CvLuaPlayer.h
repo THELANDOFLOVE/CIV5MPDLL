@@ -1422,6 +1422,10 @@ protected:
 	LUAAPIEXTN(IsMandateFull, bool);
 	LUAAPIEXTN(CanFengshan, bool);
 	LUAAPIEXTN(DoFengshan, bool);
+	LUAAPIEXTN(CanQifeng, bool);
+	LUAAPIEXTN(DoQifeng, bool);
+	LUAAPIEXTN(CanRangzai, bool);
+	LUAAPIEXTN(DoRangzai, bool);
 	LUAAPIEXTN(CanMandateVictory, bool);
 	LUAAPIEXTN(DoMandateVictory, bool);
 	LUAAPIEXTN(GetScienceTimes100FromVassals, unsigned long long);

@@ -140,6 +140,8 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSetVassalCourtPolicy);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoVassalPunish);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoFengshan);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoQifeng);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoRangzai);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoMandateVictory);
 
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSetLostUC);
@@ -1531,6 +1533,10 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(IsMandateFull);
 	Method(CanFengshan);
 	Method(DoFengshan);
+	Method(CanQifeng);
+	Method(DoQifeng);
+	Method(CanRangzai);
+	Method(DoRangzai);
 	Method(CanMandateVictory);
 	Method(DoMandateVictory);
 	Method(GetScienceTimes100FromVassals);
@@ -7553,6 +7559,38 @@ int CvLuaPlayer::lDoFengshan(lua_State* L)
 {
 	CvPlayerAI* pkPlayer = GetInstance(L);
 	lua_pushboolean(L, pkPlayer->DoFengshan());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool CanQifeng();
+int CvLuaPlayer::lCanQifeng(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	lua_pushboolean(L, pkPlayer->CanQifeng());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool DoQifeng();
+int CvLuaPlayer::lDoQifeng(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	lua_pushboolean(L, pkPlayer->DoQifeng());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool CanRangzai();
+int CvLuaPlayer::lCanRangzai(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	lua_pushboolean(L, pkPlayer->CanRangzai());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool DoRangzai();
+int CvLuaPlayer::lDoRangzai(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	lua_pushboolean(L, pkPlayer->DoRangzai());
 	return 1;
 }
 //------------------------------------------------------------------------------

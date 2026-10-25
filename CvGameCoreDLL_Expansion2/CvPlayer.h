@@ -2005,6 +2005,13 @@ public:
 	bool IsMandateFull() const;
 	bool CanFengshan() const;
 	bool DoFengshan();
+	bool CanQifeng() const;
+	bool DoQifeng();
+	bool CanRangzai() const;
+	bool DoRangzai();
+	void RemoveMandateBlessing();
+	void ApplyMandateBlessing(int iFood, int iProduction, int iCulture, int iTurns);
+	void DoMandateBlessingTurn();
 	bool CanMandateVictory() const;
 	bool DoMandateVictory();
 	void DoVassalLoyaltyDecay();
@@ -3057,6 +3064,11 @@ protected:
 	FAutoVariable<int, CvPlayer> m_iMandate;
 	// Era of the last Fengshan, -1 when never used
 	FAutoVariable<int, CvPlayer> m_iFengshanEra;
+	// Temporary mandate blessing: per-city yields and the turn it expires
+	FAutoVariable<int, CvPlayer> m_iBlessingFood;
+	FAutoVariable<int, CvPlayer> m_iBlessingProduction;
+	FAutoVariable<int, CvPlayer> m_iBlessingCulture;
+	FAutoVariable<int, CvPlayer> m_iBlessingEndTurn;
 	// UC caches from vassals
 	std::tr1::unordered_set<UnitTypes> m_sUUFromVassals;
 	std::tr1::unordered_set<BuildingTypes> m_sUBFromVassals;

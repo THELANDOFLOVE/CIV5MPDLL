@@ -34146,10 +34146,20 @@ void CvPlayer::DoVassalGift(PlayerTypes eVassal)
 	if (!MOD_GLOBAL_SUZERAIN) return;
 	if (!IsOverlordOf(eVassal)) return;
 	if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) return;
+
+	int iGold = TiandaoDefineInt("TIANDAO_GIFT_GOLD");
+	if (iGold <= 0) return; // no configured cost = gift off
+	if (GetTreasury()->GetGold() < iGold) return;
+
+	int iLoyalty = GetVassalGiftLoyalty(eVassal);
+	if (iLoyalty <= 0) return; // nothing left to gain this turn
+
 	if ((size_t)eVassal >= m_aiVassalGiftCount.size())
 		m_aiVassalGiftCount.resize(MAX_MAJOR_CIVS, 0);
 
-	ChangeVassalLoyalty(eVassal, GetVassalGiftLoyalty(eVassal));
+	GetTreasury()->ChangeGold(-iGold);
+	GET_PLAYER(eVassal).GetTreasury()->ChangeGold(iGold);
+	ChangeVassalLoyalty(eVassal, iLoyalty);
 	m_aiVassalGiftCount.setAt((size_t)eVassal, m_aiVassalGiftCount[eVassal] + 1);
 }
 

@@ -2020,6 +2020,9 @@ public:
 	void DoMandatePunishmentTurn();
 	bool CanMandateVictory() const;
 	bool DoMandateVictory();
+	bool CanVassalOverlordVictory() const;
+	bool DoVassalOverlordVictory();
+	void DoVassalOverlordVictoryCheck();
 	void DoVassalLoyaltyDecay();
 	void RefreshUCFromVassals();
 	void ClearUCFromVassals();

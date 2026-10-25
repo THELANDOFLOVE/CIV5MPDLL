@@ -5505,6 +5505,7 @@ void CvPlayer::doTurn()
 		DoVassalMemorialTurn();
 		DoVassalLoyaltyDecay();
 		DoVassalRevoltCheck();
+		DoVassalOverlordVictoryCheck();
 	}
 #endif
 
@@ -35140,6 +35141,47 @@ bool CvPlayer::DoMandateVictory()
 	ChangeMandate(-GetMandateMax());
 	GC.getGame().setWinner(getTeam(), eVictory);
 	return true;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::CanVassalOverlordVictory() const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (!isAlive() || !isMajorCiv()) return false;
+
+	int iAliveMajors = 0;
+	int iVassals = 0;
+	for (int i = 0; i < MAX_MAJOR_CIVS; i++)
+	{
+		if (i == GetID()) continue;
+		CvPlayer& kOther = GET_PLAYER((PlayerTypes)i);
+		if (!kOther.isAlive() || !kOther.isMajorCiv()) continue;
+		iAliveMajors++;
+		if (kOther.IsVassalOf(GetID())) iVassals++;
+	}
+	return iAliveMajors > 0 && iVassals == iAliveMajors;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::DoVassalOverlordVictory()
+{
+	if (!CanVassalOverlordVictory()) return false;
+
+	VictoryTypes eVictory = (VictoryTypes)GC.getInfoTypeForString("VICTORY_DOMINATION", true);
+	if (eVictory == NO_VICTORY) return false;
+
+	GC.getGame().setWinner(getTeam(), eVictory);
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::DoVassalOverlordVictoryCheck()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (!isAlive() || !isMajorCiv()) return;
+	if (GC.getGame().getWinner() != NO_TEAM) return;
+	if (CanVassalOverlordVictory())
+		DoVassalOverlordVictory();
 }
 
 //--------------------------------------------------------------------------------

@@ -426,6 +426,8 @@ CvPlayer::CvPlayer() :
 	, m_aiVassalProtectHandled("CvPlayer::m_aiVassalProtectHandled", m_syncArchive)
 	, m_aiVassalMemorials("CvPlayer::m_aiVassalMemorials", m_syncArchive)
 	, m_iVassalCourtPolicy("CvPlayer::m_iVassalCourtPolicy", m_syncArchive)
+	, m_aiVassalBreachCount("CvPlayer::m_aiVassalBreachCount", m_syncArchive)
+	, m_aiVassalBreachTurn("CvPlayer::m_aiVassalBreachTurn", m_syncArchive)
 	, m_aScienceTimes100FromVassals()
 	, m_aCultureFromVassals()
 	, m_aFaithFromVassals()
@@ -1305,6 +1307,10 @@ void CvPlayer::uninit()
 	m_aiVassalProtectHandled.clear();
 	m_aiVassalProtectHandled.resize(MAX_MAJOR_CIVS, 0);
 	m_aiVassalMemorials.clear();
+	m_aiVassalBreachCount.clear();
+	m_aiVassalBreachCount.resize(MAX_MAJOR_CIVS, 0);
+	m_aiVassalBreachTurn.clear();
+	m_aiVassalBreachTurn.resize(MAX_MAJOR_CIVS, 0);
 #endif
 	m_iExtraUnitPlayerInstances = 0;
 	m_iConquestCasualtiesModifier = 0;
@@ -31201,6 +31207,8 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalProtectHandled, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalMemorials, 0, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iVassalCourtPolicy, 0);
+		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalBreachCount, MAX_MAJOR_CIVS, 0);
+		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalBreachTurn, MAX_MAJOR_CIVS, 0);
 		{
 			int iVassalCount = 0;
 			MOD_SERIALIZE_READ(163, kStream, iVassalCount, 0);
@@ -32108,6 +32116,8 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalProtectHandled);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalMemorials);
 	MOD_SERIALIZE_WRITE(kStream, m_iVassalCourtPolicy);
+	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalBreachCount);
+	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalBreachTurn);
 	{
 		int iVassalCount = (int)m_vecVassals.size();
 		kStream << iVassalCount;
@@ -34314,6 +34324,42 @@ void CvPlayer::DoVassalCallToArms()
 		TeamTypes eVassalTeam = kVassal.getTeam();
 		if (eVassalTeam == NO_TEAM || eVassalTeam == eOurTeam) continue;
 
+		bool bHasUnansweredEnemy = false;
+		for (int j = 0; j < MAX_CIV_TEAMS; j++)
+		{
+			TeamTypes eEnemy = (TeamTypes)j;
+			if (eEnemy == eOurTeam || eEnemy == eVassalTeam) continue;
+			if (!GET_TEAM(eOurTeam).isAtWar(eEnemy)) continue;
+			if (GET_TEAM(eVassalTeam).isAtWar(eEnemy)) continue;
+			bHasUnansweredEnemy = true;
+			break;
+		}
+		if (!bHasUnansweredEnemy) continue;
+
+		// The execution framework decides whether the vassal answers the call.
+		// When the framework is not configured, keep the old automatic behavior.
+		bool bObey = true;
+		if (TiandaoDefineInt("TIANDAO_EXECUTION_WEIGHT_LOYALTY") > 0)
+			bObey = GetVassalExecutionTier(eVassal) >= 3;
+
+		if (!bObey)
+		{
+			int iInterval = TiandaoDefineInt("TIANDAO_BREACH_INTERVAL");
+			if (iInterval > 0)
+			{
+				if ((size_t)eVassal >= m_aiVassalBreachTurn.size())
+					m_aiVassalBreachTurn.resize(MAX_MAJOR_CIVS, 0);
+				int iTurn = GC.getGame().getGameTurn();
+				int iLast = m_aiVassalBreachTurn[eVassal];
+				if (iLast == 0 || iTurn - iLast >= iInterval)
+				{
+					ChangeVassalBreachCount(eVassal, 1);
+					m_aiVassalBreachTurn.setAt((size_t)eVassal, iTurn);
+				}
+			}
+			continue;
+		}
+
 		for (int j = 0; j < MAX_CIV_TEAMS; j++)
 		{
 			TeamTypes eEnemy = (TeamTypes)j;
@@ -34630,6 +34676,65 @@ bool CvPlayer::SetVassalCourtPolicy(int iPolicy)
 		if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) continue;
 		if (GetVassalLoyalty(eVassal) >= iMinLoyalty)
 			ChangeVassalLoyalty(eVassal, iGain);
+	}
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetVassalBreachCount(PlayerTypes eVassal) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) return 0;
+	if ((size_t)eVassal >= m_aiVassalBreachCount.size()) return 0;
+	return m_aiVassalBreachCount[eVassal];
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::ChangeVassalBreachCount(PlayerTypes eVassal, int iChange)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) return;
+	if ((size_t)eVassal >= m_aiVassalBreachCount.size())
+		m_aiVassalBreachCount.resize(MAX_MAJOR_CIVS, 0);
+
+	int iValue = m_aiVassalBreachCount[eVassal] + iChange;
+	if (iValue < 0) iValue = 0;
+	m_aiVassalBreachCount.setAt((size_t)eVassal, iValue);
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::IsVassalIncompetent(PlayerTypes eVassal) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (!IsOverlordOf(eVassal)) return false;
+
+	int iThreshold = TiandaoDefineInt("TIANDAO_BREACH_THRESHOLD");
+	if (iThreshold <= 0) return false;
+	return GetVassalBreachCount(eVassal) >= iThreshold;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::CanPunishVassal(PlayerTypes eVassal) const
+{
+	return IsVassalIncompetent(eVassal);
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::DoVassalPunish(PlayerTypes eVassal)
+{
+	if (!CanPunishVassal(eVassal)) return false;
+
+	TeamTypes eOverlordTeam = getTeam();
+	TeamTypes eVassalTeam = GET_PLAYER(eVassal).getTeam();
+
+	RemoveVassal(eVassal);
+	GET_PLAYER(eVassal).SetOverlord(NO_PLAYER);
+
+	if (eVassalTeam != NO_TEAM && eVassalTeam != eOverlordTeam
+		&& !GET_TEAM(eOverlordTeam).isAtWar(eVassalTeam)
+		&& GET_TEAM(eOverlordTeam).canDeclareWar(eVassalTeam, GetID()))
+	{
+		GET_TEAM(eOverlordTeam).declareWar(eVassalTeam, false, GetID());
 	}
 	return true;
 }

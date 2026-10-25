@@ -1994,6 +1994,11 @@ public:
 	bool DoVassalAid(PlayerTypes eVassal);
 	int GetVassalCourtPolicy() const;
 	bool SetVassalCourtPolicy(int iPolicy);
+	int GetVassalBreachCount(PlayerTypes eVassal) const;
+	void ChangeVassalBreachCount(PlayerTypes eVassal, int iChange);
+	bool IsVassalIncompetent(PlayerTypes eVassal) const;
+	bool CanPunishVassal(PlayerTypes eVassal) const;
+	bool DoVassalPunish(PlayerTypes eVassal);
 	void DoVassalLoyaltyDecay();
 	void RefreshUCFromVassals();
 	void ClearUCFromVassals();
@@ -3037,6 +3042,9 @@ protected:
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalMemorials;
 	// Court policy: 0 none, 1 military, 2 science, 3 culture, 4 economy
 	FAutoVariable<int, CvPlayer> m_iVassalCourtPolicy;
+	// Broken-obligation record: count and the turn of the last breach
+	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalBreachCount;
+	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalBreachTurn;
 	// UC caches from vassals
 	std::tr1::unordered_set<UnitTypes> m_sUUFromVassals;
 	std::tr1::unordered_set<BuildingTypes> m_sUBFromVassals;

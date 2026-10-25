@@ -1413,6 +1413,10 @@ protected:
 	LUAAPIEXTN(DoVassalAid, bool, ePlayer);
 	LUAAPIEXTN(GetVassalCourtPolicy, int);
 	LUAAPIEXTN(SetVassalCourtPolicy, bool, iPolicy);
+	LUAAPIEXTN(GetVassalBreachCount, int, ePlayer);
+	LUAAPIEXTN(IsVassalIncompetent, bool, ePlayer);
+	LUAAPIEXTN(CanPunishVassal, bool, ePlayer);
+	LUAAPIEXTN(DoVassalPunish, bool, ePlayer);
 	LUAAPIEXTN(GetScienceTimes100FromVassals, unsigned long long);
 	LUAAPIEXTN(GetCultureFromVassals, int);
 	LUAAPIEXTN(GetFaithFromVassals, int);

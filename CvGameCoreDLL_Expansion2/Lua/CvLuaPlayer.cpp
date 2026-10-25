@@ -138,6 +138,7 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lResolveVassalMemorial);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoVassalAid);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSetVassalCourtPolicy);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoVassalPunish);
 
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSetLostUC);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lChangeFreeBuildingCount);
@@ -1519,6 +1520,10 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(DoVassalAid);
 	Method(GetVassalCourtPolicy);
 	Method(SetVassalCourtPolicy);
+	Method(GetVassalBreachCount);
+	Method(IsVassalIncompetent);
+	Method(CanPunishVassal);
+	Method(DoVassalPunish);
 	Method(GetScienceTimes100FromVassals);
 	Method(GetCultureFromVassals);
 	Method(GetFaithFromVassals);
@@ -7463,6 +7468,42 @@ int CvLuaPlayer::lSetVassalCourtPolicy(lua_State* L)
 	CvPlayerAI* pkPlayer = GetInstance(L);
 	int iPolicy = lua_tointeger(L, 2);
 	lua_pushboolean(L, pkPlayer->SetVassalCourtPolicy(iPolicy));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetVassalBreachCount(PlayerTypes e);
+int CvLuaPlayer::lGetVassalBreachCount(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetVassalBreachCount(e));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool IsVassalIncompetent(PlayerTypes e);
+int CvLuaPlayer::lIsVassalIncompetent(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->IsVassalIncompetent(e));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool CanPunishVassal(PlayerTypes e);
+int CvLuaPlayer::lCanPunishVassal(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->CanPunishVassal(e));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool DoVassalPunish(PlayerTypes e);
+int CvLuaPlayer::lDoVassalPunish(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->DoVassalPunish(e));
 	return 1;
 }
 //------------------------------------------------------------------------------

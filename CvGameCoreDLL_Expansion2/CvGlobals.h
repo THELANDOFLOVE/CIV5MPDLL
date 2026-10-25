@@ -725,6 +725,7 @@ public:
 
 	// use very sparingly - this is costly
 	CvString getDefineSTRING(const char* szName, bool bReportErrors = true);
+	int getDefineINT(const char* szName, bool bReportErrors = true);
 
 	// -- ints --
 
@@ -8164,7 +8165,6 @@ protected:
 	// Formerly Global Defines
 	//////////////////////////////////////////////////////////////////////////
 
-	int getDefineINT(const char* szName, bool bReportErrors = true);
 	float getDefineFLOAT(const char* szName, bool bReportErrors = true);
 
 	bool getDefineValue(const char* szName, int& iValue, bool bReportErrors = true);

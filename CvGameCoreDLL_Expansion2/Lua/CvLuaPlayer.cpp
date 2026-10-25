@@ -130,6 +130,11 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lChangeUUFromExtra);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lChangeUBFromExtra);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lChangeUIFromExtra);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoVassalRankUp);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoVassalGift);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoVassalProtect);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoVassalMediate);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoReturnCityToVassal);
 
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSetLostUC);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lChangeFreeBuildingCount);
@@ -1485,6 +1490,19 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(IsVassalOf);
 	Method(IsOverlordOf);
 	Method(HasAnyVassal);
+	Method(GetVassalLoyalty);
+	Method(GetVassalLoyaltyCap);
+	Method(GetVassalRank);
+	Method(CanRankUpVassal);
+	Method(DoVassalRankUp);
+	Method(GetVassalGiftLoyalty);
+	Method(DoVassalGift);
+	Method(GetVassalAggressor);
+	Method(DoVassalProtect);
+	Method(CanMediateVassals);
+	Method(DoVassalMediate);
+	Method(CanReturnCityToVassal);
+	Method(DoReturnCityToVassal);
 	Method(GetScienceTimes100FromVassals);
 	Method(GetCultureFromVassals);
 	Method(GetFaithFromVassals);
@@ -7195,6 +7213,126 @@ int CvLuaPlayer::lIsOverlordOf(lua_State* L)
 int CvLuaPlayer::lHasAnyVassal(lua_State* L)
 {
 	return BasicLuaMethod(L, &CvPlayer::HasAnyVassal);
+}
+//------------------------------------------------------------------------------
+//int GetVassalLoyalty(PlayerTypes e);
+int CvLuaPlayer::lGetVassalLoyalty(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetVassalLoyalty(e));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetVassalLoyaltyCap(PlayerTypes e);
+int CvLuaPlayer::lGetVassalLoyaltyCap(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetVassalLoyaltyCap(e));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetVassalRank(PlayerTypes e);
+int CvLuaPlayer::lGetVassalRank(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetVassalRank(e));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool CanRankUpVassal(PlayerTypes e);
+int CvLuaPlayer::lCanRankUpVassal(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->CanRankUpVassal(e));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//void DoVassalRankUp(PlayerTypes e);
+int CvLuaPlayer::lDoVassalRankUp(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
+	pkPlayer->DoVassalRankUp(e);
+	return 0;
+}
+//------------------------------------------------------------------------------
+//int GetVassalGiftLoyalty(PlayerTypes e);
+int CvLuaPlayer::lGetVassalGiftLoyalty(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetVassalGiftLoyalty(e));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//void DoVassalGift(PlayerTypes e);
+int CvLuaPlayer::lDoVassalGift(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
+	pkPlayer->DoVassalGift(e);
+	return 0;
+}
+//------------------------------------------------------------------------------
+//PlayerTypes GetVassalAggressor(PlayerTypes e);
+int CvLuaPlayer::lGetVassalAggressor(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetVassalAggressor(e));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool DoVassalProtect(PlayerTypes e, bool bProtect);
+int CvLuaPlayer::lDoVassalProtect(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
+	bool bProtect = luaL_optbool(L, 3, false);
+	lua_pushboolean(L, pkPlayer->DoVassalProtect(e, bProtect));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool CanMediateVassals(PlayerTypes eA, PlayerTypes eB);
+int CvLuaPlayer::lCanMediateVassals(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes eA = (PlayerTypes)lua_tointeger(L, 2);
+	PlayerTypes eB = (PlayerTypes)lua_tointeger(L, 3);
+	lua_pushboolean(L, pkPlayer->CanMediateVassals(eA, eB));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool DoVassalMediate(PlayerTypes eA, PlayerTypes eB);
+int CvLuaPlayer::lDoVassalMediate(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes eA = (PlayerTypes)lua_tointeger(L, 2);
+	PlayerTypes eB = (PlayerTypes)lua_tointeger(L, 3);
+	lua_pushboolean(L, pkPlayer->DoVassalMediate(eA, eB));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool CanReturnCityToVassal(CvCity* pCity);
+int CvLuaPlayer::lCanReturnCityToVassal(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	CvCity* pkCity = CvLuaCity::GetInstance(L, 2);
+	lua_pushboolean(L, pkPlayer->CanReturnCityToVassal(pkCity));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool DoReturnCityToVassal(CvCity* pCity);
+int CvLuaPlayer::lDoReturnCityToVassal(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	CvCity* pkCity = CvLuaCity::GetInstance(L, 2);
+	lua_pushboolean(L, pkPlayer->DoReturnCityToVassal(pkCity));
+	return 1;
 }
 //------------------------------------------------------------------------------
 //int GetScienceTimes100FromVassals();

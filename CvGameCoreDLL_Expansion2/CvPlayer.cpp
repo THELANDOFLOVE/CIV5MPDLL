@@ -420,6 +420,10 @@ CvPlayer::CvPlayer() :
 #endif
 #if defined(MOD_GLOBAL_SUZERAIN)
 	, m_eOverlord(NO_PLAYER)
+	, m_aiVassalLoyalty("CvPlayer::m_aiVassalLoyalty", m_syncArchive)
+	, m_aiVassalRank("CvPlayer::m_aiVassalRank", m_syncArchive)
+	, m_aiVassalGiftCount("CvPlayer::m_aiVassalGiftCount", m_syncArchive)
+	, m_aiVassalProtectHandled("CvPlayer::m_aiVassalProtectHandled", m_syncArchive)
 	, m_aScienceTimes100FromVassals()
 	, m_aCultureFromVassals()
 	, m_aFaithFromVassals()
@@ -1289,6 +1293,16 @@ void CvPlayer::uninit()
 	memset(m_aiCSAllyCountByTrait, 0, sizeof(m_aiCSAllyCountByTrait));
 #endif
 	m_vecPermanentAllies.clear();
+#if defined(MOD_GLOBAL_SUZERAIN)
+	m_aiVassalLoyalty.clear();
+	m_aiVassalLoyalty.resize(MAX_MAJOR_CIVS, 0);
+	m_aiVassalRank.clear();
+	m_aiVassalRank.resize(MAX_MAJOR_CIVS, 0);
+	m_aiVassalGiftCount.clear();
+	m_aiVassalGiftCount.resize(MAX_MAJOR_CIVS, 0);
+	m_aiVassalProtectHandled.clear();
+	m_aiVassalProtectHandled.resize(MAX_MAJOR_CIVS, 0);
+#endif
 	m_iExtraUnitPlayerInstances = 0;
 	m_iConquestCasualtiesModifier = 0;
 	m_iWaterTileDamageGlobal = 0;
@@ -5444,6 +5458,16 @@ void CvPlayer::doTurn()
 	CvAssertMsg(isAlive(), "isAlive is expected to be true");
 
 	doUpdateCacheOnTurn();
+
+#if defined(MOD_GLOBAL_SUZERAIN)
+	if (MOD_GLOBAL_SUZERAIN)
+	{
+		DoVassalCallToArms();
+		ResetVassalGiftCounts();
+		ResetVassalProtectFlags();
+		DoVassalLoyaltyDecay();
+	}
+#endif
 
 #if defined(MOD_VOTING_NEW_EFFECT_FOR_SP)
 	// World Bank resolution: the treasury pays interest every N turns (10 by default),
@@ -31026,6 +31050,10 @@ void CvPlayer::Read(FDataStream& kStream)
 #endif
 #if defined(MOD_GLOBAL_SUZERAIN)
 		MOD_SERIALIZE_READ(163, kStream, m_eOverlord, NO_PLAYER);
+		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalLoyalty, MAX_MAJOR_CIVS, 0);
+		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalRank, MAX_MAJOR_CIVS, 0);
+		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalGiftCount, MAX_MAJOR_CIVS, 0);
+		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalProtectHandled, MAX_MAJOR_CIVS, 0);
 		{
 			int iVassalCount = 0;
 			MOD_SERIALIZE_READ(163, kStream, iVassalCount, 0);
@@ -31927,6 +31955,10 @@ void CvPlayer::Write(FDataStream& kStream) const
 
 #if defined(MOD_GLOBAL_SUZERAIN)
 	kStream << m_eOverlord;
+	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalLoyalty);
+	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalRank);
+	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalGiftCount);
+	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalProtectHandled);
 	{
 		int iVassalCount = (int)m_vecVassals.size();
 		kStream << iVassalCount;
@@ -33854,6 +33886,310 @@ int CvPlayer::GetExtraUnitPlayerInstances() const
 #if defined(MOD_GLOBAL_SUZERAIN)
 
 //--------------------------------------------------------------------------------
+// Reads a Tiandao balance value from Defines. A missing row reads as 0, which means
+// "feature off" for the new data columns; there is no hardcoded balance fallback.
+static int TiandaoDefineInt(const char* szName)
+{
+	return GC.getDefineINT(szName, false);
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetVassalLoyalty(PlayerTypes eVassal) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) return 0;
+	if ((size_t)eVassal >= m_aiVassalLoyalty.size()) return 0;
+	return m_aiVassalLoyalty[eVassal];
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetVassalLoyaltyCap(PlayerTypes eVassal) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	if (GetVassalRank(eVassal) > 0)
+		return TiandaoDefineInt("TIANDAO_LOYALTY_MAX_RANKED");
+	return TiandaoDefineInt("TIANDAO_LOYALTY_MAX_UNRANKED");
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::SetVassalLoyalty(PlayerTypes eVassal, int iValue)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) return;
+	if ((size_t)eVassal >= m_aiVassalLoyalty.size())
+		m_aiVassalLoyalty.resize(MAX_MAJOR_CIVS, 0);
+
+	int iCap = GetVassalLoyaltyCap(eVassal);
+	if (iValue < 0) iValue = 0;
+	if (iValue > iCap) iValue = iCap;
+	m_aiVassalLoyalty.setAt((size_t)eVassal, iValue);
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::ChangeVassalLoyalty(PlayerTypes eVassal, int iDelta)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (iDelta == 0) return;
+	SetVassalLoyalty(eVassal, GetVassalLoyalty(eVassal) + iDelta);
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetVassalRank(PlayerTypes eVassal) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) return 0;
+	if ((size_t)eVassal >= m_aiVassalRank.size()) return 0;
+	return m_aiVassalRank[eVassal];
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::SetVassalRank(PlayerTypes eVassal, int iRank)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) return;
+	if ((size_t)eVassal >= m_aiVassalRank.size())
+		m_aiVassalRank.resize(MAX_MAJOR_CIVS, 0);
+
+	if (iRank < 0) iRank = 0;
+	m_aiVassalRank.setAt((size_t)eVassal, iRank);
+
+	// Promote/demote may change the cap; re-clamp the current loyalty.
+	SetVassalLoyalty(eVassal, GetVassalLoyalty(eVassal));
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::CanRankUpVassal(PlayerTypes eVassal) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (!IsOverlordOf(eVassal)) return false;
+	return GetVassalRank(eVassal) == 0;
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::DoVassalRankUp(PlayerTypes eVassal)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (!CanRankUpVassal(eVassal)) return;
+
+	// TODO: consume Mandate here once the Mandate system is implemented.
+	SetVassalRank(eVassal, 1);
+	ChangeVassalLoyalty(eVassal, TiandaoDefineInt("TIANDAO_LOYALTY_RANK"));
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetVassalGiftLoyalty(PlayerTypes eVassal) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	if (!IsOverlordOf(eVassal)) return 0;
+	if ((size_t)eVassal >= m_aiVassalGiftCount.size()) return 0;
+
+	int iGift = TiandaoDefineInt("TIANDAO_LOYALTY_GIFT");
+	if (iGift <= 0) return 0;
+
+	int iStep = TiandaoDefineInt("TIANDAO_LOYALTY_GIFT_DECAY");
+	int iLoyalty = iGift - iStep * m_aiVassalGiftCount[eVassal];
+	return iLoyalty > 0 ? iLoyalty : 0;
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::DoVassalGift(PlayerTypes eVassal)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (!IsOverlordOf(eVassal)) return;
+	if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) return;
+	if ((size_t)eVassal >= m_aiVassalGiftCount.size())
+		m_aiVassalGiftCount.resize(MAX_MAJOR_CIVS, 0);
+
+	ChangeVassalLoyalty(eVassal, GetVassalGiftLoyalty(eVassal));
+	m_aiVassalGiftCount.setAt((size_t)eVassal, m_aiVassalGiftCount[eVassal] + 1);
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::ResetVassalGiftCounts()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	for (size_t i = 0; i < m_aiVassalGiftCount.size(); i++)
+	{
+		if (m_aiVassalGiftCount[i] != 0)
+			m_aiVassalGiftCount.setAt(i, 0);
+	}
+}
+
+//--------------------------------------------------------------------------------
+PlayerTypes CvPlayer::GetVassalAggressor(PlayerTypes eVassal) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return NO_PLAYER;
+	if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) return NO_PLAYER;
+	if (!IsOverlordOf(eVassal)) return NO_PLAYER;
+
+	TeamTypes eVassalTeam = GET_PLAYER(eVassal).getTeam();
+	TeamTypes eOurTeam = getTeam();
+	if (eVassalTeam == NO_TEAM || eVassalTeam == eOurTeam) return NO_PLAYER;
+
+	for (int i = 0; i < MAX_CIV_TEAMS; i++)
+	{
+		TeamTypes eTeam = (TeamTypes)i;
+		if (eTeam == eVassalTeam || eTeam == eOurTeam) continue;
+		if (!GET_TEAM(eVassalTeam).isAtWar(eTeam)) continue;
+		PlayerTypes eLeader = GET_TEAM(eTeam).getLeaderID();
+		if (eLeader != NO_PLAYER)
+			return eLeader;
+	}
+	return NO_PLAYER;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::DoVassalProtect(PlayerTypes eVassal, bool bProtect)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (!IsOverlordOf(eVassal)) return false;
+	if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) return false;
+	if ((size_t)eVassal >= m_aiVassalProtectHandled.size())
+		m_aiVassalProtectHandled.resize(MAX_MAJOR_CIVS, 0);
+	if (m_aiVassalProtectHandled[eVassal] != 0) return false;
+
+	PlayerTypes eAggressor = GetVassalAggressor(eVassal);
+	if (eAggressor == NO_PLAYER) return false;
+
+	if (bProtect)
+	{
+		TeamTypes eAggressorTeam = GET_PLAYER(eAggressor).getTeam();
+		if (!GET_TEAM(getTeam()).isAtWar(eAggressorTeam))
+		{
+			if (!GET_TEAM(getTeam()).canDeclareWar(eAggressorTeam, GetID()))
+				return false;
+			GET_TEAM(getTeam()).declareWar(eAggressorTeam, false, GetID());
+		}
+		ChangeVassalLoyalty(eVassal, TiandaoDefineInt("TIANDAO_LOYALTY_PROTECT"));
+	}
+	else
+	{
+		ChangeVassalLoyalty(eVassal, TiandaoDefineInt("TIANDAO_LOYALTY_FAIL_PROTECT"));
+	}
+
+	m_aiVassalProtectHandled.setAt((size_t)eVassal, 1);
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::ResetVassalProtectFlags()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	for (size_t i = 0; i < m_aiVassalProtectHandled.size(); i++)
+	{
+		if (m_aiVassalProtectHandled[i] == 0) continue;
+		PlayerTypes eVassal = (PlayerTypes)i;
+		if (GetVassalAggressor(eVassal) == NO_PLAYER)
+			m_aiVassalProtectHandled.setAt(i, 0);
+	}
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::CanMediateVassals(PlayerTypes eA, PlayerTypes eB) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (eA == eB) return false;
+	if (eA < 0 || eA >= MAX_MAJOR_CIVS) return false;
+	if (eB < 0 || eB >= MAX_MAJOR_CIVS) return false;
+	if (!IsOverlordOf(eA) || !IsOverlordOf(eB)) return false;
+
+	TeamTypes eTeamA = GET_PLAYER(eA).getTeam();
+	TeamTypes eTeamB = GET_PLAYER(eB).getTeam();
+	if (eTeamA == NO_TEAM || eTeamB == NO_TEAM || eTeamA == eTeamB) return false;
+	if (!GET_TEAM(eTeamA).isAtWar(eTeamB)) return false;
+	return GET_TEAM(eTeamA).canChangeWarPeace(eTeamB);
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::DoVassalMediate(PlayerTypes eA, PlayerTypes eB)
+{
+	if (!CanMediateVassals(eA, eB)) return false;
+
+	TeamTypes eTeamA = GET_PLAYER(eA).getTeam();
+	TeamTypes eTeamB = GET_PLAYER(eB).getTeam();
+	GET_TEAM(eTeamA).makePeace(eTeamB, true, false, GetID());
+
+	ChangeVassalLoyalty(eA, TiandaoDefineInt("TIANDAO_LOYALTY_MEDIATE"));
+	ChangeVassalLoyalty(eB, TiandaoDefineInt("TIANDAO_LOYALTY_MEDIATE"));
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::CanReturnCityToVassal(CvCity* pCity) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (pCity == NULL) return false;
+	if (pCity->getOwner() != GetID()) return false;
+
+	PlayerTypes eVassal = pCity->getPreviousOwner();
+	if (eVassal == NO_PLAYER) return false;
+	if (!IsOverlordOf(eVassal)) return false;
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::DoReturnCityToVassal(CvCity* pCity)
+{
+	if (!CanReturnCityToVassal(pCity)) return false;
+
+	PlayerTypes eVassal = pCity->getPreviousOwner();
+	GET_PLAYER(eVassal).acquireCity(pCity, false, true);
+	ChangeVassalLoyalty(eVassal, TiandaoDefineInt("TIANDAO_LOYALTY_RETURN_CITY"));
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::DoVassalCallToArms()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (m_vecVassals.empty()) return;
+
+	TeamTypes eOurTeam = getTeam();
+	for (size_t i = 0; i < m_vecVassals.size(); i++)
+	{
+		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
+		if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) continue;
+		CvPlayer& kVassal = GET_PLAYER(eVassal);
+		if (!kVassal.isAlive()) continue;
+
+		TeamTypes eVassalTeam = kVassal.getTeam();
+		if (eVassalTeam == NO_TEAM || eVassalTeam == eOurTeam) continue;
+
+		for (int j = 0; j < MAX_CIV_TEAMS; j++)
+		{
+			TeamTypes eEnemy = (TeamTypes)j;
+			if (eEnemy == eOurTeam || eEnemy == eVassalTeam) continue;
+			if (!GET_TEAM(eOurTeam).isAtWar(eEnemy)) continue;
+			if (GET_TEAM(eVassalTeam).isAtWar(eEnemy)) continue;
+			if (!GET_TEAM(eVassalTeam).canDeclareWar(eEnemy, eVassal)) continue;
+			GET_TEAM(eVassalTeam).declareWar(eEnemy, false, eVassal);
+		}
+	}
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::DoVassalLoyaltyDecay()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (m_vecVassals.empty()) return;
+
+	int iInterval = TiandaoDefineInt("TIANDAO_LOYALTY_DECAY_INTERVAL");
+	if (iInterval <= 0) return; // 0 or missing = decay disabled
+
+	int iAmount = TiandaoDefineInt("TIANDAO_LOYALTY_DECAY_AMOUNT");
+	if (iAmount <= 0) return; // 0 or missing = decay disabled
+
+	if ((GC.getGame().getGameTurn() % iInterval) != 0) return;
+
+	for (size_t i = 0; i < m_vecVassals.size(); i++)
+	{
+		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
+		if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) continue;
+		ChangeVassalLoyalty(eVassal, -iAmount);
+	}
+}
+
+//--------------------------------------------------------------------------------
 PlayerTypes CvPlayer::GetOverlord() const
 {
 	return m_eOverlord;
@@ -33999,7 +34335,7 @@ void CvPlayer::UpdateVassalTaxation()
 		CvPlayer& v = GET_PLAYER(e);
 		if (!v.isAlive()) continue;
 		int iTaxPercent = pRes->GetEffects()->iVassalTaxPercent;
-		if (iTaxPercent <= 0) iTaxPercent = 25;
+		if (iTaxPercent <= 0) continue; // no configured rate = no tax
 		// Taxes are levied on gross output. The vassal's per-turn getters already net out its own
 		// downstream vassal taxes, so re-adding the amount it pays to us makes the base "tax-on-tax":
 		// a vassal tithes a share of everything it produces, including what it receives from its own
@@ -34143,7 +34479,7 @@ int CvPlayer::GetVassalTaxPercentFor(PlayerTypes eVassal) const
 		if ((PlayerTypes)pRes->GetProposerDecision()->GetDecision() != eVassal) continue;
 		if (!pRes->GetEffects()->bVassalTaxGold) continue;
 		int iTaxPercent = pRes->GetEffects()->iVassalTaxPercent;
-		return (iTaxPercent > 0) ? iTaxPercent : 25;
+		return (iTaxPercent > 0) ? iTaxPercent : 0;
 	}
 	return 0;
 }

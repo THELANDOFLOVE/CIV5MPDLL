@@ -1946,6 +1946,27 @@ public:
 	const std::vector<int>& GetVassals() const;
 	void AddVassal(PlayerTypes e);
 	void RemoveVassal(PlayerTypes e);
+	// Loyalty: willingness to stay, capped by rank
+	int GetVassalLoyalty(PlayerTypes eVassal) const;
+	void SetVassalLoyalty(PlayerTypes eVassal, int iValue);
+	void ChangeVassalLoyalty(PlayerTypes eVassal, int iDelta);
+	int GetVassalLoyaltyCap(PlayerTypes eVassal) const;
+	int GetVassalRank(PlayerTypes eVassal) const;
+	void SetVassalRank(PlayerTypes eVassal, int iRank);
+	bool CanRankUpVassal(PlayerTypes eVassal) const;
+	void DoVassalRankUp(PlayerTypes eVassal);
+	int GetVassalGiftLoyalty(PlayerTypes eVassal) const;
+	void DoVassalGift(PlayerTypes eVassal);
+	void ResetVassalGiftCounts();
+	PlayerTypes GetVassalAggressor(PlayerTypes eVassal) const;
+	bool DoVassalProtect(PlayerTypes eVassal, bool bProtect);
+	void ResetVassalProtectFlags();
+	bool CanMediateVassals(PlayerTypes eA, PlayerTypes eB) const;
+	bool DoVassalMediate(PlayerTypes eA, PlayerTypes eB);
+	bool CanReturnCityToVassal(CvCity* pCity) const;
+	bool DoReturnCityToVassal(CvCity* pCity);
+	void DoVassalCallToArms();
+	void DoVassalLoyaltyDecay();
 	void RefreshUCFromVassals();
 	void ClearUCFromVassals();
 	std::tr1::unordered_set<UnitTypes>& GetUUFromVassals();
@@ -2968,6 +2989,13 @@ protected:
 	// Vassal suzerain relationship
 	PlayerTypes m_eOverlord;
 	std::vector<int> m_vecVassals;
+	// Loyalty and rank per vassal, indexed by vassal player id
+	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalLoyalty;
+	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalRank;
+	// Gifts given this turn, used for the diminishing return
+	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalGiftCount;
+	// 1 while the current war on a vassal has already been answered
+	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalProtectHandled;
 	// UC caches from vassals
 	std::tr1::unordered_set<UnitTypes> m_sUUFromVassals;
 	std::tr1::unordered_set<BuildingTypes> m_sUBFromVassals;

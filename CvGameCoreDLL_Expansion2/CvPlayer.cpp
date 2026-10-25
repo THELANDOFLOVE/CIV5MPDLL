@@ -5471,6 +5471,7 @@ void CvPlayer::doTurn()
 		ResetVassalGiftCounts();
 		ResetVassalProtectFlags();
 		DoVassalLoyaltyDecay();
+		DoVassalRevoltCheck();
 	}
 #endif
 
@@ -34335,6 +34336,76 @@ int CvPlayer::GetVassalExecutionTier(PlayerTypes eVassal) const
 }
 
 //--------------------------------------------------------------------------------
+// Revolt pressure combines the will to leave (low loyalty) with the ability to
+// dare (military share). There is no third-party patron and no garrison mechanic.
+int CvPlayer::GetVassalRevoltScore(PlayerTypes eVassal) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	if (!IsOverlordOf(eVassal)) return 0;
+
+	int iLoyaltyWeight = TiandaoDefineInt("TIANDAO_REVOLT_LOYALTY_WEIGHT");
+	int iMilitaryWeight = TiandaoDefineInt("TIANDAO_REVOLT_MILITARY_WEIGHT");
+	if (iLoyaltyWeight <= 0 && iMilitaryWeight <= 0) return 0;
+
+	int iScore = (100 - GetVassalLoyalty(eVassal)) * iLoyaltyWeight;
+
+	if (iMilitaryWeight > 0)
+	{
+		int iOurMight = GetMilitaryMight();
+		int iVassalMight = GET_PLAYER(eVassal).GetMilitaryMight();
+		int iTotalMight = iOurMight + iVassalMight;
+		if (iTotalMight > 0)
+			iScore += (iVassalMight * 100 / iTotalMight) * iMilitaryWeight;
+	}
+	return iScore;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::CanVassalRevolt(PlayerTypes eVassal) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (!IsOverlordOf(eVassal)) return false;
+
+	int iThreshold = TiandaoDefineInt("TIANDAO_REVOLT_THRESHOLD");
+	if (iThreshold <= 0) return false;
+	return GetVassalRevoltScore(eVassal) >= iThreshold;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::DoVassalRevolt(PlayerTypes eVassal)
+{
+	if (!CanVassalRevolt(eVassal)) return false;
+
+	TeamTypes eOverlordTeam = getTeam();
+	TeamTypes eVassalTeam = GET_PLAYER(eVassal).getTeam();
+
+	RemoveVassal(eVassal);
+	GET_PLAYER(eVassal).SetOverlord(NO_PLAYER);
+
+	if (eVassalTeam != NO_TEAM && eVassalTeam != eOverlordTeam
+		&& !GET_TEAM(eVassalTeam).isAtWar(eOverlordTeam)
+		&& GET_TEAM(eVassalTeam).canDeclareWar(eOverlordTeam, eVassal))
+	{
+		GET_TEAM(eVassalTeam).declareWar(eOverlordTeam, false, eVassal);
+	}
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::DoVassalRevoltCheck()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (m_vecVassals.empty()) return;
+
+	for (size_t i = m_vecVassals.size(); i > 0; i--)
+	{
+		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i - 1];
+		if (CanVassalRevolt(eVassal))
+			DoVassalRevolt(eVassal);
+	}
+}
+
+//--------------------------------------------------------------------------------
 void CvPlayer::DoVassalLoyaltyDecay()
 {
 	if (!MOD_GLOBAL_SUZERAIN) return;
@@ -34433,6 +34504,16 @@ void CvPlayer::RemoveVassal(PlayerTypes e)
 	m_aCultureFromVassals[e] = 0;
 	m_aFaithFromVassals[e] = 0;
 	m_aGoldFromVassals[e] = 0;
+
+	// Clear per-vassal loyalty state so a later re-submission starts from zero.
+	if ((size_t)e < m_aiVassalLoyalty.size())
+		m_aiVassalLoyalty.setAt((size_t)e, 0);
+	if ((size_t)e < m_aiVassalRank.size())
+		m_aiVassalRank.setAt((size_t)e, 0);
+	if ((size_t)e < m_aiVassalGiftCount.size())
+		m_aiVassalGiftCount.setAt((size_t)e, 0);
+	if ((size_t)e < m_aiVassalProtectHandled.size())
+		m_aiVassalProtectHandled.setAt((size_t)e, 0);
 }
 
 //--------------------------------------------------------------------------------

@@ -1504,6 +1504,8 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(CanReturnCityToVassal);
 	Method(DoReturnCityToVassal);
 	Method(GetVassalExecutionTier);
+	Method(GetVassalRevoltScore);
+	Method(CanVassalRevolt);
 	Method(GetScienceTimes100FromVassals);
 	Method(GetCultureFromVassals);
 	Method(GetFaithFromVassals);
@@ -7342,6 +7344,24 @@ int CvLuaPlayer::lGetVassalExecutionTier(lua_State* L)
 	CvPlayerAI* pkPlayer = GetInstance(L);
 	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
 	lua_pushinteger(L, pkPlayer->GetVassalExecutionTier(e));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetVassalRevoltScore(PlayerTypes e);
+int CvLuaPlayer::lGetVassalRevoltScore(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetVassalRevoltScore(e));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool CanVassalRevolt(PlayerTypes e);
+int CvLuaPlayer::lCanVassalRevolt(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->CanVassalRevolt(e));
 	return 1;
 }
 //------------------------------------------------------------------------------

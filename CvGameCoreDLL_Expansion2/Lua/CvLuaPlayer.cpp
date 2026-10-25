@@ -143,6 +143,7 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoQifeng);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoRangzai);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoTianfa);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoVassalGreatTribute);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoMandateVictory);
 
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSetLostUC);
@@ -1540,6 +1541,8 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(DoRangzai);
 	Method(CanTianfa);
 	Method(DoTianfa);
+	Method(CanVassalGreatTribute);
+	Method(DoVassalGreatTribute);
 	Method(IsUnderMandatePunishment);
 	Method(GetPunishBy);
 	Method(CanMandateVictory);
@@ -7614,6 +7617,24 @@ int CvLuaPlayer::lDoTianfa(lua_State* L)
 	CvPlayerAI* pkPlayer = GetInstance(L);
 	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
 	lua_pushboolean(L, pkPlayer->DoTianfa(e));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool CanVassalGreatTribute(PlayerTypes e);
+int CvLuaPlayer::lCanVassalGreatTribute(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->CanVassalGreatTribute(e));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool DoVassalGreatTribute(PlayerTypes e);
+int CvLuaPlayer::lDoVassalGreatTribute(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->DoVassalGreatTribute(e));
 	return 1;
 }
 //------------------------------------------------------------------------------

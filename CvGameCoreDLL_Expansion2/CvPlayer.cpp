@@ -11581,6 +11581,21 @@ int CvPlayer::calculateResearchModifier(TechTypes eTech)
 				iModifier = std::max(1, iModifier - std::min(99, iVassalsKnowingTech * iDiscountPerVassal));
 		}
 	}
+
+	// Teachings of the Son of Heaven: a vassal researches faster for technologies
+	// its overlord already knows. The discount is a Defines value so balance can be
+	// tuned without rebuilding.
+	if (GetOverlord() != NO_PLAYER)
+	{
+		CvPlayer& kOverlord = GET_PLAYER(GetOverlord());
+		if (kOverlord.isAlive()
+			&& GET_TEAM(kOverlord.getTeam()).GetTeamTechs()->HasTech(eTech))
+		{
+			int iTeachingDiscount = GC.getDefineINT("TIANDAO_TEACHING_DISCOUNT", false);
+			if (iTeachingDiscount > 0)
+				iModifier = std::max(1, iModifier - std::min(99, iTeachingDiscount));
+		}
+	}
 #endif
 
 	return iModifier;
@@ -11593,7 +11608,9 @@ void CvPlayer::DoVassalLevy()
 	CvCity* pCapital = getCapitalCity();
 	if (!isAlive() || !isMajorCiv() || !HasAnyVassal() || pCapital == NULL)
 		return;
-	const int iInterval = std::max(1, (10 * GC.getGame().getGameSpeedInfo().getTrainPercent()) / 100);
+	int iBaseInterval = GC.getDefineINT("TIANDAO_LEVY_INTERVAL", false);
+	if (iBaseInterval <= 0) return; // not configured = levy off
+	const int iInterval = std::max(1, (iBaseInterval * GC.getGame().getGameSpeedInfo().getTrainPercent()) / 100);
 	if (GC.getGame().getGameTurn() <= 0 || GC.getGame().getGameTurn() % iInterval != 0)
 		return;
 

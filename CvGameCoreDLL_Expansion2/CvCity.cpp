@@ -14142,9 +14142,14 @@ int CvCity::getBaseYieldRateModifier(YieldTypes eIndex, int iExtra, CvString* to
 
 #if defined(MOD_GLOBAL_SUZERAIN)
 	// Mandate punishment: the punished civ's cities lose a share of food and production.
-	if (owner.IsUnderMandatePunishment() && (eIndex == YIELD_FOOD || eIndex == YIELD_PRODUCTION))
+	if (owner.IsUnderMandatePunishment())
 	{
-		int iPenalty = GC.getDefineINT("TIANDAO_MANDATE_TIANFA_YIELD_PERCENT", false);
+		int iPenalty = 0;
+		if (eIndex == YIELD_FOOD)
+			iPenalty = GC.getDefineINT("TIANDAO_MANDATE_TIANFA_FOOD_PERCENT", false);
+		else if (eIndex == YIELD_PRODUCTION)
+			iPenalty = GC.getDefineINT("TIANDAO_MANDATE_TIANFA_PRODUCTION_PERCENT", false);
+
 		if (iPenalty > 0)
 			iModifier -= iPenalty;
 	}

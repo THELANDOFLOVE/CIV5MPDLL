@@ -14639,6 +14639,17 @@ int CvPlayer::DoUpdateTotalUnhappiness(CvCity* pAssumeCityAnnexed, CvCity* pAssu
 		iUnhappiness *= GC.getGame().getHandicapInfo().getAIUnhappinessPercent();
 		iUnhappiness /= 100;
 	}
+
+#if defined(MOD_GLOBAL_SUZERAIN)
+	// Mandate punishment: a flat unhappiness penalty on top of the percentage mod.
+	if (IsUnderMandatePunishment())
+	{
+		int iFixedUnhappiness = GC.getDefineINT("TIANDAO_MANDATE_TIANFA_UNHAPPINESS", false);
+		if (iFixedUnhappiness > 0)
+			iUnhappiness += iFixedUnhappiness;
+	}
+#endif
+
 	SetUnhappiness(iUnhappiness);
 	return iUnhappiness;
 }
@@ -34984,11 +34995,25 @@ bool CvPlayer::DoTianfa(PlayerTypes eTarget)
 	kTarget.m_iPunishEndTurn = GC.getGame().getGameTurn() + iTurns;
 	kTarget.m_iPunishBy = GetID();
 
-	int iUnhappiness = TiandaoDefineInt("TIANDAO_MANDATE_TIANFA_UNHAPPINESS");
-	if (iUnhappiness != 0)
+	int iUnhappinessPercent = TiandaoDefineInt("TIANDAO_MANDATE_TIANFA_UNHAPPINESS_PERCENT");
+	if (iUnhappinessPercent != 0)
 	{
-		kTarget.ChangeUnhappinessMod(iUnhappiness);
-		kTarget.m_iPunishUnhappiness = iUnhappiness;
+		kTarget.ChangeUnhappinessMod(iUnhappinessPercent);
+		kTarget.m_iPunishUnhappiness = iUnhappinessPercent;
+	}
+
+	int iFood = TiandaoDefineInt("TIANDAO_MANDATE_TIANFA_FOOD");
+	int iProduction = TiandaoDefineInt("TIANDAO_MANDATE_TIANFA_PRODUCTION");
+	kTarget.m_iPunishFood = iFood;
+	kTarget.m_iPunishProduction = iProduction;
+
+	int iLoop = 0;
+	for (CvCity* pCity = kTarget.firstCity(&iLoop); pCity != NULL; pCity = kTarget.nextCity(&iLoop))
+	{
+		if (iFood != 0)
+			pCity->ChangeBaseYieldRateFromMisc(YIELD_FOOD, -iFood);
+		if (iProduction != 0)
+			pCity->ChangeBaseYieldRateFromMisc(YIELD_PRODUCTION, -iProduction);
 	}
 
 	int iCSInfluence = TiandaoDefineInt("TIANDAO_MANDATE_TIANFA_CS_INFLUENCE");
@@ -35056,6 +35081,15 @@ void CvPlayer::DoMandatePunishmentTurn()
 
 	if (m_iPunishUnhappiness != 0)
 		ChangeUnhappinessMod(-m_iPunishUnhappiness);
+
+	int iLoop = 0;
+	for (CvCity* pCity = firstCity(&iLoop); pCity != NULL; pCity = nextCity(&iLoop))
+	{
+		if (m_iPunishFood != 0)
+			pCity->ChangeBaseYieldRateFromMisc(YIELD_FOOD, m_iPunishFood);
+		if (m_iPunishProduction != 0)
+			pCity->ChangeBaseYieldRateFromMisc(YIELD_PRODUCTION, m_iPunishProduction);
+	}
 
 	m_iPunishEndTurn = 0;
 	m_iPunishBy = NO_PLAYER;

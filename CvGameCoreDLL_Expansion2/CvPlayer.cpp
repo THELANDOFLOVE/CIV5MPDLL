@@ -35625,9 +35625,10 @@ void CvPlayer::DoSeekProtectionTurn()
 }
 
 //--------------------------------------------------------------------------------
-// A war that has dragged on long enough for the target to lose its original
+// A war that has dragged on long enough for us to hold the target's original
 // capital, with an overwhelming power gap, ends with the loser submitting as a
-// vassal. Human targets are exempt.
+// vassal. The capital stays in our hands; the overlord may later return it via
+// DoReturnCityToVassal for loyalty. Human targets are exempt.
 void CvPlayer::DoSubjugateTurn()
 {
 	if (!MOD_GLOBAL_SUZERAIN) return;
@@ -35649,7 +35650,13 @@ void CvPlayer::DoSubjugateTurn()
 		if (!GET_TEAM(getTeam()).isAtWar(kTarget.getTeam())) continue;
 		if (!GET_TEAM(getTeam()).canChangeWarPeace(kTarget.getTeam())) continue;
 
-		if (!kTarget.IsHasLostCapital()) continue;
+		// We must be holding the target's original capital right now. The capital
+		// remains ours after submission, so the overlord can return it afterwards.
+		int iCapitalX = kTarget.GetOriginalCapitalX();
+		int iCapitalY = kTarget.GetOriginalCapitalY();
+		if (iCapitalX < 0 || iCapitalY < 0) continue;
+		CvPlot* pOriginalCapital = GC.getMap().plot(iCapitalX, iCapitalY);
+		if (pOriginalCapital == NULL || pOriginalCapital->getOwner() != GetID()) continue;
 		if (GetDiplomacyAI()->GetPlayerNumTurnsAtWar(eTarget) < iTurns) continue;
 		if (GetMilitaryMight() * 100 < kTarget.GetMilitaryMight() * iMilPercent) continue;
 

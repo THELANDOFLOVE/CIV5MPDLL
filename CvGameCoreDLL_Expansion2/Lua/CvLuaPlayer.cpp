@@ -148,6 +148,7 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoSubjugate);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSubmitPrayer);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lResolvePrayer);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lChoosePrayerTech);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoEmbargoResource);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoFengshan);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoQifeng);
@@ -1577,6 +1578,11 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(GetPrayerGold);
 	Method(GetPrayerWish);
 	Method(GetPrayerChance);
+	Method(GetPrayerChanceForInvestment);
+	Method(GetPrayerFreeTechs);
+	Method(GetPrayerTechOptionCount);
+	Method(GetPrayerTechOption);
+	Method(ChoosePrayerTech);
 	Method(ResolvePrayer);
 	Method(GetPrayerDenyStreak);
 	Method(CanEmbargoResource);
@@ -7915,6 +7921,49 @@ int CvLuaPlayer::lGetPrayerDenyStreak(lua_State* L)
 	CvPlayerAI* pkPlayer = GetInstance(L);
 	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
 	lua_pushinteger(L, pkPlayer->GetPrayerDenyStreak(e));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetPrayerChanceForInvestment(int iTotal);
+int CvLuaPlayer::lGetPrayerChanceForInvestment(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	int iTotal = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetPrayerChanceForInvestment(iTotal));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetPrayerFreeTechs();
+int CvLuaPlayer::lGetPrayerFreeTechs(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->GetPrayerFreeTechs());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetPrayerTechOptionCount();
+int CvLuaPlayer::lGetPrayerTechOptionCount(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->GetPrayerTechOptionCount());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetPrayerTechOption(int iIndex);
+int CvLuaPlayer::lGetPrayerTechOption(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	int iIndex = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetPrayerTechOption(iIndex));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool ChoosePrayerTech(TechTypes eTech);
+int CvLuaPlayer::lChoosePrayerTech(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	TechTypes eTech = (TechTypes)lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->ChoosePrayerTech(eTech));
 	return 1;
 }
 //------------------------------------------------------------------------------

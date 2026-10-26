@@ -2093,6 +2093,11 @@ public:
 	int GetPrayerGold(int iIndex) const;
 	int GetPrayerWish(int iIndex) const;
 	int GetPrayerChance(int iIndex) const;
+	int GetPrayerChanceForInvestment(int iTotal) const;
+	int GetPrayerFreeTechs() const { return m_iPrayerFreeTechs; }
+	int GetPrayerTechOptionCount() const;
+	int GetPrayerTechOption(int iIndex) const;
+	bool ChoosePrayerTech(TechTypes eTech);
 	bool ResolvePrayer(int iIndex, bool bGrant);
 	int GetPrayerDenyStreak(PlayerTypes eVassal) const;
 	int GetPrayerPolicyCostModifier() const { return m_iPrayerPolicyCostModifier; }
@@ -3195,6 +3200,7 @@ protected:
 	int m_iPrayerPolicyCostModifier;
 	int m_iPrayerHappinessEndTurn;
 	int m_iPrayerCorruptionTurns;
+	int m_iPrayerFreeTechs;
 	// Per-turn tax paid to our overlord (vassal side)
 	unsigned long long m_iScienceTimes100ToOverlord;
 	int m_iCultureToOverlord;

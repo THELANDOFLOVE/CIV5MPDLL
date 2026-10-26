@@ -1455,6 +1455,11 @@ protected:
 	LUAAPIEXTN(GetPrayerGold, int, iIndex);
 	LUAAPIEXTN(GetPrayerWish, int, iIndex);
 	LUAAPIEXTN(GetPrayerChance, int, iIndex);
+	LUAAPIEXTN(GetPrayerChanceForInvestment, int, iTotal);
+	LUAAPIEXTN(GetPrayerFreeTechs, int);
+	LUAAPIEXTN(GetPrayerTechOptionCount, int);
+	LUAAPIEXTN(GetPrayerTechOption, int, iIndex);
+	LUAAPIEXTN(ChoosePrayerTech, bool, eTech);
 	LUAAPIEXTN(ResolvePrayer, bool, iIndex, bGrant);
 	LUAAPIEXTN(GetPrayerDenyStreak, int, ePlayer);
 	LUAAPIEXTN(CanEmbargoResource, bool, ePlayer, eResource);

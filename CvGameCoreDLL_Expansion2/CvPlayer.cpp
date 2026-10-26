@@ -440,6 +440,7 @@ CvPlayer::CvPlayer() :
 	, m_iPrayerPolicyCostModifier(0)
 	, m_iPrayerHappinessEndTurn(0)
 	, m_iPrayerCorruptionTurns(0)
+	, m_iPrayerFreeTechs(0)
 	, m_iPunishEndTurn("CvPlayer::m_iPunishEndTurn", m_syncArchive)
 	, m_iPunishBy("CvPlayer::m_iPunishBy", m_syncArchive)
 	, m_iPunishUnhappiness("CvPlayer::m_iPunishUnhappiness", m_syncArchive)
@@ -1350,6 +1351,7 @@ void CvPlayer::uninit()
 	m_iPrayerPolicyCostModifier = 0;
 	m_iPrayerHappinessEndTurn = 0;
 	m_iPrayerCorruptionTurns = 0;
+	m_iPrayerFreeTechs = 0;
 	m_iBlessingFood = 0;
 	m_iBlessingProduction = 0;
 	m_iBlessingCulture = 0;
@@ -31343,6 +31345,7 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ(165, kStream, m_iPrayerPolicyCostModifier, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iPrayerHappinessEndTurn, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iPrayerCorruptionTurns, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iPrayerFreeTechs, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iPunishEndTurn, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iPunishBy, NO_PLAYER);
 		MOD_SERIALIZE_READ(165, kStream, m_iPunishUnhappiness, 0);
@@ -32299,6 +32302,7 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE(kStream, m_iPrayerPolicyCostModifier);
 	MOD_SERIALIZE_WRITE(kStream, m_iPrayerHappinessEndTurn);
 	MOD_SERIALIZE_WRITE(kStream, m_iPrayerCorruptionTurns);
+	MOD_SERIALIZE_WRITE(kStream, m_iPrayerFreeTechs);
 	MOD_SERIALIZE_WRITE(kStream, m_iPunishEndTurn);
 	MOD_SERIALIZE_WRITE(kStream, m_iPunishBy);
 	MOD_SERIALIZE_WRITE(kStream, m_iPunishUnhappiness);
@@ -34644,22 +34648,27 @@ int CvPlayer::GetPrayerWish(int iIndex) const
 }
 
 //--------------------------------------------------------------------------------
-int CvPlayer::GetPrayerChance(int iIndex) const
+int CvPlayer::GetPrayerChanceForInvestment(int iTotal) const
 {
-	if (iIndex < 0 || iIndex >= (int)m_vPrayerRequests.size()) return 0;
-	const TiandaoPrayerRequest& req = m_vPrayerRequests[iIndex];
-
-	int iTotal = req.iScience + req.iCulture + req.iFaith + req.iGold;
 	int iBase = TiandaoDefineInt("TIANDAO_PRAYER_CHANCE_BASE");
 	int iUnit = TiandaoDefineInt("TIANDAO_PRAYER_INVEST_UNIT");
 	int iMax = TiandaoDefineInt("TIANDAO_PRAYER_CHANCE_MAX");
 	if (iBase <= 0) iBase = 40;
-	if (iUnit <= 0) iUnit = 25;
+	if (iUnit <= 0) iUnit = 200;
 	if (iMax <= 0) iMax = 60;
 
 	int iChance = iBase + iTotal / iUnit;
 	if (iChance > iMax) iChance = iMax;
+	if (iChance < 0) iChance = 0;
 	return iChance;
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetPrayerChance(int iIndex) const
+{
+	if (iIndex < 0 || iIndex >= (int)m_vPrayerRequests.size()) return 0;
+	const TiandaoPrayerRequest& req = m_vPrayerRequests[iIndex];
+	return GetPrayerChanceForInvestment(req.iScience + req.iCulture + req.iFaith + req.iGold);
 }
 
 //--------------------------------------------------------------------------------
@@ -34668,6 +34677,50 @@ int CvPlayer::GetPrayerDenyStreak(PlayerTypes eVassal) const
 	if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) return 0;
 	if ((size_t)eVassal >= m_aiPrayerDenyStreak.size()) return 0;
 	return m_aiPrayerDenyStreak[eVassal];
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetPrayerTechOptionCount() const
+{
+	int iCount = 0;
+	for (int i = 0; i < GC.getNumTechInfos(); i++)
+	{
+		TechTypes eTech = (TechTypes)i;
+		if (GET_TEAM(getTeam()).GetTeamTechs()->HasTech(eTech)) continue;
+		if (!GetPlayerTechs()->CanResearch(eTech, false)) continue;
+		iCount++;
+	}
+	return iCount;
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetPrayerTechOption(int iIndex) const
+{
+	if (iIndex < 0) return NO_TECH;
+	int iCount = 0;
+	for (int i = 0; i < GC.getNumTechInfos(); i++)
+	{
+		TechTypes eTech = (TechTypes)i;
+		if (GET_TEAM(getTeam()).GetTeamTechs()->HasTech(eTech)) continue;
+		if (!GetPlayerTechs()->CanResearch(eTech, false)) continue;
+		if (iCount == iIndex) return eTech;
+		iCount++;
+	}
+	return NO_TECH;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::ChoosePrayerTech(TechTypes eTech)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (m_iPrayerFreeTechs <= 0) return false;
+	if (eTech == NO_TECH) return false;
+	if (GET_TEAM(getTeam()).GetTeamTechs()->HasTech(eTech)) return false;
+	if (!GetPlayerTechs()->CanResearch(eTech, false)) return false;
+
+	GET_TEAM(getTeam()).setHasTech(eTech, true, GetID(), false, true);
+	m_iPrayerFreeTechs -= 1;
+	return true;
 }
 
 //--------------------------------------------------------------------------------
@@ -34814,20 +34867,9 @@ void CvPlayer::ApplyPrayerGrace(PlayerTypes eVassal, int iWish)
 		break;
 	case PRAYER_WISH_TECH:
 	{
-		// Reveal one random technology the vassal could research right now.
-		std::vector<TechTypes> vTechs;
-		for (int i = 0; i < GC.getNumTechInfos(); i++)
-		{
-			TechTypes eCandidate = (TechTypes)i;
-			if (GET_TEAM(kVassal.getTeam()).GetTeamTechs()->HasTech(eCandidate)) continue;
-			if (!kVassal.GetPlayerTechs()->CanResearch(eCandidate, false)) continue;
-			vTechs.push_back(eCandidate);
-		}
-		if (!vTechs.empty())
-		{
-			int iPick = GC.getGame().getJonRandNum((int)vTechs.size(), "Tiandao prayer tech");
-			GET_TEAM(kVassal.getTeam()).setHasTech(vTechs[iPick], true, eVassal, false, true);
-		}
+		// Revealed Knowledge works like a free policy: the vassal picks the tech
+		// later from its own list.
+		kVassal.m_iPrayerFreeTechs += 1;
 		break;
 	}
 	case PRAYER_WISH_BELIEF:
@@ -34904,6 +34946,20 @@ void CvPlayer::DoPrayerTurn()
 		m_iPrayerResearchCostModifier = 0;
 		m_iPrayerPolicyCostModifier = 0;
 		m_iPrayerThresholdTurns = 0;
+	}
+
+	// A pending free tech: humans pick it in the prayer panel; AI picks now.
+	if (m_iPrayerFreeTechs > 0 && !isHuman())
+	{
+		TechTypes eChoice = NO_TECH;
+		TechTypes eCurrent = GetPlayerTechs()->GetCurrentResearch();
+		if (eCurrent != NO_TECH && !GET_TEAM(getTeam()).GetTeamTechs()->HasTech(eCurrent)
+			&& GetPlayerTechs()->CanResearch(eCurrent, false))
+			eChoice = eCurrent;
+		else
+			eChoice = (TechTypes)GetPrayerTechOption(0);
+		if (eChoice != NO_TECH)
+			ChoosePrayerTech(eChoice);
 	}
 
 	// AI vassals offer a small share of their stock on a fixed rhythm.

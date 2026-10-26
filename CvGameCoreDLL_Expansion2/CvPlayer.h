@@ -1976,6 +1976,7 @@ public:
 	bool DoVassalMediate(PlayerTypes eA, PlayerTypes eB);
 	bool CanReturnCityToVassal(CvCity* pCity) const;
 	bool DoReturnCityToVassal(CvCity* pCity);
+	bool DoReturnCityToVassalByID(int iCityID);
 	void DoVassalCallToArms();
 	int GetVassalExecutionTier(PlayerTypes eVassal) const;
 	int GetVassalRevoltScore(PlayerTypes eVassal) const;
@@ -2039,6 +2040,8 @@ public:
 	bool DoInviteVassal(PlayerTypes eTarget);
 	void DoSeekProtectionTurn();
 	void DoSubjugateTurn();
+	bool CanSubjugate(PlayerTypes eTarget) const;
+	bool DoSubjugate(PlayerTypes eTarget);
 	void DoSeekAllegianceTurn();
 	int GetMonopolyResourceCount() const;
 	bool HasMonopolyResource(ResourceTypes eResource) const;

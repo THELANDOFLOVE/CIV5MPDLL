@@ -1400,6 +1400,7 @@ protected:
 	LUAAPIEXTN(DoVassalMediate, bool, eA, eB);
 	LUAAPIEXTN(CanReturnCityToVassal, bool, pCity);
 	LUAAPIEXTN(DoReturnCityToVassal, bool, pCity);
+	LUAAPIEXTN(DoReturnCityToVassalByID, bool, iCityID);
 	LUAAPIEXTN(GetVassalExecutionTier, int, ePlayer);
 	LUAAPIEXTN(GetVassalRevoltScore, int, ePlayer);
 	LUAAPIEXTN(CanVassalRevolt, bool, ePlayer);
@@ -1442,6 +1443,8 @@ protected:
 	LUAAPIEXTN(CanVassalBuildWonder, bool, ePlayer, eBuilding);
 	LUAAPIEXTN(CanInviteVassal, bool, ePlayer);
 	LUAAPIEXTN(DoInviteVassal, bool, ePlayer);
+	LUAAPIEXTN(CanSubjugate, bool, ePlayer);
+	LUAAPIEXTN(DoSubjugate, bool, ePlayer);
 	LUAAPIEXTN(CanEmbargoResource, bool, ePlayer, eResource);
 	LUAAPIEXTN(DoEmbargoResource, bool, ePlayer, eResource);
 	LUAAPIEXTN(IsResourceEmbargoed, bool, eResource);

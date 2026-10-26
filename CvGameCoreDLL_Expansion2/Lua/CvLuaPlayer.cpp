@@ -135,6 +135,7 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoVassalProtect);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoVassalMediate);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoReturnCityToVassal);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoReturnCityToVassalByID);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lResolveVassalMemorial);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoVassalAid);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSetVassalCourtPolicy);
@@ -144,6 +145,7 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lRequestVassalWonder);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lApproveVassalWonderRequest);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoInviteVassal);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoSubjugate);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoEmbargoResource);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoFengshan);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoQifeng);
@@ -1518,6 +1520,7 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(DoVassalMediate);
 	Method(CanReturnCityToVassal);
 	Method(DoReturnCityToVassal);
+	Method(DoReturnCityToVassalByID);
 	Method(GetVassalExecutionTier);
 	Method(GetVassalRevoltScore);
 	Method(CanVassalRevolt);
@@ -1560,6 +1563,8 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(CanVassalBuildWonder);
 	Method(CanInviteVassal);
 	Method(DoInviteVassal);
+	Method(CanSubjugate);
+	Method(DoSubjugate);
 	Method(CanEmbargoResource);
 	Method(DoEmbargoResource);
 	Method(IsResourceEmbargoed);
@@ -7397,6 +7402,15 @@ int CvLuaPlayer::lDoReturnCityToVassal(lua_State* L)
 	return 1;
 }
 //------------------------------------------------------------------------------
+//bool DoReturnCityToVassalByID(int iCityID);
+int CvLuaPlayer::lDoReturnCityToVassalByID(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	int iCityID = lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->DoReturnCityToVassalByID(iCityID));
+	return 1;
+}
+//------------------------------------------------------------------------------
 //int GetVassalExecutionTier(PlayerTypes e);
 int CvLuaPlayer::lGetVassalExecutionTier(lua_State* L)
 {
@@ -7758,6 +7772,24 @@ int CvLuaPlayer::lDoInviteVassal(lua_State* L)
 	CvPlayerAI* pkPlayer = GetInstance(L);
 	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
 	lua_pushboolean(L, pkPlayer->DoInviteVassal(e));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool CanSubjugate(PlayerTypes e);
+int CvLuaPlayer::lCanSubjugate(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->CanSubjugate(e));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool DoSubjugate(PlayerTypes e);
+int CvLuaPlayer::lDoSubjugate(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->DoSubjugate(e));
 	return 1;
 }
 //------------------------------------------------------------------------------

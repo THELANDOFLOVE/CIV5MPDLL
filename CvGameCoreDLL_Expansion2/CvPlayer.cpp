@@ -34430,6 +34430,15 @@ bool CvPlayer::DoReturnCityToVassal(CvCity* pCity)
 }
 
 //--------------------------------------------------------------------------------
+// City-ID wrapper so multiplayer Lua can pass a serializable argument.
+bool CvPlayer::DoReturnCityToVassalByID(int iCityID)
+{
+	CvCity* pCity = getCity(iCityID);
+	if (pCity == NULL) return false;
+	return DoReturnCityToVassal(pCity);
+}
+
+//--------------------------------------------------------------------------------
 void CvPlayer::DoVassalCallToArms()
 {
 	if (!MOD_GLOBAL_SUZERAIN) return;
@@ -35626,49 +35635,74 @@ void CvPlayer::DoSeekProtectionTurn()
 
 //--------------------------------------------------------------------------------
 // A war that has dragged on long enough for us to hold the target's original
-// capital, with an overwhelming power gap, ends with the loser submitting as a
-// vassal. The capital stays in our hands; the overlord may later return it via
+// capital, with an overwhelming power gap, lets the loser submit as a vassal.
+// The capital stays in our hands; the overlord may later return it via
 // DoReturnCityToVassal for loyalty. Human targets are exempt.
+bool CvPlayer::CanSubjugate(PlayerTypes eTarget) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (eTarget == NO_PLAYER || eTarget == GetID()) return false;
+	if (!isAlive() || !isMajorCiv()) return false;
+
+	CvPlayer& kTarget = GET_PLAYER(eTarget);
+	if (!kTarget.isAlive() || !kTarget.isMajorCiv()) return false;
+	if (kTarget.isHuman()) return false;
+	if (kTarget.GetOverlord() != NO_PLAYER) return false;
+	if (!GET_TEAM(getTeam()).isAtWar(kTarget.getTeam())) return false;
+	if (!GET_TEAM(getTeam()).canChangeWarPeace(kTarget.getTeam())) return false;
+
+	int iTurns = TiandaoDefineInt("TIANDAO_SUBJUGATE_TURNS");
+	int iMilPercent = TiandaoDefineInt("TIANDAO_SUBJUGATE_MILITARY_PERCENT");
+	if (iTurns <= 0 || iMilPercent <= 0) return false;
+
+	// We must be holding the target's original capital right now. The capital
+	// remains ours after submission, so the overlord can return it afterwards.
+	int iCapitalX = kTarget.GetOriginalCapitalX();
+	int iCapitalY = kTarget.GetOriginalCapitalY();
+	if (iCapitalX < 0 || iCapitalY < 0) return false;
+	CvPlot* pOriginalCapital = GC.getMap().plot(iCapitalX, iCapitalY);
+	if (pOriginalCapital == NULL || pOriginalCapital->getOwner() != GetID()) return false;
+
+	if (GetDiplomacyAI()->GetPlayerNumTurnsAtWar(eTarget) < iTurns) return false;
+	if (GetMilitaryMight() * 100 < kTarget.GetMilitaryMight() * iMilPercent) return false;
+
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::DoSubjugate(PlayerTypes eTarget)
+{
+	if (!CanSubjugate(eTarget)) return false;
+
+	CvPlayer& kTarget = GET_PLAYER(eTarget);
+
+	GET_TEAM(getTeam()).makePeace(kTarget.getTeam(), true, false, GetID());
+
+	kTarget.SetOverlord(GetID());
+	AddVassal(eTarget);
+	RefreshUCFromVassals();
+
+	int iStart = TiandaoDefineInt("TIANDAO_LOYALTY_SUBJUGATE_START");
+	if (iStart > 0)
+		ChangeVassalLoyalty(eTarget, iStart);
+
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+// AI overlords take submission on their own. A human overlord decides in court
+// through DoSubjugate, so that finishing a civ off is never forced into vassalage.
 void CvPlayer::DoSubjugateTurn()
 {
 	if (!MOD_GLOBAL_SUZERAIN) return;
 	if (!isAlive() || !isMajorCiv()) return;
-
-	int iTurns = TiandaoDefineInt("TIANDAO_SUBJUGATE_TURNS");
-	int iMilPercent = TiandaoDefineInt("TIANDAO_SUBJUGATE_MILITARY_PERCENT");
-	if (iTurns <= 0 || iMilPercent <= 0) return;
+	if (isHuman()) return;
 
 	for (int i = 0; i < MAX_MAJOR_CIVS; i++)
 	{
 		PlayerTypes eTarget = (PlayerTypes)i;
-		if (eTarget == GetID()) continue;
-
-		CvPlayer& kTarget = GET_PLAYER(eTarget);
-		if (!kTarget.isAlive() || !kTarget.isMajorCiv()) continue;
-		if (kTarget.isHuman()) continue;
-		if (kTarget.GetOverlord() != NO_PLAYER) continue;
-		if (!GET_TEAM(getTeam()).isAtWar(kTarget.getTeam())) continue;
-		if (!GET_TEAM(getTeam()).canChangeWarPeace(kTarget.getTeam())) continue;
-
-		// We must be holding the target's original capital right now. The capital
-		// remains ours after submission, so the overlord can return it afterwards.
-		int iCapitalX = kTarget.GetOriginalCapitalX();
-		int iCapitalY = kTarget.GetOriginalCapitalY();
-		if (iCapitalX < 0 || iCapitalY < 0) continue;
-		CvPlot* pOriginalCapital = GC.getMap().plot(iCapitalX, iCapitalY);
-		if (pOriginalCapital == NULL || pOriginalCapital->getOwner() != GetID()) continue;
-		if (GetDiplomacyAI()->GetPlayerNumTurnsAtWar(eTarget) < iTurns) continue;
-		if (GetMilitaryMight() * 100 < kTarget.GetMilitaryMight() * iMilPercent) continue;
-
-		GET_TEAM(getTeam()).makePeace(kTarget.getTeam(), true, false, GetID());
-
-		kTarget.SetOverlord(GetID());
-		AddVassal(eTarget);
-		RefreshUCFromVassals();
-
-		int iStart = TiandaoDefineInt("TIANDAO_LOYALTY_SUBJUGATE_START");
-		if (iStart > 0)
-			ChangeVassalLoyalty(eTarget, iStart);
+		if (CanSubjugate(eTarget))
+			DoSubjugate(eTarget);
 	}
 }
 

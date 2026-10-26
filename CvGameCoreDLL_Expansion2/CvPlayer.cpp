@@ -446,6 +446,9 @@ CvPlayer::CvPlayer() :
 	, m_aiMonopolyResources("CvPlayer::m_aiMonopolyResources", m_syncArchive)
 	, m_aiMonopolyYieldBonuses("CvPlayer::m_aiMonopolyYieldBonuses", m_syncArchive)
 	, m_iMonopolyHappiness("CvPlayer::m_iMonopolyHappiness", m_syncArchive)
+	, m_aiEmbargoedResources("CvPlayer::m_aiEmbargoedResources", m_syncArchive)
+	, m_iEmbargoEndTurn("CvPlayer::m_iEmbargoEndTurn", m_syncArchive)
+	, m_iEmbargoBy("CvPlayer::m_iEmbargoBy", m_syncArchive)
 	, m_aScienceTimes100FromVassals()
 	, m_aCultureFromVassals()
 	, m_aFaithFromVassals()
@@ -1348,6 +1351,9 @@ void CvPlayer::uninit()
 	m_aiMonopolyYieldBonuses.clear();
 	m_aiMonopolyYieldBonuses.resize(NUM_YIELD_TYPES, 0);
 	m_iMonopolyHappiness = 0;
+	m_aiEmbargoedResources.clear();
+	m_iEmbargoEndTurn = 0;
+	m_iEmbargoBy = NO_PLAYER;
 #endif
 	m_iExtraUnitPlayerInstances = 0;
 	m_iConquestCasualtiesModifier = 0;
@@ -5522,6 +5528,7 @@ void CvPlayer::doTurn()
 		DoVassalCourtGiftTurn();
 		DoVassalWonderPoolTurn();
 		DoMonopolyTurn();
+		DoEmbargoTurn();
 		DoVassalLoyaltyDecay();
 		DoVassalRevoltCheck();
 		DoVassalOverlordVictoryCheck();
@@ -31292,6 +31299,9 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiMonopolyResources, 0, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiMonopolyYieldBonuses, NUM_YIELD_TYPES, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iMonopolyHappiness, 0);
+		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiEmbargoedResources, 0, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iEmbargoEndTurn, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iEmbargoBy, NO_PLAYER);
 		{
 			int iVassalCount = 0;
 			MOD_SERIALIZE_READ(163, kStream, iVassalCount, 0);
@@ -32219,6 +32229,9 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiMonopolyResources);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiMonopolyYieldBonuses);
 	MOD_SERIALIZE_WRITE(kStream, m_iMonopolyHappiness);
+	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiEmbargoedResources);
+	MOD_SERIALIZE_WRITE(kStream, m_iEmbargoEndTurn);
+	MOD_SERIALIZE_WRITE(kStream, m_iEmbargoBy);
 	{
 		int iVassalCount = (int)m_vecVassals.size();
 		kStream << iVassalCount;
@@ -35653,6 +35666,76 @@ void CvPlayer::DoMonopolyTurn()
 		if (iHappy != 0)
 			m_iMonopolyHappiness += iHappy;
 	}
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::CanEmbargoResource(PlayerTypes eTarget, ResourceTypes eResource) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (eTarget == NO_PLAYER || eTarget == GetID()) return false;
+	if (eTarget < 0 || eTarget >= MAX_MAJOR_CIVS) return false;
+	if (eResource < 0 || eResource >= GC.getNumResourceInfos()) return false;
+	if (!HasMonopolyResource(eResource)) return false;
+
+	CvPlayer& kTarget = GET_PLAYER(eTarget);
+	if (!kTarget.isAlive() || !kTarget.isMajorCiv()) return false;
+
+	int iPercent = TiandaoDefineInt("TIANDAO_EMBARGO_PERCENT");
+	if (iPercent <= 0) return false;
+
+	int iGlobal = 0;
+	for (int i = 0; i < MAX_MAJOR_CIVS; i++)
+	{
+		CvPlayer& kOther = GET_PLAYER((PlayerTypes)i);
+		if (!kOther.isAlive() || !kOther.isMajorCiv()) continue;
+		iGlobal += kOther.getNumResourceTotal(eResource, false);
+	}
+	if (iGlobal <= 0) return false;
+
+	int iTargetAmount = kTarget.getNumResourceTotal(eResource, false);
+	return iTargetAmount * 100 <= iGlobal * iPercent;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::DoEmbargoResource(PlayerTypes eTarget, ResourceTypes eResource)
+{
+	if (!CanEmbargoResource(eTarget, eResource)) return false;
+
+	CvPlayer& kTarget = GET_PLAYER(eTarget);
+	for (size_t i = 0; i < kTarget.m_aiEmbargoedResources.size(); i++)
+	{
+		if (kTarget.m_aiEmbargoedResources[i] == (int)eResource)
+			return false;
+	}
+
+	kTarget.m_aiEmbargoedResources.push_back((int)eResource);
+	kTarget.m_iEmbargoBy = GetID();
+	kTarget.m_iEmbargoEndTurn = GC.getGame().getGameTurn() + TiandaoDefineInt("TIANDAO_EMBARGO_TURNS");
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::IsResourceEmbargoed(ResourceTypes eResource) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	for (size_t i = 0; i < m_aiEmbargoedResources.size(); i++)
+	{
+		if (m_aiEmbargoedResources[i] == (int)eResource)
+			return true;
+	}
+	return false;
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::DoEmbargoTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (m_iEmbargoEndTurn <= 0) return;
+	if (GC.getGame().getGameTurn() < m_iEmbargoEndTurn) return;
+
+	m_aiEmbargoedResources.clear();
+	m_iEmbargoEndTurn = 0;
+	m_iEmbargoBy = NO_PLAYER;
 }
 
 //--------------------------------------------------------------------------------

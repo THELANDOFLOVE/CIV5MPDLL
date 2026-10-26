@@ -144,6 +144,7 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lRequestVassalWonder);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lApproveVassalWonderRequest);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoInviteVassal);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoEmbargoResource);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoFengshan);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoQifeng);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoRangzai);
@@ -1559,6 +1560,9 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(CanVassalBuildWonder);
 	Method(CanInviteVassal);
 	Method(DoInviteVassal);
+	Method(CanEmbargoResource);
+	Method(DoEmbargoResource);
+	Method(IsResourceEmbargoed);
 	Method(CanMandateVictory);
 	Method(DoMandateVictory);
 	Method(GetScienceTimes100FromVassals);
@@ -7754,6 +7758,35 @@ int CvLuaPlayer::lDoInviteVassal(lua_State* L)
 	CvPlayerAI* pkPlayer = GetInstance(L);
 	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
 	lua_pushboolean(L, pkPlayer->DoInviteVassal(e));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool CanEmbargoResource(PlayerTypes e, ResourceTypes eResource);
+int CvLuaPlayer::lCanEmbargoResource(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
+	ResourceTypes eResource = (ResourceTypes)lua_tointeger(L, 3);
+	lua_pushboolean(L, pkPlayer->CanEmbargoResource(e, eResource));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool DoEmbargoResource(PlayerTypes e, ResourceTypes eResource);
+int CvLuaPlayer::lDoEmbargoResource(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
+	ResourceTypes eResource = (ResourceTypes)lua_tointeger(L, 3);
+	lua_pushboolean(L, pkPlayer->DoEmbargoResource(e, eResource));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool IsResourceEmbargoed(ResourceTypes eResource);
+int CvLuaPlayer::lIsResourceEmbargoed(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	ResourceTypes eResource = (ResourceTypes)lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->IsResourceEmbargoed(eResource));
 	return 1;
 }
 //------------------------------------------------------------------------------

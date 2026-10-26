@@ -382,6 +382,13 @@ bool CvDeal::IsPossibleToTradeItem(PlayerTypes ePlayer, PlayerTypes eToPlayer, T
 			if(iResourceQuantity < 0)
 				return false;
 
+#if defined(MOD_GLOBAL_SUZERAIN)
+			// A resource embargo blocks any player from supplying that resource
+			// to the embargoed civilization.
+			if (MOD_GLOBAL_SUZERAIN && GET_PLAYER(eToPlayer).IsResourceEmbargoed(eResource))
+				return false;
+#endif
+
 			if (GC.getGame().GetGameLeagues()->IsLuxuryHappinessBanned(ePlayer, eResource) || GC.getGame().GetGameLeagues()->IsLuxuryHappinessBanned(eToPlayer, eResource))
 			{
 				return false;

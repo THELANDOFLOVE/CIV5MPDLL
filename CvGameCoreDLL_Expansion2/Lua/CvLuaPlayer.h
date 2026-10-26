@@ -1442,6 +1442,9 @@ protected:
 	LUAAPIEXTN(CanVassalBuildWonder, bool, ePlayer, eBuilding);
 	LUAAPIEXTN(CanInviteVassal, bool, ePlayer);
 	LUAAPIEXTN(DoInviteVassal, bool, ePlayer);
+	LUAAPIEXTN(CanEmbargoResource, bool, ePlayer, eResource);
+	LUAAPIEXTN(DoEmbargoResource, bool, ePlayer, eResource);
+	LUAAPIEXTN(IsResourceEmbargoed, bool, eResource);
 	LUAAPIEXTN(CanMandateVictory, bool);
 	LUAAPIEXTN(DoMandateVictory, bool);
 	LUAAPIEXTN(GetScienceTimes100FromVassals, unsigned long long);

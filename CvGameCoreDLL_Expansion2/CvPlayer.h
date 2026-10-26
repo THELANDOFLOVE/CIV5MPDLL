@@ -2042,6 +2042,10 @@ public:
 	int GetMonopolyYieldBonus(YieldTypes eYield) const;
 	int GetMonopolyHappiness() const;
 	void DoMonopolyTurn();
+	bool CanEmbargoResource(PlayerTypes eTarget, ResourceTypes eResource) const;
+	bool DoEmbargoResource(PlayerTypes eTarget, ResourceTypes eResource);
+	bool IsResourceEmbargoed(ResourceTypes eResource) const;
+	void DoEmbargoTurn();
 	void DoVassalLoyaltyDecay();
 	void RefreshUCFromVassals();
 	void ClearUCFromVassals();
@@ -3115,6 +3119,10 @@ protected:
 	// Cached monopoly bonuses, recomputed each turn
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiMonopolyYieldBonuses;
 	FAutoVariable<int, CvPlayer> m_iMonopolyHappiness;
+	// Resources an overlord has embargoed against this player
+	FAutoVariable<std::vector<int>, CvPlayer> m_aiEmbargoedResources;
+	FAutoVariable<int, CvPlayer> m_iEmbargoEndTurn;
+	FAutoVariable<int, CvPlayer> m_iEmbargoBy;
 	// UC caches from vassals
 	std::tr1::unordered_set<UnitTypes> m_sUUFromVassals;
 	std::tr1::unordered_set<BuildingTypes> m_sUBFromVassals;

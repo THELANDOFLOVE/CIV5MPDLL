@@ -439,6 +439,7 @@ CvPlayer::CvPlayer() :
 	, m_iPrayerResearchCostModifier(0)
 	, m_iPrayerPolicyCostModifier(0)
 	, m_iPrayerHappinessEndTurn(0)
+	, m_iPrayerCorruptionTurns(0)
 	, m_iPunishEndTurn("CvPlayer::m_iPunishEndTurn", m_syncArchive)
 	, m_iPunishBy("CvPlayer::m_iPunishBy", m_syncArchive)
 	, m_iPunishUnhappiness("CvPlayer::m_iPunishUnhappiness", m_syncArchive)
@@ -1348,6 +1349,7 @@ void CvPlayer::uninit()
 	m_iPrayerResearchCostModifier = 0;
 	m_iPrayerPolicyCostModifier = 0;
 	m_iPrayerHappinessEndTurn = 0;
+	m_iPrayerCorruptionTurns = 0;
 	m_iBlessingFood = 0;
 	m_iBlessingProduction = 0;
 	m_iBlessingCulture = 0;
@@ -31309,20 +31311,20 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ(165, kStream, m_iBlessingEndTurn, 0);
 		{
 			int iPrayerCount = 0;
-			MOD_SERIALIZE_READ(166, kStream, iPrayerCount, 0);
+			MOD_SERIALIZE_READ(165, kStream, iPrayerCount, 0);
 			m_vPrayerRequests.clear();
 			for (int j = 0; j < iPrayerCount; j++)
 			{
 				TiandaoPrayerRequest req;
 				int iVassal = NO_PLAYER;
 				int iScience = 0, iCulture = 0, iFaith = 0, iGold = 0, iWish = 0, iTurn = 0;
-				MOD_SERIALIZE_READ(166, kStream, iVassal, NO_PLAYER);
-				MOD_SERIALIZE_READ(166, kStream, iScience, 0);
-				MOD_SERIALIZE_READ(166, kStream, iCulture, 0);
-				MOD_SERIALIZE_READ(166, kStream, iFaith, 0);
-				MOD_SERIALIZE_READ(166, kStream, iGold, 0);
-				MOD_SERIALIZE_READ(166, kStream, iWish, 0);
-				MOD_SERIALIZE_READ(166, kStream, iTurn, 0);
+				MOD_SERIALIZE_READ(165, kStream, iVassal, NO_PLAYER);
+				MOD_SERIALIZE_READ(165, kStream, iScience, 0);
+				MOD_SERIALIZE_READ(165, kStream, iCulture, 0);
+				MOD_SERIALIZE_READ(165, kStream, iFaith, 0);
+				MOD_SERIALIZE_READ(165, kStream, iGold, 0);
+				MOD_SERIALIZE_READ(165, kStream, iWish, 0);
+				MOD_SERIALIZE_READ(165, kStream, iTurn, 0);
 				req.eVassal = (PlayerTypes)iVassal;
 				req.iScience = iScience;
 				req.iCulture = iCulture;
@@ -31335,11 +31337,12 @@ void CvPlayer::Read(FDataStream& kStream)
 		}
 		MOD_SERIALIZE_READ_VECTOR(166, kStream, m_aiPrayerDenyStreak, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(166, kStream, m_aiPrayerBlessing, NUM_YIELD_TYPES, 0);
-		MOD_SERIALIZE_READ(166, kStream, m_iPrayerBlessingEndTurn, 0);
-		MOD_SERIALIZE_READ(166, kStream, m_iPrayerThresholdTurns, 0);
-		MOD_SERIALIZE_READ(166, kStream, m_iPrayerResearchCostModifier, 0);
-		MOD_SERIALIZE_READ(166, kStream, m_iPrayerPolicyCostModifier, 0);
-		MOD_SERIALIZE_READ(166, kStream, m_iPrayerHappinessEndTurn, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iPrayerBlessingEndTurn, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iPrayerThresholdTurns, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iPrayerResearchCostModifier, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iPrayerPolicyCostModifier, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iPrayerHappinessEndTurn, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iPrayerCorruptionTurns, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iPunishEndTurn, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iPunishBy, NO_PLAYER);
 		MOD_SERIALIZE_READ(165, kStream, m_iPunishUnhappiness, 0);
@@ -32295,6 +32298,7 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE(kStream, m_iPrayerResearchCostModifier);
 	MOD_SERIALIZE_WRITE(kStream, m_iPrayerPolicyCostModifier);
 	MOD_SERIALIZE_WRITE(kStream, m_iPrayerHappinessEndTurn);
+	MOD_SERIALIZE_WRITE(kStream, m_iPrayerCorruptionTurns);
 	MOD_SERIALIZE_WRITE(kStream, m_iPunishEndTurn);
 	MOD_SERIALIZE_WRITE(kStream, m_iPunishBy);
 	MOD_SERIALIZE_WRITE(kStream, m_iPunishUnhappiness);
@@ -34651,7 +34655,7 @@ int CvPlayer::GetPrayerChance(int iIndex) const
 	int iMax = TiandaoDefineInt("TIANDAO_PRAYER_CHANCE_MAX");
 	if (iBase <= 0) iBase = 40;
 	if (iUnit <= 0) iUnit = 25;
-	if (iMax <= 0) iMax = 95;
+	if (iMax <= 0) iMax = 60;
 
 	int iChance = iBase + iTotal / iUnit;
 	if (iChance > iMax) iChance = iMax;
@@ -34810,13 +34814,19 @@ void CvPlayer::ApplyPrayerGrace(PlayerTypes eVassal, int iWish)
 		break;
 	case PRAYER_WISH_TECH:
 	{
-		TechTypes eTech = kVassal.GetPlayerTechs()->GetCurrentResearch();
-		if (eTech != NO_TECH)
+		// Reveal one random technology the vassal could research right now.
+		std::vector<TechTypes> vTechs;
+		for (int i = 0; i < GC.getNumTechInfos(); i++)
 		{
-			int iCost = (int)kVassal.GetPlayerTechs()->GetResearchCost(eTech);
-			int iProgress = kVassal.GetPlayerTechs()->GetResearchProgress(eTech);
-			if (iCost > iProgress)
-				GET_TEAM(kVassal.getTeam()).GetTeamTechs()->ChangeResearchProgress(eTech, iCost - iProgress, eVassal);
+			TechTypes eCandidate = (TechTypes)i;
+			if (GET_TEAM(kVassal.getTeam()).GetTeamTechs()->HasTech(eCandidate)) continue;
+			if (!kVassal.GetPlayerTechs()->CanResearch(eCandidate, false)) continue;
+			vTechs.push_back(eCandidate);
+		}
+		if (!vTechs.empty())
+		{
+			int iPick = GC.getGame().getJonRandNum((int)vTechs.size(), "Tiandao prayer tech");
+			GET_TEAM(kVassal.getTeam()).setHasTech(vTechs[iPick], true, eVassal, false, true);
 		}
 		break;
 	}
@@ -34848,25 +34858,12 @@ void CvPlayer::ApplyPrayerGrace(PlayerTypes eVassal, int iWish)
 	}
 	case PRAYER_WISH_PURCHASE:
 	{
-		CvCity* pCapital = kVassal.getCapitalCity();
-		if (pCapital != NULL)
-		{
-			std::vector<BuildingTypes> vBuildings;
-			for (int i = 0; i < GC.getNumBuildingInfos(); i++)
-			{
-				BuildingTypes eBuilding = (BuildingTypes)i;
-				CvBuildingEntry* pInfo = GC.getBuildingInfo(eBuilding);
-				if (pInfo == NULL) continue;
-				if (pInfo->GetBuildingClassInfo().getMaxGlobalInstances() == 1) continue;
-				if (pCapital->canConstruct(eBuilding))
-					vBuildings.push_back(eBuilding);
-			}
-			if (!vBuildings.empty())
-			{
-				int iPick = GC.getGame().getJonRandNum((int)vBuildings.size(), "Tiandao prayer building");
-				pCapital->CreateBuilding(vBuildings[iPick]);
-			}
-		}
+		// Clean governance: the whole realm sits one corruption level lower.
+		int iCorruptionTurns = TiandaoDefineInt("TIANDAO_PRAYER_CORRUPTION_TURNS");
+		if (iCorruptionTurns <= 0) iCorruptionTurns = 15;
+		if (kVassal.m_iPrayerCorruptionTurns <= 0)
+			kVassal.ChangeCorruptionLevelReduceByOneRC(1);
+		kVassal.m_iPrayerCorruptionTurns = GC.getGame().getGameTurn() + iCorruptionTurns;
 		break;
 	}
 	case PRAYER_WISH_WAR:
@@ -34896,6 +34893,11 @@ void CvPlayer::DoPrayerTurn()
 	{
 		ChangeExtraHappinessPerCity(-1);
 		m_iPrayerHappinessEndTurn = 0;
+	}
+	if (m_iPrayerCorruptionTurns > 0 && iTurn >= m_iPrayerCorruptionTurns)
+	{
+		ChangeCorruptionLevelReduceByOneRC(-1);
+		m_iPrayerCorruptionTurns = 0;
 	}
 	if (m_iPrayerThresholdTurns > 0 && iTurn >= m_iPrayerThresholdTurns)
 	{

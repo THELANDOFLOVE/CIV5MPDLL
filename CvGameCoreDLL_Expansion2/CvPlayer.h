@@ -3194,6 +3194,7 @@ protected:
 	int m_iPrayerResearchCostModifier;
 	int m_iPrayerPolicyCostModifier;
 	int m_iPrayerHappinessEndTurn;
+	int m_iPrayerCorruptionTurns;
 	// Per-turn tax paid to our overlord (vassal side)
 	unsigned long long m_iScienceTimes100ToOverlord;
 	int m_iCultureToOverlord;

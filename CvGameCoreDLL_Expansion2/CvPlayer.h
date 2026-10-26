@@ -2037,6 +2037,9 @@ public:
 	void DoVassalWonderPoolTurn();
 	bool CanInviteVassal(PlayerTypes eTarget) const;
 	bool DoInviteVassal(PlayerTypes eTarget);
+	int GetMonopolyResourceCount() const;
+	bool HasMonopolyResource(ResourceTypes eResource) const;
+	void DoMonopolyTurn();
 	void DoVassalLoyaltyDecay();
 	void RefreshUCFromVassals();
 	void ClearUCFromVassals();
@@ -3105,6 +3108,8 @@ protected:
 	// A vassal's pending wonder request, and the overlord's approvals per vassal
 	FAutoVariable<int, CvPlayer> m_iWonderRequest;
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalWonderApproval;
+	// Resources this overlord (with its vassals) monopolizes
+	FAutoVariable<std::vector<int>, CvPlayer> m_aiMonopolyResources;
 	// UC caches from vassals
 	std::tr1::unordered_set<UnitTypes> m_sUUFromVassals;
 	std::tr1::unordered_set<BuildingTypes> m_sUBFromVassals;

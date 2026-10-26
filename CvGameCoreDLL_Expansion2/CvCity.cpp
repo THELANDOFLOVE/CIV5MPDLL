@@ -14193,6 +14193,30 @@ int CvCity::getBaseYieldRateModifier(YieldTypes eIndex, int iExtra, CvString* to
 	}
 #endif
 
+#if defined(MOD_GLOBAL_SUZERAIN)
+	// Resource monopoly: the overlord and its vassals share the bonus.
+	{
+		PlayerTypes eOverlord = owner.GetOverlord();
+		CvPlayer& kPoolOwner = (eOverlord != NO_PLAYER) ? GET_PLAYER(eOverlord) : owner;
+		int iMonopolies = kPoolOwner.GetMonopolyResourceCount();
+		if (iMonopolies > 0)
+		{
+			if (eIndex == YIELD_GOLD)
+			{
+				int iGold = GC.getDefineINT("TIANDAO_MONOPOLY_GOLD_PERCENT", false);
+				if (iGold > 0)
+					iModifier += iMonopolies * iGold;
+			}
+			else if (eIndex == YIELD_CULTURE)
+			{
+				int iCulture = GC.getDefineINT("TIANDAO_MONOPOLY_CULTURE_PERCENT", false);
+				if (iCulture > 0)
+					iModifier += iMonopolies * iCulture;
+			}
+		}
+	}
+#endif
+
 	return std::max(0, iModifier);
 }
 

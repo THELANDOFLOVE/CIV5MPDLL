@@ -443,6 +443,7 @@ CvPlayer::CvPlayer() :
 	, m_iWonderPoolEra("CvPlayer::m_iWonderPoolEra", m_syncArchive)
 	, m_iWonderRequest("CvPlayer::m_iWonderRequest", m_syncArchive)
 	, m_aiVassalWonderApproval("CvPlayer::m_aiVassalWonderApproval", m_syncArchive)
+	, m_aiMonopolyResources("CvPlayer::m_aiMonopolyResources", m_syncArchive)
 	, m_aScienceTimes100FromVassals()
 	, m_aCultureFromVassals()
 	, m_aFaithFromVassals()
@@ -1341,6 +1342,7 @@ void CvPlayer::uninit()
 	m_iWonderRequest = NO_BUILDING;
 	m_aiVassalWonderApproval.clear();
 	m_aiVassalWonderApproval.resize(MAX_MAJOR_CIVS, NO_BUILDING);
+	m_aiMonopolyResources.clear();
 #endif
 	m_iExtraUnitPlayerInstances = 0;
 	m_iConquestCasualtiesModifier = 0;
@@ -5514,6 +5516,7 @@ void CvPlayer::doTurn()
 		DoVassalMemorialTurn();
 		DoVassalCourtGiftTurn();
 		DoVassalWonderPoolTurn();
+		DoMonopolyTurn();
 		DoVassalLoyaltyDecay();
 		DoVassalRevoltCheck();
 		DoVassalOverlordVictoryCheck();
@@ -14659,6 +14662,19 @@ int CvPlayer::DoUpdateTotalUnhappiness(CvCity* pAssumeCityAnnexed, CvCity* pAssu
 		int iFixedUnhappiness = GC.getDefineINT("TIANDAO_MANDATE_TIANFA_UNHAPPINESS", false);
 		if (iFixedUnhappiness > 0)
 			iUnhappiness += iFixedUnhappiness;
+	}
+#endif
+
+#if defined(MOD_GLOBAL_SUZERAIN)
+	// Resource monopoly: the overlord's bloc gains happiness.
+	{
+		PlayerTypes eOverlord = GetOverlord();
+		CvPlayer& kPoolOwner = (eOverlord != NO_PLAYER) ? GET_PLAYER(eOverlord) : *this;
+		int iHappy = GC.getDefineINT("TIANDAO_MONOPOLY_HAPPINESS", false);
+		if (iHappy > 0)
+			iUnhappiness -= kPoolOwner.GetMonopolyResourceCount() * iHappy;
+		if (iUnhappiness < 0)
+			iUnhappiness = 0;
 	}
 #endif
 
@@ -31270,6 +31286,7 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ(165, kStream, m_iWonderPoolEra, -1);
 		MOD_SERIALIZE_READ(165, kStream, m_iWonderRequest, NO_BUILDING);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalWonderApproval, MAX_MAJOR_CIVS, NO_BUILDING);
+		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiMonopolyResources, 0, 0);
 		{
 			int iVassalCount = 0;
 			MOD_SERIALIZE_READ(163, kStream, iVassalCount, 0);
@@ -32194,6 +32211,7 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE(kStream, m_iWonderPoolEra);
 	MOD_SERIALIZE_WRITE(kStream, m_iWonderRequest);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalWonderApproval);
+	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiMonopolyResources);
 	{
 		int iVassalCount = (int)m_vecVassals.size();
 		kStream << iVassalCount;
@@ -35448,6 +35466,68 @@ void CvPlayer::DoVassalWonderPoolTurn()
 	{
 		m_iWonderPoolEra = (int)GetCurrentEra();
 		m_aiWonderPool.clear();
+	}
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetMonopolyResourceCount() const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	return (int)m_aiMonopolyResources.size();
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::HasMonopolyResource(ResourceTypes eResource) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	for (size_t i = 0; i < m_aiMonopolyResources.size(); i++)
+	{
+		if (m_aiMonopolyResources[i] == (int)eResource)
+			return true;
+	}
+	return false;
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::DoMonopolyTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (!isAlive() || !isMajorCiv()) return;
+	if (!HasAnyVassal()) return;
+
+	m_aiMonopolyResources.clear();
+
+	int iThreshold = TiandaoDefineInt("TIANDAO_MONOPOLY_PERCENT");
+	if (iThreshold <= 0) return;
+
+	for (int r = 0; r < GC.getNumResourceInfos(); r++)
+	{
+		ResourceTypes eResource = (ResourceTypes)r;
+		CvResourceInfo* pInfo = GC.getResourceInfo(eResource);
+		if (pInfo == NULL) continue;
+
+		ResourceUsageTypes eUsage = pInfo->getResourceUsage();
+		if (eUsage != RESOURCEUSAGE_STRATEGIC && eUsage != RESOURCEUSAGE_LUXURY) continue;
+
+		int iGlobal = 0;
+		for (int i = 0; i < MAX_MAJOR_CIVS; i++)
+		{
+			CvPlayer& kOther = GET_PLAYER((PlayerTypes)i);
+			if (!kOther.isAlive() || !kOther.isMajorCiv()) continue;
+			iGlobal += kOther.getNumResourceTotal(eResource, false);
+		}
+		if (iGlobal <= 0) continue;
+
+		int iOurs = getNumResourceTotal(eResource, false);
+		for (size_t v = 0; v < m_vecVassals.size(); v++)
+		{
+			CvPlayer& kVassal = GET_PLAYER((PlayerTypes)m_vecVassals[v]);
+			if (kVassal.isAlive())
+				iOurs += kVassal.getNumResourceTotal(eResource, false);
+		}
+
+		if (iOurs * 100 >= iGlobal * iThreshold)
+			m_aiMonopolyResources.push_back((int)eResource);
 	}
 }
 

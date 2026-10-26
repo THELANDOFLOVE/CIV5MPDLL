@@ -35847,9 +35847,10 @@ void CvPlayer::DoVassalCourtGiftTurn()
 	if (m_vecVassals.empty()) return;
 	if (!IsVassalCourtTurn()) return;
 
-	int iGold = TiandaoDefineInt("TIANDAO_COURT_GIFT_GOLD");
+	int iGoldBase = TiandaoDefineInt("TIANDAO_COURT_GIFT_GOLD");
 	int iResource = TiandaoDefineInt("TIANDAO_COURT_GIFT_RESOURCE");
-	int iLoyalty = TiandaoDefineInt("TIANDAO_COURT_GIFT_LOYALTY");
+	int iGiftLoyalty = TiandaoDefineInt("TIANDAO_COURT_GIFT_LOYALTY");
+	int iMinLoyalty = TiandaoDefineInt("TIANDAO_COURT_GIFT_MIN_LOYALTY");
 
 	for (size_t i = 0; i < m_vecVassals.size(); i++)
 	{
@@ -35859,8 +35860,16 @@ void CvPlayer::DoVassalCourtGiftTurn()
 		CvPlayer& kVassal = GET_PLAYER(eVassal);
 		if (!kVassal.isAlive()) continue;
 
-		bool bGave = false;
+		// Court gifts are voluntary: a content vassal comes to pay respects, a
+		// disaffected one simply stays home.
+		int iCurrentLoyalty = GetVassalLoyalty(eVassal);
+		if (iMinLoyalty > 0 && iCurrentLoyalty < iMinLoyalty) continue;
 
+		bool bGave = false;
+		int iPaidGold = 0;
+
+		// Gold gift scales with contentment.
+		int iGold = iGoldBase + iCurrentLoyalty / 10;
 		if (iGold > 0)
 		{
 			int iPay = std::min(iGold, (int)kVassal.GetTreasury()->GetGold());
@@ -35868,12 +35877,17 @@ void CvPlayer::DoVassalCourtGiftTurn()
 			{
 				kVassal.GetTreasury()->ChangeGold(-iPay);
 				GetTreasury()->ChangeGold(iPay);
+				iPaidGold = iPay;
 				bGave = true;
 			}
 		}
 
+		// Resource gifts go through a timed deal, so they return to the vassal
+		// instead of being transferred away permanently.
 		if (iResource > 0)
 		{
+			CvDeal kDeal(eVassal, GetID());
+			bool bHasResource = false;
 			for (int r = 0; r < GC.getNumResourceInfos(); r++)
 			{
 				ResourceTypes eResource = (ResourceTypes)r;
@@ -35887,14 +35901,31 @@ void CvPlayer::DoVassalCourtGiftTurn()
 				if (iAvailable <= 0) continue;
 
 				int iGift = std::min(iResource, iAvailable);
-				kVassal.changeNumResourceTotal(eResource, -iGift);
-				changeNumResourceTotal(eResource, iGift);
+				kDeal.AddResourceTrade(eVassal, eResource, iGift, GC.getGame().GetDealDuration());
+				bHasResource = true;
+			}
+			if (bHasResource)
+			{
+				GC.getGame().GetGameDeals()->AddProposedDeal(kDeal);
+				GC.getGame().GetGameDeals()->FinalizeDeal(eVassal, GetID(), true);
 				bGave = true;
 			}
 		}
 
-		if (bGave && iLoyalty != 0)
-			ChangeVassalLoyalty(eVassal, iLoyalty);
+		if (bGave)
+		{
+			CvNotifications* pNotifications = GetNotifications();
+			if (pNotifications != NULL)
+			{
+				Localization::String strText = Localization::Lookup("TXT_KEY_NOTIFICATION_TIANDAO_COURT_GIFT");
+				strText << kVassal.getCivilizationShortDescriptionKey() << iPaidGold;
+				Localization::String strSummary = Localization::Lookup("TXT_KEY_NOTIFICATION_TIANDAO_COURT_GIFT_SUMMARY");
+				pNotifications->Add(NOTIFICATION_GENERIC, strText.toUTF8(), strSummary.toUTF8(), -1, -1, -1);
+			}
+
+			if (iGiftLoyalty != 0)
+				ChangeVassalLoyalty(eVassal, iGiftLoyalty);
+		}
 	}
 }
 

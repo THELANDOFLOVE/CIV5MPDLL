@@ -2035,6 +2035,8 @@ public:
 	bool ApproveVassalWonderRequest(PlayerTypes eVassal, bool bApprove);
 	bool CanVassalBuildWonder(PlayerTypes eVassal, BuildingTypes eBuilding) const;
 	void DoVassalWonderPoolTurn();
+	bool CanInviteVassal(PlayerTypes eTarget) const;
+	bool DoInviteVassal(PlayerTypes eTarget);
 	void DoVassalLoyaltyDecay();
 	void RefreshUCFromVassals();
 	void ClearUCFromVassals();
@@ -2056,6 +2058,7 @@ public:
 	int GetFaithToOverlord() const;
 	int GetGoldToOverlord() const;
 	int GetVassalTaxPercentFor(PlayerTypes eVassal) const;
+	int GetTariffPercentFor(PlayerTypes eOther) const;
 	int GetVassalTechDiscount() const;
 	int GetVassalDemandCityPopulationPercentFor(PlayerTypes eVassal) const;
 	int GetVassalDemandGoldPercentFor(PlayerTypes eVassal) const;

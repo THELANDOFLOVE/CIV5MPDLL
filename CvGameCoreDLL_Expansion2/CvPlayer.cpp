@@ -35778,6 +35778,17 @@ int CvPlayer::GetVassalTaxPercentFor(PlayerTypes eVassal) const
 	return 0;
 }
 
+//--------------------------------------------------------------------------------
+// Tariff applied to trade with a non-vassal. Vassals trade tariff-free.
+int CvPlayer::GetTariffPercentFor(PlayerTypes eOther) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	if (eOther == NO_PLAYER || eOther == GetID()) return 0;
+	if (GET_PLAYER(eOther).IsVassalOf(GetID())) return 0;
+	return TiandaoDefineInt("TIANDAO_TARIFF_PERCENT");
+}
+
+//--------------------------------------------------------------------------------
 int CvPlayer::GetVassalDemandCityPopulationPercentFor(PlayerTypes eVassal) const
 {
 	if (!MOD_GLOBAL_SUZERAIN) return 0;

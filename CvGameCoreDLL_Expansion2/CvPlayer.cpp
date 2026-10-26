@@ -5530,6 +5530,7 @@ void CvPlayer::doTurn()
 		DoMonopolyTurn();
 		DoEmbargoTurn();
 		DoSeekProtectionTurn();
+		DoSubjugateTurn();
 		DoVassalLoyaltyDecay();
 		DoVassalRevoltCheck();
 		DoVassalOverlordVictoryCheck();
@@ -35620,6 +35621,47 @@ void CvPlayer::DoSeekProtectionTurn()
 	int iStart = TiandaoDefineInt("TIANDAO_LOYALTY_SEEK_START");
 	if (iStart > 0)
 		GET_PLAYER(eProtector).ChangeVassalLoyalty(GetID(), iStart);
+}
+
+//--------------------------------------------------------------------------------
+// A war that has dragged on with heavy losses and an overwhelming power gap
+// ends with the loser submitting as a vassal. Human targets are exempt.
+void CvPlayer::DoSubjugateTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (!isAlive() || !isMajorCiv()) return;
+
+	int iTurns = TiandaoDefineInt("TIANDAO_SUBJUGATE_TURNS");
+	int iCities = TiandaoDefineInt("TIANDAO_SUBJUGATE_CITIES");
+	int iMilPercent = TiandaoDefineInt("TIANDAO_SUBJUGATE_MILITARY_PERCENT");
+	if (iTurns <= 0 || iCities <= 0 || iMilPercent <= 0) return;
+
+	for (int i = 0; i < MAX_MAJOR_CIVS; i++)
+	{
+		PlayerTypes eTarget = (PlayerTypes)i;
+		if (eTarget == GetID()) continue;
+
+		CvPlayer& kTarget = GET_PLAYER(eTarget);
+		if (!kTarget.isAlive() || !kTarget.isMajorCiv()) continue;
+		if (kTarget.isHuman()) continue;
+		if (kTarget.GetOverlord() != NO_PLAYER) continue;
+		if (!GET_TEAM(getTeam()).isAtWar(kTarget.getTeam())) continue;
+		if (!GET_TEAM(getTeam()).canChangeWarPeace(kTarget.getTeam())) continue;
+
+		if (kTarget.getCitiesLost() < iCities) continue;
+		if (GetDiplomacyAI()->GetPlayerNumTurnsAtWar(eTarget) < iTurns) continue;
+		if (GetMilitaryMight() * 100 < kTarget.GetMilitaryMight() * iMilPercent) continue;
+
+		GET_TEAM(getTeam()).makePeace(kTarget.getTeam(), true, false, GetID());
+
+		kTarget.SetOverlord(GetID());
+		AddVassal(eTarget);
+		RefreshUCFromVassals();
+
+		int iStart = TiandaoDefineInt("TIANDAO_LOYALTY_SUBJUGATE_START");
+		if (iStart > 0)
+			ChangeVassalLoyalty(eTarget, iStart);
+	}
 }
 
 //--------------------------------------------------------------------------------

@@ -35470,6 +35470,70 @@ void CvPlayer::DoVassalWonderPoolTurn()
 }
 
 //--------------------------------------------------------------------------------
+bool CvPlayer::CanInviteVassal(PlayerTypes eTarget) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (eTarget == NO_PLAYER || eTarget == GetID()) return false;
+	if (eTarget < 0 || eTarget >= MAX_MAJOR_CIVS) return false;
+
+	CvPlayer& kTarget = GET_PLAYER(eTarget);
+	if (!kTarget.isAlive() || !kTarget.isMajorCiv()) return false;
+	if (kTarget.GetOverlord() != NO_PLAYER) return false;
+	if (GET_TEAM(getTeam()).isAtWar(kTarget.getTeam())) return false;
+
+	int iPercent = TiandaoDefineInt("TIANDAO_INVITE_MILITARY_PERCENT");
+	if (iPercent <= 0) return false;
+
+	long long iOurMight = GetMilitaryMight();
+	long long iTargetMight = kTarget.GetMilitaryMight();
+	return iOurMight * 100 >= iTargetMight * iPercent;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::DoInviteVassal(PlayerTypes eTarget)
+{
+	if (!CanInviteVassal(eTarget)) return false;
+
+	CvPlayer& kTarget = GET_PLAYER(eTarget);
+	long long iOurMight = GetMilitaryMight();
+	long long iTargetMight = kTarget.GetMilitaryMight();
+
+	int iAcceptPercent = TiandaoDefineInt("TIANDAO_INVITE_ACCEPT_PERCENT");
+	int iThreatPercent = TiandaoDefineInt("TIANDAO_INVITE_THREAT_PERCENT");
+
+	bool bAccept = (iAcceptPercent > 0 && iOurMight * 100 >= iTargetMight * iAcceptPercent);
+
+	if (!bAccept && iThreatPercent > 0)
+	{
+		for (int i = 0; i < MAX_MAJOR_CIVS; i++)
+		{
+			PlayerTypes eOther = (PlayerTypes)i;
+			if (eOther == GetID() || eOther == eTarget) continue;
+
+			CvPlayer& kOther = GET_PLAYER(eOther);
+			if (!kOther.isAlive() || !kOther.isMajorCiv()) continue;
+			if (kOther.GetMilitaryMight() * 100 >= iTargetMight * iThreatPercent)
+			{
+				bAccept = true;
+				break;
+			}
+		}
+	}
+
+	if (!bAccept) return false;
+
+	kTarget.SetOverlord(GetID());
+	AddVassal(eTarget);
+	RefreshUCFromVassals();
+
+	int iStart = TiandaoDefineInt("TIANDAO_LOYALTY_INVITE_START");
+	if (iStart > 0)
+		ChangeVassalLoyalty(eTarget, iStart);
+
+	return true;
+}
+
+//--------------------------------------------------------------------------------
 int CvPlayer::GetMonopolyResourceCount() const
 {
 	if (!MOD_GLOBAL_SUZERAIN) return 0;

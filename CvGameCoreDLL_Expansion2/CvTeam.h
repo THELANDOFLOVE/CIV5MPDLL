@@ -52,6 +52,11 @@ public:
 
 	void doTurn();
 
+	// Suzerain vision: an overlord team sees what its vassal teams see, one-way.
+	// The source list is rebuilt each turn, so it needs no serialization.
+	void UpdateVassalVisionSources();
+	const std::vector<int>& GetVassalVisionSources() const { return m_viVassalVisionSources; }
+
 	void DoBarbarianTech();
 	void DoMinorCivTech();
 
@@ -472,6 +477,9 @@ protected:
 	TeamTypes m_eID;
 
 	static CvTeam* m_aTeams;
+
+	// Teams whose visibility this team inherits (the teams of its vassals).
+	std::vector<int> m_viVassalVisionSources;
 
 	int m_iNumMembers;
 	int m_iAliveCount;

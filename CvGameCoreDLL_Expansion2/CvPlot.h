@@ -27,6 +27,7 @@
 #include "CvGlobals.h"
 #include "CvGame.h"
 #include "CvEnums.h"
+#include "CvTeam.h"
 
 #pragma warning( disable: 4251 )		// needs to have dll-interface to be used by clients of class
 
@@ -222,13 +223,7 @@ public:
 	{
 		if(bDebug && GC.getGame().isDebugMode())
 			return true;
-		else
-		{
-			if(eTeam == NO_TEAM)
-				return false;
-
-			return ((getVisibilityCount(eTeam) > 0));
-		}
+		return isVisible(eTeam);
 	}
 
 	bool isVisible(TeamTypes eTeam) const
@@ -236,7 +231,22 @@ public:
 		if(eTeam == NO_TEAM)
 			return false;
 
-		return ((getVisibilityCount(eTeam) > 0));
+		if (getVisibilityCount(eTeam) > 0)
+			return true;
+
+#if defined(MOD_GLOBAL_SUZERAIN)
+		// Suzerain vision: an overlord sees what its vassals see, never the reverse.
+		if (MOD_GLOBAL_SUZERAIN)
+		{
+			const std::vector<int>& vSources = GET_TEAM(eTeam).GetVassalVisionSources();
+			for (size_t i = 0; i < vSources.size(); i++)
+			{
+				if (getVisibilityCount((TeamTypes)vSources[i]) > 0)
+					return true;
+			}
+		}
+#endif
+		return false;
 	}
 
 	bool isActiveVisible(bool bDebug) const;
@@ -670,16 +680,29 @@ public:
 	{
 		if(bDebug && GC.getGame().isDebugMode())
 			return true;
-		CvAssertMsg(eTeam >= 0, "eTeam is expected to be non-negative (invalid Index)");
-		CvAssertMsg(eTeam < MAX_TEAMS, "eTeam is expected to be within maximum bounds (invalid Index)");
-		return m_bfRevealed.GetBit(eTeam);
+		return isRevealed(eTeam);
 	}
 
 	bool isRevealed(TeamTypes eTeam) const
 	{
 		CvAssertMsg(eTeam >= 0, "eTeam is expected to be non-negative (invalid Index)");
 		CvAssertMsg(eTeam < MAX_TEAMS, "eTeam is expected to be within maximum bounds (invalid Index)");
-		return m_bfRevealed.GetBit(eTeam);
+		if (m_bfRevealed.GetBit(eTeam))
+			return true;
+
+#if defined(MOD_GLOBAL_SUZERAIN)
+		// Suzerain vision also reveals terrain the vassals have explored.
+		if (MOD_GLOBAL_SUZERAIN)
+		{
+			const std::vector<int>& vSources = GET_TEAM(eTeam).GetVassalVisionSources();
+			for (size_t i = 0; i < vSources.size(); i++)
+			{
+				if (m_bfRevealed.GetBit((TeamTypes)vSources[i]))
+					return true;
+			}
+		}
+#endif
+		return false;
 	}
 
 #if defined(MOD_API_EXTENSIONS)

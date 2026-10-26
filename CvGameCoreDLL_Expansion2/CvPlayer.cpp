@@ -11644,11 +11644,14 @@ int CvPlayer::calculateResearchModifier(TechTypes eTech)
 	}
 
 #if defined(MOD_GLOBAL_SUZERAIN)
-	// The overlord gains a research discount for technologies already discovered by its vassals.
-	// The per-vassal discount is configured on the suzerain resolution (VassalTechDiscount).
+	// Guizong: technologies already discovered by our vassals cost us less research.
+	// iModifier is a speed multiplier (higher = cheaper research), so the discount is added.
+	// The per-vassal value comes from SQL, falling back to the suzerain resolution.
 	if (HasAnyVassal())
 	{
-		int iDiscountPerVassal = GetVassalTechDiscount();
+		int iDiscountPerVassal = GC.getDefineINT("TIANDAO_VASSAL_TECH_DISCOUNT", false);
+		if (iDiscountPerVassal <= 0)
+			iDiscountPerVassal = GetVassalTechDiscount();
 		if (iDiscountPerVassal > 0)
 		{
 			int iVassalsKnowingTech = 0;
@@ -11663,7 +11666,13 @@ int CvPlayer::calculateResearchModifier(TechTypes eTech)
 					++iVassalsKnowingTech;
 			}
 			if (iVassalsKnowingTech > 0)
-				iModifier = std::max(1, iModifier - std::min(99, iVassalsKnowingTech * iDiscountPerVassal));
+			{
+				// Convert the cost reduction into the speed multiplier: cost falls by
+				// iCostMod percent, so the multiplier is scaled by 100 / (100 - iCostMod).
+				int iCostMod = std::min(99, iVassalsKnowingTech * iDiscountPerVassal);
+				if (iCostMod > 0)
+					iModifier = iModifier * 100 / (100 - iCostMod);
+			}
 		}
 	}
 
@@ -11678,7 +11687,10 @@ int CvPlayer::calculateResearchModifier(TechTypes eTech)
 		{
 			int iTeachingDiscount = GC.getDefineINT("TIANDAO_TEACHING_DISCOUNT", false);
 			if (iTeachingDiscount > 0)
-				iModifier = std::max(1, iModifier - std::min(99, iTeachingDiscount));
+			{
+				int iCostMod = std::min(99, iTeachingDiscount);
+				iModifier = iModifier * 100 / (100 - iCostMod);
+			}
 		}
 	}
 #endif

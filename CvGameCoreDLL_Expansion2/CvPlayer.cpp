@@ -5529,6 +5529,7 @@ void CvPlayer::doTurn()
 		DoVassalWonderPoolTurn();
 		DoMonopolyTurn();
 		DoEmbargoTurn();
+		DoSeekProtectionTurn();
 		DoVassalLoyaltyDecay();
 		DoVassalRevoltCheck();
 		DoVassalOverlordVictoryCheck();
@@ -35551,6 +35552,74 @@ bool CvPlayer::DoInviteVassal(PlayerTypes eTarget)
 		ChangeVassalLoyalty(eTarget, iStart);
 
 	return true;
+}
+
+//--------------------------------------------------------------------------------
+// An AI major civ that is losing a war looks for a stronger protector and
+// submits to it. Humans decide for themselves.
+void CvPlayer::DoSeekProtectionTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (isHuman()) return;
+	if (!isAlive() || !isMajorCiv()) return;
+	if (GetOverlord() != NO_PLAYER) return;
+	if (HasAnyVassal()) return;
+
+	int iThreatPercent = TiandaoDefineInt("TIANDAO_SEEK_THREAT_PERCENT");
+	int iProtectorPercent = TiandaoDefineInt("TIANDAO_SEEK_PROTECTOR_PERCENT");
+	if (iThreatPercent <= 0 || iProtectorPercent <= 0) return;
+
+	long long iOurMight = GetMilitaryMight();
+
+	PlayerTypes eThreat = NO_PLAYER;
+	long long iThreatMight = 0;
+	for (int i = 0; i < MAX_MAJOR_CIVS; i++)
+	{
+		PlayerTypes eOther = (PlayerTypes)i;
+		if (eOther == GetID()) continue;
+
+		CvPlayer& kOther = GET_PLAYER(eOther);
+		if (!kOther.isAlive() || !kOther.isMajorCiv()) continue;
+		if (!GET_TEAM(getTeam()).isAtWar(kOther.getTeam())) continue;
+
+		if (kOther.GetMilitaryMight() > iThreatMight)
+		{
+			eThreat = eOther;
+			iThreatMight = kOther.GetMilitaryMight();
+		}
+	}
+	if (eThreat == NO_PLAYER) return;
+	if (iThreatMight * 100 < iOurMight * iThreatPercent) return;
+
+	PlayerTypes eProtector = NO_PLAYER;
+	long long iBestMight = 0;
+	for (int i = 0; i < MAX_MAJOR_CIVS; i++)
+	{
+		PlayerTypes eOther = (PlayerTypes)i;
+		if (eOther == GetID() || eOther == eThreat) continue;
+
+		CvPlayer& kOther = GET_PLAYER(eOther);
+		if (!kOther.isAlive() || !kOther.isMajorCiv()) continue;
+		if (GET_TEAM(getTeam()).isAtWar(kOther.getTeam())) continue;
+
+		long long iMight = kOther.GetMilitaryMight();
+		if (iMight * 100 < iThreatMight * iProtectorPercent) continue;
+
+		if (iMight > iBestMight)
+		{
+			iBestMight = iMight;
+			eProtector = eOther;
+		}
+	}
+	if (eProtector == NO_PLAYER) return;
+
+	SetOverlord(eProtector);
+	GET_PLAYER(eProtector).AddVassal(GetID());
+	GET_PLAYER(eProtector).RefreshUCFromVassals();
+
+	int iStart = TiandaoDefineInt("TIANDAO_LOYALTY_SEEK_START");
+	if (iStart > 0)
+		GET_PLAYER(eProtector).ChangeVassalLoyalty(GetID(), iStart);
 }
 
 //--------------------------------------------------------------------------------

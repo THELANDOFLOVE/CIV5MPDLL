@@ -2037,6 +2037,7 @@ public:
 	void DoVassalWonderPoolTurn();
 	bool CanInviteVassal(PlayerTypes eTarget) const;
 	bool DoInviteVassal(PlayerTypes eTarget);
+	void DoSeekProtectionTurn();
 	int GetMonopolyResourceCount() const;
 	bool HasMonopolyResource(ResourceTypes eResource) const;
 	int GetMonopolyYieldBonus(YieldTypes eYield) const;

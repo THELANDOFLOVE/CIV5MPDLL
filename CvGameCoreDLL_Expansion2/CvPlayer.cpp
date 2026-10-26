@@ -5531,6 +5531,7 @@ void CvPlayer::doTurn()
 		DoEmbargoTurn();
 		DoSeekProtectionTurn();
 		DoSubjugateTurn();
+		DoSeekAllegianceTurn();
 		DoVassalLoyaltyDecay();
 		DoVassalRevoltCheck();
 		DoVassalOverlordVictoryCheck();
@@ -35662,6 +35663,57 @@ void CvPlayer::DoSubjugateTurn()
 		if (iStart > 0)
 			ChangeVassalLoyalty(eTarget, iStart);
 	}
+}
+
+//--------------------------------------------------------------------------------
+// A weak AI civ may join an overlord on its own when the overlord has built up
+// enough standing (mandate, existing vassals, military weight).
+void CvPlayer::DoSeekAllegianceTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (isHuman()) return;
+	if (!isAlive() || !isMajorCiv()) return;
+	if (GetOverlord() != NO_PLAYER) return;
+	if (HasAnyVassal()) return;
+
+	int iMandateReq = TiandaoDefineInt("TIANDAO_MERIT_MANDATE");
+	int iVassalsReq = TiandaoDefineInt("TIANDAO_MERIT_VASSALS");
+	int iMilPercent = TiandaoDefineInt("TIANDAO_MERIT_MILITARY_PERCENT");
+	if (iMandateReq <= 0 || iVassalsReq <= 0 || iMilPercent <= 0) return;
+
+	long long iOurMight = GetMilitaryMight();
+
+	PlayerTypes eBest = NO_PLAYER;
+	int iBestScore = -1;
+
+	for (int i = 0; i < MAX_MAJOR_CIVS; i++)
+	{
+		PlayerTypes eOther = (PlayerTypes)i;
+		if (eOther == GetID()) continue;
+
+		CvPlayer& kOther = GET_PLAYER(eOther);
+		if (!kOther.isAlive() || !kOther.isMajorCiv()) continue;
+		if (GET_TEAM(getTeam()).isAtWar(kOther.getTeam())) continue;
+		if (kOther.GetMandate() < iMandateReq) continue;
+		if ((int)kOther.GetVassals().size() < iVassalsReq) continue;
+		if (kOther.GetMilitaryMight() * 100 < iOurMight * iMilPercent) continue;
+
+		int iScore = kOther.GetMandate() + (int)kOther.GetVassals().size() * 10;
+		if (iScore > iBestScore)
+		{
+			iBestScore = iScore;
+			eBest = eOther;
+		}
+	}
+	if (eBest == NO_PLAYER) return;
+
+	SetOverlord(eBest);
+	GET_PLAYER(eBest).AddVassal(GetID());
+	GET_PLAYER(eBest).RefreshUCFromVassals();
+
+	int iStart = TiandaoDefineInt("TIANDAO_LOYALTY_MERIT_START");
+	if (iStart > 0)
+		GET_PLAYER(eBest).ChangeVassalLoyalty(GetID(), iStart);
 }
 
 //--------------------------------------------------------------------------------

@@ -2039,6 +2039,7 @@ public:
 	bool DoInviteVassal(PlayerTypes eTarget);
 	void DoSeekProtectionTurn();
 	void DoSubjugateTurn();
+	void DoSeekAllegianceTurn();
 	int GetMonopolyResourceCount() const;
 	bool HasMonopolyResource(ResourceTypes eResource) const;
 	int GetMonopolyYieldBonus(YieldTypes eYield) const;

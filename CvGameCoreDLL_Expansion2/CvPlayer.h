@@ -2097,6 +2097,7 @@ public:
 	int GetPrayerDenyStreak(PlayerTypes eVassal) const;
 	int GetPrayerPolicyCostModifier() const { return m_iPrayerPolicyCostModifier; }
 	void DoPrayerTurn();
+	void DoPrayerOverlordTurn();
 	void ApplyPrayerGrace(PlayerTypes eVassal, int iWish);
 	void ApplyPrayerBlessing(int iYield, int iAmount, int iTurns);
 	void RemovePrayerBlessing();

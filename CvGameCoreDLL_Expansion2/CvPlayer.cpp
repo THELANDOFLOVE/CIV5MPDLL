@@ -5546,6 +5546,7 @@ void CvPlayer::doTurn()
 		DoEmbargoTurn();
 		DoSeekProtectionTurn();
 		DoPrayerTurn();
+		DoPrayerOverlordTurn();
 		DoSubjugateTurn();
 		DoSeekAllegianceTurn();
 		DoVassalLoyaltyDecay();
@@ -34924,6 +34925,29 @@ void CvPlayer::DoPrayerTurn()
 	// Prefer a grace that matches what the vassal lacks.
 	int iWish = GC.getGame().getJonRandNum(PRAYER_WISH_COUNT, "Tiandao prayer wish");
 	SubmitPrayer(iScience, iCulture, iFaith, iGold, iWish);
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::DoPrayerOverlordTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (isHuman()) return;
+	if (m_vPrayerRequests.empty()) return;
+
+	int iTurn = GC.getGame().getGameTurn();
+	int iInterval = TiandaoDefineInt("TIANDAO_PRAYER_AI_INTERVAL");
+	if (iInterval <= 0) iInterval = 10;
+	if (iTurn % iInterval != 0) return;
+
+	// AI overlords grant most petitions, but not all, so loyalty still moves.
+	int iGrantPercent = TiandaoDefineInt("TIANDAO_PRAYER_AI_GRANT_PERCENT");
+	if (iGrantPercent <= 0) iGrantPercent = 60;
+
+	while (!m_vPrayerRequests.empty())
+	{
+		bool bGrant = (GC.getGame().getJonRandNum(100, "Tiandao prayer ai") < iGrantPercent);
+		ResolvePrayer(0, bGrant);
+	}
 }
 
 //--------------------------------------------------------------------------------

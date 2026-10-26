@@ -444,6 +444,8 @@ CvPlayer::CvPlayer() :
 	, m_iWonderRequest("CvPlayer::m_iWonderRequest", m_syncArchive)
 	, m_aiVassalWonderApproval("CvPlayer::m_aiVassalWonderApproval", m_syncArchive)
 	, m_aiMonopolyResources("CvPlayer::m_aiMonopolyResources", m_syncArchive)
+	, m_aiMonopolyYieldBonuses("CvPlayer::m_aiMonopolyYieldBonuses", m_syncArchive)
+	, m_iMonopolyHappiness("CvPlayer::m_iMonopolyHappiness", m_syncArchive)
 	, m_aScienceTimes100FromVassals()
 	, m_aCultureFromVassals()
 	, m_aFaithFromVassals()
@@ -1343,6 +1345,9 @@ void CvPlayer::uninit()
 	m_aiVassalWonderApproval.clear();
 	m_aiVassalWonderApproval.resize(MAX_MAJOR_CIVS, NO_BUILDING);
 	m_aiMonopolyResources.clear();
+	m_aiMonopolyYieldBonuses.clear();
+	m_aiMonopolyYieldBonuses.resize(NUM_YIELD_TYPES, 0);
+	m_iMonopolyHappiness = 0;
 #endif
 	m_iExtraUnitPlayerInstances = 0;
 	m_iConquestCasualtiesModifier = 0;
@@ -14670,9 +14675,7 @@ int CvPlayer::DoUpdateTotalUnhappiness(CvCity* pAssumeCityAnnexed, CvCity* pAssu
 	{
 		PlayerTypes eOverlord = GetOverlord();
 		CvPlayer& kPoolOwner = (eOverlord != NO_PLAYER) ? GET_PLAYER(eOverlord) : *this;
-		int iHappy = GC.getDefineINT("TIANDAO_MONOPOLY_HAPPINESS", false);
-		if (iHappy > 0)
-			iUnhappiness -= kPoolOwner.GetMonopolyResourceCount() * iHappy;
+		iUnhappiness -= kPoolOwner.GetMonopolyHappiness();
 		if (iUnhappiness < 0)
 			iUnhappiness = 0;
 	}
@@ -31287,6 +31290,8 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ(165, kStream, m_iWonderRequest, NO_BUILDING);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalWonderApproval, MAX_MAJOR_CIVS, NO_BUILDING);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiMonopolyResources, 0, 0);
+		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiMonopolyYieldBonuses, NUM_YIELD_TYPES, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iMonopolyHappiness, 0);
 		{
 			int iVassalCount = 0;
 			MOD_SERIALIZE_READ(163, kStream, iVassalCount, 0);
@@ -32212,6 +32217,8 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE(kStream, m_iWonderRequest);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalWonderApproval);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiMonopolyResources);
+	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiMonopolyYieldBonuses);
+	MOD_SERIALIZE_WRITE(kStream, m_iMonopolyHappiness);
 	{
 		int iVassalCount = (int)m_vecVassals.size();
 		kStream << iVassalCount;
@@ -35553,6 +35560,22 @@ bool CvPlayer::HasMonopolyResource(ResourceTypes eResource) const
 }
 
 //--------------------------------------------------------------------------------
+int CvPlayer::GetMonopolyYieldBonus(YieldTypes eYield) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	if (eYield < 0 || eYield >= NUM_YIELD_TYPES) return 0;
+	if ((size_t)eYield >= m_aiMonopolyYieldBonuses.size()) return 0;
+	return m_aiMonopolyYieldBonuses[eYield];
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetMonopolyHappiness() const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	return m_iMonopolyHappiness;
+}
+
+//--------------------------------------------------------------------------------
 void CvPlayer::DoMonopolyTurn()
 {
 	if (!MOD_GLOBAL_SUZERAIN) return;
@@ -35560,6 +35583,9 @@ void CvPlayer::DoMonopolyTurn()
 	if (!HasAnyVassal()) return;
 
 	m_aiMonopolyResources.clear();
+	m_aiMonopolyYieldBonuses.clear();
+	m_aiMonopolyYieldBonuses.resize(NUM_YIELD_TYPES, 0);
+	m_iMonopolyHappiness = 0;
 
 	int iThreshold = TiandaoDefineInt("TIANDAO_MONOPOLY_PERCENT");
 	if (iThreshold <= 0) return;
@@ -35590,8 +35616,42 @@ void CvPlayer::DoMonopolyTurn()
 				iOurs += kVassal.getNumResourceTotal(eResource, false);
 		}
 
-		if (iOurs * 100 >= iGlobal * iThreshold)
-			m_aiMonopolyResources.push_back((int)eResource);
+		if (iOurs * 100 < iGlobal * iThreshold) continue;
+
+		m_aiMonopolyResources.push_back((int)eResource);
+
+		// Read this resource's per-yield bonuses, e.g.
+		// TIANDAO_MONOPOLY_WINE_CULTURE or TIANDAO_MONOPOLY_SILK_GOLD.
+		CvString sResource = pInfo->GetType();
+		if (sResource.compare(0, 9, "RESOURCE_") == 0)
+			sResource = sResource.substr(9);
+
+		for (int y = 0; y < NUM_YIELD_TYPES; y++)
+		{
+			CvYieldInfo* pYieldInfo = GC.getYieldInfo((YieldTypes)y);
+			if (pYieldInfo == NULL) continue;
+
+			CvString sYield = pYieldInfo->GetType();
+			if (sYield.compare(0, 6, "YIELD_") == 0)
+				sYield = sYield.substr(6);
+
+			CvString sKey = "TIANDAO_MONOPOLY_";
+			sKey += sResource;
+			sKey += "_";
+			sKey += sYield;
+
+			int iBonus = GC.getDefineINT(sKey.c_str(), false);
+			if (iBonus != 0)
+				m_aiMonopolyYieldBonuses.setAt((size_t)y, m_aiMonopolyYieldBonuses[y] + iBonus);
+		}
+
+		CvString sHappyKey = "TIANDAO_MONOPOLY_";
+		sHappyKey += sResource;
+		sHappyKey += "_HAPPINESS";
+
+		int iHappy = GC.getDefineINT(sHappyKey.c_str(), false);
+		if (iHappy != 0)
+			m_iMonopolyHappiness += iHappy;
 	}
 }
 

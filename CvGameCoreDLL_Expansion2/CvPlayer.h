@@ -2039,6 +2039,8 @@ public:
 	bool DoInviteVassal(PlayerTypes eTarget);
 	int GetMonopolyResourceCount() const;
 	bool HasMonopolyResource(ResourceTypes eResource) const;
+	int GetMonopolyYieldBonus(YieldTypes eYield) const;
+	int GetMonopolyHappiness() const;
 	void DoMonopolyTurn();
 	void DoVassalLoyaltyDecay();
 	void RefreshUCFromVassals();
@@ -3110,6 +3112,9 @@ protected:
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalWonderApproval;
 	// Resources this overlord (with its vassals) monopolizes
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiMonopolyResources;
+	// Cached monopoly bonuses, recomputed each turn
+	FAutoVariable<std::vector<int>, CvPlayer> m_aiMonopolyYieldBonuses;
+	FAutoVariable<int, CvPlayer> m_iMonopolyHappiness;
 	// UC caches from vassals
 	std::tr1::unordered_set<UnitTypes> m_sUUFromVassals;
 	std::tr1::unordered_set<BuildingTypes> m_sUBFromVassals;

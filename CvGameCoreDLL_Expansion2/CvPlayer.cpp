@@ -434,6 +434,11 @@ CvPlayer::CvPlayer() :
 	, m_iBlessingProduction("CvPlayer::m_iBlessingProduction", m_syncArchive)
 	, m_iBlessingCulture("CvPlayer::m_iBlessingCulture", m_syncArchive)
 	, m_iBlessingEndTurn("CvPlayer::m_iBlessingEndTurn", m_syncArchive)
+	, m_iPrayerBlessingEndTurn(0)
+	, m_iPrayerThresholdTurns(0)
+	, m_iPrayerResearchCostModifier(0)
+	, m_iPrayerPolicyCostModifier(0)
+	, m_iPrayerHappinessEndTurn(0)
 	, m_iPunishEndTurn("CvPlayer::m_iPunishEndTurn", m_syncArchive)
 	, m_iPunishBy("CvPlayer::m_iPunishBy", m_syncArchive)
 	, m_iPunishUnhappiness("CvPlayer::m_iPunishUnhappiness", m_syncArchive)
@@ -1333,6 +1338,16 @@ void CvPlayer::uninit()
 	m_aiVassalBreachTurn.clear();
 	m_aiVassalBreachTurn.resize(MAX_MAJOR_CIVS, 0);
 	m_iFengshanEra = -1;
+	m_vPrayerRequests.clear();
+	m_aiPrayerDenyStreak.clear();
+	m_aiPrayerDenyStreak.resize(MAX_MAJOR_CIVS, 0);
+	m_aiPrayerBlessing.clear();
+	m_aiPrayerBlessing.resize(NUM_YIELD_TYPES, 0);
+	m_iPrayerBlessingEndTurn = 0;
+	m_iPrayerThresholdTurns = 0;
+	m_iPrayerResearchCostModifier = 0;
+	m_iPrayerPolicyCostModifier = 0;
+	m_iPrayerHappinessEndTurn = 0;
 	m_iBlessingFood = 0;
 	m_iBlessingProduction = 0;
 	m_iBlessingCulture = 0;
@@ -5530,6 +5545,7 @@ void CvPlayer::doTurn()
 		DoMonopolyTurn();
 		DoEmbargoTurn();
 		DoSeekProtectionTurn();
+		DoPrayerTurn();
 		DoSubjugateTurn();
 		DoSeekAllegianceTurn();
 		DoVassalLoyaltyDecay();
@@ -31290,6 +31306,39 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ(165, kStream, m_iBlessingProduction, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iBlessingCulture, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iBlessingEndTurn, 0);
+		{
+			int iPrayerCount = 0;
+			MOD_SERIALIZE_READ(166, kStream, iPrayerCount, 0);
+			m_vPrayerRequests.clear();
+			for (int j = 0; j < iPrayerCount; j++)
+			{
+				TiandaoPrayerRequest req;
+				int iVassal = NO_PLAYER;
+				int iScience = 0, iCulture = 0, iFaith = 0, iGold = 0, iWish = 0, iTurn = 0;
+				MOD_SERIALIZE_READ(166, kStream, iVassal, NO_PLAYER);
+				MOD_SERIALIZE_READ(166, kStream, iScience, 0);
+				MOD_SERIALIZE_READ(166, kStream, iCulture, 0);
+				MOD_SERIALIZE_READ(166, kStream, iFaith, 0);
+				MOD_SERIALIZE_READ(166, kStream, iGold, 0);
+				MOD_SERIALIZE_READ(166, kStream, iWish, 0);
+				MOD_SERIALIZE_READ(166, kStream, iTurn, 0);
+				req.eVassal = (PlayerTypes)iVassal;
+				req.iScience = iScience;
+				req.iCulture = iCulture;
+				req.iFaith = iFaith;
+				req.iGold = iGold;
+				req.iWish = iWish;
+				req.iTurn = iTurn;
+				m_vPrayerRequests.push_back(req);
+			}
+		}
+		MOD_SERIALIZE_READ_VECTOR(166, kStream, m_aiPrayerDenyStreak, MAX_MAJOR_CIVS, 0);
+		MOD_SERIALIZE_READ_VECTOR(166, kStream, m_aiPrayerBlessing, NUM_YIELD_TYPES, 0);
+		MOD_SERIALIZE_READ(166, kStream, m_iPrayerBlessingEndTurn, 0);
+		MOD_SERIALIZE_READ(166, kStream, m_iPrayerThresholdTurns, 0);
+		MOD_SERIALIZE_READ(166, kStream, m_iPrayerResearchCostModifier, 0);
+		MOD_SERIALIZE_READ(166, kStream, m_iPrayerPolicyCostModifier, 0);
+		MOD_SERIALIZE_READ(166, kStream, m_iPrayerHappinessEndTurn, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iPunishEndTurn, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iPunishBy, NO_PLAYER);
 		MOD_SERIALIZE_READ(165, kStream, m_iPunishUnhappiness, 0);
@@ -32220,6 +32269,31 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE(kStream, m_iBlessingProduction);
 	MOD_SERIALIZE_WRITE(kStream, m_iBlessingCulture);
 	MOD_SERIALIZE_WRITE(kStream, m_iBlessingEndTurn);
+	{
+		int iPrayerCount = (int)m_vPrayerRequests.size();
+		MOD_SERIALIZE_WRITE(kStream, iPrayerCount);
+		for (int j = 0; j < iPrayerCount; j++)
+		{
+			const TiandaoPrayerRequest& req = m_vPrayerRequests[j];
+			int iVassal = (int)req.eVassal;
+			int iScience = req.iScience, iCulture = req.iCulture, iFaith = req.iFaith;
+			int iGold = req.iGold, iWish = req.iWish, iTurn = req.iTurn;
+			MOD_SERIALIZE_WRITE(kStream, iVassal);
+			MOD_SERIALIZE_WRITE(kStream, iScience);
+			MOD_SERIALIZE_WRITE(kStream, iCulture);
+			MOD_SERIALIZE_WRITE(kStream, iFaith);
+			MOD_SERIALIZE_WRITE(kStream, iGold);
+			MOD_SERIALIZE_WRITE(kStream, iWish);
+			MOD_SERIALIZE_WRITE(kStream, iTurn);
+		}
+	}
+	MOD_SERIALIZE_WRITE(kStream, m_aiPrayerDenyStreak);
+	MOD_SERIALIZE_WRITE(kStream, m_aiPrayerBlessing);
+	MOD_SERIALIZE_WRITE(kStream, m_iPrayerBlessingEndTurn);
+	MOD_SERIALIZE_WRITE(kStream, m_iPrayerThresholdTurns);
+	MOD_SERIALIZE_WRITE(kStream, m_iPrayerResearchCostModifier);
+	MOD_SERIALIZE_WRITE(kStream, m_iPrayerPolicyCostModifier);
+	MOD_SERIALIZE_WRITE(kStream, m_iPrayerHappinessEndTurn);
 	MOD_SERIALIZE_WRITE(kStream, m_iPunishEndTurn);
 	MOD_SERIALIZE_WRITE(kStream, m_iPunishBy);
 	MOD_SERIALIZE_WRITE(kStream, m_iPunishUnhappiness);
@@ -34439,6 +34513,420 @@ bool CvPlayer::DoReturnCityToVassalByID(int iCityID)
 }
 
 //--------------------------------------------------------------------------------
+// Prayer: a vassal offers part of its science, culture, faith and gold to the
+// overlord and asks for a grace. The offering is collected immediately; the
+// request waits in the overlord's court queue until adjudicated.
+bool CvPlayer::CanSubmitPrayer() const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (!isAlive() || !isMajorCiv()) return false;
+	return GetOverlord() != NO_PLAYER;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::SubmitPrayer(int iScience, int iCulture, int iFaith, int iGold, int iWish)
+{
+	if (!CanSubmitPrayer()) return false;
+	if (iWish < 0 || iWish >= PRAYER_WISH_COUNT) return false;
+	if (iScience < 0 || iCulture < 0 || iFaith < 0 || iGold < 0) return false;
+	if (iScience + iCulture + iFaith + iGold <= 0) return false;
+
+	PlayerTypes eOverlord = GetOverlord();
+	CvPlayer& kOverlord = GET_PLAYER(eOverlord);
+	if (!kOverlord.isAlive()) return false;
+
+	int iTurn = GC.getGame().getGameTurn();
+	int iMaxPerTurn = TiandaoDefineInt("TIANDAO_PRAYER_REQUESTS_PER_TURN");
+	if (iMaxPerTurn > 0)
+	{
+		int iCount = 0;
+		for (size_t i = 0; i < kOverlord.m_vPrayerRequests.size(); i++)
+		{
+			if (kOverlord.m_vPrayerRequests[i].eVassal == GetID()
+				&& kOverlord.m_vPrayerRequests[i].iTurn == iTurn)
+				iCount++;
+		}
+		if (iCount >= iMaxPerTurn) return false;
+	}
+
+	TechTypes eResearch = (iScience > 0) ? GetPlayerTechs()->GetCurrentResearch() : NO_TECH;
+	if (iScience > 0)
+	{
+		if (eResearch == NO_TECH) return false;
+		if (GetPlayerTechs()->GetResearchProgress(eResearch) < iScience) return false;
+	}
+	if (iGold > 0 && GetTreasury()->GetGold() < iGold) return false;
+	if (iFaith > 0 && GetFaith() < iFaith) return false;
+	if (iCulture > 0 && getJONSCulture() < iCulture) return false;
+
+	if (iScience > 0)
+		GET_TEAM(getTeam()).GetTeamTechs()->ChangeResearchProgress(eResearch, -iScience, GetID());
+	if (iCulture > 0)
+		changeJONSCulture(-iCulture);
+	if (iFaith > 0)
+		ChangeFaith(-iFaith);
+	if (iGold > 0)
+		GetTreasury()->ChangeGold(-iGold);
+
+	// The offering reaches the overlord immediately.
+	if (iScience > 0)
+	{
+		TechTypes eOverlordResearch = kOverlord.GetPlayerTechs()->GetCurrentResearch();
+		if (eOverlordResearch != NO_TECH)
+			GET_TEAM(kOverlord.getTeam()).GetTeamTechs()->ChangeResearchProgress(eOverlordResearch, iScience, eOverlord);
+	}
+	if (iCulture > 0)
+		kOverlord.changeJONSCulture(iCulture);
+	if (iFaith > 0)
+		kOverlord.ChangeFaith(iFaith);
+	if (iGold > 0)
+		kOverlord.GetTreasury()->ChangeGold(iGold);
+
+	TiandaoPrayerRequest req;
+	req.eVassal = GetID();
+	req.iScience = iScience;
+	req.iCulture = iCulture;
+	req.iFaith = iFaith;
+	req.iGold = iGold;
+	req.iWish = iWish;
+	req.iTurn = iTurn;
+	kOverlord.m_vPrayerRequests.push_back(req);
+
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetPrayerCount() const
+{
+	return (int)m_vPrayerRequests.size();
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetPrayerVassal(int iIndex) const
+{
+	if (iIndex < 0 || iIndex >= (int)m_vPrayerRequests.size()) return NO_PLAYER;
+	return m_vPrayerRequests[iIndex].eVassal;
+}
+
+int CvPlayer::GetPrayerScience(int iIndex) const
+{
+	if (iIndex < 0 || iIndex >= (int)m_vPrayerRequests.size()) return 0;
+	return m_vPrayerRequests[iIndex].iScience;
+}
+
+int CvPlayer::GetPrayerCulture(int iIndex) const
+{
+	if (iIndex < 0 || iIndex >= (int)m_vPrayerRequests.size()) return 0;
+	return m_vPrayerRequests[iIndex].iCulture;
+}
+
+int CvPlayer::GetPrayerFaith(int iIndex) const
+{
+	if (iIndex < 0 || iIndex >= (int)m_vPrayerRequests.size()) return 0;
+	return m_vPrayerRequests[iIndex].iFaith;
+}
+
+int CvPlayer::GetPrayerGold(int iIndex) const
+{
+	if (iIndex < 0 || iIndex >= (int)m_vPrayerRequests.size()) return 0;
+	return m_vPrayerRequests[iIndex].iGold;
+}
+
+int CvPlayer::GetPrayerWish(int iIndex) const
+{
+	if (iIndex < 0 || iIndex >= (int)m_vPrayerRequests.size()) return 0;
+	return m_vPrayerRequests[iIndex].iWish;
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetPrayerChance(int iIndex) const
+{
+	if (iIndex < 0 || iIndex >= (int)m_vPrayerRequests.size()) return 0;
+	const TiandaoPrayerRequest& req = m_vPrayerRequests[iIndex];
+
+	int iTotal = req.iScience + req.iCulture + req.iFaith + req.iGold;
+	int iBase = TiandaoDefineInt("TIANDAO_PRAYER_CHANCE_BASE");
+	int iUnit = TiandaoDefineInt("TIANDAO_PRAYER_INVEST_UNIT");
+	int iMax = TiandaoDefineInt("TIANDAO_PRAYER_CHANCE_MAX");
+	if (iBase <= 0) iBase = 40;
+	if (iUnit <= 0) iUnit = 25;
+	if (iMax <= 0) iMax = 95;
+
+	int iChance = iBase + iTotal / iUnit;
+	if (iChance > iMax) iChance = iMax;
+	return iChance;
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetPrayerDenyStreak(PlayerTypes eVassal) const
+{
+	if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) return 0;
+	if ((size_t)eVassal >= m_aiPrayerDenyStreak.size()) return 0;
+	return m_aiPrayerDenyStreak[eVassal];
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::ResolvePrayer(int iIndex, bool bGrant)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (iIndex < 0 || iIndex >= (int)m_vPrayerRequests.size()) return false;
+
+	int iChance = GetPrayerChance(iIndex);
+	TiandaoPrayerRequest req = m_vPrayerRequests[iIndex];
+	m_vPrayerRequests.erase(m_vPrayerRequests.begin() + iIndex);
+
+	if (req.eVassal == NO_PLAYER || !IsOverlordOf(req.eVassal)) return false;
+	CvPlayer& kVassal = GET_PLAYER(req.eVassal);
+	if (!kVassal.isAlive()) return false;
+
+	bool bSuccess = false;
+	if (bGrant)
+		bSuccess = (GC.getGame().getJonRandNum(100, "Tiandao prayer") < iChance);
+
+	if (bSuccess)
+	{
+		ApplyPrayerGrace(req.eVassal, req.iWish);
+		int iGrant = TiandaoDefineInt("TIANDAO_PRAYER_LOYALTY_GRANT");
+		if (iGrant != 0)
+			ChangeVassalLoyalty(req.eVassal, iGrant);
+		if ((size_t)req.eVassal < m_aiPrayerDenyStreak.size())
+			m_aiPrayerDenyStreak[req.eVassal] = 0;
+	}
+	else if (!bGrant)
+	{
+		// Keeping the offering is a betrayal; repeated betrayals end in revolt.
+		int iDeny = TiandaoDefineInt("TIANDAO_PRAYER_LOYALTY_DENY");
+		if (iDeny != 0)
+			ChangeVassalLoyalty(req.eVassal, iDeny);
+		if ((size_t)req.eVassal < m_aiPrayerDenyStreak.size())
+		{
+			m_aiPrayerDenyStreak[req.eVassal] += 1;
+			int iRevolt = TiandaoDefineInt("TIANDAO_PRAYER_DENY_REVOLT");
+			if (iRevolt > 0 && m_aiPrayerDenyStreak[req.eVassal] >= iRevolt)
+				DoVassalRevolt(req.eVassal);
+		}
+	}
+
+	return bSuccess;
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::ApplyPrayerBlessing(int iYield, int iAmount, int iTurns)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	RemovePrayerBlessing();
+	if (iTurns <= 0 || iAmount <= 0) return;
+	if (m_aiPrayerBlessing.size() != NUM_YIELD_TYPES)
+		m_aiPrayerBlessing.resize(NUM_YIELD_TYPES, 0);
+
+	int iLoop = 0;
+	for (CvCity* pCity = firstCity(&iLoop); pCity != NULL; pCity = nextCity(&iLoop))
+	{
+		for (int i = 0; i < NUM_YIELD_TYPES; i++)
+		{
+			if (iYield >= 0 && i != iYield) continue;
+			pCity->ChangeBaseYieldRateFromMisc((YieldTypes)i, iAmount);
+		}
+	}
+	for (int i = 0; i < NUM_YIELD_TYPES; i++)
+		m_aiPrayerBlessing[i] = (iYield < 0 || i == iYield) ? iAmount : 0;
+	m_iPrayerBlessingEndTurn = GC.getGame().getGameTurn() + iTurns;
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::RemovePrayerBlessing()
+{
+	if (m_iPrayerBlessingEndTurn <= 0) return;
+
+	int iLoop = 0;
+	for (CvCity* pCity = firstCity(&iLoop); pCity != NULL; pCity = nextCity(&iLoop))
+	{
+		for (int i = 0; i < NUM_YIELD_TYPES; i++)
+		{
+			if (m_aiPrayerBlessing[i] != 0)
+				pCity->ChangeBaseYieldRateFromMisc((YieldTypes)i, -m_aiPrayerBlessing[i]);
+		}
+	}
+	for (int i = 0; i < NUM_YIELD_TYPES; i++)
+		m_aiPrayerBlessing[i] = 0;
+	m_iPrayerBlessingEndTurn = 0;
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::ApplyPrayerGrace(PlayerTypes eVassal, int iWish)
+{
+	if (eVassal == NO_PLAYER) return;
+	CvPlayer& kVassal = GET_PLAYER(eVassal);
+	if (!kVassal.isAlive()) return;
+
+	int iTurns = TiandaoDefineInt("TIANDAO_PRAYER_BLESSING_TURNS");
+	if (iTurns <= 0) iTurns = 15;
+
+	switch (iWish)
+	{
+	case PRAYER_WISH_BLESSING:
+	{
+		int iAmount = TiandaoDefineInt("TIANDAO_PRAYER_BLESSING_AMOUNT");
+		if (iAmount <= 0) iAmount = 2;
+		kVassal.ApplyPrayerBlessing(-1, iAmount, iTurns);
+		break;
+	}
+	case PRAYER_WISH_THRESHOLD:
+	{
+		int iPercent = TiandaoDefineInt("TIANDAO_PRAYER_THRESHOLD_PERCENT");
+		if (iPercent <= 0) iPercent = 10;
+		kVassal.m_iPrayerResearchCostModifier = -iPercent;
+		kVassal.m_iPrayerPolicyCostModifier = -iPercent;
+		kVassal.m_iPrayerThresholdTurns = GC.getGame().getGameTurn() + iTurns;
+		break;
+	}
+	case PRAYER_WISH_GREAT_PERSON:
+	{
+		CvCity* pCapital = kVassal.getCapitalCity();
+		if (pCapital != NULL)
+		{
+			static const char* aGreatPeople[] = {
+				"UNIT_GREAT_SCIENTIST", "UNIT_GREAT_ENGINEER", "UNIT_GREAT_MERCHANT",
+				"UNIT_GREAT_ARTIST", "UNIT_GREAT_PROPHET", "UNIT_GREAT_WRITER",
+				"UNIT_GREAT_MUSICIAN", "UNIT_GREAT_GENERAL"
+			};
+			int iNum = (int)(sizeof(aGreatPeople) / sizeof(aGreatPeople[0]));
+			int iStart = GC.getGame().getJonRandNum(iNum, "Tiandao prayer great person");
+			for (int i = 0; i < iNum; i++)
+			{
+				UnitTypes eUnit = (UnitTypes)GC.getInfoTypeForString(aGreatPeople[(iStart + i) % iNum], true);
+				if (eUnit != NO_UNIT)
+				{
+					kVassal.initUnit(eUnit, pCapital->getX(), pCapital->getY(), NO_UNITAI);
+					break;
+				}
+			}
+		}
+		break;
+	}
+	case PRAYER_WISH_POLICY:
+		kVassal.ChangeNumFreePolicies(1);
+		break;
+	case PRAYER_WISH_TECH:
+	{
+		TechTypes eTech = kVassal.GetPlayerTechs()->GetCurrentResearch();
+		if (eTech != NO_TECH)
+		{
+			int iCost = (int)kVassal.GetPlayerTechs()->GetResearchCost(eTech);
+			int iProgress = kVassal.GetPlayerTechs()->GetResearchProgress(eTech);
+			if (iCost > iProgress)
+				GET_TEAM(kVassal.getTeam()).GetTeamTechs()->ChangeResearchProgress(eTech, iCost - iProgress, eVassal);
+		}
+		break;
+	}
+	case PRAYER_WISH_BELIEF:
+	{
+		CvGameReligions* pReligions = GC.getGame().GetGameReligions();
+		ReligionTypes eReligion = kVassal.GetReligions()->GetReligionCreatedByPlayer();
+		if (pReligions != NULL && eReligion != NO_RELIGION && eReligion != RELIGION_PANTHEON)
+		{
+			std::vector<BeliefTypes> vBeliefs = pReligions->GetAvailableFollowerBeliefs(eVassal, eReligion);
+			if (!vBeliefs.empty())
+			{
+				int iPick = GC.getGame().getJonRandNum((int)vBeliefs.size(), "Tiandao prayer belief");
+				pReligions->AddBeliefToReligion(eVassal, eReligion, vBeliefs[iPick]);
+			}
+		}
+		break;
+	}
+	case PRAYER_WISH_HAPPINESS:
+	{
+		int iHappiness = TiandaoDefineInt("TIANDAO_PRAYER_HAPPINESS");
+		if (iHappiness <= 0) iHappiness = 1;
+		if (kVassal.m_iPrayerHappinessEndTurn > 0)
+			kVassal.ChangeExtraHappinessPerCity(-1);
+		kVassal.ChangeExtraHappinessPerCity(iHappiness);
+		kVassal.m_iPrayerHappinessEndTurn = GC.getGame().getGameTurn() + iTurns;
+		kVassal.ChangeGoldenAgeProgressMeter(100);
+		break;
+	}
+	case PRAYER_WISH_PURCHASE:
+	{
+		CvCity* pCapital = kVassal.getCapitalCity();
+		if (pCapital != NULL)
+		{
+			std::vector<BuildingTypes> vBuildings;
+			for (int i = 0; i < GC.getNumBuildingInfos(); i++)
+			{
+				BuildingTypes eBuilding = (BuildingTypes)i;
+				CvBuildingEntry* pInfo = GC.getBuildingInfo(eBuilding);
+				if (pInfo == NULL) continue;
+				if (pInfo->GetBuildingClassInfo().getMaxGlobalInstances() == 1) continue;
+				if (pCapital->canConstruct(eBuilding))
+					vBuildings.push_back(eBuilding);
+			}
+			if (!vBuildings.empty())
+			{
+				int iPick = GC.getGame().getJonRandNum((int)vBuildings.size(), "Tiandao prayer building");
+				pCapital->CreateBuilding(vBuildings[iPick]);
+			}
+		}
+		break;
+	}
+	case PRAYER_WISH_WAR:
+	{
+		int iNegateTurn = GC.getGame().getElapsedGameTurns() + iTurns;
+		for (int i = 0; i < MAX_CIV_PLAYERS; i++)
+		{
+			if (i != eVassal)
+				kVassal.SetNegateWarmongerTurn(i, iNegateTurn);
+		}
+		break;
+	}
+	default:
+		break;
+	}
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::DoPrayerTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+
+	int iTurn = GC.getGame().getGameTurn();
+	if (m_iPrayerBlessingEndTurn > 0 && iTurn >= m_iPrayerBlessingEndTurn)
+		RemovePrayerBlessing();
+	if (m_iPrayerHappinessEndTurn > 0 && iTurn >= m_iPrayerHappinessEndTurn)
+	{
+		ChangeExtraHappinessPerCity(-1);
+		m_iPrayerHappinessEndTurn = 0;
+	}
+	if (m_iPrayerThresholdTurns > 0 && iTurn >= m_iPrayerThresholdTurns)
+	{
+		m_iPrayerResearchCostModifier = 0;
+		m_iPrayerPolicyCostModifier = 0;
+		m_iPrayerThresholdTurns = 0;
+	}
+
+	// AI vassals offer a small share of their stock on a fixed rhythm.
+	if (isHuman() || GetOverlord() == NO_PLAYER) return;
+	int iInterval = TiandaoDefineInt("TIANDAO_PRAYER_AI_INTERVAL");
+	if (iInterval <= 0) iInterval = 10;
+	if (iTurn % iInterval != 0) return;
+
+	int iPercent = TiandaoDefineInt("TIANDAO_PRAYER_AI_PERCENT");
+	if (iPercent <= 0) iPercent = 5;
+
+	int iScience = 0;
+	TechTypes eTech = GetPlayerTechs()->GetCurrentResearch();
+	if (eTech != NO_TECH)
+		iScience = GetPlayerTechs()->GetResearchProgress(eTech) * iPercent / 100;
+	int iCulture = getJONSCulture() * iPercent / 100;
+	int iFaith = GetFaith() * iPercent / 100;
+	int iGold = GetTreasury()->GetGold() * iPercent / 100;
+	if (iScience + iCulture + iFaith + iGold <= 0) return;
+
+	// Prefer a grace that matches what the vassal lacks.
+	int iWish = GC.getGame().getJonRandNum(PRAYER_WISH_COUNT, "Tiandao prayer wish");
+	SubmitPrayer(iScience, iCulture, iFaith, iGold, iWish);
+}
+
+//--------------------------------------------------------------------------------
 void CvPlayer::DoVassalCallToArms()
 {
 	if (!MOD_GLOBAL_SUZERAIN) return;
@@ -34560,6 +35048,11 @@ bool CvPlayer::CanVassalRevolt(PlayerTypes eVassal) const
 {
 	if (!MOD_GLOBAL_SUZERAIN) return false;
 	if (!IsOverlordOf(eVassal)) return false;
+
+	// Repeatedly keeping a vassal's offering leaves it no choice but to rise.
+	int iDenyRevolt = TiandaoDefineInt("TIANDAO_PRAYER_DENY_REVOLT");
+	if (iDenyRevolt > 0 && GetPrayerDenyStreak(eVassal) >= iDenyRevolt)
+		return true;
 
 	// High loyalty means the vassal stays even if the overlord has no army.
 	int iLoyaltyFloor = TiandaoDefineInt("TIANDAO_REVOLT_LOYALTY_FLOOR");
@@ -36105,8 +36598,9 @@ void CvPlayer::UpdateVassalTaxation()
 	if (m_vecVassals.empty()) return;
 	// Find active vassal suzerain resolution affecting this player
 	CvLeague* pLeague = GC.getGame().GetGameLeagues()->GetActiveLeague();
-	if (!pLeague) return;
-	ActiveResolutionList vActiveResolutions = pLeague->GetActiveResolutions();
+	ActiveResolutionList vActiveResolutions;
+	if (pLeague != NULL)
+		vActiveResolutions = pLeague->GetActiveResolutions();
 	// Each active suzerain resolution targets exactly one vassal (its decision) and
 	// carries its own tax rate, so levy taxes per-resolution rather than applying a
 	// single rate to all vassals.
@@ -36186,6 +36680,59 @@ void CvPlayer::UpdateVassalTaxation()
 				m_aGoldFromVassals[e] = 0;
 				v.m_iGoldToOverlord = 0;
 			}
+		}
+		else
+		{
+			m_aGoldFromVassals[e] = 0;
+			v.m_iGoldToOverlord = 0;
+		}
+	}
+
+	// Vassals that joined outside the World Congress have no resolution of their own.
+	// They still pay the baseline tithe, so every path into vassalage yields revenue.
+	int iBaseline = TiandaoDefineInt("TIANDAO_VASSAL_BASELINE_TAX");
+	if (iBaseline <= 0) iBaseline = 10;
+	for (size_t iV = 0; iV < m_vecVassals.size(); iV++)
+	{
+		PlayerTypes e = (PlayerTypes)m_vecVassals[iV];
+		bool bHasResolution = false;
+		for (uint iRes = 0; iRes < vActiveResolutions.size(); iRes++)
+		{
+			CvActiveResolution* pRes = &vActiveResolutions[iRes];
+			if (!pRes->GetEffects()->bSubmitSuzerain) continue;
+			if (pRes->GetProposerDecision()->GetProposer() != GetID()) continue;
+			if ((PlayerTypes)pRes->GetProposerDecision()->GetDecision() != e) continue;
+			bHasResolution = true;
+			break;
+		}
+		if (bHasResolution) continue;
+
+		CvPlayer& v = GET_PLAYER(e);
+		if (!v.isAlive()) continue;
+
+		unsigned long long iScienceGross = v.GetScienceTimes100(true) + v.GetScienceTimes100ToOverlord();
+		unsigned long long iScienceTax = iScienceGross * iBaseline / 100;
+		m_aScienceTimes100FromVassals[e] = iScienceTax;
+		v.m_iScienceTimes100ToOverlord = iScienceTax;
+
+		int iCultureGross = v.GetTotalJONSCulturePerTurn() + v.GetCultureToOverlord();
+		int iCultureTax = iCultureGross * iBaseline / 100;
+		m_aCultureFromVassals[e] = iCultureTax;
+		v.m_iCultureToOverlord = iCultureTax;
+
+		int iFaithGross = v.GetTotalFaithPerTurn() + v.GetFaithToOverlord();
+		int iFaithTax = iFaithGross * iBaseline / 100;
+		m_aFaithFromVassals[e] = iFaithTax;
+		v.m_iFaithToOverlord = iFaithTax;
+
+		int iGoldBase = v.calculateGoldRate() + v.GetGoldFromVassals() + v.GetGoldFromVassalDeals();
+		int iGoldTax = iGoldBase * iBaseline / 100;
+		if (iGoldTax > 0)
+		{
+			v.GetTreasury()->ChangeGold(-iGoldTax);
+			GetTreasury()->ChangeGold(iGoldTax);
+			m_aGoldFromVassals[e] = iGoldTax;
+			v.m_iGoldToOverlord = iGoldTax;
 		}
 		else
 		{
@@ -37149,6 +37696,10 @@ int CvPlayer::GetResearchThresholdMod(int* piModPerCity, int* piEffectiveCities,
 		iGoldenAgePercent = GetPlayerTraits()->GetGoldenAgeResearchCityCountCostModifier();
 		iMod = iMod * (iGoldenAgePercent + 100) / 100;
 	}
+
+	// Prayer grace: temporary relief on the city-count research threshold.
+	iMod += m_iPrayerResearchCostModifier;
+	if (iMod < 0) iMod = 0;
 
 	if (piModPerCity != NULL) *piModPerCity = iModPerCity;
 	if (piEffectiveCities != NULL) *piEffectiveCities = iEffectiveCities;

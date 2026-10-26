@@ -26,6 +26,33 @@
 #include "CvUnitCycler.h"
 
 
+// Prayer: a vassal offers yields to its overlord and asks for a grace. The overlord
+// later grants it or keeps the offering in court.
+enum TiandaoPrayerWish
+{
+	PRAYER_WISH_BLESSING = 0,
+	PRAYER_WISH_THRESHOLD,
+	PRAYER_WISH_GREAT_PERSON,
+	PRAYER_WISH_POLICY,
+	PRAYER_WISH_TECH,
+	PRAYER_WISH_BELIEF,
+	PRAYER_WISH_HAPPINESS,
+	PRAYER_WISH_PURCHASE,
+	PRAYER_WISH_WAR,
+	PRAYER_WISH_COUNT
+};
+
+struct TiandaoPrayerRequest
+{
+	PlayerTypes eVassal;
+	int iScience;
+	int iCulture;
+	int iFaith;
+	int iGold;
+	int iWish;
+	int iTurn;
+};
+
 class CvPlayerPolicies;
 class CvEconomicAI;
 class CvMilitaryAI;
@@ -2055,6 +2082,24 @@ public:
 	void DoVassalLoyaltyDecay();
 	void RefreshUCFromVassals();
 	void ClearUCFromVassals();
+	// Prayer: vassal offers, overlord adjudicates
+	bool CanSubmitPrayer() const;
+	bool SubmitPrayer(int iScience, int iCulture, int iFaith, int iGold, int iWish);
+	int GetPrayerCount() const;
+	int GetPrayerVassal(int iIndex) const;
+	int GetPrayerScience(int iIndex) const;
+	int GetPrayerCulture(int iIndex) const;
+	int GetPrayerFaith(int iIndex) const;
+	int GetPrayerGold(int iIndex) const;
+	int GetPrayerWish(int iIndex) const;
+	int GetPrayerChance(int iIndex) const;
+	bool ResolvePrayer(int iIndex, bool bGrant);
+	int GetPrayerDenyStreak(PlayerTypes eVassal) const;
+	int GetPrayerPolicyCostModifier() const { return m_iPrayerPolicyCostModifier; }
+	void DoPrayerTurn();
+	void ApplyPrayerGrace(PlayerTypes eVassal, int iWish);
+	void ApplyPrayerBlessing(int iYield, int iAmount, int iTurns);
+	void RemovePrayerBlessing();
 	std::tr1::unordered_set<UnitTypes>& GetUUFromVassals();
 	std::tr1::unordered_set<BuildingTypes>& GetUBFromVassals();
 	std::tr1::unordered_set<ImprovementTypes>& GetUIFromVassals();
@@ -3138,6 +3183,16 @@ protected:
 	std::tr1::array<int, MAX_MAJOR_CIVS> m_aCultureFromVassals;
 	std::tr1::array<int, MAX_MAJOR_CIVS> m_aFaithFromVassals;
 	std::tr1::array<int, MAX_MAJOR_CIVS> m_aGoldFromVassals;
+
+	// Prayer state. The overlord keeps the queue; the vassal keeps its temporary grace.
+	std::vector<TiandaoPrayerRequest> m_vPrayerRequests;
+	std::vector<int> m_aiPrayerDenyStreak;
+	std::vector<int> m_aiPrayerBlessing;
+	int m_iPrayerBlessingEndTurn;
+	int m_iPrayerThresholdTurns;
+	int m_iPrayerResearchCostModifier;
+	int m_iPrayerPolicyCostModifier;
+	int m_iPrayerHappinessEndTurn;
 	// Per-turn tax paid to our overlord (vassal side)
 	unsigned long long m_iScienceTimes100ToOverlord;
 	int m_iCultureToOverlord;

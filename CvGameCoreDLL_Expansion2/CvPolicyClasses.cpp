@@ -4431,6 +4431,13 @@ int CvPlayerPolicies::GetNextPolicyCost()
 	iCost *= (100 + m_pPlayer->getPolicyCostModifier());
 	iCost /= 100;
 
+	// Prayer grace: temporary relief on the next policy.
+	if (MOD_GLOBAL_SUZERAIN)
+	{
+		iCost *= (100 + m_pPlayer->GetPrayerPolicyCostModifier());
+		iCost /= 100;
+	}
+
 	// Game Speed Mod
 	iCost *= GC.getGame().getGameSpeedInfo().getCulturePercent();
 	iCost /= 100;

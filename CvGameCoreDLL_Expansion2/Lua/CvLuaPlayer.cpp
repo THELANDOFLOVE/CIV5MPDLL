@@ -146,6 +146,8 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lApproveVassalWonderRequest);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoInviteVassal);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoSubjugate);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSubmitPrayer);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lResolvePrayer);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoEmbargoResource);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoFengshan);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoQifeng);
@@ -1565,6 +1567,18 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(DoInviteVassal);
 	Method(CanSubjugate);
 	Method(DoSubjugate);
+	Method(CanSubmitPrayer);
+	Method(SubmitPrayer);
+	Method(GetPrayerCount);
+	Method(GetPrayerVassal);
+	Method(GetPrayerScience);
+	Method(GetPrayerCulture);
+	Method(GetPrayerFaith);
+	Method(GetPrayerGold);
+	Method(GetPrayerWish);
+	Method(GetPrayerChance);
+	Method(ResolvePrayer);
+	Method(GetPrayerDenyStreak);
 	Method(CanEmbargoResource);
 	Method(DoEmbargoResource);
 	Method(IsResourceEmbargoed);
@@ -7790,6 +7804,117 @@ int CvLuaPlayer::lDoSubjugate(lua_State* L)
 	CvPlayerAI* pkPlayer = GetInstance(L);
 	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
 	lua_pushboolean(L, pkPlayer->DoSubjugate(e));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool CanSubmitPrayer();
+int CvLuaPlayer::lCanSubmitPrayer(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	lua_pushboolean(L, pkPlayer->CanSubmitPrayer());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool SubmitPrayer(int iScience, int iCulture, int iFaith, int iGold, int iWish);
+int CvLuaPlayer::lSubmitPrayer(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	int iScience = lua_tointeger(L, 2);
+	int iCulture = lua_tointeger(L, 3);
+	int iFaith = lua_tointeger(L, 4);
+	int iGold = lua_tointeger(L, 5);
+	int iWish = lua_tointeger(L, 6);
+	lua_pushboolean(L, pkPlayer->SubmitPrayer(iScience, iCulture, iFaith, iGold, iWish));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetPrayerCount();
+int CvLuaPlayer::lGetPrayerCount(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->GetPrayerCount());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetPrayerVassal(int iIndex);
+int CvLuaPlayer::lGetPrayerVassal(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	int iIndex = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetPrayerVassal(iIndex));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetPrayerScience(int iIndex);
+int CvLuaPlayer::lGetPrayerScience(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	int iIndex = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetPrayerScience(iIndex));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetPrayerCulture(int iIndex);
+int CvLuaPlayer::lGetPrayerCulture(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	int iIndex = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetPrayerCulture(iIndex));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetPrayerFaith(int iIndex);
+int CvLuaPlayer::lGetPrayerFaith(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	int iIndex = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetPrayerFaith(iIndex));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetPrayerGold(int iIndex);
+int CvLuaPlayer::lGetPrayerGold(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	int iIndex = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetPrayerGold(iIndex));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetPrayerWish(int iIndex);
+int CvLuaPlayer::lGetPrayerWish(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	int iIndex = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetPrayerWish(iIndex));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetPrayerChance(int iIndex);
+int CvLuaPlayer::lGetPrayerChance(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	int iIndex = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetPrayerChance(iIndex));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool ResolvePrayer(int iIndex, bool bGrant);
+int CvLuaPlayer::lResolvePrayer(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	int iIndex = lua_tointeger(L, 2);
+	bool bGrant = (lua_toboolean(L, 3) != 0);
+	lua_pushboolean(L, pkPlayer->ResolvePrayer(iIndex, bGrant));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetPrayerDenyStreak(PlayerTypes e);
+int CvLuaPlayer::lGetPrayerDenyStreak(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetPrayerDenyStreak(e));
 	return 1;
 }
 //------------------------------------------------------------------------------

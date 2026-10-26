@@ -1445,6 +1445,18 @@ protected:
 	LUAAPIEXTN(DoInviteVassal, bool, ePlayer);
 	LUAAPIEXTN(CanSubjugate, bool, ePlayer);
 	LUAAPIEXTN(DoSubjugate, bool, ePlayer);
+	LUAAPIEXTN(CanSubmitPrayer, bool);
+	LUAAPIEXTN(SubmitPrayer, bool, iScience, iCulture, iFaith, iGold, iWish);
+	LUAAPIEXTN(GetPrayerCount, int);
+	LUAAPIEXTN(GetPrayerVassal, int, iIndex);
+	LUAAPIEXTN(GetPrayerScience, int, iIndex);
+	LUAAPIEXTN(GetPrayerCulture, int, iIndex);
+	LUAAPIEXTN(GetPrayerFaith, int, iIndex);
+	LUAAPIEXTN(GetPrayerGold, int, iIndex);
+	LUAAPIEXTN(GetPrayerWish, int, iIndex);
+	LUAAPIEXTN(GetPrayerChance, int, iIndex);
+	LUAAPIEXTN(ResolvePrayer, bool, iIndex, bGrant);
+	LUAAPIEXTN(GetPrayerDenyStreak, int, ePlayer);
 	LUAAPIEXTN(CanEmbargoResource, bool, ePlayer, eResource);
 	LUAAPIEXTN(DoEmbargoResource, bool, ePlayer, eResource);
 	LUAAPIEXTN(IsResourceEmbargoed, bool, eResource);

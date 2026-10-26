@@ -78,6 +78,58 @@ void CvGameTrade::DoTurn (void)
 {
 	ResetTechDifference();
 	BuildTechDifference();
+
+#if defined(MOD_GLOBAL_SUZERAIN)
+	DoVassalTariff();
+#endif
+}
+
+//	--------------------------------------------------------------------------------
+// Charges the tariff on international trade routes between an overlord and a
+// non-vassal. Vassals trade tariff-free with their overlord and other vassals.
+void CvGameTrade::DoVassalTariff()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+
+	for (uint ui = 0; ui < m_aTradeConnections.size(); ui++)
+	{
+		TradeConnection& kConnection = m_aTradeConnections[ui];
+		if (!IsConnectionInternational(kConnection)) continue;
+
+		PlayerTypes eOrigin = kConnection.m_eOriginOwner;
+		PlayerTypes eDest = kConnection.m_eDestOwner;
+		if (eOrigin == NO_PLAYER || eDest == NO_PLAYER) continue;
+
+		PlayerTypes eOverlord = NO_PLAYER;
+		PlayerTypes ePayer = NO_PLAYER;
+
+		if (GET_PLAYER(eOrigin).HasAnyVassal() && !GET_PLAYER(eDest).IsVassalOf(eOrigin))
+		{
+			eOverlord = eOrigin;
+			ePayer = eDest;
+		}
+		else if (GET_PLAYER(eDest).HasAnyVassal() && !GET_PLAYER(eOrigin).IsVassalOf(eDest))
+		{
+			eOverlord = eDest;
+			ePayer = eOrigin;
+		}
+		else
+		{
+			continue;
+		}
+
+		int iPercent = GET_PLAYER(eOverlord).GetTariffPercentFor(ePayer);
+		if (iPercent <= 0) continue;
+
+		bool bPayerIsOrigin = (ePayer == eOrigin);
+		int iValueTimes100 = GET_PLAYER(ePayer).GetTrade()->GetTradeConnectionValueTimes100(kConnection, YIELD_GOLD, bPayerIsOrigin);
+		int iValue = iValueTimes100 / 100;
+		int iTariff = iValue * iPercent / 100;
+		if (iTariff <= 0) continue;
+
+		GET_PLAYER(ePayer).GetTreasury()->ChangeGold(-iTariff);
+		GET_PLAYER(eOverlord).GetTreasury()->ChangeGold(iTariff);
+	}
 }
 
 //	--------------------------------------------------------------------------------

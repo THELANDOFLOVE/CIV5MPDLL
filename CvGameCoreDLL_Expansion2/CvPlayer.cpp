@@ -37225,6 +37225,19 @@ void CvPlayer::processBelief(BeliefTypes eBelief, int iChange, bool bFirst)
 //	--------------------------------------------------------------------------------
 bool CvPlayer::IsAllowedToTradeWith(PlayerTypes eOtherPlayer)
 {
+#if defined(MOD_GLOBAL_SUZERAIN)
+	// The overlord and its vassals trade without embargo barriers.
+	if (MOD_GLOBAL_SUZERAIN && eOtherPlayer != m_eID)
+	{
+		if (m_eOverlord != NO_PLAYER && eOtherPlayer == m_eOverlord)
+			return true;
+		if (m_eOverlord != NO_PLAYER && GET_PLAYER(eOtherPlayer).GetOverlord() == m_eOverlord)
+			return true;
+		if (GET_PLAYER(eOtherPlayer).IsVassalOf(GetID()))
+			return true;
+	}
+#endif
+
 	if (GC.getGame().GetGameLeagues()->IsTradeEmbargoed(GetID(), eOtherPlayer) && eOtherPlayer != m_eID)
 	{
 		return false;

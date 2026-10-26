@@ -35625,17 +35625,17 @@ void CvPlayer::DoSeekProtectionTurn()
 }
 
 //--------------------------------------------------------------------------------
-// A war that has dragged on with heavy losses and an overwhelming power gap
-// ends with the loser submitting as a vassal. Human targets are exempt.
+// A war that has dragged on long enough for the target to lose its original
+// capital, with an overwhelming power gap, ends with the loser submitting as a
+// vassal. Human targets are exempt.
 void CvPlayer::DoSubjugateTurn()
 {
 	if (!MOD_GLOBAL_SUZERAIN) return;
 	if (!isAlive() || !isMajorCiv()) return;
 
 	int iTurns = TiandaoDefineInt("TIANDAO_SUBJUGATE_TURNS");
-	int iCities = TiandaoDefineInt("TIANDAO_SUBJUGATE_CITIES");
 	int iMilPercent = TiandaoDefineInt("TIANDAO_SUBJUGATE_MILITARY_PERCENT");
-	if (iTurns <= 0 || iCities <= 0 || iMilPercent <= 0) return;
+	if (iTurns <= 0 || iMilPercent <= 0) return;
 
 	for (int i = 0; i < MAX_MAJOR_CIVS; i++)
 	{
@@ -35649,7 +35649,7 @@ void CvPlayer::DoSubjugateTurn()
 		if (!GET_TEAM(getTeam()).isAtWar(kTarget.getTeam())) continue;
 		if (!GET_TEAM(getTeam()).canChangeWarPeace(kTarget.getTeam())) continue;
 
-		if (kTarget.getCitiesLost() < iCities) continue;
+		if (!kTarget.IsHasLostCapital()) continue;
 		if (GetDiplomacyAI()->GetPlayerNumTurnsAtWar(eTarget) < iTurns) continue;
 		if (GetMilitaryMight() * 100 < kTarget.GetMilitaryMight() * iMilPercent) continue;
 

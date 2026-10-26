@@ -191,6 +191,9 @@ public:
 	// enhancing and reforming paths, this may add an extra enhancer/reformation belief without
 	// consuming the religion's normal enhance/reform slot.
 	bool AddBeliefToReligion(PlayerTypes ePlayer, ReligionTypes eReligion, BeliefTypes eBelief);
+	// Guizong: a vassal's chosen belief also joins its overlord's religion. The vassal keeps
+	// its own copy; beliefs the overlord already holds are skipped.
+	void ShareBeliefWithOverlord(PlayerTypes ePlayer, BeliefTypes eBelief);
 #if defined(MOD_SP_UNIQUE_CITYSTATE)
 	// One-time diplomatic prestige for the player who picks a belief carrying a DiplomaticPrestige value.
 	// Called from every belief-picking path; NO_PLAYER means a silent copy (pantheon -> religion) and is ignored.

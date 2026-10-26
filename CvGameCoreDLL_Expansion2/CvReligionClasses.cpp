@@ -1134,6 +1134,12 @@ void CvGameReligions::FoundReligion(PlayerTypes ePlayer, ReligionTypes eReligion
 	kPlayer.UpdateReligion();
 	kPlayer.GetReligions()->SetFoundingReligion(false);
 
+	// Guizong: the newly chosen beliefs also join the overlord's religion
+	ShareBeliefWithOverlord(ePlayer, eBelief1);
+	ShareBeliefWithOverlord(ePlayer, eBelief2);
+	ShareBeliefWithOverlord(ePlayer, eBelief3);
+	ShareBeliefWithOverlord(ePlayer, eBelief4);
+
 	// Trait: all existing cities immediately follow the new religion
 	if (kPlayer.GetPlayerTraits()->IsNewCityAutomaticReligion())
 	{
@@ -1419,6 +1425,10 @@ void CvGameReligions::EnhanceReligion(PlayerTypes ePlayer, ReligionTypes eReligi
 	UpdateAllCitiesThisReligion(eReligion);
 	kPlayer.UpdateReligion();
 
+	// Guizong: the enhancing beliefs also join the overlord's religion
+	ShareBeliefWithOverlord(ePlayer, eBelief1);
+	ShareBeliefWithOverlord(ePlayer, eBelief2);
+
 #if defined(MOD_EVENTS_FOUND_RELIGION)
 	if (MOD_EVENTS_FOUND_RELIGION) {
 		GAMEEVENTINVOKE_HOOK(GAMEEVENT_ReligionEnhanced, ePlayer, eReligion, eBelief1, eBelief2);
@@ -1613,6 +1623,9 @@ void CvGameReligions::AddReformationBelief(PlayerTypes ePlayer, ReligionTypes eR
 	UpdateAllCitiesThisReligion(eReligion);
 	kPlayer.UpdateReligion();
 
+	// Guizong: the reformation belief also joins the overlord's religion
+	ShareBeliefWithOverlord(ePlayer, eBelief1);
+
 #if defined(MOD_EVENTS_FOUND_RELIGION)
 	if (MOD_EVENTS_FOUND_RELIGION) {
 		GAMEEVENTINVOKE_HOOK(GAMEEVENT_ReligionReformed, ePlayer, eReligion, eBelief1);
@@ -1723,6 +1736,23 @@ bool CvGameReligions::AddBeliefToReligion(PlayerTypes ePlayer, ReligionTypes eRe
 	kPlayer.UpdateReligion();
 
 	return true;
+}
+
+//--------------------------------------------------------------------------------
+// Guizong: when a vassal picks a belief, a copy also joins the overlord's religion.
+// The vassal keeps its own copy; a belief the overlord already holds is skipped.
+void CvGameReligions::ShareBeliefWithOverlord(PlayerTypes ePlayer, BeliefTypes eBelief)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (ePlayer == NO_PLAYER || eBelief == NO_BELIEF) return;
+
+	PlayerTypes eOverlord = GET_PLAYER(ePlayer).GetOverlord();
+	if (eOverlord == NO_PLAYER || eOverlord == ePlayer) return;
+
+	ReligionTypes eOverlordReligion = GetReligionCreatedByPlayer(eOverlord);
+	if (eOverlordReligion == NO_RELIGION) return;
+
+	AddBeliefToReligion(eOverlord, eOverlordReligion, eBelief);
 }
 
 #if defined(MOD_SP_UNIQUE_CITYSTATE)

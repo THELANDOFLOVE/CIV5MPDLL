@@ -35896,6 +35896,8 @@ int CvPlayer::GetDaoGraceCost(int iGrace) const
 	else if (iGrace == 5) szCostKey = "TIANDAO_DAO_COST_HAPPINESS";
 	else if (iGrace == 6) szCostKey = "TIANDAO_DAO_COST_WAR";
 	else if (iGrace == 7) szCostKey = "TIANDAO_DAO_COST_INSIGHT";
+	else if (iGrace == 8) szCostKey = "TIANDAO_DAO_COST_MIGRATION";
+	else if (iGrace == 9) szCostKey = "TIANDAO_DAO_COST_ARMY";
 	if (szCostKey == NULL) return 0;
 	return TiandaoDefineInt(szCostKey);
 }
@@ -35916,6 +35918,8 @@ bool CvPlayer::DoDaoGrace(int iGrace)
 	else if (iGrace == 5) szCostKey = "TIANDAO_DAO_COST_HAPPINESS";
 	else if (iGrace == 6) szCostKey = "TIANDAO_DAO_COST_WAR";
 	else if (iGrace == 7) szCostKey = "TIANDAO_DAO_COST_INSIGHT";
+	else if (iGrace == 8) szCostKey = "TIANDAO_DAO_COST_MIGRATION";
+	else if (iGrace == 9) szCostKey = "TIANDAO_DAO_COST_ARMY";
 	else return false;
 
 	int iCost = TiandaoDefineInt(szCostKey);
@@ -35941,20 +35945,22 @@ bool CvPlayer::DoDaoGrace(int iGrace)
 				"UNIT_GREAT_MUSICIAN", "UNIT_GREAT_GENERAL"
 			};
 			int iNum = (int)(sizeof(aGreatPeople) / sizeof(aGreatPeople[0]));
-			int iStart = GC.getGame().getJonRandNum(iNum, "Tiandao dao great person");
-			for (int i = 0; i < iNum; i++)
+
+			// Three great people arrive at once: the grace should feel decisive.
+			for (int iPerson = 0; iPerson < 3; iPerson++)
 			{
-				UnitTypes eUnit = (UnitTypes)GC.getInfoTypeForString(aGreatPeople[(iStart + i) % iNum], true);
-				if (eUnit != NO_UNIT)
+				int iStart = GC.getGame().getJonRandNum(iNum, "Tiandao dao great person");
+				for (int i = 0; i < iNum; i++)
 				{
-					initUnit(eUnit, pCapital->getX(), pCapital->getY(), NO_UNITAI);
-					break;
+					UnitTypes eUnit = (UnitTypes)GC.getInfoTypeForString(aGreatPeople[(iStart + i) % iNum], true);
+					if (eUnit != NO_UNIT)
+					{
+						initUnit(eUnit, pCapital->getX(), pCapital->getY(), NO_UNITAI);
+						break;
+					}
 				}
 			}
 		}
-
-		// Two free picks, not one: the grace should feel decisive.
-		ChangeNumFreeGreatPeople(2);
 
 		int iRate = TiandaoDefineInt("TIANDAO_DAO_GREAT_PERSON_RATE");
 		int iRateTurns = TiandaoDefineInt("TIANDAO_DAO_GREAT_PERSON_TURNS");
@@ -35966,7 +35972,7 @@ bool CvPlayer::DoDaoGrace(int iGrace)
 	}
 	else if (iGrace == 2)
 	{
-		ChangeNumFreePolicies(2);
+		ChangeNumFreePolicies(3);
 
 		int iCostMod = TiandaoDefineInt("TIANDAO_DAO_POLICY_COST");
 		if (iCostMod >= 0) iCostMod = -15;
@@ -35983,7 +35989,7 @@ bool CvPlayer::DoDaoGrace(int iGrace)
 	}
 	else if (iGrace == 4)
 	{
-		// Instant works: finish the current build in every city.
+		// Instant works: finish the current build and grant a free building in every city.
 		int iLoop = 0;
 		for (CvCity* pCity = firstCity(&iLoop); pCity != NULL; pCity = nextCity(&iLoop))
 		{
@@ -35991,6 +35997,19 @@ bool CvPlayer::DoDaoGrace(int iGrace)
 			int iCurrent = pCity->getProduction();
 			if (iNeeded > iCurrent)
 				pCity->changeProduction(iNeeded - iCurrent);
+
+			for (int b = 0; b < GC.getNumBuildingInfos(); b++)
+			{
+				BuildingTypes eBuilding = (BuildingTypes)b;
+				CvBuildingEntry* pInfo = GC.getBuildingInfo(eBuilding);
+				if (pInfo == NULL) continue;
+				if (pInfo->GetBuildingClassInfo().getMaxGlobalInstances() == 1) continue;
+				if (pCity->canConstruct(eBuilding))
+				{
+					pCity->CreateBuilding(eBuilding);
+					break;
+				}
+			}
 		}
 	}
 	else if (iGrace == 5)
@@ -36023,6 +36042,44 @@ bool CvPlayer::DoDaoGrace(int iGrace)
 				if (kMinor.GetMinorCivAI() != NULL)
 					kMinor.GetMinorCivAI()->ChangeFriendshipWithMajor(GetID(), iInfluence);
 			}
+		}
+	}
+	else if (iGrace == 8)
+	{
+		// Migration grace: every city gains citizens.
+		int iPop = TiandaoDefineInt("TIANDAO_DAO_MIGRATION_POP");
+		if (iPop <= 0) iPop = 2;
+		int iLoop = 0;
+		for (CvCity* pCity = firstCity(&iLoop); pCity != NULL; pCity = nextCity(&iLoop))
+			pCity->changePopulation(iPop, true);
+	}
+	else if (iGrace == 9)
+	{
+		// Heavenly army: the capital raises the strongest units we can field.
+		UnitTypes eBest = NO_UNIT;
+		int iBestStrength = 0;
+		for (int i = 0; i < GC.getNumUnitInfos(); i++)
+		{
+			UnitTypes eUnit = (UnitTypes)i;
+			CvUnitEntry* pInfo = GC.getUnitInfo(eUnit);
+			if (pInfo == NULL) continue;
+			if (pInfo->GetCombat() <= 0) continue;
+			if (pInfo->GetDomainType() != DOMAIN_LAND) continue;
+			if (!canTrain(eUnit, false, false, false)) continue;
+			if (pInfo->GetCombat() > iBestStrength)
+			{
+				iBestStrength = pInfo->GetCombat();
+				eBest = eUnit;
+			}
+		}
+
+		CvCity* pCapital = getCapitalCity();
+		if (pCapital != NULL && eBest != NO_UNIT)
+		{
+			int iCount = TiandaoDefineInt("TIANDAO_DAO_ARMY_COUNT");
+			if (iCount <= 0) iCount = 3;
+			for (int i = 0; i < iCount; i++)
+				initUnit(eBest, pCapital->getX(), pCapital->getY(), NO_UNITAI);
 		}
 	}
 

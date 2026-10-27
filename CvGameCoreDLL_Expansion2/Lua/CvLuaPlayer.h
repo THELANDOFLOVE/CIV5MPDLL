@@ -1420,6 +1420,8 @@ protected:
 	LUAAPIEXTN(GetVassalCourtPolicy, int);
 	LUAAPIEXTN(SetVassalCourtPolicy, bool, iPolicy);
 	LUAAPIEXTN(GetVassalBreachCount, int, ePlayer);
+	LUAAPIEXTN(HasVassalPunishRight, bool, ePlayer);
+	LUAAPIEXTN(GetVassalPunishRightTurns, int, ePlayer);
 	LUAAPIEXTN(IsVassalIncompetent, bool, ePlayer);
 	LUAAPIEXTN(CanPunishVassal, bool, ePlayer);
 	LUAAPIEXTN(DoVassalPunish, bool, ePlayer);

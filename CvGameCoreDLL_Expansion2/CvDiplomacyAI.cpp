@@ -10597,6 +10597,31 @@ int CvDiplomacyAI::GetOtherPlayerWarmongerAmount(PlayerTypes ePlayer)
 #if defined(MOD_API_EXTENSIONS)
 void CvDiplomacyAI::ChangeOtherPlayerWarmongerAmountTimes100(PlayerTypes ePlayer, int iChangeAmount)
 {
+#if defined(MOD_GLOBAL_SUZERAIN)
+	// A just war against a vassal that earned the punishment right is not
+	// warmongering: nobody records it against the overlord.
+	if (MOD_GLOBAL_SUZERAIN && iChangeAmount > 0)
+	{
+		CvPlayer& kAttacker = GET_PLAYER(ePlayer);
+		if (kAttacker.HasAnyVassal())
+		{
+			CvPlayer* pTracker = GetPlayer();
+			if (pTracker != NULL)
+			{
+				TeamTypes eTrackerTeam = pTracker->getTeam();
+				const std::vector<int>& vVassals = kAttacker.GetVassals();
+				for (size_t i = 0; i < vVassals.size(); ++i)
+				{
+					PlayerTypes eVassal = (PlayerTypes)vVassals[i];
+					if (!kAttacker.HasVassalPunishRight(eVassal)) continue;
+					if (GET_TEAM(GET_PLAYER(eVassal).getTeam()).isAtWar(eTrackerTeam))
+						return;
+				}
+			}
+		}
+	}
+#endif
+
 	int iNewValue = m_paiOtherPlayerWarmongerAmountTimes100[ePlayer] + iChangeAmount;
 	iNewValue = max(0, iNewValue);
 	m_paiOtherPlayerWarmongerAmountTimes100[ePlayer] = iNewValue;

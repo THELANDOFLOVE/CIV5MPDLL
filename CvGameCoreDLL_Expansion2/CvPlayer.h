@@ -2011,6 +2011,12 @@ public:
 	bool DoReturnCityToVassal(CvCity* pCity);
 	bool DoReturnCityToVassalByID(int iCityID);
 	void DoVassalCallToArms();
+	// Breach detection and the overlord's right to punish
+	void DoVassalBreachTurn();
+	bool HasVassalPunishRight(PlayerTypes eVassal) const;
+	void GrantVassalPunishRight(PlayerTypes eVassal, int iTurns);
+	int GetVassalPunishRightTurns(PlayerTypes eVassal) const;
+	void ClearVassalPunishRight(PlayerTypes eVassal);
 	int GetVassalExecutionTier(PlayerTypes eVassal) const;
 	int GetVassalRevoltScore(PlayerTypes eVassal) const;
 	bool CanVassalRevolt(PlayerTypes eVassal) const;
@@ -3155,6 +3161,10 @@ protected:
 	FAutoVariable<int, CvPlayer> m_iVassalCourtPolicy;
 	// Broken-obligation record: count and the turn of the last breach
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalBreachCount;
+	// Punish right expiry turn per vassal (serialized)
+	std::vector<int> m_aiVassalPunishRight;
+	// Wars already counted as breaches (derived, rebuilt each turn; not serialized)
+	std::vector<int> m_aiVassalWarSeen;
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalBreachTurn;
 	// Mandate of Heaven, 0..TIANDAO_MANDATE_MAX
 	FAutoVariable<int, CvPlayer> m_iMandate;

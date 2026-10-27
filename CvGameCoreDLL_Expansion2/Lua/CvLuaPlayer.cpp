@@ -146,6 +146,7 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lApproveVassalWonderRequest);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoInviteVassal);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoSubjugate);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lHasVassalPunishRight);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSubmitPrayer);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lResolvePrayer);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lChoosePrayerTech);
@@ -1543,6 +1544,8 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(GetVassalCourtPolicy);
 	Method(SetVassalCourtPolicy);
 	Method(GetVassalBreachCount);
+	Method(HasVassalPunishRight);
+	Method(GetVassalPunishRightTurns);
 	Method(IsVassalIncompetent);
 	Method(CanPunishVassal);
 	Method(DoVassalPunish);
@@ -7601,6 +7604,24 @@ int CvLuaPlayer::lGetVassalBreachCount(lua_State* L)
 	CvPlayerAI* pkPlayer = GetInstance(L);
 	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
 	lua_pushinteger(L, pkPlayer->GetVassalBreachCount(e));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool HasVassalPunishRight(PlayerTypes e);
+int CvLuaPlayer::lHasVassalPunishRight(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->HasVassalPunishRight(e));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetVassalPunishRightTurns(PlayerTypes e);
+int CvLuaPlayer::lGetVassalPunishRightTurns(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetVassalPunishRightTurns(e));
 	return 1;
 }
 //------------------------------------------------------------------------------

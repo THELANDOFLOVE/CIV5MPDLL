@@ -1337,6 +1337,9 @@ void CvPlayer::uninit()
 	m_aiVassalMemorials.clear();
 	m_aiVassalBreachCount.clear();
 	m_aiVassalBreachCount.resize(MAX_MAJOR_CIVS, 0);
+	m_aiVassalPunishRight.clear();
+	m_aiVassalPunishRight.resize(MAX_MAJOR_CIVS, 0);
+	m_aiVassalWarSeen.clear();
 	m_aiVassalBreachTurn.clear();
 	m_aiVassalBreachTurn.resize(MAX_MAJOR_CIVS, 0);
 	m_iFengshanEra = -1;
@@ -5542,6 +5545,7 @@ void CvPlayer::doTurn()
 		DoMandateBlessingTurn();
 		DoMandatePunishmentTurn();
 		DoVassalCallToArms();
+		DoVassalBreachTurn();
 		ResetVassalGiftCounts();
 		ResetVassalProtectFlags();
 		DoVassalMemorialTurn();
@@ -31317,6 +31321,7 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalMemorials, 0, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iVassalCourtPolicy, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalBreachCount, MAX_MAJOR_CIVS, 0);
+		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalPunishRight, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalBreachTurn, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iMandate, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iFengshanEra, -1);
@@ -32282,6 +32287,7 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalMemorials);
 	MOD_SERIALIZE_WRITE(kStream, m_iVassalCourtPolicy);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalBreachCount);
+	MOD_SERIALIZE_WRITE(kStream, m_aiVassalPunishRight);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalBreachTurn);
 	MOD_SERIALIZE_WRITE(kStream, m_iMandate);
 	MOD_SERIALIZE_WRITE(kStream, m_iFengshanEra);
@@ -35084,6 +35090,126 @@ void CvPlayer::DoVassalCallToArms()
 			GET_TEAM(eVassalTeam).declareWar(eEnemy, false, eVassal);
 		}
 	}
+}
+
+//--------------------------------------------------------------------------------
+// A vassal may not start wars on its own, nor attack fellow vassals. Once every
+// turn, scan its wars and count any that the overlord did not authorize. Repeated
+// breaches grant the overlord the right to punish the vassal.
+void CvPlayer::DoVassalBreachTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (m_vecVassals.empty()) return;
+
+	int iUnauthorizedBreach = TiandaoDefineInt("TIANDAO_BREACH_UNAUTHORIZED_WAR");
+	int iVassalAttackBreach = TiandaoDefineInt("TIANDAO_BREACH_ATTACK_VASSAL");
+	int iLoyaltyPenalty = TiandaoDefineInt("TIANDAO_BREACH_LOYALTY_PENALTY");
+	int iThreshold = TiandaoDefineInt("TIANDAO_PUNISH_RIGHT_THRESHOLD");
+	int iRightTurns = TiandaoDefineInt("TIANDAO_PUNISH_RIGHT_TURNS");
+	if (iUnauthorizedBreach <= 0) iUnauthorizedBreach = 1;
+	if (iVassalAttackBreach <= 0) iVassalAttackBreach = 2;
+
+	std::vector<int> vSeenNow;
+
+	for (size_t i = 0; i < m_vecVassals.size(); i++)
+	{
+		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
+		if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) continue;
+		CvPlayer& kVassal = GET_PLAYER(eVassal);
+		if (!kVassal.isAlive()) continue;
+
+		TeamTypes eVassalTeam = kVassal.getTeam();
+		if (eVassalTeam == NO_TEAM || eVassalTeam == getTeam()) continue;
+
+		for (int t = 0; t < MAX_CIV_TEAMS; t++)
+		{
+			TeamTypes eEnemy = (TeamTypes)t;
+			if (eEnemy == eVassalTeam || eEnemy == getTeam()) continue;
+			if (!GET_TEAM(eVassalTeam).isAtWar(eEnemy)) continue;
+			// A war we share is authorized; only private wars count.
+			if (GET_TEAM(getTeam()).isAtWar(eEnemy)) continue;
+
+			vSeenNow.push_back((int)eVassal);
+			vSeenNow.push_back((int)eEnemy);
+
+			bool bAlreadyCounted = false;
+			for (size_t k = 0; k + 1 < m_aiVassalWarSeen.size(); k += 2)
+			{
+				if (m_aiVassalWarSeen[k] == (int)eVassal && m_aiVassalWarSeen[k + 1] == (int)eEnemy)
+				{
+					bAlreadyCounted = true;
+					break;
+				}
+			}
+			if (bAlreadyCounted) continue;
+
+			bool bAgainstVassal = false;
+			for (size_t v = 0; v < m_vecVassals.size(); v++)
+			{
+				PlayerTypes eOther = (PlayerTypes)m_vecVassals[v];
+				if (eOther == eVassal) continue;
+				if (GET_PLAYER(eOther).getTeam() == eEnemy)
+				{
+					bAgainstVassal = true;
+					break;
+				}
+			}
+
+			ChangeVassalBreachCount(eVassal, bAgainstVassal ? iVassalAttackBreach : iUnauthorizedBreach);
+			if (iLoyaltyPenalty != 0)
+				ChangeVassalLoyalty(eVassal, iLoyaltyPenalty);
+		}
+
+		if (iThreshold > 0
+			&& GetVassalBreachCount(eVassal) >= iThreshold
+			&& !HasVassalPunishRight(eVassal))
+		{
+			GrantVassalPunishRight(eVassal, iRightTurns);
+		}
+	}
+
+	m_aiVassalWarSeen = vSeenNow;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::HasVassalPunishRight(PlayerTypes eVassal) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) return false;
+	if ((size_t)eVassal >= m_aiVassalPunishRight.size()) return false;
+	int iUntil = m_aiVassalPunishRight[eVassal];
+	return iUntil > 0 && GC.getGame().getGameTurn() < iUntil;
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::GrantVassalPunishRight(PlayerTypes eVassal, int iTurns)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) return;
+	if (iTurns <= 0) iTurns = 1;
+	if (m_aiVassalPunishRight.size() != MAX_MAJOR_CIVS)
+		m_aiVassalPunishRight.resize(MAX_MAJOR_CIVS, 0);
+
+	m_aiVassalPunishRight[eVassal] = GC.getGame().getGameTurn() + iTurns;
+
+	int iPenalty = TiandaoDefineInt("TIANDAO_PUNISH_RIGHT_LOYALTY");
+	if (iPenalty != 0)
+		ChangeVassalLoyalty(eVassal, iPenalty);
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetVassalPunishRightTurns(PlayerTypes eVassal) const
+{
+	if (!HasVassalPunishRight(eVassal)) return 0;
+	return m_aiVassalPunishRight[eVassal] - GC.getGame().getGameTurn();
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::ClearVassalPunishRight(PlayerTypes eVassal)
+{
+	if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) return;
+	if ((size_t)eVassal >= m_aiVassalPunishRight.size()) return;
+	m_aiVassalPunishRight[eVassal] = 0;
 }
 
 //--------------------------------------------------------------------------------

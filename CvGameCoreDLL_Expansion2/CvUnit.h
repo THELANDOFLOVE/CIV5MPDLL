@@ -467,11 +467,6 @@ public:
 	bool CanUpgradeInTerritory(bool bOnlyTestVisible) const;
 #endif
 	UnitTypes GetUpgradeUnitType() const;
-	// Dao: every unique unit this unit may upgrade into, so the player can pick
-	// one target per unit instead of the civilization default.
-	void GetDaoUpgradeOptions(std::vector<UnitTypes>& vOptions) const;
-	int GetDaoUpgradeOptionCount() const;
-	UnitTypes GetDaoUpgradeOption(int iIndex) const;
 	int upgradePrice(UnitTypes eUnit) const;
 #if defined(MOD_API_EXTENSIONS)
 	CvUnit* DoUpgrade(bool bFree = false);

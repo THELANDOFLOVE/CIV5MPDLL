@@ -3213,15 +3213,6 @@ protected:
 	int m_iDaoPoints;
 	int m_iDaoPerks;
 	std::vector<int> m_aiDaoUCs;
-	int m_iDaoGreatPeopleModifier;
-	int m_iDaoGreatPeopleTurns;
-	int m_iDaoWarEndTurn;
-	int m_iDaoFaithGPEndTurn;
-	int m_bDaoDenounceImmune;
-	int m_iDaoGrowthEndTurn;
-	int m_iDaoWorksEndTurn;
-	int m_iDaoSecondResearchEndTurn;
-	int m_eDaoSecondResearch;
 	// Era of the last Fengshan, -1 when never used
 	FAutoVariable<int, CvPlayer> m_iFengshanEra;
 	// Temporary mandate blessing: per-city yields and the turn it expires

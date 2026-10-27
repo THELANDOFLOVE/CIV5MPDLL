@@ -431,15 +431,6 @@ CvPlayer::CvPlayer() :
 	, m_iMandate("CvPlayer::m_iMandate", m_syncArchive)
 	, m_iDaoPoints(0)
 	, m_iDaoPerks(0)
-	, m_iDaoGreatPeopleModifier(0)
-	, m_iDaoGreatPeopleTurns(0)
-	, m_iDaoWarEndTurn(0)
-	, m_iDaoFaithGPEndTurn(0)
-	, m_bDaoDenounceImmune(0)
-	, m_iDaoGrowthEndTurn(0)
-	, m_iDaoWorksEndTurn(0)
-	, m_iDaoSecondResearchEndTurn(0)
-	, m_eDaoSecondResearch(NO_TECH)
 	, m_iFengshanEra("CvPlayer::m_iFengshanEra", m_syncArchive)
 	, m_iBlessingFood("CvPlayer::m_iBlessingFood", m_syncArchive)
 	, m_iBlessingProduction("CvPlayer::m_iBlessingProduction", m_syncArchive)
@@ -1376,15 +1367,6 @@ void CvPlayer::uninit()
 	m_iDaoPoints = 0;
 	m_iDaoPerks = 0;
 	m_aiDaoUCs.clear();
-	m_iDaoGreatPeopleModifier = 0;
-	m_iDaoGreatPeopleTurns = 0;
-	m_iDaoWarEndTurn = 0;
-	m_iDaoFaithGPEndTurn = 0;
-	m_bDaoDenounceImmune = 0;
-	m_iDaoGrowthEndTurn = 0;
-	m_iDaoWorksEndTurn = 0;
-	m_iDaoSecondResearchEndTurn = 0;
-	m_eDaoSecondResearch = NO_TECH;
 	m_iBlessingFood = 0;
 	m_iBlessingProduction = 0;
 	m_iBlessingCulture = 0;
@@ -17696,8 +17678,6 @@ void CvPlayer::recomputeGreatPeopleModifiers()
 	// Finally boost domestic general from combat experience
 	m_iDomesticGreatGeneralRateModifier += GC.getCOMBAT_EXPERIENCE_IN_BORDERS_PERCENT();
 
-	// Dao grace: temporary empire-wide great person rate boost.
-	m_iGreatPeopleRateModifier += m_iDaoGreatPeopleModifier;
 }
 
 //	--------------------------------------------------------------------------------
@@ -31394,15 +31374,6 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ(165, kStream, m_iDaoPoints, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iDaoPerks, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiDaoUCs, 0, NO_UNIT);
-		MOD_SERIALIZE_READ(165, kStream, m_iDaoGreatPeopleModifier, 0);
-		MOD_SERIALIZE_READ(165, kStream, m_iDaoGreatPeopleTurns, 0);
-		MOD_SERIALIZE_READ(165, kStream, m_iDaoWarEndTurn, 0);
-		MOD_SERIALIZE_READ(165, kStream, m_iDaoFaithGPEndTurn, 0);
-		MOD_SERIALIZE_READ(165, kStream, m_bDaoDenounceImmune, 0);
-		MOD_SERIALIZE_READ(165, kStream, m_iDaoGrowthEndTurn, 0);
-		MOD_SERIALIZE_READ(165, kStream, m_iDaoWorksEndTurn, 0);
-		MOD_SERIALIZE_READ(165, kStream, m_iDaoSecondResearchEndTurn, 0);
-		MOD_SERIALIZE_READ(165, kStream, m_eDaoSecondResearch, NO_TECH);
 		MOD_SERIALIZE_READ(165, kStream, m_iFengshanEra, -1);
 		MOD_SERIALIZE_READ(165, kStream, m_iBlessingFood, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iBlessingProduction, 0);
@@ -32377,15 +32348,6 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE(kStream, m_iDaoPoints);
 	MOD_SERIALIZE_WRITE(kStream, m_iDaoPerks);
 	MOD_SERIALIZE_WRITE(kStream, m_aiDaoUCs);
-	MOD_SERIALIZE_WRITE(kStream, m_iDaoGreatPeopleModifier);
-	MOD_SERIALIZE_WRITE(kStream, m_iDaoGreatPeopleTurns);
-	MOD_SERIALIZE_WRITE(kStream, m_iDaoWarEndTurn);
-	MOD_SERIALIZE_WRITE(kStream, m_iDaoFaithGPEndTurn);
-	MOD_SERIALIZE_WRITE(kStream, m_bDaoDenounceImmune);
-	MOD_SERIALIZE_WRITE(kStream, m_iDaoGrowthEndTurn);
-	MOD_SERIALIZE_WRITE(kStream, m_iDaoWorksEndTurn);
-	MOD_SERIALIZE_WRITE(kStream, m_iDaoSecondResearchEndTurn);
-	MOD_SERIALIZE_WRITE(kStream, m_eDaoSecondResearch);
 	MOD_SERIALIZE_WRITE(kStream, m_iFengshanEra);
 	MOD_SERIALIZE_WRITE(kStream, m_iBlessingFood);
 	MOD_SERIALIZE_WRITE(kStream, m_iBlessingProduction);
@@ -33915,7 +33877,7 @@ int CvPlayer::GetCSUAReligiousPressureModifier()
 // Jerusalem CS UA: player who is the ally of a DenounceImmunity city-state cannot be denounced
 bool CvPlayer::IsDenounceImmunity() const
 {
-	if (m_bDaoDenounceImmune != 0 || HasDaoPerk(6))
+	if (HasDaoPerk(6))
 		return true;
 	return m_pCityStateUA && m_pCityStateUA->IsDenounceImmunity();
 }
@@ -35948,13 +35910,14 @@ bool CvPlayer::HasDaoSiegeNoHeal() const
 //--------------------------------------------------------------------------------
 bool CvPlayer::HasDaoFaithGreatPeople() const
 {
-	return m_iDaoFaithGPEndTurn > 0 && GC.getGame().getGameTurn() < m_iDaoFaithGPEndTurn;
+	// The teaching perk also opens faith purchase of every great person.
+	return HasDaoPerk(5);
 }
 
 //--------------------------------------------------------------------------------
 bool CvPlayer::HasDaoDenounceImmunity() const
 {
-	return m_bDaoDenounceImmune != 0;
+	return HasDaoPerk(6);
 }
 
 //--------------------------------------------------------------------------------
@@ -36068,53 +36031,6 @@ bool CvPlayer::DoDaoGrace(int iGrace)
 void CvPlayer::DoDaoTurn()
 {
 	if (!MOD_GLOBAL_SUZERAIN) return;
-
-	int iTurn = GC.getGame().getGameTurn();
-
-	// Growth grace: one extra citizen in every city each turn.
-	if (m_iDaoGrowthEndTurn > 0 && iTurn < m_iDaoGrowthEndTurn)
-	{
-		int iLoop = 0;
-		for (CvCity* pCity = firstCity(&iLoop); pCity != NULL; pCity = nextCity(&iLoop))
-			pCity->changePopulation(1, true);
-	}
-
-	// Second research line: an extra copy of our science advances another tech.
-	if (m_iDaoSecondResearchEndTurn > 0 && iTurn < m_iDaoSecondResearchEndTurn)
-	{
-		TechTypes eTech = (TechTypes)m_eDaoSecondResearch;
-		if (eTech == NO_TECH || GET_TEAM(getTeam()).GetTeamTechs()->HasTech(eTech))
-		{
-			eTech = NO_TECH;
-			for (int t = 0; t < GC.getNumTechInfos(); t++)
-			{
-				TechTypes eCandidate = (TechTypes)t;
-				if (GET_TEAM(getTeam()).GetTeamTechs()->HasTech(eCandidate)) continue;
-				if (!GetPlayerTechs()->CanResearch(eCandidate, false)) continue;
-				eTech = eCandidate;
-				break;
-			}
-			m_eDaoSecondResearch = eTech;
-		}
-		if (eTech != NO_TECH)
-		{
-			unsigned long long iScience = GetScienceTimes100(false);
-			if (iScience > 0)
-				GET_TEAM(getTeam()).GetTeamTechs()->ChangeResearchProgressTimes100(eTech, (long long)iScience, GetID());
-		}
-	}
-	else if (m_iDaoSecondResearchEndTurn > 0)
-	{
-		m_iDaoSecondResearchEndTurn = 0;
-		m_eDaoSecondResearch = NO_TECH;
-	}
-
-	if (m_iDaoGreatPeopleTurns > 0 && iTurn >= m_iDaoGreatPeopleTurns)
-	{
-		m_iDaoGreatPeopleModifier = 0;
-		m_iDaoGreatPeopleTurns = 0;
-		recomputeGreatPeopleModifiers();
-	}
 
 	// Every court cycle, reward a stable realm.
 	if (IsVassalCourtTurn() && !m_vecVassals.empty())

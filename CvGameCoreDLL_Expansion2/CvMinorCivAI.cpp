@@ -4285,10 +4285,8 @@ bool CvMinorCivAI::IsProxyWarActiveForMajor(PlayerTypes eMajor)
 /// Update turn for Quests
 void CvMinorCivAI::DoTurnQuests()
 {
-	// Permanent ally: no quests for anyone
-	for (int i = 0; i < MAX_MAJOR_CIVS; i++)
-		if (GET_PLAYER((PlayerTypes)i).IsPermanentAlly(GetPlayer()->GetID()))
-			return;
+	// Permanent ally: quests stay enabled. Permanent allies have their influence
+	// locked, so quest rewards cannot inflate the relationship any further.
 
 	// ********************
 	// Check Current Quests
@@ -12671,9 +12669,8 @@ static CvCityStateUAEffectEntry* GetMinorUAGrantedEffect(CvMinorCivAI* pMinorAI,
 
 void CvMinorCivAI::DoGoldGiftFromMajor(PlayerTypes ePlayer, int iGold)
 {
-	// Permanent ally: no gold gifts from anyone
-	if (HasPermanentAlly())
-		return;
+	// Permanent ally: gold gifts stay enabled. Influence is locked by the
+	// permanent-ally floor, so the gift only spends gold.
 
 	if(GET_PLAYER(ePlayer).GetTreasury()->GetGold() >= iGold)
 	{

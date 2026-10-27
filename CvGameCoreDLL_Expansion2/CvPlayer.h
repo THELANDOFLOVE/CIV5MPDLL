@@ -2060,10 +2060,10 @@ public:
 	// 0 abundance, 1 diligence, 2 industry, 3 learning, 4 war, 5 teaching, 6 insight, 7 talent
 	bool HasDaoPerk(int iPerk) const { return (m_iDaoPerks & (1 << iPerk)) != 0; }
 	void GrantDaoPerk(int iPerk) { m_iDaoPerks |= (1 << iPerk); }
-	// Permanent unique units claimed by the dao insight grace.
-	void AddDaoUC(UnitTypes eUnit);
-	int GetDaoUCCount() const;
-	int GetDaoUC(int iIndex) const;
+	// Permanent unique content claimed by the dao insight grace. iType is
+	// 0 = unit, 1 = building, 2 = improvement; stored in the existing
+	// extra-UC sets, which are already serialized and usable.
+	void AddDaoUC(int iType, int iIndex);
 	// Faith purchase of beliefs (pantheon or a religion belief)
 	int GetDaoBeliefCost() const;
 	int GetDaoBeliefOptionCount() const;
@@ -3212,7 +3212,6 @@ protected:
 	// Dao points and their temporary grace state
 	int m_iDaoPoints;
 	int m_iDaoPerks;
-	std::vector<int> m_aiDaoUCs;
 	// Era of the last Fengshan, -1 when never used
 	FAutoVariable<int, CvPlayer> m_iFengshanEra;
 	// Temporary mandate blessing: per-city yields and the turn it expires

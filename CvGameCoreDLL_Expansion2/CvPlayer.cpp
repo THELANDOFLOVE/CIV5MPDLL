@@ -1366,7 +1366,6 @@ void CvPlayer::uninit()
 	m_iPrayerFreeTechs = 0;
 	m_iDaoPoints = 0;
 	m_iDaoPerks = 0;
-	m_aiDaoUCs.clear();
 	m_iBlessingFood = 0;
 	m_iBlessingProduction = 0;
 	m_iBlessingCulture = 0;
@@ -31373,7 +31372,6 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ(165, kStream, m_iMandate, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iDaoPoints, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iDaoPerks, 0);
-		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiDaoUCs, 0, NO_UNIT);
 		MOD_SERIALIZE_READ(165, kStream, m_iFengshanEra, -1);
 		MOD_SERIALIZE_READ(165, kStream, m_iBlessingFood, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iBlessingProduction, 0);
@@ -32347,7 +32345,6 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE(kStream, m_iMandate);
 	MOD_SERIALIZE_WRITE(kStream, m_iDaoPoints);
 	MOD_SERIALIZE_WRITE(kStream, m_iDaoPerks);
-	MOD_SERIALIZE_WRITE(kStream, m_aiDaoUCs);
 	MOD_SERIALIZE_WRITE(kStream, m_iFengshanEra);
 	MOD_SERIALIZE_WRITE(kStream, m_iBlessingFood);
 	MOD_SERIALIZE_WRITE(kStream, m_iBlessingProduction);
@@ -37415,30 +37412,31 @@ void CvPlayer::RefreshUCFromVassals()
 		m_sUBFromVassals.insert(ubSet.begin(), ubSet.end());
 		m_sUIFromVassals.insert(uiSet.begin(), uiSet.end());
 	}
-
-	// Dao insight keeps its claimed unique units across refreshes.
-	for (size_t i = 0; i < m_aiDaoUCs.size(); i++)
-	{
-		if (m_aiDaoUCs[i] != (int)NO_UNIT)
-			m_sUUFromVassals.insert((UnitTypes)m_aiDaoUCs[i]);
-	}
 }
 
 //--------------------------------------------------------------------------------
-void CvPlayer::AddDaoUC(UnitTypes eUnit)
+// The extra-UC sets already serialize and unlock use, so the dao claim only
+// has to insert into them.
+void CvPlayer::AddDaoUC(int iType, int iIndex)
 {
 	if (!MOD_GLOBAL_SUZERAIN) return;
-	if (eUnit == NO_UNIT) return;
 	if (!HasDaoPerk(6)) return;
 
-	for (size_t i = 0; i < m_aiDaoUCs.size(); i++)
+	if (iType == 0)
 	{
-		if (m_aiDaoUCs[i] == (int)eUnit)
-			return;
+		UnitTypes eUnit = (UnitTypes)iIndex;
+		if (eUnit != NO_UNIT) m_sUUFromExtra.insert(eUnit);
 	}
-
-	m_aiDaoUCs.push_back((int)eUnit);
-	m_sUUFromVassals.insert(eUnit);
+	else if (iType == 1)
+	{
+		BuildingTypes eBuilding = (BuildingTypes)iIndex;
+		if (eBuilding != NO_BUILDING) m_sUBFromExtra.insert(eBuilding);
+	}
+	else if (iType == 2)
+	{
+		ImprovementTypes eImprovement = (ImprovementTypes)iIndex;
+		if (eImprovement != NO_IMPROVEMENT) m_sUIFromExtra.insert(eImprovement);
+	}
 }
 
 //--------------------------------------------------------------------------------
@@ -37536,18 +37534,6 @@ bool CvPlayer::PurchaseDaoBelief(BeliefTypes eBelief)
 	return true;
 }
 
-//--------------------------------------------------------------------------------
-int CvPlayer::GetDaoUCCount() const
-{
-	return (int)m_aiDaoUCs.size();
-}
-
-//--------------------------------------------------------------------------------
-int CvPlayer::GetDaoUC(int iIndex) const
-{
-	if (iIndex < 0 || iIndex >= (int)m_aiDaoUCs.size()) return NO_UNIT;
-	return m_aiDaoUCs[iIndex];
-}
 
 //--------------------------------------------------------------------------------
 void CvPlayer::ClearUCFromVassals()

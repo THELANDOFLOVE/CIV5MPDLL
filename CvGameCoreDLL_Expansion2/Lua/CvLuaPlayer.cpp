@@ -1562,8 +1562,6 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(DoDaoGrace);
 	Method(HasDaoPerk);
 	Method(AddDaoUC);
-	Method(GetDaoUCCount);
-	Method(GetDaoUC);
 	Method(GetDaoBeliefCost);
 	Method(GetDaoBeliefOptionCount);
 	Method(GetDaoBeliefOption);
@@ -7737,30 +7735,14 @@ int CvLuaPlayer::lHasDaoPerk(lua_State* L)
 	return 1;
 }
 //------------------------------------------------------------------------------
-//void AddDaoUC(UnitTypes eUnit);
+//void AddDaoUC(int iType, int iIndex);
 int CvLuaPlayer::lAddDaoUC(lua_State* L)
 {
 	CvPlayerAI* pkPlayer = GetInstance(L);
-	UnitTypes eUnit = (UnitTypes)lua_tointeger(L, 2);
-	pkPlayer->AddDaoUC(eUnit);
+	int iType = lua_tointeger(L, 2);
+	int iIndex = lua_tointeger(L, 3);
+	pkPlayer->AddDaoUC(iType, iIndex);
 	return 0;
-}
-//------------------------------------------------------------------------------
-//int GetDaoUCCount();
-int CvLuaPlayer::lGetDaoUCCount(lua_State* L)
-{
-	CvPlayerAI* pkPlayer = GetInstance(L);
-	lua_pushinteger(L, pkPlayer->GetDaoUCCount());
-	return 1;
-}
-//------------------------------------------------------------------------------
-//int GetDaoUC(int iIndex);
-int CvLuaPlayer::lGetDaoUC(lua_State* L)
-{
-	CvPlayerAI* pkPlayer = GetInstance(L);
-	int iIndex = lua_tointeger(L, 2);
-	lua_pushinteger(L, pkPlayer->GetDaoUC(iIndex));
-	return 1;
 }
 //------------------------------------------------------------------------------
 //int GetDaoBeliefCost();

@@ -36016,8 +36016,10 @@ bool CvPlayer::DoDaoGrace(int iGrace)
 	}
 	else if (iGrace == 6)
 	{
-		// Insight: cannot be denounced (city-state and UC parts come later).
+		// Insight: permanent denounce immunity and a master spy.
 		GrantDaoPerk(6);
+		if (GetEspionage() != NULL)
+			GetEspionage()->CreateSpyWithRank(SPY_RANK_MASTER_SPY);
 	}
 	else if (iGrace == 7)
 	{

@@ -6496,6 +6496,18 @@ int CvCity::GetFaithPurchaseCost(BuildingTypes eBuilding)
 
 	// Cost goes up in later eras
 	iCost = pkBuildingInfo->GetFaithCost();
+
+#if defined(MOD_GLOBAL_SUZERAIN)
+	// Dao abundance: world wonders may be bought with faith, priced from their
+	// production cost. Regular buildings without a FaithCost stay unbuyable.
+	if (iCost <= 0 && GET_PLAYER(getOwner()).HasDaoPerk(0)
+		&& isWorldWonderClass(pkBuildingInfo->GetBuildingClassInfo()))
+	{
+		int iMultiplier = GC.getDefineINT("TIANDAO_DAO_WONDER_FAITH_MULTIPLIER", false);
+		if (iMultiplier <= 0) iMultiplier = 2;
+		iCost = getProductionNeeded(eBuilding) * iMultiplier;
+	}
+#endif
 	int iTraitCost = GET_PLAYER(getOwner()).GetPlayerTraits()->GetBuildingClassFaithCost((BuildingClassTypes)pkBuildingInfo->GetBuildingClassType());
 	if(iTraitCost > 0 && iCost > 0) iCost = std::min(iTraitCost, iCost);
 	else if(iTraitCost > 0) iCost = iTraitCost;

@@ -1428,6 +1428,9 @@ protected:
 	LUAAPIEXTN(CanPunishVassal, bool, ePlayer);
 	LUAAPIEXTN(DoVassalPunish, bool, ePlayer);
 	LUAAPIEXTN(GetMandate, int);
+	LUAAPIEXTN(GetDaoPoints, int);
+	LUAAPIEXTN(GetDaoGraceCost, int, iGrace);
+	LUAAPIEXTN(DoDaoGrace, bool, iGrace);
 	LUAAPIEXTN(GetMandateMax, int);
 	LUAAPIEXTN(IsMandateFull, bool);
 	LUAAPIEXTN(CanFengshan, bool);

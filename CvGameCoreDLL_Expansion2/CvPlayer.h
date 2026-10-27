@@ -2046,6 +2046,13 @@ public:
 	int GetMandate() const;
 	int GetMandateMax() const;
 	void ChangeMandate(int iChange);
+	// Dao points: rewards for good governance, spent on strong graces
+	int GetDaoPoints() const;
+	void ChangeDaoPoints(int iChange);
+	bool CanSpendDaoPoints(int iCost) const;
+	int GetDaoGraceCost(int iGrace) const;
+	bool DoDaoGrace(int iGrace);
+	void DoDaoTurn();
 	bool IsMandateFull() const;
 	bool CanFengshan() const;
 	bool DoFengshan();
@@ -3179,6 +3186,10 @@ protected:
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalBreachTurn;
 	// Mandate of Heaven, 0..TIANDAO_MANDATE_MAX
 	FAutoVariable<int, CvPlayer> m_iMandate;
+	// Dao points and their temporary grace state
+	int m_iDaoPoints;
+	int m_iDaoGreatPeopleModifier;
+	int m_iDaoGreatPeopleTurns;
 	// Era of the last Fengshan, -1 when never used
 	FAutoVariable<int, CvPlayer> m_iFengshanEra;
 	// Temporary mandate blessing: per-city yields and the turn it expires

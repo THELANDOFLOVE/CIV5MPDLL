@@ -148,6 +148,7 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoInviteVassal);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoSubjugate);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lHasVassalPunishRight);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoDaoGrace);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSubmitPrayer);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lResolvePrayer);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lChoosePrayerTech);
@@ -1553,6 +1554,9 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(CanPunishVassal);
 	Method(DoVassalPunish);
 	Method(GetMandate);
+	Method(GetDaoPoints);
+	Method(GetDaoGraceCost);
+	Method(DoDaoGrace);
 	Method(GetMandateMax);
 	Method(IsMandateFull);
 	Method(CanFengshan);
@@ -7684,6 +7688,32 @@ int CvLuaPlayer::lGetMandate(lua_State* L)
 {
 	CvPlayerAI* pkPlayer = GetInstance(L);
 	lua_pushinteger(L, pkPlayer->GetMandate());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetDaoPoints();
+int CvLuaPlayer::lGetDaoPoints(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->GetDaoPoints());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetDaoGraceCost(int iGrace);
+int CvLuaPlayer::lGetDaoGraceCost(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	int iGrace = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetDaoGraceCost(iGrace));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool DoDaoGrace(int iGrace);
+int CvLuaPlayer::lDoDaoGrace(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	int iGrace = lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->DoDaoGrace(iGrace));
 	return 1;
 }
 //------------------------------------------------------------------------------

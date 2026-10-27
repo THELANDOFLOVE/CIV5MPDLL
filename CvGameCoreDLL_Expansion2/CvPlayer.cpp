@@ -429,6 +429,9 @@ CvPlayer::CvPlayer() :
 	, m_aiVassalBreachCount("CvPlayer::m_aiVassalBreachCount", m_syncArchive)
 	, m_aiVassalBreachTurn("CvPlayer::m_aiVassalBreachTurn", m_syncArchive)
 	, m_iMandate("CvPlayer::m_iMandate", m_syncArchive)
+	, m_iDaoPoints(0)
+	, m_iDaoGreatPeopleModifier(0)
+	, m_iDaoGreatPeopleTurns(0)
 	, m_iFengshanEra("CvPlayer::m_iFengshanEra", m_syncArchive)
 	, m_iBlessingFood("CvPlayer::m_iBlessingFood", m_syncArchive)
 	, m_iBlessingProduction("CvPlayer::m_iBlessingProduction", m_syncArchive)
@@ -1362,6 +1365,9 @@ void CvPlayer::uninit()
 	m_iPrayerHappinessEndTurn = 0;
 	m_iPrayerCorruptionTurns = 0;
 	m_iPrayerFreeTechs = 0;
+	m_iDaoPoints = 0;
+	m_iDaoGreatPeopleModifier = 0;
+	m_iDaoGreatPeopleTurns = 0;
 	m_iBlessingFood = 0;
 	m_iBlessingProduction = 0;
 	m_iBlessingCulture = 0;
@@ -5556,6 +5562,7 @@ void CvPlayer::doTurn()
 		DoMandatePunishmentTurn();
 		DoVassalCallToArms();
 		DoVassalBreachTurn();
+		DoDaoTurn();
 		ResetVassalGiftCounts();
 		ResetVassalProtectFlags();
 		DoVassalMemorialTurn();
@@ -17663,6 +17670,9 @@ void CvPlayer::recomputeGreatPeopleModifiers()
 
 	// Finally boost domestic general from combat experience
 	m_iDomesticGreatGeneralRateModifier += GC.getCOMBAT_EXPERIENCE_IN_BORDERS_PERCENT();
+
+	// Dao grace: temporary empire-wide great person rate boost.
+	m_iGreatPeopleRateModifier += m_iDaoGreatPeopleModifier;
 }
 
 //	--------------------------------------------------------------------------------
@@ -31335,6 +31345,9 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiMemorialDefault, 4, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalBreachTurn, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iMandate, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iDaoPoints, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iDaoGreatPeopleModifier, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iDaoGreatPeopleTurns, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iFengshanEra, -1);
 		MOD_SERIALIZE_READ(165, kStream, m_iBlessingFood, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iBlessingProduction, 0);
@@ -32306,6 +32319,9 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE(kStream, m_aiMemorialDefault);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalBreachTurn);
 	MOD_SERIALIZE_WRITE(kStream, m_iMandate);
+	MOD_SERIALIZE_WRITE(kStream, m_iDaoPoints);
+	MOD_SERIALIZE_WRITE(kStream, m_iDaoGreatPeopleModifier);
+	MOD_SERIALIZE_WRITE(kStream, m_iDaoGreatPeopleTurns);
 	MOD_SERIALIZE_WRITE(kStream, m_iFengshanEra);
 	MOD_SERIALIZE_WRITE(kStream, m_iBlessingFood);
 	MOD_SERIALIZE_WRITE(kStream, m_iBlessingProduction);
@@ -34412,6 +34428,7 @@ void CvPlayer::DoVassalGift(PlayerTypes eVassal)
 	ChangeVassalLoyalty(eVassal, iLoyalty);
 	m_aiVassalGiftCount.setAt((size_t)eVassal, m_aiVassalGiftCount[eVassal] + 1);
 	ChangeMandate(TiandaoDefineInt("TIANDAO_MANDATE_GIFT"));
+	ChangeDaoPoints(TiandaoDefineInt("TIANDAO_DAO_POINT_REWARD"));
 }
 
 //--------------------------------------------------------------------------------
@@ -34523,6 +34540,7 @@ bool CvPlayer::DoVassalMediate(PlayerTypes eA, PlayerTypes eB)
 	ChangeVassalLoyalty(eA, TiandaoDefineInt("TIANDAO_LOYALTY_MEDIATE"));
 	ChangeVassalLoyalty(eB, TiandaoDefineInt("TIANDAO_LOYALTY_MEDIATE"));
 	ChangeMandate(TiandaoDefineInt("TIANDAO_MANDATE_MEDIATE"));
+	ChangeDaoPoints(TiandaoDefineInt("TIANDAO_DAO_POINT_MEDIATE"));
 	return true;
 }
 
@@ -34788,6 +34806,8 @@ bool CvPlayer::ResolvePrayer(int iIndex, bool bGrant)
 			ChangeVassalLoyalty(req.eVassal, iGrant);
 		if ((size_t)req.eVassal < m_aiPrayerDenyStreak.size())
 			m_aiPrayerDenyStreak[req.eVassal] = 0;
+
+		ChangeDaoPoints(TiandaoDefineInt("TIANDAO_DAO_POINT_PRAYER"));
 	}
 	else if (!bGrant)
 	{
@@ -35567,12 +35587,15 @@ void CvPlayer::DoVassalMemorialTurn()
 	int iNeglect = TiandaoDefineInt("TIANDAO_LOYALTY_NEGLECT");
 	int iTurn = GC.getGame().getGameTurn();
 	int iCount = GetVassalMemorialCount();
+	bool bAnyExpired = false;
 	for (int m = 0; m < iCount; m++)
 	{
 		if (GetVassalMemorialField(m, TIANDAO_MEMORIAL_STATE) != 0) continue;
 
 		int iDeadline = GetVassalMemorialField(m, TIANDAO_MEMORIAL_DEADLINE);
 		if (iDeadline <= 0 || iTurn < iDeadline) continue;
+
+		bAnyExpired = true;
 
 		PlayerTypes eVassal = (PlayerTypes)GetVassalMemorialField(m, TIANDAO_MEMORIAL_VASSAL);
 		int iType = GetVassalMemorialField(m, TIANDAO_MEMORIAL_TYPE);
@@ -35586,6 +35609,10 @@ void CvPlayer::DoVassalMemorialTurn()
 
 		m_aiVassalMemorials.setAt(m * TIANDAO_MEMORIAL_STRIDE + TIANDAO_MEMORIAL_STATE, 3);
 	}
+
+	// A court that cleared every memorial earns dao points.
+	if (!bAnyExpired && IsVassalCourtTurn())
+		ChangeDaoPoints(TiandaoDefineInt("TIANDAO_DAO_POINT_COURT_CLEAN"));
 
 	// AI overlords run their own court: settle every pending memorial now.
 	if (!isHuman())
@@ -35778,6 +35805,179 @@ void CvPlayer::ChangeMandate(int iChange)
 	if (iValue < 0) iValue = 0;
 	if (iValue > iMax) iValue = iMax;
 	m_iMandate = iValue;
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetDaoPoints() const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	return m_iDaoPoints;
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::ChangeDaoPoints(int iChange)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (iChange == 0) return;
+
+	int iMax = TiandaoDefineInt("TIANDAO_DAO_POINT_MAX");
+	if (iMax <= 0) iMax = 100;
+
+	int iValue = m_iDaoPoints + iChange;
+	if (iValue < 0) iValue = 0;
+	if (iValue > iMax) iValue = iMax;
+	m_iDaoPoints = iValue;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::CanSpendDaoPoints(int iCost) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	return iCost > 0 && m_iDaoPoints >= iCost;
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetDaoGraceCost(int iGrace) const
+{
+	const char* szCostKey = NULL;
+	if (iGrace == 0) szCostKey = "TIANDAO_DAO_COST_BLESSING";
+	else if (iGrace == 1) szCostKey = "TIANDAO_DAO_COST_GREAT_PERSON";
+	else if (iGrace == 2) szCostKey = "TIANDAO_DAO_COST_POLICY";
+	else if (iGrace == 3) szCostKey = "TIANDAO_DAO_COST_GOLDEN_AGE";
+	else if (iGrace == 4) szCostKey = "TIANDAO_DAO_COST_PRODUCTION";
+	else if (iGrace == 5) szCostKey = "TIANDAO_DAO_COST_HAPPINESS";
+	if (szCostKey == NULL) return 0;
+	return TiandaoDefineInt(szCostKey);
+}
+
+//--------------------------------------------------------------------------------
+// 0 = abundant blessing, 1 = great person + rate boost, 2 = free policy + cost cut.
+// Dao graces are stronger than a vassal's prayer and never fail.
+bool CvPlayer::DoDaoGrace(int iGrace)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+
+	const char* szCostKey = NULL;
+	if (iGrace == 0) szCostKey = "TIANDAO_DAO_COST_BLESSING";
+	else if (iGrace == 1) szCostKey = "TIANDAO_DAO_COST_GREAT_PERSON";
+	else if (iGrace == 2) szCostKey = "TIANDAO_DAO_COST_POLICY";
+	else if (iGrace == 3) szCostKey = "TIANDAO_DAO_COST_GOLDEN_AGE";
+	else if (iGrace == 4) szCostKey = "TIANDAO_DAO_COST_PRODUCTION";
+	else if (iGrace == 5) szCostKey = "TIANDAO_DAO_COST_HAPPINESS";
+	else return false;
+
+	int iCost = TiandaoDefineInt(szCostKey);
+	if (!CanSpendDaoPoints(iCost)) return false;
+
+	int iTurns = TiandaoDefineInt("TIANDAO_DAO_GRACE_TURNS");
+	if (iTurns <= 0) iTurns = 20;
+
+	if (iGrace == 0)
+	{
+		int iAmount = TiandaoDefineInt("TIANDAO_DAO_BLESSING_AMOUNT");
+		if (iAmount <= 0) iAmount = 3;
+		ApplyPrayerBlessing(-1, iAmount, iTurns);
+	}
+	else if (iGrace == 1)
+	{
+		CvCity* pCapital = getCapitalCity();
+		if (pCapital != NULL)
+		{
+			static const char* aGreatPeople[] = {
+				"UNIT_GREAT_SCIENTIST", "UNIT_GREAT_ENGINEER", "UNIT_GREAT_MERCHANT",
+				"UNIT_GREAT_ARTIST", "UNIT_GREAT_PROPHET", "UNIT_GREAT_WRITER",
+				"UNIT_GREAT_MUSICIAN", "UNIT_GREAT_GENERAL"
+			};
+			int iNum = (int)(sizeof(aGreatPeople) / sizeof(aGreatPeople[0]));
+			int iStart = GC.getGame().getJonRandNum(iNum, "Tiandao dao great person");
+			for (int i = 0; i < iNum; i++)
+			{
+				UnitTypes eUnit = (UnitTypes)GC.getInfoTypeForString(aGreatPeople[(iStart + i) % iNum], true);
+				if (eUnit != NO_UNIT)
+				{
+					initUnit(eUnit, pCapital->getX(), pCapital->getY(), NO_UNITAI);
+					break;
+				}
+			}
+		}
+
+		int iRate = TiandaoDefineInt("TIANDAO_DAO_GREAT_PERSON_RATE");
+		int iRateTurns = TiandaoDefineInt("TIANDAO_DAO_GREAT_PERSON_TURNS");
+		if (iRate <= 0) iRate = 50;
+		if (iRateTurns <= 0) iRateTurns = 15;
+		m_iDaoGreatPeopleModifier = iRate;
+		m_iDaoGreatPeopleTurns = GC.getGame().getGameTurn() + iRateTurns;
+		recomputeGreatPeopleModifiers();
+	}
+	else if (iGrace == 2)
+	{
+		ChangeNumFreePolicies(1);
+
+		int iCostMod = TiandaoDefineInt("TIANDAO_DAO_POLICY_COST");
+		if (iCostMod >= 0) iCostMod = -15;
+		// Shares the threshold slot with the prayer grace; a player is either an
+		// overlord or a vassal, so the two never run at the same time.
+		m_iPrayerPolicyCostModifier = iCostMod;
+		m_iPrayerThresholdTurns = GC.getGame().getGameTurn() + iTurns;
+	}
+	else if (iGrace == 3)
+	{
+		int iGoldenAgeTurns = TiandaoDefineInt("TIANDAO_DAO_GOLDEN_AGE_TURNS");
+		if (iGoldenAgeTurns <= 0) iGoldenAgeTurns = 20;
+		changeGoldenAgeTurns(iGoldenAgeTurns);
+	}
+	else if (iGrace == 4)
+	{
+		CvCity* pCapital = getCapitalCity();
+		if (pCapital != NULL)
+		{
+			int iNeeded = pCapital->getProductionNeeded();
+			int iCurrent = pCapital->getProduction();
+			if (iNeeded > iCurrent)
+				pCapital->changeProduction(iNeeded - iCurrent);
+		}
+	}
+	else if (iGrace == 5)
+	{
+		int iHappiness = TiandaoDefineInt("TIANDAO_DAO_HAPPINESS");
+		if (iHappiness <= 0) iHappiness = 1;
+		ChangeExtraHappinessPerCity(iHappiness);
+	}
+
+	ChangeDaoPoints(-iCost);
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::DoDaoTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+
+	int iTurn = GC.getGame().getGameTurn();
+
+	if (m_iDaoGreatPeopleTurns > 0 && iTurn >= m_iDaoGreatPeopleTurns)
+	{
+		m_iDaoGreatPeopleModifier = 0;
+		m_iDaoGreatPeopleTurns = 0;
+		recomputeGreatPeopleModifiers();
+	}
+
+	// Every court cycle, reward a stable realm.
+	if (IsVassalCourtTurn() && !m_vecVassals.empty())
+	{
+		int iSum = 0;
+		int iAlive = 0;
+		for (size_t i = 0; i < m_vecVassals.size(); i++)
+		{
+			PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
+			if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) continue;
+			if (!GET_PLAYER(eVassal).isAlive()) continue;
+			iSum += GetVassalLoyalty(eVassal);
+			iAlive++;
+		}
+		if (iAlive > 0 && (iSum / iAlive) >= 60)
+			ChangeDaoPoints(TiandaoDefineInt("TIANDAO_DAO_POINT_HIGH_LOYALTY"));
+	}
 }
 
 //--------------------------------------------------------------------------------

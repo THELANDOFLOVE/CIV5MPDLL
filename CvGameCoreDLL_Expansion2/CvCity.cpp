@@ -20507,6 +20507,11 @@ void CvCity::doGrowth()
 #ifdef MOD_GLOBAL_UNLIMITED_ONE_TURN_GROWTH
 	if (MOD_GLOBAL_UNLIMITED_ONE_TURN_GROWTH) iLoopTime = 1000;
 #endif
+#if defined(MOD_GLOBAL_SUZERAIN)
+	// Dao diligence: a food surplus can grow the city repeatedly in one turn.
+	if (MOD_GLOBAL_SUZERAIN && GET_PLAYER(getOwner()).HasDaoPerk(1))
+		iLoopTime = 1000;
+#endif
 	while (getFood() >= iGrowthThreshold && iLoopTime--)
 	{
 		if (GetCityCitizens()->IsForcedAvoidGrowth())  // don't grow a city if we are at avoid growth

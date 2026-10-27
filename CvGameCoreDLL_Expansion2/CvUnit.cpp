@@ -16244,6 +16244,16 @@ int CvUnit::GetMaxDefenseStrength(const CvPlot* pInPlot, const CvUnit* pAttacker
 	if(GetBaseCombatStrength() == 0)
 		return 0;
 
+#if defined(MOD_GLOBAL_SUZERAIN)
+	// Dao war: a melee attacker voids every defensive bonus of the target.
+	if (MOD_GLOBAL_SUZERAIN && pAttacker != NULL && !bFromRangedAttack
+		&& !pAttacker->isRanged()
+		&& GET_PLAYER(pAttacker->getOwner()).HasDaoPerk(4))
+	{
+		return GetBaseCombatStrength();
+	}
+#endif
+
 	int iCombat;
 
 	int iTempModifier;

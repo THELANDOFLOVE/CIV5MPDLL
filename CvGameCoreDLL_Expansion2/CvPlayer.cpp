@@ -28312,6 +28312,27 @@ void CvPlayer::doResearch()
 			clearResearchQueue();
 		}
 	}
+
+#if defined(MOD_GLOBAL_SUZERAIN)
+	// Dao learning: leftover overflow keeps researching further techs this turn.
+	if (MOD_GLOBAL_SUZERAIN && HasDaoPerk(3))
+	{
+		for (int iLoopTech = 0; iLoopTech < 20; iLoopTech++)
+		{
+			long long iOverflow = getOverflowResearchTimes100();
+			if (iOverflow <= 0) break;
+
+			TechTypes eNext = GetPlayerTechs()->GetCurrentResearch();
+			if (eNext == NO_TECH) break;
+
+			int iModifier = calculateResearchModifier(eNext);
+			long long iScaled = iOverflow * iModifier / 100;
+			setOverflowResearch(0);
+			GET_TEAM(getTeam()).GetTeamTechs()->ChangeResearchProgressTimes100(eNext, iScaled, GetID(), iScaled, iModifier);
+		}
+	}
+#endif
+
 	GetPlayerTechs()->CheckForTechAchievement();
 
 }

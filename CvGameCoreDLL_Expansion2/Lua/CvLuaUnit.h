@@ -173,6 +173,8 @@ protected:
 #endif
 
 	static int lGetUpgradeUnitType(lua_State* L);
+	static int lGetDaoUpgradeOptionCount(lua_State* L);
+	static int lGetDaoUpgradeOption(lua_State* L);
 	static int lUpgradePrice(lua_State* L);
 	static int lCanUpgradeRightNow(lua_State* L);
 #if defined(MOD_API_LUA_EXTENSIONS)

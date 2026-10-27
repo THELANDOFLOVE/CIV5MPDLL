@@ -254,6 +254,8 @@ void CvLuaUnit::PushMethods(lua_State* L, int t)
 #endif
 
 	Method(GetUpgradeUnitType);
+	Method(GetDaoUpgradeOptionCount);
+	Method(GetDaoUpgradeOption);
 	Method(UpgradePrice);
 	Method(CanUpgradeRightNow);
 #if defined(MOD_API_LUA_EXTENSIONS)
@@ -2144,6 +2146,23 @@ int CvLuaUnit::lGetUpgradeUnitType(lua_State* L)
 
 	const int iResult = pkUnit->GetUpgradeUnitType();
 	lua_pushinteger(L, iResult);
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetDaoUpgradeOptionCount();
+int CvLuaUnit::lGetDaoUpgradeOptionCount(lua_State* L)
+{
+	CvUnit* pkUnit = GetInstance(L);
+	lua_pushinteger(L, pkUnit->GetDaoUpgradeOptionCount());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetDaoUpgradeOption(int iIndex);
+int CvLuaUnit::lGetDaoUpgradeOption(lua_State* L)
+{
+	CvUnit* pkUnit = GetInstance(L);
+	int iIndex = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkUnit->GetDaoUpgradeOption(iIndex));
 	return 1;
 }
 //------------------------------------------------------------------------------

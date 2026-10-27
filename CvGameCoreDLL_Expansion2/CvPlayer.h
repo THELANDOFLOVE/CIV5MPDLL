@@ -1995,6 +1995,12 @@ public:
 	void DoVassalRankUp(PlayerTypes eVassal);
 	int GetVassalGiftLoyalty(PlayerTypes eVassal) const;
 	void DoVassalGift(PlayerTypes eVassal);
+	// Court gift log: who came to court this session and what they brought
+	int GetCourtGiftCount() const;
+	int GetCourtGiftVassal(int iIndex) const;
+	int GetCourtGiftGold(int iIndex) const;
+	int GetCourtGiftResource(int iIndex) const;
+	int GetCourtGiftAmount(int iIndex) const;
 	void ResetVassalGiftCounts();
 	PlayerTypes GetVassalAggressor(PlayerTypes eVassal) const;
 	bool DoVassalProtect(PlayerTypes eVassal, bool bProtect);
@@ -3193,6 +3199,8 @@ protected:
 	// Prayer state. The overlord keeps the queue; the vassal keeps its temporary grace.
 	std::vector<TiandaoPrayerRequest> m_vPrayerRequests;
 	std::vector<int> m_aiPrayerDenyStreak;
+	// Court gift log (derived, rebuilt each court turn; not serialized)
+	std::vector<int> m_aiCourtGiftLog;
 	std::vector<int> m_aiPrayerBlessing;
 	int m_iPrayerBlessingEndTurn;
 	int m_iPrayerThresholdTurns;

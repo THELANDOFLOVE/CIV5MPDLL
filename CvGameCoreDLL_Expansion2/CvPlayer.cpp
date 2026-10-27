@@ -1343,6 +1343,7 @@ void CvPlayer::uninit()
 	m_vPrayerRequests.clear();
 	m_aiPrayerDenyStreak.clear();
 	m_aiPrayerDenyStreak.resize(MAX_MAJOR_CIVS, 0);
+	m_aiCourtGiftLog.clear();
 	m_aiPrayerBlessing.clear();
 	m_aiPrayerBlessing.resize(NUM_YIELD_TYPES, 0);
 	m_iPrayerBlessingEndTurn = 0;
@@ -35852,6 +35853,8 @@ void CvPlayer::DoVassalCourtGiftTurn()
 	int iGiftLoyalty = TiandaoDefineInt("TIANDAO_COURT_GIFT_LOYALTY");
 	int iMinLoyalty = TiandaoDefineInt("TIANDAO_COURT_GIFT_MIN_LOYALTY");
 
+	m_aiCourtGiftLog.clear();
+
 	for (size_t i = 0; i < m_vecVassals.size(); i++)
 	{
 		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
@@ -35867,6 +35870,8 @@ void CvPlayer::DoVassalCourtGiftTurn()
 
 		bool bGave = false;
 		int iPaidGold = 0;
+		int iFirstResource = NO_RESOURCE;
+		int iFirstAmount = 0;
 
 		// Gold gift scales with contentment.
 		int iGold = iGoldBase + iCurrentLoyalty / 10;
@@ -35902,6 +35907,11 @@ void CvPlayer::DoVassalCourtGiftTurn()
 
 				int iGift = std::min(iResource, iAvailable);
 				kDeal.AddResourceTrade(eVassal, eResource, iGift, GC.getGame().GetDealDuration());
+				if (iFirstResource == NO_RESOURCE)
+				{
+					iFirstResource = (int)eResource;
+					iFirstAmount = iGift;
+				}
 				bHasResource = true;
 			}
 			if (bHasResource)
@@ -35914,6 +35924,11 @@ void CvPlayer::DoVassalCourtGiftTurn()
 
 		if (bGave)
 		{
+			m_aiCourtGiftLog.push_back((int)eVassal);
+			m_aiCourtGiftLog.push_back(iPaidGold);
+			m_aiCourtGiftLog.push_back(iFirstResource);
+			m_aiCourtGiftLog.push_back(iFirstAmount);
+
 			CvNotifications* pNotifications = GetNotifications();
 			if (pNotifications != NULL)
 			{
@@ -35927,6 +35942,38 @@ void CvPlayer::DoVassalCourtGiftTurn()
 				ChangeVassalLoyalty(eVassal, iGiftLoyalty);
 		}
 	}
+}
+
+//--------------------------------------------------------------------------------
+// Court gift log accessors. Layout: vassal, gold, resource, amount per entry.
+int CvPlayer::GetCourtGiftCount() const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	return (int)m_aiCourtGiftLog.size() / 4;
+}
+
+int CvPlayer::GetCourtGiftVassal(int iIndex) const
+{
+	if (iIndex < 0 || iIndex >= GetCourtGiftCount()) return NO_PLAYER;
+	return m_aiCourtGiftLog[iIndex * 4];
+}
+
+int CvPlayer::GetCourtGiftGold(int iIndex) const
+{
+	if (iIndex < 0 || iIndex >= GetCourtGiftCount()) return 0;
+	return m_aiCourtGiftLog[iIndex * 4 + 1];
+}
+
+int CvPlayer::GetCourtGiftResource(int iIndex) const
+{
+	if (iIndex < 0 || iIndex >= GetCourtGiftCount()) return NO_RESOURCE;
+	return m_aiCourtGiftLog[iIndex * 4 + 2];
+}
+
+int CvPlayer::GetCourtGiftAmount(int iIndex) const
+{
+	if (iIndex < 0 || iIndex >= GetCourtGiftCount()) return 0;
+	return m_aiCourtGiftLog[iIndex * 4 + 3];
 }
 
 //--------------------------------------------------------------------------------

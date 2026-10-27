@@ -1394,6 +1394,11 @@ protected:
 	LUAAPIEXTN(DoVassalRankUp, void, ePlayer);
 	LUAAPIEXTN(GetVassalGiftLoyalty, int, ePlayer);
 	LUAAPIEXTN(DoVassalGift, void, ePlayer);
+	LUAAPIEXTN(GetCourtGiftCount, int);
+	LUAAPIEXTN(GetCourtGiftVassal, int, iIndex);
+	LUAAPIEXTN(GetCourtGiftGold, int, iIndex);
+	LUAAPIEXTN(GetCourtGiftResource, int, iIndex);
+	LUAAPIEXTN(GetCourtGiftAmount, int, iIndex);
 	LUAAPIEXTN(GetVassalAggressor, int, ePlayer);
 	LUAAPIEXTN(DoVassalProtect, bool, ePlayer, bProtect);
 	LUAAPIEXTN(CanMediateVassals, bool, eA, eB);

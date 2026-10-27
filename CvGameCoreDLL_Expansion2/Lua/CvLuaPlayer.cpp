@@ -1517,6 +1517,11 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(DoVassalRankUp);
 	Method(GetVassalGiftLoyalty);
 	Method(DoVassalGift);
+	Method(GetCourtGiftCount);
+	Method(GetCourtGiftVassal);
+	Method(GetCourtGiftGold);
+	Method(GetCourtGiftResource);
+	Method(GetCourtGiftAmount);
 	Method(GetVassalAggressor);
 	Method(DoVassalProtect);
 	Method(CanMediateVassals);
@@ -7363,6 +7368,50 @@ int CvLuaPlayer::lDoVassalGift(lua_State* L)
 	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
 	pkPlayer->DoVassalGift(e);
 	return 0;
+}
+//------------------------------------------------------------------------------
+//int GetCourtGiftCount();
+int CvLuaPlayer::lGetCourtGiftCount(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->GetCourtGiftCount());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetCourtGiftVassal(int iIndex);
+int CvLuaPlayer::lGetCourtGiftVassal(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	int iIndex = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetCourtGiftVassal(iIndex));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetCourtGiftGold(int iIndex);
+int CvLuaPlayer::lGetCourtGiftGold(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	int iIndex = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetCourtGiftGold(iIndex));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetCourtGiftResource(int iIndex);
+int CvLuaPlayer::lGetCourtGiftResource(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	int iIndex = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetCourtGiftResource(iIndex));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetCourtGiftAmount(int iIndex);
+int CvLuaPlayer::lGetCourtGiftAmount(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	int iIndex = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetCourtGiftAmount(iIndex));
+	return 1;
 }
 //------------------------------------------------------------------------------
 //PlayerTypes GetVassalAggressor(PlayerTypes e);

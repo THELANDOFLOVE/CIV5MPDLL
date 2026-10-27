@@ -35951,6 +35951,8 @@ int CvPlayer::GetDaoGraceCost(int iGrace) const
 bool CvPlayer::DoDaoGrace(int iGrace)
 {
 	if (!MOD_GLOBAL_SUZERAIN) return false;
+	// Every grace is permanent; buying the same one twice is a waste.
+	if (HasDaoPerk(iGrace)) return false;
 
 	const char* szCostKey = TiandaoDaoGraceCostKey(iGrace);
 	if (szCostKey == NULL) return false;
@@ -36012,6 +36014,7 @@ bool CvPlayer::DoDaoGrace(int iGrace)
 	else if (iGrace == 7)
 	{
 		// Talent (one-time): a free tech, a free policy and a free great person.
+		GrantDaoPerk(7);
 		TechTypes eTech = GetPlayerTechs()->GetCurrentResearch();
 		if (eTech != NO_TECH)
 			GET_TEAM(getTeam()).setHasTech(eTech, true, GetID(), false, true);
@@ -36046,6 +36049,18 @@ void CvPlayer::DoDaoTurn()
 		}
 		if (iAlive > 0 && (iSum / iAlive) >= 60)
 			ChangeDaoPoints(TiandaoDefineInt("TIANDAO_DAO_POINT_HIGH_LOYALTY"));
+	}
+
+	// AI overlords spend their points at court, cheapest unreached grace first.
+	if (!isHuman() && IsVassalCourtTurn() && HasAnyVassal())
+	{
+		for (int iGrace = 0; iGrace < 8; iGrace++)
+		{
+			if (HasDaoPerk(iGrace)) continue;
+			int iCost = GetDaoGraceCost(iGrace);
+			if (iCost <= 0 || GetDaoPoints() < iCost) continue;
+			DoDaoGrace(iGrace);
+		}
 	}
 }
 

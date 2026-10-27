@@ -34419,10 +34419,10 @@ void CvPlayer::DoVassalRankUp(PlayerTypes eVassal)
 	if (!MOD_GLOBAL_SUZERAIN) return;
 	if (!CanRankUpVassal(eVassal)) return;
 
-	// TODO: consume Mandate here once the Mandate system is implemented.
 	SetVassalRank(eVassal, 1);
 	ChangeVassalLoyalty(eVassal, TiandaoDefineInt("TIANDAO_LOYALTY_RANK"));
 	ChangeMandate(TiandaoDefineInt("TIANDAO_MANDATE_RANK"));
+	ChangeDaoPoints(TiandaoDefineInt("TIANDAO_DAO_POINT_RANK"));
 }
 
 //--------------------------------------------------------------------------------
@@ -34522,6 +34522,7 @@ bool CvPlayer::DoVassalProtect(PlayerTypes eVassal, bool bProtect)
 		}
 		ChangeVassalLoyalty(eVassal, TiandaoDefineInt("TIANDAO_LOYALTY_PROTECT"));
 		ChangeMandate(TiandaoDefineInt("TIANDAO_MANDATE_PROTECT"));
+		ChangeDaoPoints(TiandaoDefineInt("TIANDAO_DAO_POINT_PROTECT"));
 	}
 	else
 	{
@@ -34599,6 +34600,7 @@ bool CvPlayer::DoReturnCityToVassal(CvCity* pCity)
 	GET_PLAYER(eVassal).acquireCity(pCity, false, true);
 	ChangeVassalLoyalty(eVassal, TiandaoDefineInt("TIANDAO_LOYALTY_RETURN_CITY"));
 	ChangeMandate(TiandaoDefineInt("TIANDAO_MANDATE_RETURN_CITY"));
+	ChangeDaoPoints(TiandaoDefineInt("TIANDAO_DAO_POINT_RETURN"));
 	return true;
 }
 
@@ -35514,6 +35516,9 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 		break;
 	}
 
+	if (bApprove && bOk)
+		ChangeDaoPoints(TiandaoDefineInt("TIANDAO_DAO_POINT_MEMORIAL"));
+
 	m_aiVassalMemorials.setAt(iStateOffset, (bApprove && bOk) ? 1 : 2);
 	return bOk;
 }
@@ -35951,8 +35956,9 @@ int CvPlayer::GetDaoGraceCost(int iGrace) const
 bool CvPlayer::DoDaoGrace(int iGrace)
 {
 	if (!MOD_GLOBAL_SUZERAIN) return false;
-	// Every grace is permanent; buying the same one twice is a waste.
-	if (HasDaoPerk(iGrace)) return false;
+	// Rule-changing graces (1-6) are permanent and bought once. Abundance (0)
+	// stacks, and Talent (7) can be bought again for another free batch.
+	if (iGrace >= 1 && iGrace <= 6 && HasDaoPerk(iGrace)) return false;
 
 	const char* szCostKey = TiandaoDaoGraceCostKey(iGrace);
 	if (szCostKey == NULL) return false;
@@ -36013,8 +36019,7 @@ bool CvPlayer::DoDaoGrace(int iGrace)
 	}
 	else if (iGrace == 7)
 	{
-		// Talent (one-time): a free tech, a free policy and a free great person.
-		GrantDaoPerk(7);
+		// Talent: a free tech, a free policy and a free great person. Repeatable.
 		TechTypes eTech = GetPlayerTechs()->GetCurrentResearch();
 		if (eTech != NO_TECH)
 			GET_TEAM(getTeam()).setHasTech(eTech, true, GetID(), false, true);
@@ -36034,22 +36039,6 @@ bool CvPlayer::DoDaoGrace(int iGrace)
 void CvPlayer::DoDaoTurn()
 {
 	if (!MOD_GLOBAL_SUZERAIN) return;
-
-	// Every court cycle, reward a stable realm.
-	if (IsVassalCourtTurn() && !m_vecVassals.empty())
-	{
-		int iSum = 0;
-		int iAlive = 0;
-		for (size_t i = 0; i < m_vecVassals.size(); i++)
-		{
-			PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
-			if (!IsLiveVassal(eVassal)) continue;
-			iSum += GetVassalLoyalty(eVassal);
-			iAlive++;
-		}
-		if (iAlive > 0 && (iSum / iAlive) >= 60)
-			ChangeDaoPoints(TiandaoDefineInt("TIANDAO_DAO_POINT_HIGH_LOYALTY"));
-	}
 
 	// AI overlords spend their points at court, cheapest unreached grace first.
 	if (!isHuman() && IsVassalCourtTurn() && HasAnyVassal())

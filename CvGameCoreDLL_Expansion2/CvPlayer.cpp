@@ -1355,7 +1355,7 @@ void CvPlayer::uninit()
 	m_aiPrayerDenyStreak.resize(MAX_MAJOR_CIVS, 0);
 	m_aiCourtGiftLog.clear();
 	m_aiMemorialDefault.clear();
-	m_aiMemorialDefault.resize(4, 0);
+	m_aiMemorialDefault.resize(7, 0);
 	m_aiPrayerBlessing.clear();
 	m_aiPrayerBlessing.resize(NUM_YIELD_TYPES, 0);
 	m_iPrayerBlessingEndTurn = 0;
@@ -31370,7 +31370,7 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ(165, kStream, m_iVassalCourtPolicy, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalBreachCount, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalPunishRight, MAX_MAJOR_CIVS, 0);
-		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiMemorialDefault, 4, 0);
+		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiMemorialDefault, 7, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalBreachTurn, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iMandate, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iDaoPoints, 0);
@@ -35545,6 +35545,64 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 	case 0: // protect request
 		bOk = DoVassalProtect(eVassal, bApprove);
 		break;
+	case 4: // personnel ministry: request for a title
+	{
+		if (bApprove)
+		{
+			bOk = CanRankUpVassal(eVassal);
+			if (bOk) DoVassalRankUp(eVassal);
+		}
+		else
+		{
+			int iLoss = TiandaoDefineInt("TIANDAO_MEMORIAL_RANK_DENY_LOYALTY");
+			if (iLoss != 0) ChangeVassalLoyalty(eVassal, iLoss);
+			bOk = true;
+		}
+		break;
+	}
+	case 5: // rites ministry: request for a gift
+	{
+		if (bApprove)
+		{
+			int iGold = TiandaoDefineInt("TIANDAO_MEMORIAL_AID_GOLD");
+			int iPay = std::min(iGold, (int)GetTreasury()->GetGold());
+			if (iPay > 0)
+				TransferGoldTo(eVassal, iPay);
+
+			int iGain = TiandaoDefineInt("TIANDAO_MEMORIAL_AID_LOYALTY");
+			if (iGain != 0) ChangeVassalLoyalty(eVassal, iGain);
+			bOk = true;
+		}
+		else
+		{
+			// A gift request is not a demand; refusing it costs no loyalty.
+			bOk = true;
+		}
+		break;
+	}
+	case 6: // justice ministry: plea for forgiveness
+	{
+		if (bApprove)
+		{
+			ClearVassalPunishRight(eVassal);
+			int iBreach = GetVassalBreachCount(eVassal);
+			if (iBreach > 0)
+			{
+				int iCut = (iBreach / 2 > 0) ? iBreach / 2 : 1;
+				ChangeVassalBreachCount(eVassal, -iCut);
+			}
+			int iGain = TiandaoDefineInt("TIANDAO_MEMORIAL_APOLOGY_LOYALTY");
+			if (iGain != 0) ChangeVassalLoyalty(eVassal, iGain);
+			bOk = true;
+		}
+		else
+		{
+			int iLoss = TiandaoDefineInt("TIANDAO_MEMORIAL_APOLOGY_DENY_LOYALTY");
+			if (iLoss != 0) ChangeVassalLoyalty(eVassal, iLoss);
+			bOk = true;
+		}
+		break;
+	}
 	case 1: // material aid while losing a war
 	case 2: // request for a reward
 	case 3: // report of hardship
@@ -35602,9 +35660,9 @@ int CvPlayer::GetMemorialDefault(int iType) const
 //--------------------------------------------------------------------------------
 void CvPlayer::SetMemorialDefault(int iType, int iValue)
 {
-	if (iType < 0 || iType >= 4) return;
-	if (m_aiMemorialDefault.size() != 4)
-		m_aiMemorialDefault.resize(4, 0);
+	if (iType < 0 || iType >= 7) return;
+	if (m_aiMemorialDefault.size() != 7)
+		m_aiMemorialDefault.resize(7, 0);
 	m_aiMemorialDefault[iType] = (iValue != 0) ? 1 : 0;
 }
 
@@ -35712,6 +35770,29 @@ void CvPlayer::DoVassalMemorialTurn()
 			{
 				AddVassalMemorial(3, 1, 5, eVassal, NO_PLAYER, iNormalTurns);
 			}
+
+			// Personnel ministry: an unranked, content vassal asks for a title.
+			int iRankMin = TiandaoDefineInt("TIANDAO_MEMORIAL_RANK_MIN_LOYALTY");
+			if (iRankMin > 0 && GetVassalLoyalty(eVassal) >= iRankMin
+				&& GetVassalRank(eVassal) == 0 && !HasPendingMemorial(eVassal, 4))
+			{
+				AddVassalMemorial(4, 1, 0, eVassal, NO_PLAYER, iNormalTurns);
+			}
+
+			// Rites ministry: a content vassal asks for a gift in return.
+			int iGiftMin = TiandaoDefineInt("TIANDAO_MEMORIAL_GIFT_REQUEST_MIN_LOYALTY");
+			if (iGiftMin > 0 && GetVassalLoyalty(eVassal) >= iGiftMin
+				&& !HasPendingMemorial(eVassal, 5))
+			{
+				AddVassalMemorial(5, 1, 2, eVassal, NO_PLAYER, iNormalTurns);
+			}
+
+			// Justice ministry: a vassal under the punishment right pleads for mercy.
+			if (HasVassalPunishRight(eVassal) && GetVassalBreachCount(eVassal) > 0
+				&& !HasPendingMemorial(eVassal, 6))
+			{
+				AddVassalMemorial(6, 1, 4, eVassal, NO_PLAYER, iNormalTurns);
+			}
 		}
 	}
 
@@ -35769,6 +35850,15 @@ void CvPlayer::DoVassalMemorialTurn()
 				break;
 			case 3: // hardship
 				bApprove = true;
+				break;
+			case 4: // request for a title
+				bApprove = (GetVassalLoyalty(eVassal) >= 60) && CanRankUpVassal(eVassal);
+				break;
+			case 5: // request for a gift
+				bApprove = (GetVassalLoyalty(eVassal) >= 50);
+				break;
+			case 6: // plea for forgiveness
+				bApprove = (GetVassalLoyalty(eVassal) >= 50);
 				break;
 			default:
 				bApprove = (GetMemorialDefault(iType) > 0);

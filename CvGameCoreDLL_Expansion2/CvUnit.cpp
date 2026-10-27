@@ -15536,6 +15536,10 @@ int CvUnit::GetGenericMaxStrengthModifier(const CvUnit* pOtherUnit, const CvPlot
 	iModifier += GetCombatModifierFromBuilding();
 
 	CvPlayerAI& kPlayer = GET_PLAYER(getOwner());
+
+	// Dao grace: temporary empire-wide combat strength.
+	iModifier += kPlayer.GetDaoCombatModifier();
+
 	CvGameReligions* pReligions = GC.getGame().GetGameReligions();
 	ReligionTypes eFoundedReligion = pReligions->GetFounderBenefitsReligion(kPlayer.GetID());
 

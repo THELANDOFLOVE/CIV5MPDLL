@@ -2053,6 +2053,11 @@ public:
 	int GetDaoGraceCost(int iGrace) const;
 	bool DoDaoGrace(int iGrace);
 	void DoDaoTurn();
+	// Active dao grace effects
+	int GetDaoCombatModifier() const;
+	bool HasDaoSiegeNoHeal() const;
+	bool HasDaoFaithGreatPeople() const;
+	bool HasDaoDenounceImmunity() const;
 	bool IsMandateFull() const;
 	bool CanFengshan() const;
 	bool DoFengshan();
@@ -3190,6 +3195,9 @@ protected:
 	int m_iDaoPoints;
 	int m_iDaoGreatPeopleModifier;
 	int m_iDaoGreatPeopleTurns;
+	int m_iDaoWarEndTurn;
+	int m_iDaoFaithGPEndTurn;
+	int m_bDaoDenounceImmune;
 	// Era of the last Fengshan, -1 when never used
 	FAutoVariable<int, CvPlayer> m_iFengshanEra;
 	// Temporary mandate blessing: per-city yields and the turn it expires

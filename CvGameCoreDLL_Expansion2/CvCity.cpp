@@ -2293,7 +2293,9 @@ void CvCity::doTurn()
 				if (iSiegeCount[iP] <= 0) continue;
 				CvPlayerCityStateUA* pUA = GET_PLAYER((PlayerTypes)iP).GetPlayerCityStateUA();
 				int iThreshold = pUA ? pUA->GetEnemyCityNoHealBesiegeCount() : 0;
-				if (iThreshold > 0 && iSiegeCount[iP] >= iThreshold)
+				// Dao war grace: a besieged city stops healing while besiegers remain.
+				bool bDaoNoHeal = GET_PLAYER((PlayerTypes)iP).HasDaoSiegeNoHeal();
+				if (bDaoNoHeal || (iThreshold > 0 && iSiegeCount[iP] >= iThreshold))
 				{
 					iHitsHealed = 0;
 					break;
@@ -6224,6 +6226,14 @@ int CvCity::GetFaithPurchaseCost(UnitTypes eUnit, bool bIncludeBeliefDiscounts)
 						{
 							bAllUnlockedByBelief = true;
 						}
+					}
+#endif
+
+#if defined(MOD_GLOBAL_SUZERAIN)
+					// Dao insight grace: faith may buy any great person.
+					if (MOD_GLOBAL_SUZERAIN && kPlayer.HasDaoFaithGreatPeople())
+					{
+						bAllUnlockedByBelief = true;
 					}
 #endif
 

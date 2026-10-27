@@ -432,6 +432,9 @@ CvPlayer::CvPlayer() :
 	, m_iDaoPoints(0)
 	, m_iDaoGreatPeopleModifier(0)
 	, m_iDaoGreatPeopleTurns(0)
+	, m_iDaoWarEndTurn(0)
+	, m_iDaoFaithGPEndTurn(0)
+	, m_bDaoDenounceImmune(0)
 	, m_iFengshanEra("CvPlayer::m_iFengshanEra", m_syncArchive)
 	, m_iBlessingFood("CvPlayer::m_iBlessingFood", m_syncArchive)
 	, m_iBlessingProduction("CvPlayer::m_iBlessingProduction", m_syncArchive)
@@ -1368,6 +1371,9 @@ void CvPlayer::uninit()
 	m_iDaoPoints = 0;
 	m_iDaoGreatPeopleModifier = 0;
 	m_iDaoGreatPeopleTurns = 0;
+	m_iDaoWarEndTurn = 0;
+	m_iDaoFaithGPEndTurn = 0;
+	m_bDaoDenounceImmune = 0;
 	m_iBlessingFood = 0;
 	m_iBlessingProduction = 0;
 	m_iBlessingCulture = 0;
@@ -31348,6 +31354,9 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ(165, kStream, m_iDaoPoints, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iDaoGreatPeopleModifier, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iDaoGreatPeopleTurns, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iDaoWarEndTurn, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iDaoFaithGPEndTurn, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_bDaoDenounceImmune, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iFengshanEra, -1);
 		MOD_SERIALIZE_READ(165, kStream, m_iBlessingFood, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iBlessingProduction, 0);
@@ -32322,6 +32331,9 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE(kStream, m_iDaoPoints);
 	MOD_SERIALIZE_WRITE(kStream, m_iDaoGreatPeopleModifier);
 	MOD_SERIALIZE_WRITE(kStream, m_iDaoGreatPeopleTurns);
+	MOD_SERIALIZE_WRITE(kStream, m_iDaoWarEndTurn);
+	MOD_SERIALIZE_WRITE(kStream, m_iDaoFaithGPEndTurn);
+	MOD_SERIALIZE_WRITE(kStream, m_bDaoDenounceImmune);
 	MOD_SERIALIZE_WRITE(kStream, m_iFengshanEra);
 	MOD_SERIALIZE_WRITE(kStream, m_iBlessingFood);
 	MOD_SERIALIZE_WRITE(kStream, m_iBlessingProduction);
@@ -33756,7 +33768,16 @@ int CvPlayer::GetCSLandXPPerTurn() const
 int CvPlayer::GetCSACityAttackIgnoreBuildingDefensePercent() const
 {
 	CvPlayerCityStateUA* pCSUA = GetPlayerCityStateUA();
-	return (pCSUA != NULL) ? pCSUA->GetCityAttackIgnoreBuildingDefensePercent() : 0;
+	int iPercent = (pCSUA != NULL) ? pCSUA->GetCityAttackIgnoreBuildingDefensePercent() : 0;
+
+	// Dao war grace: siege ignores a large share of building defense.
+	if (m_iDaoWarEndTurn > 0 && GC.getGame().getGameTurn() < m_iDaoWarEndTurn)
+	{
+		int iDaoPercent = GC.getDefineINT("TIANDAO_DAO_WAR_CITY_DEFENSE", false);
+		if (iDaoPercent > iPercent)
+			iPercent = iDaoPercent;
+	}
+	return iPercent;
 }
 
 //	------------------------------------------------------------------------
@@ -33842,6 +33863,8 @@ int CvPlayer::GetCSUAReligiousPressureModifier()
 // Jerusalem CS UA: player who is the ally of a DenounceImmunity city-state cannot be denounced
 bool CvPlayer::IsDenounceImmunity() const
 {
+	if (m_bDaoDenounceImmune != 0)
+		return true;
 	return m_pCityStateUA && m_pCityStateUA->IsDenounceImmunity();
 }
 
@@ -35837,6 +35860,31 @@ bool CvPlayer::CanSpendDaoPoints(int iCost) const
 }
 
 //--------------------------------------------------------------------------------
+int CvPlayer::GetDaoCombatModifier() const
+{
+	if (m_iDaoWarEndTurn <= 0 || GC.getGame().getGameTurn() >= m_iDaoWarEndTurn) return 0;
+	return TiandaoDefineInt("TIANDAO_DAO_WAR_COMBAT");
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::HasDaoSiegeNoHeal() const
+{
+	return m_iDaoWarEndTurn > 0 && GC.getGame().getGameTurn() < m_iDaoWarEndTurn;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::HasDaoFaithGreatPeople() const
+{
+	return m_iDaoFaithGPEndTurn > 0 && GC.getGame().getGameTurn() < m_iDaoFaithGPEndTurn;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::HasDaoDenounceImmunity() const
+{
+	return m_bDaoDenounceImmune != 0;
+}
+
+//--------------------------------------------------------------------------------
 int CvPlayer::GetDaoGraceCost(int iGrace) const
 {
 	const char* szCostKey = NULL;
@@ -35846,6 +35894,8 @@ int CvPlayer::GetDaoGraceCost(int iGrace) const
 	else if (iGrace == 3) szCostKey = "TIANDAO_DAO_COST_GOLDEN_AGE";
 	else if (iGrace == 4) szCostKey = "TIANDAO_DAO_COST_PRODUCTION";
 	else if (iGrace == 5) szCostKey = "TIANDAO_DAO_COST_HAPPINESS";
+	else if (iGrace == 6) szCostKey = "TIANDAO_DAO_COST_WAR";
+	else if (iGrace == 7) szCostKey = "TIANDAO_DAO_COST_INSIGHT";
 	if (szCostKey == NULL) return 0;
 	return TiandaoDefineInt(szCostKey);
 }
@@ -35864,6 +35914,8 @@ bool CvPlayer::DoDaoGrace(int iGrace)
 	else if (iGrace == 3) szCostKey = "TIANDAO_DAO_COST_GOLDEN_AGE";
 	else if (iGrace == 4) szCostKey = "TIANDAO_DAO_COST_PRODUCTION";
 	else if (iGrace == 5) szCostKey = "TIANDAO_DAO_COST_HAPPINESS";
+	else if (iGrace == 6) szCostKey = "TIANDAO_DAO_COST_WAR";
+	else if (iGrace == 7) szCostKey = "TIANDAO_DAO_COST_INSIGHT";
 	else return false;
 
 	int iCost = TiandaoDefineInt(szCostKey);
@@ -35942,6 +35994,30 @@ bool CvPlayer::DoDaoGrace(int iGrace)
 		int iHappiness = TiandaoDefineInt("TIANDAO_DAO_HAPPINESS");
 		if (iHappiness <= 0) iHappiness = 1;
 		ChangeExtraHappinessPerCity(iHappiness);
+		m_bDaoDenounceImmune = 1;
+	}
+	else if (iGrace == 6)
+	{
+		// War grace: stronger units, siege that ignores defenses, besiegers do not heal.
+		m_iDaoWarEndTurn = GC.getGame().getGameTurn() + iTurns;
+	}
+	else if (iGrace == 7)
+	{
+		// Insight grace: faith buys any great person, and city-states warm to us.
+		m_iDaoFaithGPEndTurn = GC.getGame().getGameTurn() + iTurns;
+
+		int iInfluence = TiandaoDefineInt("TIANDAO_DAO_INSIGHT_INFLUENCE");
+		if (iInfluence > 0)
+		{
+			for (int i = MAX_MAJOR_CIVS; i < MAX_CIV_PLAYERS; i++)
+			{
+				PlayerTypes eMinor = (PlayerTypes)i;
+				CvPlayer& kMinor = GET_PLAYER(eMinor);
+				if (!kMinor.isAlive() || !kMinor.isMinorCiv()) continue;
+				if (kMinor.GetMinorCivAI() != NULL)
+					kMinor.GetMinorCivAI()->ChangeFriendshipWithMajor(GetID(), iInfluence);
+			}
+		}
 	}
 
 	ChangeDaoPoints(-iCost);

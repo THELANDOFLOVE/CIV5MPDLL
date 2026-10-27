@@ -34945,6 +34945,31 @@ void CvPlayer::RemovePrayerBlessing()
 }
 
 //--------------------------------------------------------------------------------
+// Shared by the prayer great-person grace and the dao talent grace.
+void CvPlayer::SpawnRandomGreatPersonAtCapital()
+{
+	CvCity* pCapital = getCapitalCity();
+	if (pCapital == NULL) return;
+
+	static const char* aGreatPeople[] = {
+		"UNIT_GREAT_SCIENTIST", "UNIT_GREAT_ENGINEER", "UNIT_GREAT_MERCHANT",
+		"UNIT_GREAT_ARTIST", "UNIT_GREAT_PROPHET", "UNIT_GREAT_WRITER",
+		"UNIT_GREAT_MUSICIAN", "UNIT_GREAT_GENERAL"
+	};
+	int iNum = (int)(sizeof(aGreatPeople) / sizeof(aGreatPeople[0]));
+	int iStart = GC.getGame().getJonRandNum(iNum, "Tiandao great person");
+	for (int i = 0; i < iNum; i++)
+	{
+		UnitTypes eUnit = (UnitTypes)GC.getInfoTypeForString(aGreatPeople[(iStart + i) % iNum], true);
+		if (eUnit != NO_UNIT)
+		{
+			initUnit(eUnit, pCapital->getX(), pCapital->getY(), NO_UNITAI);
+			break;
+		}
+	}
+}
+
+//--------------------------------------------------------------------------------
 void CvPlayer::ApplyPrayerGrace(PlayerTypes eVassal, int iWish)
 {
 	if (eVassal == NO_PLAYER) return;
@@ -34973,29 +34998,8 @@ void CvPlayer::ApplyPrayerGrace(PlayerTypes eVassal, int iWish)
 		break;
 	}
 	case PRAYER_WISH_GREAT_PERSON:
-	{
-		CvCity* pCapital = kVassal.getCapitalCity();
-		if (pCapital != NULL)
-		{
-			static const char* aGreatPeople[] = {
-				"UNIT_GREAT_SCIENTIST", "UNIT_GREAT_ENGINEER", "UNIT_GREAT_MERCHANT",
-				"UNIT_GREAT_ARTIST", "UNIT_GREAT_PROPHET", "UNIT_GREAT_WRITER",
-				"UNIT_GREAT_MUSICIAN", "UNIT_GREAT_GENERAL"
-			};
-			int iNum = (int)(sizeof(aGreatPeople) / sizeof(aGreatPeople[0]));
-			int iStart = GC.getGame().getJonRandNum(iNum, "Tiandao prayer great person");
-			for (int i = 0; i < iNum; i++)
-			{
-				UnitTypes eUnit = (UnitTypes)GC.getInfoTypeForString(aGreatPeople[(iStart + i) % iNum], true);
-				if (eUnit != NO_UNIT)
-				{
-					kVassal.initUnit(eUnit, pCapital->getX(), pCapital->getY(), NO_UNITAI);
-					break;
-				}
-			}
-		}
+		kVassal.SpawnRandomGreatPersonAtCapital();
 		break;
-	}
 	case PRAYER_WISH_POLICY:
 		kVassal.ChangeNumFreePolicies(1);
 		break;
@@ -35914,14 +35918,14 @@ bool CvPlayer::CanSpendDaoPoints(int iCost) const
 //--------------------------------------------------------------------------------
 int CvPlayer::GetDaoCombatModifier() const
 {
-	if (m_iDaoWarEndTurn <= 0 || GC.getGame().getGameTurn() >= m_iDaoWarEndTurn) return 0;
+	if (!HasDaoPerk(4)) return 0;
 	return TiandaoDefineInt("TIANDAO_DAO_WAR_COMBAT");
 }
 
 //--------------------------------------------------------------------------------
 bool CvPlayer::HasDaoSiegeNoHeal() const
 {
-	return m_iDaoWarEndTurn > 0 && GC.getGame().getGameTurn() < m_iDaoWarEndTurn;
+	return HasDaoPerk(4);
 }
 
 //--------------------------------------------------------------------------------
@@ -35937,17 +35941,26 @@ bool CvPlayer::HasDaoDenounceImmunity() const
 }
 
 //--------------------------------------------------------------------------------
+static const char* TiandaoDaoGraceCostKey(int iGrace)
+{
+	switch (iGrace)
+	{
+	case 0: return "TIANDAO_DAO_COST_BLESSING";
+	case 1: return "TIANDAO_DAO_COST_GROWTH";
+	case 2: return "TIANDAO_DAO_COST_WORKS";
+	case 3: return "TIANDAO_DAO_COST_RESEARCH";
+	case 4: return "TIANDAO_DAO_COST_WAR";
+	case 5: return "TIANDAO_DAO_COST_EDUCATION";
+	case 6: return "TIANDAO_DAO_COST_INSIGHT";
+	case 7: return "TIANDAO_DAO_COST_TALENT";
+	default: return NULL;
+	}
+}
+
+//--------------------------------------------------------------------------------
 int CvPlayer::GetDaoGraceCost(int iGrace) const
 {
-	const char* szCostKey = NULL;
-	if (iGrace == 0) szCostKey = "TIANDAO_DAO_COST_BLESSING";
-	else if (iGrace == 1) szCostKey = "TIANDAO_DAO_COST_GROWTH";
-	else if (iGrace == 2) szCostKey = "TIANDAO_DAO_COST_WORKS";
-	else if (iGrace == 3) szCostKey = "TIANDAO_DAO_COST_RESEARCH";
-	else if (iGrace == 4) szCostKey = "TIANDAO_DAO_COST_WAR";
-	else if (iGrace == 5) szCostKey = "TIANDAO_DAO_COST_EDUCATION";
-	else if (iGrace == 6) szCostKey = "TIANDAO_DAO_COST_INSIGHT";
-	else if (iGrace == 7) szCostKey = "TIANDAO_DAO_COST_TALENT";
+	const char* szCostKey = TiandaoDaoGraceCostKey(iGrace);
 	if (szCostKey == NULL) return 0;
 	return TiandaoDefineInt(szCostKey);
 }
@@ -35959,16 +35972,8 @@ bool CvPlayer::DoDaoGrace(int iGrace)
 {
 	if (!MOD_GLOBAL_SUZERAIN) return false;
 
-	const char* szCostKey = NULL;
-	if (iGrace == 0) szCostKey = "TIANDAO_DAO_COST_BLESSING";
-	else if (iGrace == 1) szCostKey = "TIANDAO_DAO_COST_GROWTH";
-	else if (iGrace == 2) szCostKey = "TIANDAO_DAO_COST_WORKS";
-	else if (iGrace == 3) szCostKey = "TIANDAO_DAO_COST_RESEARCH";
-	else if (iGrace == 4) szCostKey = "TIANDAO_DAO_COST_WAR";
-	else if (iGrace == 5) szCostKey = "TIANDAO_DAO_COST_EDUCATION";
-	else if (iGrace == 6) szCostKey = "TIANDAO_DAO_COST_INSIGHT";
-	else if (iGrace == 7) szCostKey = "TIANDAO_DAO_COST_TALENT";
-	else return false;
+	const char* szCostKey = TiandaoDaoGraceCostKey(iGrace);
+	if (szCostKey == NULL) return false;
 
 	int iCost = TiandaoDefineInt(szCostKey);
 	if (!CanSpendDaoPoints(iCost)) return false;
@@ -36032,26 +36037,7 @@ bool CvPlayer::DoDaoGrace(int iGrace)
 			GET_TEAM(getTeam()).setHasTech(eTech, true, GetID(), false, true);
 		ChangeNumFreePolicies(1);
 
-		CvCity* pCapital = getCapitalCity();
-		if (pCapital != NULL)
-		{
-			static const char* aGreatPeople[] = {
-				"UNIT_GREAT_SCIENTIST", "UNIT_GREAT_ENGINEER", "UNIT_GREAT_MERCHANT",
-				"UNIT_GREAT_ARTIST", "UNIT_GREAT_PROPHET", "UNIT_GREAT_WRITER",
-				"UNIT_GREAT_MUSICIAN", "UNIT_GREAT_GENERAL"
-			};
-			int iNum = (int)(sizeof(aGreatPeople) / sizeof(aGreatPeople[0]));
-			int iStart = GC.getGame().getJonRandNum(iNum, "Tiandao dao great person");
-			for (int i = 0; i < iNum; i++)
-			{
-				UnitTypes eUnit = (UnitTypes)GC.getInfoTypeForString(aGreatPeople[(iStart + i) % iNum], true);
-				if (eUnit != NO_UNIT)
-				{
-					initUnit(eUnit, pCapital->getX(), pCapital->getY(), NO_UNITAI);
-					break;
-				}
-			}
-		}
+		SpawnRandomGreatPersonAtCapital();
 	}
 	else
 	{

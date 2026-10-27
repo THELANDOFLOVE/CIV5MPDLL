@@ -2066,6 +2066,8 @@ public:
 	int GetDaoBeliefOptionCount() const;
 	int GetDaoBeliefOption(int iIndex) const;
 	bool PurchaseDaoBelief(BeliefTypes eBelief);
+	// Shared helper: spawn one random great person at this player's capital.
+	void SpawnRandomGreatPersonAtCapital();
 	// Active dao grace effects
 	int GetDaoCombatModifier() const;
 	bool HasDaoSiegeNoHeal() const;

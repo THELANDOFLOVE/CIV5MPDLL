@@ -35287,6 +35287,48 @@ void CvPlayer::DoVassalAIDiplomacyTurn()
 			break;
 		}
 	}
+
+	// AI overlords set a court policy once they hold vassals: war calls for a
+	// military policy, otherwise spread the choice by player id.
+	if (GetVassalCourtPolicy() == 0)
+	{
+		int iPolicy = 1;
+		if (GET_TEAM(getTeam()).getAtWarCount(true) == 0)
+			iPolicy = 2 + (GetID() % 3);
+		SetVassalCourtPolicy(iPolicy);
+	}
+
+	// Spend mandate on boons instead of letting it sit at the cap.
+	int iMandate = GetMandate();
+	if (iMandate >= 10)
+	{
+		bool bPunished = false;
+		if (iMandate >= 40)
+		{
+			for (size_t i = 0; i < m_vecVassals.size(); i++)
+			{
+				PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
+				if (!IsLiveVassal(eVassal)) continue;
+				if (HasVassalPunishRight(eVassal) && GetVassalBreachCount(eVassal) > 0
+					&& CanTianfa(eVassal))
+				{
+					DoTianfa(eVassal);
+					bPunished = true;
+					iMandate = GetMandate();
+					break;
+				}
+			}
+		}
+		if (!bPunished)
+		{
+			if (iMandate >= 50)
+				DoFengshan();
+			else if (iMandate >= 25)
+				DoRangzai();
+			else
+				DoQifeng();
+		}
+	}
 }
 
 //--------------------------------------------------------------------------------
@@ -37120,6 +37162,29 @@ void CvPlayer::DoVassalWonderPoolTurn()
 			if (kVassal.GetWonderRequest() == NO_BUILDING) continue;
 			if (kVassal.m_iWonderConditionType > 0) continue;
 			ApproveVassalWonderRequest(eVassal, GetVassalLoyalty(eVassal) >= 50);
+		}
+
+		// Keep the pool stocked so vassals have something to request.
+		int iCapacity = GetVassalWonderPoolCapacity();
+		while ((int)m_aiWonderPool.size() < iCapacity)
+		{
+			BuildingTypes ePick = NO_BUILDING;
+			for (int iI = 0; iI < GC.getNumBuildingInfos(); iI++)
+			{
+				BuildingTypes e = (BuildingTypes)iI;
+				CvBuildingEntry* p = GC.getBuildingInfo(e);
+				if (p == NULL) continue;
+				BuildingClassTypes eClass = (BuildingClassTypes)p->GetBuildingClassType();
+				CvBuildingClassInfo* pClass = GC.getBuildingClassInfo(eClass);
+				if (pClass == NULL || pClass->getMaxGlobalInstances() != 1) continue;
+				if (CanAddVassalWonderToPool(e))
+				{
+					ePick = e;
+					break;
+				}
+			}
+			if (ePick == NO_BUILDING) break;
+			AddVassalWonderToPool(ePick);
 		}
 	}
 }

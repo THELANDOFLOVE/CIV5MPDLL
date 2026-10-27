@@ -35953,6 +35953,9 @@ bool CvPlayer::DoDaoGrace(int iGrace)
 			}
 		}
 
+		// Two free picks, not one: the grace should feel decisive.
+		ChangeNumFreeGreatPeople(2);
+
 		int iRate = TiandaoDefineInt("TIANDAO_DAO_GREAT_PERSON_RATE");
 		int iRateTurns = TiandaoDefineInt("TIANDAO_DAO_GREAT_PERSON_TURNS");
 		if (iRate <= 0) iRate = 50;
@@ -35963,7 +35966,7 @@ bool CvPlayer::DoDaoGrace(int iGrace)
 	}
 	else if (iGrace == 2)
 	{
-		ChangeNumFreePolicies(1);
+		ChangeNumFreePolicies(2);
 
 		int iCostMod = TiandaoDefineInt("TIANDAO_DAO_POLICY_COST");
 		if (iCostMod >= 0) iCostMod = -15;
@@ -35980,13 +35983,14 @@ bool CvPlayer::DoDaoGrace(int iGrace)
 	}
 	else if (iGrace == 4)
 	{
-		CvCity* pCapital = getCapitalCity();
-		if (pCapital != NULL)
+		// Instant works: finish the current build in every city.
+		int iLoop = 0;
+		for (CvCity* pCity = firstCity(&iLoop); pCity != NULL; pCity = nextCity(&iLoop))
 		{
-			int iNeeded = pCapital->getProductionNeeded();
-			int iCurrent = pCapital->getProduction();
+			int iNeeded = pCity->getProductionNeeded();
+			int iCurrent = pCity->getProduction();
 			if (iNeeded > iCurrent)
-				pCapital->changeProduction(iNeeded - iCurrent);
+				pCity->changeProduction(iNeeded - iCurrent);
 		}
 	}
 	else if (iGrace == 5)
@@ -35995,6 +35999,8 @@ bool CvPlayer::DoDaoGrace(int iGrace)
 		if (iHappiness <= 0) iHappiness = 1;
 		ChangeExtraHappinessPerCity(iHappiness);
 		m_bDaoDenounceImmune = 1;
+		// Permanent legitimacy: one free ideology tenet (banked until an ideology is chosen).
+		ChangeNumFreeTenets(1, false);
 	}
 	else if (iGrace == 6)
 	{

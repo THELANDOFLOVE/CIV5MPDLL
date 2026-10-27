@@ -430,11 +430,16 @@ CvPlayer::CvPlayer() :
 	, m_aiVassalBreachTurn("CvPlayer::m_aiVassalBreachTurn", m_syncArchive)
 	, m_iMandate("CvPlayer::m_iMandate", m_syncArchive)
 	, m_iDaoPoints(0)
+	, m_iDaoPerks(0)
 	, m_iDaoGreatPeopleModifier(0)
 	, m_iDaoGreatPeopleTurns(0)
 	, m_iDaoWarEndTurn(0)
 	, m_iDaoFaithGPEndTurn(0)
 	, m_bDaoDenounceImmune(0)
+	, m_iDaoGrowthEndTurn(0)
+	, m_iDaoWorksEndTurn(0)
+	, m_iDaoSecondResearchEndTurn(0)
+	, m_eDaoSecondResearch(NO_TECH)
 	, m_iFengshanEra("CvPlayer::m_iFengshanEra", m_syncArchive)
 	, m_iBlessingFood("CvPlayer::m_iBlessingFood", m_syncArchive)
 	, m_iBlessingProduction("CvPlayer::m_iBlessingProduction", m_syncArchive)
@@ -1369,11 +1374,16 @@ void CvPlayer::uninit()
 	m_iPrayerCorruptionTurns = 0;
 	m_iPrayerFreeTechs = 0;
 	m_iDaoPoints = 0;
+	m_iDaoPerks = 0;
 	m_iDaoGreatPeopleModifier = 0;
 	m_iDaoGreatPeopleTurns = 0;
 	m_iDaoWarEndTurn = 0;
 	m_iDaoFaithGPEndTurn = 0;
 	m_bDaoDenounceImmune = 0;
+	m_iDaoGrowthEndTurn = 0;
+	m_iDaoWorksEndTurn = 0;
+	m_iDaoSecondResearchEndTurn = 0;
+	m_eDaoSecondResearch = NO_TECH;
 	m_iBlessingFood = 0;
 	m_iBlessingProduction = 0;
 	m_iBlessingCulture = 0;
@@ -11720,6 +11730,14 @@ int CvPlayer::calculateResearchModifier(TechTypes eTech)
 				iModifier = iModifier * 100 / (100 - iCostMod);
 			}
 		}
+	}
+
+	// Dao learning: permanent research cost cut.
+	if (HasDaoPerk(3))
+	{
+		int iDaoMod = GC.getDefineINT("TIANDAO_DAO_RESEARCH_COST", false);
+		if (iDaoMod > 0)
+			iModifier = iModifier * 100 / (100 - std::min(99, iDaoMod));
 	}
 #endif
 
@@ -31352,11 +31370,16 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalBreachTurn, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iMandate, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iDaoPoints, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iDaoPerks, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iDaoGreatPeopleModifier, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iDaoGreatPeopleTurns, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iDaoWarEndTurn, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iDaoFaithGPEndTurn, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_bDaoDenounceImmune, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iDaoGrowthEndTurn, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iDaoWorksEndTurn, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iDaoSecondResearchEndTurn, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_eDaoSecondResearch, NO_TECH);
 		MOD_SERIALIZE_READ(165, kStream, m_iFengshanEra, -1);
 		MOD_SERIALIZE_READ(165, kStream, m_iBlessingFood, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iBlessingProduction, 0);
@@ -32329,11 +32352,16 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalBreachTurn);
 	MOD_SERIALIZE_WRITE(kStream, m_iMandate);
 	MOD_SERIALIZE_WRITE(kStream, m_iDaoPoints);
+	MOD_SERIALIZE_WRITE(kStream, m_iDaoPerks);
 	MOD_SERIALIZE_WRITE(kStream, m_iDaoGreatPeopleModifier);
 	MOD_SERIALIZE_WRITE(kStream, m_iDaoGreatPeopleTurns);
 	MOD_SERIALIZE_WRITE(kStream, m_iDaoWarEndTurn);
 	MOD_SERIALIZE_WRITE(kStream, m_iDaoFaithGPEndTurn);
 	MOD_SERIALIZE_WRITE(kStream, m_bDaoDenounceImmune);
+	MOD_SERIALIZE_WRITE(kStream, m_iDaoGrowthEndTurn);
+	MOD_SERIALIZE_WRITE(kStream, m_iDaoWorksEndTurn);
+	MOD_SERIALIZE_WRITE(kStream, m_iDaoSecondResearchEndTurn);
+	MOD_SERIALIZE_WRITE(kStream, m_eDaoSecondResearch);
 	MOD_SERIALIZE_WRITE(kStream, m_iFengshanEra);
 	MOD_SERIALIZE_WRITE(kStream, m_iBlessingFood);
 	MOD_SERIALIZE_WRITE(kStream, m_iBlessingProduction);
@@ -33770,8 +33798,8 @@ int CvPlayer::GetCSACityAttackIgnoreBuildingDefensePercent() const
 	CvPlayerCityStateUA* pCSUA = GetPlayerCityStateUA();
 	int iPercent = (pCSUA != NULL) ? pCSUA->GetCityAttackIgnoreBuildingDefensePercent() : 0;
 
-	// Dao war grace: siege ignores a large share of building defense.
-	if (m_iDaoWarEndTurn > 0 && GC.getGame().getGameTurn() < m_iDaoWarEndTurn)
+	// Dao war: siege permanently ignores a large share of building defense.
+	if (HasDaoPerk(4))
 	{
 		int iDaoPercent = GC.getDefineINT("TIANDAO_DAO_WAR_CITY_DEFENSE", false);
 		if (iDaoPercent > iPercent)
@@ -33863,7 +33891,7 @@ int CvPlayer::GetCSUAReligiousPressureModifier()
 // Jerusalem CS UA: player who is the ally of a DenounceImmunity city-state cannot be denounced
 bool CvPlayer::IsDenounceImmunity() const
 {
-	if (m_bDaoDenounceImmune != 0)
+	if (m_bDaoDenounceImmune != 0 || HasDaoPerk(6))
 		return true;
 	return m_pCityStateUA && m_pCityStateUA->IsDenounceImmunity();
 }
@@ -35889,15 +35917,13 @@ int CvPlayer::GetDaoGraceCost(int iGrace) const
 {
 	const char* szCostKey = NULL;
 	if (iGrace == 0) szCostKey = "TIANDAO_DAO_COST_BLESSING";
-	else if (iGrace == 1) szCostKey = "TIANDAO_DAO_COST_GREAT_PERSON";
-	else if (iGrace == 2) szCostKey = "TIANDAO_DAO_COST_POLICY";
-	else if (iGrace == 3) szCostKey = "TIANDAO_DAO_COST_GOLDEN_AGE";
-	else if (iGrace == 4) szCostKey = "TIANDAO_DAO_COST_PRODUCTION";
-	else if (iGrace == 5) szCostKey = "TIANDAO_DAO_COST_HAPPINESS";
-	else if (iGrace == 6) szCostKey = "TIANDAO_DAO_COST_WAR";
-	else if (iGrace == 7) szCostKey = "TIANDAO_DAO_COST_INSIGHT";
-	else if (iGrace == 8) szCostKey = "TIANDAO_DAO_COST_MIGRATION";
-	else if (iGrace == 9) szCostKey = "TIANDAO_DAO_COST_ARMY";
+	else if (iGrace == 1) szCostKey = "TIANDAO_DAO_COST_GROWTH";
+	else if (iGrace == 2) szCostKey = "TIANDAO_DAO_COST_WORKS";
+	else if (iGrace == 3) szCostKey = "TIANDAO_DAO_COST_RESEARCH";
+	else if (iGrace == 4) szCostKey = "TIANDAO_DAO_COST_WAR";
+	else if (iGrace == 5) szCostKey = "TIANDAO_DAO_COST_EDUCATION";
+	else if (iGrace == 6) szCostKey = "TIANDAO_DAO_COST_INSIGHT";
+	else if (iGrace == 7) szCostKey = "TIANDAO_DAO_COST_TALENT";
 	if (szCostKey == NULL) return 0;
 	return TiandaoDefineInt(szCostKey);
 }
@@ -35911,31 +35937,71 @@ bool CvPlayer::DoDaoGrace(int iGrace)
 
 	const char* szCostKey = NULL;
 	if (iGrace == 0) szCostKey = "TIANDAO_DAO_COST_BLESSING";
-	else if (iGrace == 1) szCostKey = "TIANDAO_DAO_COST_GREAT_PERSON";
-	else if (iGrace == 2) szCostKey = "TIANDAO_DAO_COST_POLICY";
-	else if (iGrace == 3) szCostKey = "TIANDAO_DAO_COST_GOLDEN_AGE";
-	else if (iGrace == 4) szCostKey = "TIANDAO_DAO_COST_PRODUCTION";
-	else if (iGrace == 5) szCostKey = "TIANDAO_DAO_COST_HAPPINESS";
-	else if (iGrace == 6) szCostKey = "TIANDAO_DAO_COST_WAR";
-	else if (iGrace == 7) szCostKey = "TIANDAO_DAO_COST_INSIGHT";
-	else if (iGrace == 8) szCostKey = "TIANDAO_DAO_COST_MIGRATION";
-	else if (iGrace == 9) szCostKey = "TIANDAO_DAO_COST_ARMY";
+	else if (iGrace == 1) szCostKey = "TIANDAO_DAO_COST_GROWTH";
+	else if (iGrace == 2) szCostKey = "TIANDAO_DAO_COST_WORKS";
+	else if (iGrace == 3) szCostKey = "TIANDAO_DAO_COST_RESEARCH";
+	else if (iGrace == 4) szCostKey = "TIANDAO_DAO_COST_WAR";
+	else if (iGrace == 5) szCostKey = "TIANDAO_DAO_COST_EDUCATION";
+	else if (iGrace == 6) szCostKey = "TIANDAO_DAO_COST_INSIGHT";
+	else if (iGrace == 7) szCostKey = "TIANDAO_DAO_COST_TALENT";
 	else return false;
 
 	int iCost = TiandaoDefineInt(szCostKey);
 	if (!CanSpendDaoPoints(iCost)) return false;
 
 	int iTurns = TiandaoDefineInt("TIANDAO_DAO_GRACE_TURNS");
-	if (iTurns <= 0) iTurns = 20;
-
+	if (iTurns <= 0) iTurns = 30;
 	if (iGrace == 0)
 	{
+		// Abundance: permanent flat yields in every city.
 		int iAmount = TiandaoDefineInt("TIANDAO_DAO_BLESSING_AMOUNT");
 		if (iAmount <= 0) iAmount = 3;
-		ApplyPrayerBlessing(-1, iAmount, iTurns);
+		int iLoop = 0;
+		for (CvCity* pCity = firstCity(&iLoop); pCity != NULL; pCity = nextCity(&iLoop))
+		{
+			for (int y = 0; y < NUM_YIELD_TYPES; y++)
+				pCity->ChangeBaseYieldRateFromMisc((YieldTypes)y, iAmount);
+		}
+		GrantDaoPerk(0);
 	}
 	else if (iGrace == 1)
 	{
+		// Diligence: lower growth threshold; growth has no one-per-turn cap.
+		GrantDaoPerk(1);
+	}
+	else if (iGrace == 2)
+	{
+		// Industry: up to three production projects finish per city per turn.
+		GrantDaoPerk(2);
+	}
+	else if (iGrace == 3)
+	{
+		// Learning: cheaper research; science may finish several techs per turn.
+		GrantDaoPerk(3);
+	}
+	else if (iGrace == 4)
+	{
+		// War: siege ignores building defense; enemy bonuses are voided.
+		GrantDaoPerk(4);
+	}
+	else if (iGrace == 5)
+	{
+		// Teaching: religion spread, belief purchases and ideology pressure.
+		GrantDaoPerk(5);
+	}
+	else if (iGrace == 6)
+	{
+		// Insight: cannot be denounced (city-state and UC parts come later).
+		GrantDaoPerk(6);
+	}
+	else if (iGrace == 7)
+	{
+		// Talent (one-time): a free tech, a free policy and a free great person.
+		TechTypes eTech = GetPlayerTechs()->GetCurrentResearch();
+		if (eTech != NO_TECH)
+			GET_TEAM(getTeam()).setHasTech(eTech, true, GetID(), false, true);
+		ChangeNumFreePolicies(1);
+
 		CvCity* pCapital = getCapitalCity();
 		if (pCapital != NULL)
 		{
@@ -35945,144 +36011,22 @@ bool CvPlayer::DoDaoGrace(int iGrace)
 				"UNIT_GREAT_MUSICIAN", "UNIT_GREAT_GENERAL"
 			};
 			int iNum = (int)(sizeof(aGreatPeople) / sizeof(aGreatPeople[0]));
-
-			// Three great people arrive at once: the grace should feel decisive.
-			for (int iPerson = 0; iPerson < 3; iPerson++)
+			int iStart = GC.getGame().getJonRandNum(iNum, "Tiandao dao great person");
+			for (int i = 0; i < iNum; i++)
 			{
-				int iStart = GC.getGame().getJonRandNum(iNum, "Tiandao dao great person");
-				for (int i = 0; i < iNum; i++)
+				UnitTypes eUnit = (UnitTypes)GC.getInfoTypeForString(aGreatPeople[(iStart + i) % iNum], true);
+				if (eUnit != NO_UNIT)
 				{
-					UnitTypes eUnit = (UnitTypes)GC.getInfoTypeForString(aGreatPeople[(iStart + i) % iNum], true);
-					if (eUnit != NO_UNIT)
-					{
-						initUnit(eUnit, pCapital->getX(), pCapital->getY(), NO_UNITAI);
-						break;
-					}
-				}
-			}
-		}
-
-		int iRate = TiandaoDefineInt("TIANDAO_DAO_GREAT_PERSON_RATE");
-		int iRateTurns = TiandaoDefineInt("TIANDAO_DAO_GREAT_PERSON_TURNS");
-		if (iRate <= 0) iRate = 50;
-		if (iRateTurns <= 0) iRateTurns = 15;
-		m_iDaoGreatPeopleModifier = iRate;
-		m_iDaoGreatPeopleTurns = GC.getGame().getGameTurn() + iRateTurns;
-		recomputeGreatPeopleModifiers();
-	}
-	else if (iGrace == 2)
-	{
-		ChangeNumFreePolicies(3);
-
-		int iCostMod = TiandaoDefineInt("TIANDAO_DAO_POLICY_COST");
-		if (iCostMod >= 0) iCostMod = -15;
-		// Shares the threshold slot with the prayer grace; a player is either an
-		// overlord or a vassal, so the two never run at the same time.
-		m_iPrayerPolicyCostModifier = iCostMod;
-		m_iPrayerThresholdTurns = GC.getGame().getGameTurn() + iTurns;
-	}
-	else if (iGrace == 3)
-	{
-		int iGoldenAgeTurns = TiandaoDefineInt("TIANDAO_DAO_GOLDEN_AGE_TURNS");
-		if (iGoldenAgeTurns <= 0) iGoldenAgeTurns = 20;
-		changeGoldenAgeTurns(iGoldenAgeTurns);
-	}
-	else if (iGrace == 4)
-	{
-		// Instant works: finish the current build and grant a free building in every city.
-		int iLoop = 0;
-		for (CvCity* pCity = firstCity(&iLoop); pCity != NULL; pCity = nextCity(&iLoop))
-		{
-			int iNeeded = pCity->getProductionNeeded();
-			int iCurrent = pCity->getProduction();
-			if (iNeeded > iCurrent)
-				pCity->changeProduction(iNeeded - iCurrent);
-
-			for (int b = 0; b < GC.getNumBuildingInfos(); b++)
-			{
-				BuildingTypes eBuilding = (BuildingTypes)b;
-				CvBuildingEntry* pInfo = GC.getBuildingInfo(eBuilding);
-				if (pInfo == NULL) continue;
-				if (pInfo->GetBuildingClassInfo().getMaxGlobalInstances() == 1) continue;
-				if (pCity->canConstruct(eBuilding))
-				{
-					pCity->CreateBuilding(eBuilding);
+					initUnit(eUnit, pCapital->getX(), pCapital->getY(), NO_UNITAI);
 					break;
 				}
 			}
 		}
 	}
-	else if (iGrace == 5)
+	else
 	{
-		int iHappiness = TiandaoDefineInt("TIANDAO_DAO_HAPPINESS");
-		if (iHappiness <= 0) iHappiness = 1;
-		ChangeExtraHappinessPerCity(iHappiness);
-		m_bDaoDenounceImmune = 1;
-		// Permanent legitimacy: one free ideology tenet (banked until an ideology is chosen).
-		ChangeNumFreeTenets(1, false);
+		return false;
 	}
-	else if (iGrace == 6)
-	{
-		// War grace: stronger units, siege that ignores defenses, besiegers do not heal.
-		m_iDaoWarEndTurn = GC.getGame().getGameTurn() + iTurns;
-	}
-	else if (iGrace == 7)
-	{
-		// Insight grace: faith buys any great person, and city-states warm to us.
-		m_iDaoFaithGPEndTurn = GC.getGame().getGameTurn() + iTurns;
-
-		int iInfluence = TiandaoDefineInt("TIANDAO_DAO_INSIGHT_INFLUENCE");
-		if (iInfluence > 0)
-		{
-			for (int i = MAX_MAJOR_CIVS; i < MAX_CIV_PLAYERS; i++)
-			{
-				PlayerTypes eMinor = (PlayerTypes)i;
-				CvPlayer& kMinor = GET_PLAYER(eMinor);
-				if (!kMinor.isAlive() || !kMinor.isMinorCiv()) continue;
-				if (kMinor.GetMinorCivAI() != NULL)
-					kMinor.GetMinorCivAI()->ChangeFriendshipWithMajor(GetID(), iInfluence);
-			}
-		}
-	}
-	else if (iGrace == 8)
-	{
-		// Migration grace: every city gains citizens.
-		int iPop = TiandaoDefineInt("TIANDAO_DAO_MIGRATION_POP");
-		if (iPop <= 0) iPop = 2;
-		int iLoop = 0;
-		for (CvCity* pCity = firstCity(&iLoop); pCity != NULL; pCity = nextCity(&iLoop))
-			pCity->changePopulation(iPop, true);
-	}
-	else if (iGrace == 9)
-	{
-		// Heavenly army: the capital raises the strongest units we can field.
-		UnitTypes eBest = NO_UNIT;
-		int iBestStrength = 0;
-		for (int i = 0; i < GC.getNumUnitInfos(); i++)
-		{
-			UnitTypes eUnit = (UnitTypes)i;
-			CvUnitEntry* pInfo = GC.getUnitInfo(eUnit);
-			if (pInfo == NULL) continue;
-			if (pInfo->GetCombat() <= 0) continue;
-			if (pInfo->GetDomainType() != DOMAIN_LAND) continue;
-			if (!canTrain(eUnit, false, false, false)) continue;
-			if (pInfo->GetCombat() > iBestStrength)
-			{
-				iBestStrength = pInfo->GetCombat();
-				eBest = eUnit;
-			}
-		}
-
-		CvCity* pCapital = getCapitalCity();
-		if (pCapital != NULL && eBest != NO_UNIT)
-		{
-			int iCount = TiandaoDefineInt("TIANDAO_DAO_ARMY_COUNT");
-			if (iCount <= 0) iCount = 3;
-			for (int i = 0; i < iCount; i++)
-				initUnit(eBest, pCapital->getX(), pCapital->getY(), NO_UNITAI);
-		}
-	}
-
 	ChangeDaoPoints(-iCost);
 	return true;
 }
@@ -36093,6 +36037,44 @@ void CvPlayer::DoDaoTurn()
 	if (!MOD_GLOBAL_SUZERAIN) return;
 
 	int iTurn = GC.getGame().getGameTurn();
+
+	// Growth grace: one extra citizen in every city each turn.
+	if (m_iDaoGrowthEndTurn > 0 && iTurn < m_iDaoGrowthEndTurn)
+	{
+		int iLoop = 0;
+		for (CvCity* pCity = firstCity(&iLoop); pCity != NULL; pCity = nextCity(&iLoop))
+			pCity->changePopulation(1, true);
+	}
+
+	// Second research line: an extra copy of our science advances another tech.
+	if (m_iDaoSecondResearchEndTurn > 0 && iTurn < m_iDaoSecondResearchEndTurn)
+	{
+		TechTypes eTech = (TechTypes)m_eDaoSecondResearch;
+		if (eTech == NO_TECH || GET_TEAM(getTeam()).GetTeamTechs()->HasTech(eTech))
+		{
+			eTech = NO_TECH;
+			for (int t = 0; t < GC.getNumTechInfos(); t++)
+			{
+				TechTypes eCandidate = (TechTypes)t;
+				if (GET_TEAM(getTeam()).GetTeamTechs()->HasTech(eCandidate)) continue;
+				if (!GetPlayerTechs()->CanResearch(eCandidate, false)) continue;
+				eTech = eCandidate;
+				break;
+			}
+			m_eDaoSecondResearch = eTech;
+		}
+		if (eTech != NO_TECH)
+		{
+			unsigned long long iScience = GetScienceTimes100(false);
+			if (iScience > 0)
+				GET_TEAM(getTeam()).GetTeamTechs()->ChangeResearchProgressTimes100(eTech, (long long)iScience, GetID());
+		}
+	}
+	else if (m_iDaoSecondResearchEndTurn > 0)
+	{
+		m_iDaoSecondResearchEndTurn = 0;
+		m_eDaoSecondResearch = NO_TECH;
+	}
 
 	if (m_iDaoGreatPeopleTurns > 0 && iTurn >= m_iDaoGreatPeopleTurns)
 	{

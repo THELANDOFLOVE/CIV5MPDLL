@@ -9608,6 +9608,19 @@ int CvCity::growthThreshold() const
 	}
 #endif
 
+#if defined(MOD_GLOBAL_SUZERAIN)
+	// Dao diligence: lower the food needed for growth.
+	if (MOD_GLOBAL_SUZERAIN && GET_PLAYER(getOwner()).HasDaoPerk(1))
+	{
+		int iDaoMod = GC.getDefineINT("TIANDAO_DAO_GROWTH_COST", false);
+		if (iDaoMod > 0)
+		{
+			iNumFoodNeeded *= (100 - iDaoMod);
+			iNumFoodNeeded /= 100;
+		}
+	}
+#endif
+
 	return (iNumFoodNeeded);
 }
 
@@ -20800,6 +20813,15 @@ void CvCity::doProduction(bool bAllowNoProduction)
 
 	int iMaxProductionCount = 1;
 	iMaxProductionCount += GET_PLAYER(getOwner()).getPolicyModifiers(POLICYMOD_CITY_EXTRA_PRODUCTION_COUNT);
+#if defined(MOD_GLOBAL_SUZERAIN)
+	// Dao industry: more projects may finish per city per turn.
+	if (MOD_GLOBAL_SUZERAIN && GET_PLAYER(getOwner()).HasDaoPerk(2))
+	{
+		int iExtra = GC.getDefineINT("TIANDAO_DAO_MULTI_BUILD_COUNT", false);
+		if (iExtra > 0)
+			iMaxProductionCount += iExtra;
+	}
+#endif
 #ifdef MOD_GLOBAL_UNLIMITED_ONE_TURN_PRODUCTION
 	if (MOD_GLOBAL_UNLIMITED_ONE_TURN_PRODUCTION) iMaxProductionCount += 4;
 #endif

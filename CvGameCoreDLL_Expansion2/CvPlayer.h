@@ -2053,6 +2053,10 @@ public:
 	int GetDaoGraceCost(int iGrace) const;
 	bool DoDaoGrace(int iGrace);
 	void DoDaoTurn();
+	// Permanent dao perks, bought once and kept for the rest of the game.
+	// 0 abundance, 1 diligence, 2 industry, 3 learning, 4 war, 5 teaching, 6 insight, 7 talent
+	bool HasDaoPerk(int iPerk) const { return (m_iDaoPerks & (1 << iPerk)) != 0; }
+	void GrantDaoPerk(int iPerk) { m_iDaoPerks |= (1 << iPerk); }
 	// Active dao grace effects
 	int GetDaoCombatModifier() const;
 	bool HasDaoSiegeNoHeal() const;
@@ -3193,11 +3197,16 @@ protected:
 	FAutoVariable<int, CvPlayer> m_iMandate;
 	// Dao points and their temporary grace state
 	int m_iDaoPoints;
+	int m_iDaoPerks;
 	int m_iDaoGreatPeopleModifier;
 	int m_iDaoGreatPeopleTurns;
 	int m_iDaoWarEndTurn;
 	int m_iDaoFaithGPEndTurn;
 	int m_bDaoDenounceImmune;
+	int m_iDaoGrowthEndTurn;
+	int m_iDaoWorksEndTurn;
+	int m_iDaoSecondResearchEndTurn;
+	int m_eDaoSecondResearch;
 	// Era of the last Fengshan, -1 when never used
 	FAutoVariable<int, CvPlayer> m_iFengshanEra;
 	// Temporary mandate blessing: per-city yields and the turn it expires

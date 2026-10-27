@@ -5564,6 +5564,7 @@ void CvPlayer::doTurn()
 		DoVassalAIDiplomacyTurn();
 		DoVassalBreachTurn();
 		DoDaoTurn();
+		DoCourtPolicyTurn();
 		ResetVassalGiftCounts();
 		ResetVassalProtectFlags();
 		DoVassalMemorialTurn();
@@ -11724,6 +11725,14 @@ int CvPlayer::calculateResearchModifier(TechTypes eTech)
 		if (iDaoMod > 0)
 			iModifier = iModifier * 100 / (100 - std::min(99, iDaoMod));
 	}
+
+	// Court policy (science): cheaper research for the overlord and every vassal.
+	if (GetCourtPolicyType() == 2)
+	{
+		int iPolicyBonus = GetCourtPolicyPercent();
+		if (iPolicyBonus > 0)
+			iModifier = iModifier * 100 / (100 - std::min(99, iPolicyBonus));
+	}
 #endif
 
 	return iModifier;
@@ -11840,6 +11849,14 @@ int CvPlayer::calculateGoldRateTimes100() const
 	int iRate = 0;
 
 	iRate = GetTreasury()->CalculateBaseNetGoldTimes100();
+
+	// Court policy (economy): more gold from the same income.
+	if (GetCourtPolicyType() == 4 && iRate > 0)
+	{
+		int iPolicyBonus = GetCourtPolicyPercent();
+		if (iPolicyBonus > 0)
+			iRate = iRate * (100 + iPolicyBonus) / 100;
+	}
 
 	return iRate;
 }
@@ -12405,6 +12422,13 @@ int CvPlayer::GetTotalJONSCulturePerTurn() const
 #if defined(MOD_GLOBAL_SUZERAIN)
 	iCulturePerTurn += GetCultureFromVassals();
 	iCulturePerTurn -= GetCultureToOverlord();
+
+	if (GetCourtPolicyType() == 3)
+	{
+		int iPolicyBonus = GetCourtPolicyPercent();
+		if (iPolicyBonus > 0)
+			iCulturePerTurn = iCulturePerTurn * (100 + iPolicyBonus) / 100;
+	}
 #endif
 	return iCulturePerTurn;
 }
@@ -35938,6 +35962,45 @@ int CvPlayer::GetVassalCourtPolicy() const
 }
 
 //--------------------------------------------------------------------------------
+// Court policy in force for this player: vassals follow their overlord's policy.
+int CvPlayer::GetCourtPolicyType() const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	if (GetOverlord() != NO_PLAYER)
+		return GET_PLAYER(GetOverlord()).GetVassalCourtPolicy();
+	return GetVassalCourtPolicy();
+}
+
+//--------------------------------------------------------------------------------
+// Vassals get the configured bonus, the overlord gets double of it.
+int CvPlayer::GetCourtPolicyPercent() const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	if (GetCourtPolicyType() <= 0) return 0;
+
+	int iBase = TiandaoDefineInt("TIANDAO_COURT_POLICY_PERCENT");
+	if (iBase <= 0) return 0;
+
+	if (GetOverlord() != NO_PLAYER) return iBase;
+	if (HasAnyVassal()) return iBase * 2;
+	return 0;
+}
+
+//--------------------------------------------------------------------------------
+// Military policy pays back part of the unit maintenance as gold each turn.
+void CvPlayer::DoCourtPolicyTurn()
+{
+	if (GetCourtPolicyType() != 1) return;
+
+	int iBonus = GetCourtPolicyPercent();
+	if (iBonus <= 0) return;
+
+	int iMaintenance = GetTreasury()->GetExpensePerTurnUnitMaintenance();
+	if (iMaintenance > 0)
+		GetTreasury()->ChangeGold(iMaintenance * iBonus / 100);
+}
+
+//--------------------------------------------------------------------------------
 // 1 military, 2 science, 3 culture, 4 economy. Loyal vassals follow and gain
 // loyalty; the same policy cannot be re-applied to farm the bonus.
 bool CvPlayer::SetVassalCourtPolicy(int iPolicy)
@@ -37094,6 +37157,7 @@ bool CvPlayer::DoInviteVassal(PlayerTypes eTarget)
 	int iThreatPercent = TiandaoDefineInt("TIANDAO_INVITE_THREAT_PERCENT");
 
 	bool bAccept = (iAcceptPercent > 0 && iOurMight * 100 >= iTargetMight * iAcceptPercent);
+	bool bThreatAccept = false;
 
 	if (!bAccept && iThreatPercent > 0)
 	{
@@ -37104,15 +37168,29 @@ bool CvPlayer::DoInviteVassal(PlayerTypes eTarget)
 
 			CvPlayer& kOther = GET_PLAYER(eOther);
 			if (!kOther.isAlive() || !kOther.isMajorCiv()) continue;
+			// Only a live war is a real threat. A strong third party that is
+			// merely standing around must not make every invitation succeed.
+			if (!GET_TEAM(kOther.getTeam()).isAtWar(kTarget.getTeam())) continue;
 			if (kOther.GetMilitaryMight() * 100 >= iTargetMight * iThreatPercent)
 			{
-				bAccept = true;
+				bThreatAccept = true;
 				break;
 			}
 		}
 	}
 
+	if (bThreatAccept) bAccept = true;
 	if (!bAccept) return false;
+
+	// A civ that wants to fight or deceive us only bends when it is actually
+	// under attack; overwhelming odds alone are not an invitation it accepts.
+	MajorCivApproachTypes eApproach = kTarget.GetDiplomacyAI()->GetMajorCivApproach(GetID(), false);
+	if (!bThreatAccept && (eApproach == MAJOR_CIV_APPROACH_WAR
+		|| eApproach == MAJOR_CIV_APPROACH_HOSTILE
+		|| eApproach == MAJOR_CIV_APPROACH_DECEPTIVE))
+	{
+		return false;
+	}
 
 	kTarget.SetOverlord(GetID());
 	AddVassal(eTarget);
@@ -37656,21 +37734,34 @@ void CvPlayer::AddDaoUC(int iType, int iIndex)
 	if (!MOD_GLOBAL_SUZERAIN) return;
 	if (m_iDaoUCPicks <= 0) return;
 
+	// Picking the same content twice must not burn a second pick.
 	bool bUsed = false;
 	if (iType == 0)
 	{
 		UnitTypes eUnit = (UnitTypes)iIndex;
-		if (eUnit != NO_UNIT) { m_sUUFromExtra.insert(eUnit); bUsed = true; }
+		if (eUnit != NO_UNIT && m_sUUFromExtra.count(eUnit) == 0)
+		{
+			m_sUUFromExtra.insert(eUnit);
+			bUsed = true;
+		}
 	}
 	else if (iType == 1)
 	{
 		BuildingTypes eBuilding = (BuildingTypes)iIndex;
-		if (eBuilding != NO_BUILDING) { m_sUBFromExtra.insert(eBuilding); bUsed = true; }
+		if (eBuilding != NO_BUILDING && m_sUBFromExtra.count(eBuilding) == 0)
+		{
+			m_sUBFromExtra.insert(eBuilding);
+			bUsed = true;
+		}
 	}
 	else if (iType == 2)
 	{
 		ImprovementTypes eImprovement = (ImprovementTypes)iIndex;
-		if (eImprovement != NO_IMPROVEMENT) { m_sUIFromExtra.insert(eImprovement); bUsed = true; }
+		if (eImprovement != NO_IMPROVEMENT && m_sUIFromExtra.count(eImprovement) == 0)
+		{
+			m_sUIFromExtra.insert(eImprovement);
+			bUsed = true;
+		}
 	}
 
 	if (bUsed) m_iDaoUCPicks -= 1;

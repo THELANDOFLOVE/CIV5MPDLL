@@ -2046,6 +2046,9 @@ public:
 	bool DoVassalAid(PlayerTypes eVassal);
 	int GetVassalCourtPolicy() const;
 	bool SetVassalCourtPolicy(int iPolicy);
+	int GetCourtPolicyType() const;
+	int GetCourtPolicyPercent() const;
+	void DoCourtPolicyTurn();
 	int GetVassalBreachCount(PlayerTypes eVassal) const;
 	void ChangeVassalBreachCount(PlayerTypes eVassal, int iChange);
 	bool IsVassalIncompetent(PlayerTypes eVassal) const;

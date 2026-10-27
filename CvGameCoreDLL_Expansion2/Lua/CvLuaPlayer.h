@@ -1449,6 +1449,11 @@ protected:
 	LUAAPIEXTN(RequestVassalWonder, bool, eBuilding);
 	LUAAPIEXTN(GetWonderRequest, int);
 	LUAAPIEXTN(ApproveVassalWonderRequest, bool, ePlayer, bApprove);
+	LUAAPIEXTN(SetWonderRequestCondition, bool, ePlayer, iType, iValue, eTarget);
+	LUAAPIEXTN(GetWonderConditionType, int);
+	LUAAPIEXTN(GetWonderConditionValue, int);
+	LUAAPIEXTN(GetWonderConditionTarget, int);
+	LUAAPIEXTN(GetWonderConditionTurns, int);
 	LUAAPIEXTN(CanVassalBuildWonder, bool, ePlayer, eBuilding);
 	LUAAPIEXTN(CanInviteVassal, bool, ePlayer);
 	LUAAPIEXTN(DoInviteVassal, bool, ePlayer);

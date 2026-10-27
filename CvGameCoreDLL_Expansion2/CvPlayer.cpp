@@ -449,6 +449,10 @@ CvPlayer::CvPlayer() :
 	, m_aiWonderPool("CvPlayer::m_aiWonderPool", m_syncArchive)
 	, m_iWonderPoolEra("CvPlayer::m_iWonderPoolEra", m_syncArchive)
 	, m_iWonderRequest("CvPlayer::m_iWonderRequest", m_syncArchive)
+	, m_iWonderConditionType(0)
+	, m_iWonderConditionValue(0)
+	, m_iWonderConditionTarget(NO_PLAYER)
+	, m_iWonderConditionDeadline(0)
 	, m_aiVassalWonderApproval("CvPlayer::m_aiVassalWonderApproval", m_syncArchive)
 	, m_aiMonopolyResources("CvPlayer::m_aiMonopolyResources", m_syncArchive)
 	, m_aiMonopolyYieldBonuses("CvPlayer::m_aiMonopolyYieldBonuses", m_syncArchive)
@@ -1370,6 +1374,10 @@ void CvPlayer::uninit()
 	m_aiWonderPool.clear();
 	m_iWonderPoolEra = -1;
 	m_iWonderRequest = NO_BUILDING;
+	m_iWonderConditionType = 0;
+	m_iWonderConditionValue = 0;
+	m_iWonderConditionTarget = NO_PLAYER;
+	m_iWonderConditionDeadline = 0;
 	m_aiVassalWonderApproval.clear();
 	m_aiVassalWonderApproval.resize(MAX_MAJOR_CIVS, NO_BUILDING);
 	m_aiMonopolyResources.clear();
@@ -31375,6 +31383,10 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiWonderPool, 0, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iWonderPoolEra, -1);
 		MOD_SERIALIZE_READ(165, kStream, m_iWonderRequest, NO_BUILDING);
+		MOD_SERIALIZE_READ(165, kStream, m_iWonderConditionType, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iWonderConditionValue, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iWonderConditionTarget, NO_PLAYER);
+		MOD_SERIALIZE_READ(165, kStream, m_iWonderConditionDeadline, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalWonderApproval, MAX_MAJOR_CIVS, NO_BUILDING);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiMonopolyResources, 0, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiMonopolyYieldBonuses, NUM_YIELD_TYPES, 0);
@@ -32334,6 +32346,10 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiWonderPool);
 	MOD_SERIALIZE_WRITE(kStream, m_iWonderPoolEra);
 	MOD_SERIALIZE_WRITE(kStream, m_iWonderRequest);
+	MOD_SERIALIZE_WRITE(kStream, m_iWonderConditionType);
+	MOD_SERIALIZE_WRITE(kStream, m_iWonderConditionValue);
+	MOD_SERIALIZE_WRITE(kStream, m_iWonderConditionTarget);
+	MOD_SERIALIZE_WRITE(kStream, m_iWonderConditionDeadline);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalWonderApproval);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiMonopolyResources);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiMonopolyYieldBonuses);
@@ -36405,6 +36421,147 @@ bool CvPlayer::ApproveVassalWonderRequest(PlayerTypes eVassal, bool bApprove)
 }
 
 //--------------------------------------------------------------------------------
+// The overlord may refuse a wonder request and ask the vassal for something in
+// return. Meeting the condition within the deadline approves the request.
+void CvPlayer::SetWonderRequestCondition(PlayerTypes eVassal, int iType, int iValue, PlayerTypes eTarget)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (!IsOverlordOf(eVassal)) return;
+
+	CvPlayer& kVassal = GET_PLAYER(eVassal);
+	if (kVassal.GetWonderRequest() == NO_BUILDING) return;
+	if (iType < 0 || iType > 5) return;
+
+	int iTurns = TiandaoDefineInt("TIANDAO_WONDER_CONDITION_TURNS");
+	if (iTurns <= 0) iTurns = 10;
+
+	kVassal.m_iWonderConditionType = iType;
+	kVassal.m_iWonderConditionValue = (iValue > 0) ? iValue : 0;
+	kVassal.m_iWonderConditionTarget = (int)eTarget;
+	kVassal.m_iWonderConditionDeadline = GC.getGame().getGameTurn() + iTurns;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::CheckWonderRequestCondition(PlayerTypes eVassal)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (!IsOverlordOf(eVassal)) return false;
+
+	CvPlayer& kVassal = GET_PLAYER(eVassal);
+	if (kVassal.GetWonderRequest() == NO_BUILDING) return false;
+	if (kVassal.m_iWonderConditionType <= 0) return false;
+
+	int iTurn = GC.getGame().getGameTurn();
+	if (kVassal.m_iWonderConditionDeadline > 0 && iTurn >= kVassal.m_iWonderConditionDeadline)
+	{
+		kVassal.m_iWonderRequest = NO_BUILDING;
+		kVassal.m_iWonderConditionType = 0;
+		kVassal.m_iWonderConditionDeadline = 0;
+		ChangeVassalLoyalty(eVassal, TiandaoDefineInt("TIANDAO_WONDER_CONDITION_DENY_LOYALTY"));
+		return false;
+	}
+
+	bool bMet = false;
+	switch (kVassal.m_iWonderConditionType)
+	{
+	case 1: // gold
+	{
+		int iValue = kVassal.m_iWonderConditionValue;
+		if (iValue > 0 && kVassal.GetTreasury()->GetGold() >= iValue)
+		{
+			kVassal.GetTreasury()->ChangeGold(-iValue);
+			GetTreasury()->ChangeGold(iValue);
+			bMet = true;
+		}
+		break;
+	}
+	case 2: // science
+	{
+		int iValue = kVassal.m_iWonderConditionValue;
+		TechTypes eTech = kVassal.GetPlayerTechs()->GetCurrentResearch();
+		if (iValue > 0 && eTech != NO_TECH
+			&& kVassal.GetPlayerTechs()->GetResearchProgress(eTech) >= iValue)
+		{
+			GET_TEAM(kVassal.getTeam()).GetTeamTechs()->ChangeResearchProgress(eTech, -iValue, eVassal);
+			TechTypes eOur = GetPlayerTechs()->GetCurrentResearch();
+			if (eOur != NO_TECH)
+				GET_TEAM(getTeam()).GetTeamTechs()->ChangeResearchProgress(eOur, iValue, GetID());
+			bMet = true;
+		}
+		break;
+	}
+	case 3: // culture
+	{
+		int iValue = kVassal.m_iWonderConditionValue;
+		if (iValue > 0 && kVassal.getJONSCulture() >= iValue)
+		{
+			kVassal.changeJONSCulture(-iValue);
+			changeJONSCulture(iValue);
+			bMet = true;
+		}
+		break;
+	}
+	case 4: // faith
+	{
+		int iValue = kVassal.m_iWonderConditionValue;
+		if (iValue > 0 && kVassal.GetFaith() >= iValue)
+		{
+			kVassal.ChangeFaith(-iValue);
+			ChangeFaith(iValue);
+			bMet = true;
+		}
+		break;
+	}
+	case 5: // declare war
+	{
+		PlayerTypes eTarget = (PlayerTypes)kVassal.m_iWonderConditionTarget;
+		if (eTarget != NO_PLAYER && GET_PLAYER(eTarget).isAlive()
+			&& GET_TEAM(kVassal.getTeam()).isAtWar(GET_PLAYER(eTarget).getTeam()))
+			bMet = true;
+		break;
+	}
+	default:
+		break;
+	}
+
+	if (bMet && ApproveVassalWonderRequest(eVassal, true))
+	{
+		kVassal.m_iWonderConditionType = 0;
+		kVassal.m_iWonderConditionDeadline = 0;
+		int iGain = TiandaoDefineInt("TIANDAO_WONDER_CONDITION_APPROVE_LOYALTY");
+		if (iGain != 0)
+			ChangeVassalLoyalty(eVassal, iGain);
+		return true;
+	}
+
+	return false;
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetWonderConditionType() const
+{
+	return m_iWonderConditionType;
+}
+
+int CvPlayer::GetWonderConditionValue() const
+{
+	return m_iWonderConditionValue;
+}
+
+int CvPlayer::GetWonderConditionTarget() const
+{
+	return m_iWonderConditionTarget;
+}
+
+int CvPlayer::GetWonderConditionTurns() const
+{
+	if (m_iWonderConditionType <= 0) return 0;
+	if (m_iWonderConditionDeadline <= 0) return 0;
+	int iLeft = m_iWonderConditionDeadline - GC.getGame().getGameTurn();
+	return (iLeft > 0) ? iLeft : 0;
+}
+
+//--------------------------------------------------------------------------------
 bool CvPlayer::CanVassalBuildWonder(PlayerTypes eVassal, BuildingTypes eBuilding) const
 {
 	if (!MOD_GLOBAL_SUZERAIN) return true;
@@ -36439,6 +36596,14 @@ void CvPlayer::DoVassalWonderPoolTurn()
 	{
 		m_iWonderPoolEra = (int)GetCurrentEra();
 		m_aiWonderPool.clear();
+	}
+
+	// Settle any pending wonder conditions.
+	for (size_t i = 0; i < m_vecVassals.size(); i++)
+	{
+		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
+		if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) continue;
+		CheckWonderRequestCondition(eVassal);
 	}
 }
 

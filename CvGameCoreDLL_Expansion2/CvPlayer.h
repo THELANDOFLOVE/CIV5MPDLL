@@ -2077,6 +2077,13 @@ public:
 	bool RequestVassalWonder(BuildingTypes eBuilding);
 	int GetWonderRequest() const;
 	bool ApproveVassalWonderRequest(PlayerTypes eVassal, bool bApprove);
+	// Wonder request conditions: the overlord may refuse and ask for something
+	void SetWonderRequestCondition(PlayerTypes eVassal, int iType, int iValue, PlayerTypes eTarget);
+	bool CheckWonderRequestCondition(PlayerTypes eVassal);
+	int GetWonderConditionType() const;
+	int GetWonderConditionValue() const;
+	int GetWonderConditionTarget() const;
+	int GetWonderConditionTurns() const;
 	bool CanVassalBuildWonder(PlayerTypes eVassal, BuildingTypes eBuilding) const;
 	void DoVassalWonderPoolTurn();
 	bool CanInviteVassal(PlayerTypes eTarget) const;
@@ -3190,6 +3197,12 @@ protected:
 	FAutoVariable<int, CvPlayer> m_iWonderPoolEra;
 	// A vassal's pending wonder request, and the overlord's approvals per vassal
 	FAutoVariable<int, CvPlayer> m_iWonderRequest;
+	// Wonder request condition set by the overlord and stored on the vassal.
+	// 0 = none, 1 = gold, 2 = science, 3 = culture, 4 = faith, 5 = declare war.
+	int m_iWonderConditionType;
+	int m_iWonderConditionValue;
+	int m_iWonderConditionTarget;
+	int m_iWonderConditionDeadline;
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalWonderApproval;
 	// Resources this overlord (with its vassals) monopolizes
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiMonopolyResources;

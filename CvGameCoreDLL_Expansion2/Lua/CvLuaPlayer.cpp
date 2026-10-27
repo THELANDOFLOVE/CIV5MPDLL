@@ -144,6 +144,7 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lRemoveVassalWonderFromPool);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lRequestVassalWonder);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lApproveVassalWonderRequest);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSetWonderRequestCondition);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoInviteVassal);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoSubjugate);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lHasVassalPunishRight);
@@ -1573,6 +1574,11 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(RequestVassalWonder);
 	Method(GetWonderRequest);
 	Method(ApproveVassalWonderRequest);
+	Method(SetWonderRequestCondition);
+	Method(GetWonderConditionType);
+	Method(GetWonderConditionValue);
+	Method(GetWonderConditionTarget);
+	Method(GetWonderConditionTurns);
 	Method(CanVassalBuildWonder);
 	Method(CanInviteVassal);
 	Method(DoInviteVassal);
@@ -7855,6 +7861,51 @@ int CvLuaPlayer::lApproveVassalWonderRequest(lua_State* L)
 	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
 	bool bApprove = luaL_optbool(L, 3, false);
 	lua_pushboolean(L, pkPlayer->ApproveVassalWonderRequest(e, bApprove));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool SetWonderRequestCondition(PlayerTypes e, int iType, int iValue, PlayerTypes eTarget);
+int CvLuaPlayer::lSetWonderRequestCondition(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
+	int iType = lua_tointeger(L, 3);
+	int iValue = lua_tointeger(L, 4);
+	PlayerTypes eTarget = (PlayerTypes)lua_tointeger(L, 5);
+	pkPlayer->SetWonderRequestCondition(e, iType, iValue, eTarget);
+	lua_pushboolean(L, true);
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetWonderConditionType();
+int CvLuaPlayer::lGetWonderConditionType(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->GetWonderConditionType());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetWonderConditionValue();
+int CvLuaPlayer::lGetWonderConditionValue(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->GetWonderConditionValue());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetWonderConditionTarget();
+int CvLuaPlayer::lGetWonderConditionTarget(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->GetWonderConditionTarget());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetWonderConditionTurns();
+int CvLuaPlayer::lGetWonderConditionTurns(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->GetWonderConditionTurns());
 	return 1;
 }
 //------------------------------------------------------------------------------

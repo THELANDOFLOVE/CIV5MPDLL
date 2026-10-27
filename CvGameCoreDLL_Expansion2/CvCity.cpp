@@ -6500,7 +6500,7 @@ int CvCity::GetFaithPurchaseCost(BuildingTypes eBuilding)
 #if defined(MOD_GLOBAL_SUZERAIN)
 	// Dao abundance: world wonders may be bought with faith, priced from their
 	// production cost. Regular buildings without a FaithCost stay unbuyable.
-	if (iCost <= 0 && GET_PLAYER(getOwner()).HasDaoPerk(0)
+	if (iCost <= 0 && GET_PLAYER(getOwner()).HasDaoPerk(8)
 		&& isWorldWonderClass(pkBuildingInfo->GetBuildingClassInfo()))
 	{
 		int iMultiplier = GC.getDefineINT("TIANDAO_DAO_WONDER_FAITH_MULTIPLIER", false);

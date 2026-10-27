@@ -431,6 +431,7 @@ CvPlayer::CvPlayer() :
 	, m_iMandate("CvPlayer::m_iMandate", m_syncArchive)
 	, m_iDaoPoints(0)
 	, m_iDaoPerks(0)
+	, m_iDaoUCPicks(0)
 	, m_iFengshanEra("CvPlayer::m_iFengshanEra", m_syncArchive)
 	, m_iBlessingFood("CvPlayer::m_iBlessingFood", m_syncArchive)
 	, m_iBlessingProduction("CvPlayer::m_iBlessingProduction", m_syncArchive)
@@ -1366,6 +1367,7 @@ void CvPlayer::uninit()
 	m_iPrayerFreeTechs = 0;
 	m_iDaoPoints = 0;
 	m_iDaoPerks = 0;
+	m_iDaoUCPicks = 0;
 	m_iBlessingFood = 0;
 	m_iBlessingProduction = 0;
 	m_iBlessingCulture = 0;
@@ -31372,6 +31374,7 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ(165, kStream, m_iMandate, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iDaoPoints, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iDaoPerks, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iDaoUCPicks, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iFengshanEra, -1);
 		MOD_SERIALIZE_READ(165, kStream, m_iBlessingFood, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iBlessingProduction, 0);
@@ -32345,6 +32348,7 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE(kStream, m_iMandate);
 	MOD_SERIALIZE_WRITE(kStream, m_iDaoPoints);
 	MOD_SERIALIZE_WRITE(kStream, m_iDaoPerks);
+	MOD_SERIALIZE_WRITE(kStream, m_iDaoUCPicks);
 	MOD_SERIALIZE_WRITE(kStream, m_iFengshanEra);
 	MOD_SERIALIZE_WRITE(kStream, m_iBlessingFood);
 	MOD_SERIALIZE_WRITE(kStream, m_iBlessingProduction);
@@ -35938,6 +35942,9 @@ static const char* TiandaoDaoGraceCostKey(int iGrace)
 	case 5: return "TIANDAO_DAO_COST_EDUCATION";
 	case 6: return "TIANDAO_DAO_COST_INSIGHT";
 	case 7: return "TIANDAO_DAO_COST_TALENT";
+	case 8: return "TIANDAO_DAO_COST_WONDER";
+	case 9: return "TIANDAO_DAO_COST_SPY";
+	case 10: return "TIANDAO_DAO_COST_UC";
 	default: return NULL;
 	}
 }
@@ -35956,9 +35963,9 @@ int CvPlayer::GetDaoGraceCost(int iGrace) const
 bool CvPlayer::DoDaoGrace(int iGrace)
 {
 	if (!MOD_GLOBAL_SUZERAIN) return false;
-	// Rule-changing graces (1-6) are permanent and bought once. Abundance (0)
-	// stacks, and Talent (7) can be bought again for another free batch.
-	if (iGrace >= 1 && iGrace <= 6 && HasDaoPerk(iGrace)) return false;
+	// Capability graces (1-6 and wonder access at 8) are permanent and bought
+	// once. Abundance (0) stacks, and Talent (7) repeats for another free batch.
+	if (((iGrace >= 1 && iGrace <= 6) || iGrace == 8) && HasDaoPerk(iGrace)) return false;
 
 	const char* szCostKey = TiandaoDaoGraceCostKey(iGrace);
 	if (szCostKey == NULL) return false;
@@ -35979,7 +35986,6 @@ bool CvPlayer::DoDaoGrace(int iGrace)
 			for (int y = 0; y < NUM_YIELD_TYPES; y++)
 				pCity->ChangeBaseYieldRateFromMisc((YieldTypes)y, iAmount);
 		}
-		GrantDaoPerk(0);
 	}
 	else if (iGrace == 1)
 	{
@@ -36012,10 +36018,8 @@ bool CvPlayer::DoDaoGrace(int iGrace)
 	}
 	else if (iGrace == 6)
 	{
-		// Insight: permanent denounce immunity and a master spy.
+		// Insight: permanent denounce immunity.
 		GrantDaoPerk(6);
-		if (GetEspionage() != NULL)
-			GetEspionage()->CreateSpyWithRank(SPY_RANK_MASTER_SPY);
 	}
 	else if (iGrace == 7)
 	{
@@ -36026,6 +36030,22 @@ bool CvPlayer::DoDaoGrace(int iGrace)
 		ChangeNumFreePolicies(1);
 
 		SpawnRandomGreatPersonAtCapital();
+	}
+	else if (iGrace == 8)
+	{
+		// Wonder access: faith may buy world wonders (see GetFaithPurchaseCost).
+		GrantDaoPerk(8);
+	}
+	else if (iGrace == 9)
+	{
+		// A master spy joins the realm. Repeatable.
+		if (GetEspionage() != NULL)
+			GetEspionage()->CreateSpyWithRank(SPY_RANK_MASTER_SPY);
+	}
+	else if (iGrace == 10)
+	{
+		// One more unique-content pick. Repeatable.
+		m_iDaoUCPicks += 1;
 	}
 	else
 	{
@@ -36043,9 +36063,11 @@ void CvPlayer::DoDaoTurn()
 	// AI overlords spend their points at court, cheapest unreached grace first.
 	if (!isHuman() && IsVassalCourtTurn() && HasAnyVassal())
 	{
-		for (int iGrace = 0; iGrace < 8; iGrace++)
+		for (int iGrace = 0; iGrace < 11; iGrace++)
 		{
-			if (HasDaoPerk(iGrace)) continue;
+			// AI does not use the interactive unique-content pick.
+			if (iGrace == 10) continue;
+			if (((iGrace >= 1 && iGrace <= 6) || iGrace == 8) && HasDaoPerk(iGrace)) continue;
 			int iCost = GetDaoGraceCost(iGrace);
 			if (iCost <= 0 || GetDaoPoints() < iCost) continue;
 			DoDaoGrace(iGrace);
@@ -37430,26 +37452,36 @@ void CvPlayer::RefreshUCFromVassals()
 //--------------------------------------------------------------------------------
 // The extra-UC sets already serialize and unlock use, so the dao claim only
 // has to insert into them.
+int CvPlayer::GetDaoUCPicks() const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	return m_iDaoUCPicks;
+}
+
+//--------------------------------------------------------------------------------
 void CvPlayer::AddDaoUC(int iType, int iIndex)
 {
 	if (!MOD_GLOBAL_SUZERAIN) return;
-	if (!HasDaoPerk(6)) return;
+	if (m_iDaoUCPicks <= 0) return;
 
+	bool bUsed = false;
 	if (iType == 0)
 	{
 		UnitTypes eUnit = (UnitTypes)iIndex;
-		if (eUnit != NO_UNIT) m_sUUFromExtra.insert(eUnit);
+		if (eUnit != NO_UNIT) { m_sUUFromExtra.insert(eUnit); bUsed = true; }
 	}
 	else if (iType == 1)
 	{
 		BuildingTypes eBuilding = (BuildingTypes)iIndex;
-		if (eBuilding != NO_BUILDING) m_sUBFromExtra.insert(eBuilding);
+		if (eBuilding != NO_BUILDING) { m_sUBFromExtra.insert(eBuilding); bUsed = true; }
 	}
 	else if (iType == 2)
 	{
 		ImprovementTypes eImprovement = (ImprovementTypes)iIndex;
-		if (eImprovement != NO_IMPROVEMENT) m_sUIFromExtra.insert(eImprovement);
+		if (eImprovement != NO_IMPROVEMENT) { m_sUIFromExtra.insert(eImprovement); bUsed = true; }
 	}
+
+	if (bUsed) m_iDaoUCPicks -= 1;
 }
 
 //--------------------------------------------------------------------------------

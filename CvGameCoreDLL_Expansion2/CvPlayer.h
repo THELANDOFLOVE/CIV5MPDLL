@@ -2067,6 +2067,7 @@ public:
 	// Permanent unique content claimed by the dao insight grace. iType is
 	// 0 = unit, 1 = building, 2 = improvement; stored in the existing
 	// extra-UC sets, which are already serialized and usable.
+	int GetDaoUCPicks() const;
 	void AddDaoUC(int iType, int iIndex);
 	// Faith purchase of beliefs (pantheon or a religion belief)
 	int GetDaoBeliefCost() const;
@@ -3216,6 +3217,7 @@ protected:
 	// Dao points and their temporary grace state
 	int m_iDaoPoints;
 	int m_iDaoPerks;
+	int m_iDaoUCPicks;
 	// Era of the last Fengshan, -1 when never used
 	FAutoVariable<int, CvPlayer> m_iFengshanEra;
 	// Temporary mandate blessing: per-city yields and the turn it expires

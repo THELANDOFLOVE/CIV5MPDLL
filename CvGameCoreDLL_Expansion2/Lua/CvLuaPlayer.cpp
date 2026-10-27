@@ -1561,6 +1561,7 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(GetDaoGraceCost);
 	Method(DoDaoGrace);
 	Method(HasDaoPerk);
+	Method(GetDaoUCPicks);
 	Method(AddDaoUC);
 	Method(GetDaoBeliefCost);
 	Method(GetDaoBeliefOptionCount);
@@ -7732,6 +7733,14 @@ int CvLuaPlayer::lHasDaoPerk(lua_State* L)
 	CvPlayerAI* pkPlayer = GetInstance(L);
 	int iPerk = lua_tointeger(L, 2);
 	lua_pushboolean(L, pkPlayer->HasDaoPerk(iPerk));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetDaoUCPicks();
+int CvLuaPlayer::lGetDaoUCPicks(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->GetDaoUCPicks());
 	return 1;
 }
 //------------------------------------------------------------------------------

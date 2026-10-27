@@ -1432,6 +1432,7 @@ protected:
 	LUAAPIEXTN(GetDaoGraceCost, int, iGrace);
 	LUAAPIEXTN(DoDaoGrace, bool, iGrace);
 	LUAAPIEXTN(HasDaoPerk, bool, iPerk);
+	LUAAPIEXTN(GetDaoUCPicks, int);
 	LUAAPIEXTN(AddDaoUC, void, iType, iIndex);
 	LUAAPIEXTN(GetDaoBeliefCost, int);
 	LUAAPIEXTN(GetDaoBeliefOptionCount, int);

@@ -2069,6 +2069,7 @@ public:
 	// extra-UC sets, which are already serialized and usable.
 	int GetDaoUCPicks() const;
 	void AddDaoUC(int iType, int iIndex);
+	void AutoPickDaoUC();
 	// Faith purchase of beliefs (pantheon or a religion belief)
 	int GetDaoBeliefCost() const;
 	int GetDaoBeliefOptionCount() const;

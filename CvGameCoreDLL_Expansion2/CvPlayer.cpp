@@ -36044,8 +36044,12 @@ bool CvPlayer::DoDaoGrace(int iGrace)
 	}
 	else if (iGrace == 10)
 	{
-		// One more unique-content pick. Repeatable.
-		m_iDaoUCPicks += 1;
+		// One more unique-content pick. Repeatable. Humans pick later; AI picks
+		// immediately at random.
+		if (isHuman())
+			m_iDaoUCPicks += 1;
+		else
+			AutoPickDaoUC();
 	}
 	else
 	{
@@ -36065,8 +36069,6 @@ void CvPlayer::DoDaoTurn()
 	{
 		for (int iGrace = 0; iGrace < 11; iGrace++)
 		{
-			// AI does not use the interactive unique-content pick.
-			if (iGrace == 10) continue;
 			if (((iGrace >= 1 && iGrace <= 6) || iGrace == 8) && HasDaoPerk(iGrace)) continue;
 			int iCost = GetDaoGraceCost(iGrace);
 			if (iCost <= 0 || GetDaoPoints() < iCost) continue;
@@ -37482,6 +37484,55 @@ void CvPlayer::AddDaoUC(int iType, int iIndex)
 	}
 
 	if (bUsed) m_iDaoUCPicks -= 1;
+}
+
+//--------------------------------------------------------------------------------
+// AI claims one random unique unit, building or improvement it does not have.
+void CvPlayer::AutoPickDaoUC()
+{
+	std::vector<int> vTypes;
+	std::vector<int> vIds;
+
+	for (int iCiv = 0; iCiv < MAX_MAJOR_CIVS; iCiv++)
+	{
+		PlayerTypes eCiv = (PlayerTypes)iCiv;
+		CvPlayer& kCiv = GET_PLAYER(eCiv);
+		if (!kCiv.isAlive() || !kCiv.isMajorCiv()) continue;
+
+		std::tr1::unordered_set<UnitTypes> uu;
+		std::tr1::unordered_set<BuildingTypes> ub;
+		std::tr1::unordered_set<ImprovementTypes> ui;
+		GetUCTypesFromPlayer(kCiv, &uu, &ub, &ui);
+
+		for (std::tr1::unordered_set<UnitTypes>::const_iterator it = uu.begin(); it != uu.end(); ++it)
+		{
+			if (m_sUUFromExtra.count(*it) > 0) continue;
+			vTypes.push_back(0);
+			vIds.push_back((int)*it);
+		}
+		for (std::tr1::unordered_set<BuildingTypes>::const_iterator it = ub.begin(); it != ub.end(); ++it)
+		{
+			if (m_sUBFromExtra.count(*it) > 0) continue;
+			vTypes.push_back(1);
+			vIds.push_back((int)*it);
+		}
+		for (std::tr1::unordered_set<ImprovementTypes>::const_iterator it = ui.begin(); it != ui.end(); ++it)
+		{
+			if (m_sUIFromExtra.count(*it) > 0) continue;
+			vTypes.push_back(2);
+			vIds.push_back((int)*it);
+		}
+	}
+
+	if (vTypes.empty()) return;
+
+	int iPick = GC.getGame().getJonRandNum((int)vTypes.size(), "Tiandao dao unique content");
+	if (vTypes[iPick] == 0)
+		m_sUUFromExtra.insert((UnitTypes)vIds[iPick]);
+	else if (vTypes[iPick] == 1)
+		m_sUBFromExtra.insert((BuildingTypes)vIds[iPick]);
+	else if (vTypes[iPick] == 2)
+		m_sUIFromExtra.insert((ImprovementTypes)vIds[iPick]);
 }
 
 //--------------------------------------------------------------------------------

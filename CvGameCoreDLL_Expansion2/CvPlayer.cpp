@@ -35298,34 +35298,51 @@ void CvPlayer::DoVassalAIDiplomacyTurn()
 		SetVassalCourtPolicy(iPolicy);
 	}
 
-	// Spend mandate on boons instead of letting it sit at the cap.
+	// Spend mandate by need, not by tier: punish breaches, steady disloyal
+	// vassals, fund a war, and only at the cap fall back to the cheap boon.
 	int iMandate = GetMandate();
-	if (iMandate >= 10)
+	bool bPunished = false;
+	if (iMandate >= 40)
 	{
-		bool bPunished = false;
-		if (iMandate >= 40)
+		for (size_t i = 0; i < m_vecVassals.size(); i++)
 		{
-			for (size_t i = 0; i < m_vecVassals.size(); i++)
+			PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
+			if (!IsLiveVassal(eVassal)) continue;
+			if (HasVassalPunishRight(eVassal) && GetVassalBreachCount(eVassal) > 0
+				&& CanTianfa(eVassal))
 			{
-				PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
-				if (!IsLiveVassal(eVassal)) continue;
-				if (HasVassalPunishRight(eVassal) && GetVassalBreachCount(eVassal) > 0
-					&& CanTianfa(eVassal))
-				{
-					DoTianfa(eVassal);
-					bPunished = true;
-					iMandate = GetMandate();
-					break;
-				}
+				DoTianfa(eVassal);
+				bPunished = true;
+				iMandate = GetMandate();
+				break;
 			}
 		}
-		if (!bPunished)
+	}
+
+	if (!bPunished)
+	{
+		bool bLowLoyalty = false;
+		for (size_t i = 0; i < m_vecVassals.size(); i++)
 		{
-			if (iMandate >= 50)
-				DoFengshan();
-			else if (iMandate >= 25)
+			PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
+			if (IsLiveVassal(eVassal) && GetVassalLoyalty(eVassal) < 50)
+			{
+				bLowLoyalty = true;
+				break;
+			}
+		}
+		bool bAtWar = GET_TEAM(getTeam()).getAtWarCount(true) > 0;
+
+		if (bLowLoyalty && iMandate >= 50)
+			DoFengshan();
+		else if (bAtWar && iMandate >= 25)
+			DoRangzai();
+		else if (iMandate >= 90)
+		{
+			// About to overflow: spend on the best boon still affordable.
+			if (iMandate >= 25)
 				DoRangzai();
-			else
+			else if (iMandate >= 10)
 				DoQifeng();
 		}
 	}

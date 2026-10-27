@@ -35368,11 +35368,84 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 	PlayerTypes eVassal = (PlayerTypes)GetVassalMemorialField(iIndex, TIANDAO_MEMORIAL_VASSAL);
 
 	bool bOk = false;
-	if (iType == 0) // protect request
+	switch (iType)
+	{
+	case 0: // protect request
 		bOk = DoVassalProtect(eVassal, bApprove);
+		break;
+	case 1: // material aid while losing a war
+	case 2: // request for a reward
+	case 3: // report of hardship
+	{
+		if (bApprove)
+		{
+			int iGold = (iType == 3)
+				? TiandaoDefineInt("TIANDAO_MEMORIAL_CRISIS_GOLD")
+				: TiandaoDefineInt("TIANDAO_MEMORIAL_AID_GOLD");
+			if (iGold > 0)
+			{
+				int iPay = std::min(iGold, (int)GetTreasury()->GetGold());
+				if (iPay > 0)
+				{
+					GetTreasury()->ChangeGold(-iPay);
+					GET_PLAYER(eVassal).GetTreasury()->ChangeGold(iPay);
+				}
+			}
+
+			int iGain = TiandaoDefineInt("TIANDAO_MEMORIAL_AID_LOYALTY");
+			if (iGain != 0)
+				ChangeVassalLoyalty(eVassal, iGain);
+			bOk = true;
+		}
+		else
+		{
+			// A hardship report is not a demand; refusing it costs no loyalty.
+			if (iType != 3)
+			{
+				int iLoss = TiandaoDefineInt("TIANDAO_MEMORIAL_DENY_LOYALTY");
+				if (iLoss != 0)
+					ChangeVassalLoyalty(eVassal, iLoss);
+			}
+			bOk = true;
+		}
+		break;
+	}
+	default:
+		break;
+	}
 
 	m_aiVassalMemorials.setAt(iStateOffset, (bApprove && bOk) ? 1 : 2);
 	return bOk;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::HasPendingMemorial(PlayerTypes eVassal, int iType) const
+{
+	int iCount = GetVassalMemorialCount();
+	for (int m = 0; m < iCount; m++)
+	{
+		if (GetVassalMemorialField(m, TIANDAO_MEMORIAL_TYPE) == iType
+			&& GetVassalMemorialField(m, TIANDAO_MEMORIAL_VASSAL) == (int)eVassal
+			&& GetVassalMemorialField(m, TIANDAO_MEMORIAL_STATE) == 0)
+			return true;
+	}
+	return false;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::IsVassalMilitarilyOvermatched(PlayerTypes eVassal) const
+{
+	int iPercent = TiandaoDefineInt("TIANDAO_MEMORIAL_CRISIS_PERCENT");
+	if (iPercent <= 0) return false;
+
+	PlayerTypes eEnemy = GetVassalAggressor(eVassal);
+	if (eEnemy == NO_PLAYER) return false;
+
+	CvPlayer& kVassal = GET_PLAYER(eVassal);
+	CvPlayer& kEnemy = GET_PLAYER(eEnemy);
+	if (!kEnemy.isAlive()) return false;
+
+	return kVassal.GetMilitaryMight() * 100 < kEnemy.GetMilitaryMight() * iPercent;
 }
 
 //--------------------------------------------------------------------------------
@@ -35411,6 +35484,49 @@ void CvPlayer::DoVassalMemorialTurn()
 		AddVassalMemorial(0, 0, 3, eVassal, eAggressor, iDeadlineTurns);
 	}
 
+	// One material-aid memorial while losing a war (urgent, military ministry).
+	for (size_t i = 0; i < m_vecVassals.size(); i++)
+	{
+		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
+		if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) continue;
+		CvPlayer& kVassal = GET_PLAYER(eVassal);
+		if (!kVassal.isAlive()) continue;
+
+		PlayerTypes eAggressor = GetVassalAggressor(eVassal);
+		if (eAggressor == NO_PLAYER) continue;
+		if (HasPendingMemorial(eVassal, 0) || HasPendingMemorial(eVassal, 1)) continue;
+		if (!IsVassalMilitarilyOvermatched(eVassal)) continue;
+
+		AddVassalMemorial(1, 0, 3, eVassal, eAggressor, iDeadlineTurns);
+	}
+
+	// Court turns only: reward requests (revenue ministry) and hardship reports.
+	if (IsVassalCourtTurn())
+	{
+		int iNormalTurns = TiandaoDefineInt("TIANDAO_MEMORIAL_NORMAL_TURNS");
+		if (iNormalTurns <= 0) iNormalTurns = 10;
+		int iGiftMinLoyalty = TiandaoDefineInt("TIANDAO_MEMORIAL_GIFT_MIN_LOYALTY");
+
+		for (size_t i = 0; i < m_vecVassals.size(); i++)
+		{
+			PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
+			if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) continue;
+			CvPlayer& kVassal = GET_PLAYER(eVassal);
+			if (!kVassal.isAlive()) continue;
+
+			if (iGiftMinLoyalty > 0 && GetVassalLoyalty(eVassal) >= iGiftMinLoyalty
+				&& !HasPendingMemorial(eVassal, 2))
+			{
+				AddVassalMemorial(2, 1, 1, eVassal, NO_PLAYER, iNormalTurns);
+			}
+
+			if (kVassal.GetTreasury()->GetGold() < 0 && !HasPendingMemorial(eVassal, 3))
+			{
+				AddVassalMemorial(3, 1, 5, eVassal, NO_PLAYER, iNormalTurns);
+			}
+		}
+	}
+
 	// Expire overdue memorials.
 	int iNeglect = TiandaoDefineInt("TIANDAO_LOYALTY_NEGLECT");
 	int iTurn = GC.getGame().getGameTurn();
@@ -35423,12 +35539,10 @@ void CvPlayer::DoVassalMemorialTurn()
 		if (iDeadline <= 0 || iTurn < iDeadline) continue;
 
 		PlayerTypes eVassal = (PlayerTypes)GetVassalMemorialField(m, TIANDAO_MEMORIAL_VASSAL);
-		if (GetVassalAggressor(eVassal) != NO_PLAYER)
-		{
-			bool bOk = DoVassalProtect(eVassal, false);
-			if (bOk && iNeglect != 0)
-				ChangeVassalLoyalty(eVassal, iNeglect);
-		}
+		// An expired memorial is handled as a refusal, then marked as expired.
+		ResolveVassalMemorial(m, false);
+		if (iNeglect != 0)
+			ChangeVassalLoyalty(eVassal, iNeglect);
 
 		m_aiVassalMemorials.setAt(m * TIANDAO_MEMORIAL_STRIDE + TIANDAO_MEMORIAL_STATE, 3);
 	}

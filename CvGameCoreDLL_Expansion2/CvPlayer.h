@@ -2024,6 +2024,8 @@ public:
 	void DoVassalRevoltCheck();
 	int GetVassalMemorialCount() const;
 	int GetVassalMemorialField(int iIndex, int iField) const;
+	bool HasPendingMemorial(PlayerTypes eVassal, int iType) const;
+	bool IsVassalMilitarilyOvermatched(PlayerTypes eVassal) const;
 	int AddVassalMemorial(int iType, int iLevel, int iMinistry, PlayerTypes eVassal, PlayerTypes eTarget, int iDeadlineTurns);
 	bool ResolveVassalMemorial(int iIndex, bool bApprove);
 	void DoVassalMemorialTurn();

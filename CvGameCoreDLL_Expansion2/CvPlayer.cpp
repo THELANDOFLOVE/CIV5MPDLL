@@ -1375,6 +1375,7 @@ void CvPlayer::uninit()
 	m_iPrayerFreeTechs = 0;
 	m_iDaoPoints = 0;
 	m_iDaoPerks = 0;
+	m_aiDaoUCs.clear();
 	m_iDaoGreatPeopleModifier = 0;
 	m_iDaoGreatPeopleTurns = 0;
 	m_iDaoWarEndTurn = 0;
@@ -31392,6 +31393,7 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ(165, kStream, m_iMandate, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iDaoPoints, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iDaoPerks, 0);
+		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiDaoUCs, 0, NO_UNIT);
 		MOD_SERIALIZE_READ(165, kStream, m_iDaoGreatPeopleModifier, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iDaoGreatPeopleTurns, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iDaoWarEndTurn, 0);
@@ -32374,6 +32376,7 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE(kStream, m_iMandate);
 	MOD_SERIALIZE_WRITE(kStream, m_iDaoPoints);
 	MOD_SERIALIZE_WRITE(kStream, m_iDaoPerks);
+	MOD_SERIALIZE_WRITE(kStream, m_aiDaoUCs);
 	MOD_SERIALIZE_WRITE(kStream, m_iDaoGreatPeopleModifier);
 	MOD_SERIALIZE_WRITE(kStream, m_iDaoGreatPeopleTurns);
 	MOD_SERIALIZE_WRITE(kStream, m_iDaoWarEndTurn);
@@ -37524,6 +37527,43 @@ void CvPlayer::RefreshUCFromVassals()
 		m_sUBFromVassals.insert(ubSet.begin(), ubSet.end());
 		m_sUIFromVassals.insert(uiSet.begin(), uiSet.end());
 	}
+
+	// Dao insight keeps its claimed unique units across refreshes.
+	for (size_t i = 0; i < m_aiDaoUCs.size(); i++)
+	{
+		if (m_aiDaoUCs[i] != (int)NO_UNIT)
+			m_sUUFromVassals.insert((UnitTypes)m_aiDaoUCs[i]);
+	}
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::AddDaoUC(UnitTypes eUnit)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (eUnit == NO_UNIT) return;
+	if (!HasDaoPerk(6)) return;
+
+	for (size_t i = 0; i < m_aiDaoUCs.size(); i++)
+	{
+		if (m_aiDaoUCs[i] == (int)eUnit)
+			return;
+	}
+
+	m_aiDaoUCs.push_back((int)eUnit);
+	m_sUUFromVassals.insert(eUnit);
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetDaoUCCount() const
+{
+	return (int)m_aiDaoUCs.size();
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetDaoUC(int iIndex) const
+{
+	if (iIndex < 0 || iIndex >= (int)m_aiDaoUCs.size()) return NO_UNIT;
+	return m_aiDaoUCs[iIndex];
 }
 
 //--------------------------------------------------------------------------------

@@ -1431,6 +1431,10 @@ protected:
 	LUAAPIEXTN(GetDaoPoints, int);
 	LUAAPIEXTN(GetDaoGraceCost, int, iGrace);
 	LUAAPIEXTN(DoDaoGrace, bool, iGrace);
+	LUAAPIEXTN(HasDaoPerk, bool, iPerk);
+	LUAAPIEXTN(AddDaoUC, void, eUnit);
+	LUAAPIEXTN(GetDaoUCCount, int);
+	LUAAPIEXTN(GetDaoUC, int, iIndex);
 	LUAAPIEXTN(GetMandateMax, int);
 	LUAAPIEXTN(IsMandateFull, bool);
 	LUAAPIEXTN(CanFengshan, bool);

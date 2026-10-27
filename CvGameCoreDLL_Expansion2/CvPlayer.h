@@ -2057,6 +2057,10 @@ public:
 	// 0 abundance, 1 diligence, 2 industry, 3 learning, 4 war, 5 teaching, 6 insight, 7 talent
 	bool HasDaoPerk(int iPerk) const { return (m_iDaoPerks & (1 << iPerk)) != 0; }
 	void GrantDaoPerk(int iPerk) { m_iDaoPerks |= (1 << iPerk); }
+	// Permanent unique units claimed by the dao insight grace.
+	void AddDaoUC(UnitTypes eUnit);
+	int GetDaoUCCount() const;
+	int GetDaoUC(int iIndex) const;
 	// Active dao grace effects
 	int GetDaoCombatModifier() const;
 	bool HasDaoSiegeNoHeal() const;
@@ -3198,6 +3202,7 @@ protected:
 	// Dao points and their temporary grace state
 	int m_iDaoPoints;
 	int m_iDaoPerks;
+	std::vector<int> m_aiDaoUCs;
 	int m_iDaoGreatPeopleModifier;
 	int m_iDaoGreatPeopleTurns;
 	int m_iDaoWarEndTurn;

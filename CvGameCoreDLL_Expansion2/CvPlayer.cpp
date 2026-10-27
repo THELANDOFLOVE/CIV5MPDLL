@@ -36007,8 +36007,12 @@ bool CvPlayer::DoDaoGrace(int iGrace)
 	}
 	else if (iGrace == 5)
 	{
-		// Teaching: religion spread, belief purchases and ideology pressure.
+		// Teaching: stronger religious spread and permanent ideology pressure.
 		GrantDaoPerk(5);
+
+		int iPressure = TiandaoDefineInt("TIANDAO_DAO_IDEOLOGY_PRESSURE");
+		if (iPressure != 0)
+			ChangeIdeologyPressureModifier(iPressure);
 	}
 	else if (iGrace == 6)
 	{

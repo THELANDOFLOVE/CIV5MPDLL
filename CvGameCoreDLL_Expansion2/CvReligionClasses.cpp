@@ -2656,6 +2656,23 @@ int CvGameReligions::GetAdjacentCityReligiousPressure (ReligionTypes eReligion, 
 			iPressure /= 100;
 		}
 
+#if defined(MOD_GLOBAL_SUZERAIN)
+		// Dao teaching: pressure spreads stronger from this player's cities.
+		if (MOD_GLOBAL_SUZERAIN)
+		{
+			CvPlayer& kSource = GET_PLAYER(pFromCity->getOwner());
+			if (kSource.HasDaoPerk(5))
+			{
+				int iDaoMod = GC.getDefineINT("TIANDAO_DAO_RELIGION_SPREAD", false);
+				if (iDaoMod > 0)
+				{
+					iPressure *= (100 + iDaoMod);
+					iPressure /= 100;
+				}
+			}
+		}
+#endif
+
 		// Building that boosts pressure from originating city?
 		int iModifier = pFromCity->GetCityReligions()->GetReligiousPressureModifier();
 #if defined(MOD_API_EXTENSIONS)

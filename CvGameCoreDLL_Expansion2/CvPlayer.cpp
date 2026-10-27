@@ -34457,8 +34457,7 @@ void CvPlayer::DoVassalGift(PlayerTypes eVassal)
 	if ((size_t)eVassal >= m_aiVassalGiftCount.size())
 		m_aiVassalGiftCount.resize(MAX_MAJOR_CIVS, 0);
 
-	GetTreasury()->ChangeGold(-iGold);
-	GET_PLAYER(eVassal).GetTreasury()->ChangeGold(iGold);
+	TransferGoldTo(eVassal, iGold);
 	ChangeVassalLoyalty(eVassal, iLoyalty);
 	m_aiVassalGiftCount.setAt((size_t)eVassal, m_aiVassalGiftCount[eVassal] + 1);
 	ChangeMandate(TiandaoDefineInt("TIANDAO_MANDATE_GIFT"));
@@ -34610,6 +34609,15 @@ bool CvPlayer::DoReturnCityToVassalByID(int iCityID)
 	CvCity* pCity = getCity(iCityID);
 	if (pCity == NULL) return false;
 	return DoReturnCityToVassal(pCity);
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::TransferGoldTo(PlayerTypes eTo, int iGold)
+{
+	if (iGold <= 0) return;
+	if (eTo == NO_PLAYER || !GET_PLAYER(eTo).isAlive()) return;
+	GetTreasury()->ChangeGold(-iGold);
+	GET_PLAYER(eTo).GetTreasury()->ChangeGold(iGold);
 }
 
 //--------------------------------------------------------------------------------
@@ -35482,8 +35490,7 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 				int iPay = std::min(iGold, (int)GetTreasury()->GetGold());
 				if (iPay > 0)
 				{
-					GetTreasury()->ChangeGold(-iPay);
-					GET_PLAYER(eVassal).GetTreasury()->ChangeGold(iPay);
+					TransferGoldTo(eVassal, iPay);
 				}
 			}
 
@@ -36439,8 +36446,7 @@ void CvPlayer::DoVassalCourtGiftTurn()
 			int iPay = std::min(iGold, (int)kVassal.GetTreasury()->GetGold());
 			if (iPay > 0)
 			{
-				kVassal.GetTreasury()->ChangeGold(-iPay);
-				GetTreasury()->ChangeGold(iPay);
+				kVassal.TransferGoldTo(GetID(), iPay);
 				iPaidGold = iPay;
 				bGave = true;
 			}

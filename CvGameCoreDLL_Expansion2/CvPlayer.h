@@ -2013,6 +2013,8 @@ public:
 	// Shared by prayer offerings and wonder-request conditions: with valid
 	// balances, move yields from a vassal to this (overlord) player.
 	bool TransferYieldToOverlord(PlayerTypes eVassal, int iScience, int iCulture, int iFaith, int iGold);
+	// Shared one-way gold transfer used by gifts, court gifts and memorial aid.
+	void TransferGoldTo(PlayerTypes eTo, int iGold);
 	void DoVassalCallToArms();
 	// Breach detection and the overlord's right to punish
 	void DoVassalBreachTurn();

@@ -5561,6 +5561,7 @@ void CvPlayer::doTurn()
 		DoMandateBlessingTurn();
 		DoMandatePunishmentTurn();
 		DoVassalCallToArms();
+		DoVassalAIDiplomacyTurn();
 		DoVassalBreachTurn();
 		DoDaoTurn();
 		ResetVassalGiftCounts();
@@ -35201,6 +35202,70 @@ void CvPlayer::DoVassalCallToArms()
 }
 
 //--------------------------------------------------------------------------------
+// AI overlords keep their court in order: mediate disputes, shore up shaky
+// vassals, and recruit a new one when there is room.
+void CvPlayer::DoVassalAIDiplomacyTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (isHuman() || !isAlive() || !isMajorCiv()) return;
+	if (m_vecVassals.empty()) return;
+	if (!IsVassalCourtTurn()) return;
+
+	// Mediate one dispute per court session.
+	for (size_t a = 0; a < m_vecVassals.size(); a++)
+	{
+		PlayerTypes eA = (PlayerTypes)m_vecVassals[a];
+		if (!IsLiveVassal(eA)) continue;
+		for (size_t b = a + 1; b < m_vecVassals.size(); b++)
+		{
+			PlayerTypes eB = (PlayerTypes)m_vecVassals[b];
+			if (!IsLiveVassal(eB)) continue;
+			if (CanMediateVassals(eA, eB))
+			{
+				DoVassalMediate(eA, eB);
+				break;
+			}
+		}
+	}
+
+	// Shore up a shaky vassal: rank first, then a gift if affordable.
+	int iGiftGold = TiandaoDefineInt("TIANDAO_GIFT_GOLD");
+	for (size_t i = 0; i < m_vecVassals.size(); i++)
+	{
+		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
+		if (!IsLiveVassal(eVassal)) continue;
+		if (GetVassalLoyalty(eVassal) >= 40) continue;
+
+		if (CanRankUpVassal(eVassal))
+		{
+			DoVassalRankUp(eVassal);
+			continue;
+		}
+		if (iGiftGold > 0 && GetVassalGiftLoyalty(eVassal) > 0
+			&& GetTreasury()->GetGold() >= iGiftGold)
+		{
+			DoVassalGift(eVassal);
+		}
+	}
+
+	// Recruit when under the cap.
+	int iMax = TiandaoDefineInt("TIANDAO_AI_MAX_VASSALS");
+	if (iMax <= 0) iMax = 3;
+	if ((int)m_vecVassals.size() >= iMax) return;
+
+	for (int i = 0; i < MAX_MAJOR_CIVS; i++)
+	{
+		PlayerTypes eTarget = (PlayerTypes)i;
+		if (eTarget == GetID()) continue;
+		if (CanInviteVassal(eTarget))
+		{
+			DoInviteVassal(eTarget);
+			break;
+		}
+	}
+}
+
+//--------------------------------------------------------------------------------
 // A vassal may not start wars on its own, nor attack fellow vassals. Once every
 // turn, scan its wars and count any that the overlord did not authorize. Repeated
 // breaches grant the overlord the right to punish the vassal.
@@ -35681,7 +35746,8 @@ void CvPlayer::DoVassalMemorialTurn()
 	if (!bAnyExpired && IsVassalCourtTurn())
 		ChangeDaoPoints(TiandaoDefineInt("TIANDAO_DAO_POINT_COURT_CLEAN"));
 
-	// AI overlords run their own court: settle every pending memorial now.
+	// AI overlords run their own court: settle every pending memorial now,
+	// judging each by the vassal's loyalty instead of the player's defaults.
 	if (!isHuman())
 	{
 		int iAiCount = GetVassalMemorialCount();
@@ -35689,7 +35755,26 @@ void CvPlayer::DoVassalMemorialTurn()
 		{
 			if (GetVassalMemorialField(m, TIANDAO_MEMORIAL_STATE) != 0) continue;
 			int iType = GetVassalMemorialField(m, TIANDAO_MEMORIAL_TYPE);
-			ResolveVassalMemorial(m, GetMemorialDefault(iType) > 0);
+			PlayerTypes eVassal = (PlayerTypes)GetVassalMemorialField(m, TIANDAO_MEMORIAL_VASSAL);
+
+			bool bApprove = false;
+			switch (iType)
+			{
+			case 0: // call to arms
+			case 1: // material aid
+				bApprove = (GetVassalLoyalty(eVassal) >= 40);
+				break;
+			case 2: // reward
+				bApprove = (GetVassalLoyalty(eVassal) >= 60);
+				break;
+			case 3: // hardship
+				bApprove = true;
+				break;
+			default:
+				bApprove = (GetMemorialDefault(iType) > 0);
+				break;
+			}
+			ResolveVassalMemorial(m, bApprove);
 		}
 	}
 }
@@ -36868,6 +36953,21 @@ void CvPlayer::DoVassalWonderPoolTurn()
 		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
 		if (!IsLiveVassal(eVassal)) continue;
 		CheckWonderRequestCondition(eVassal);
+	}
+
+	// AI overlords answer unconditional wonder requests on their own; otherwise
+	// a request would sit in the queue forever.
+	if (!isHuman())
+	{
+		for (size_t i = 0; i < m_vecVassals.size(); i++)
+		{
+			PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
+			if (!IsLiveVassal(eVassal)) continue;
+			CvPlayer& kVassal = GET_PLAYER(eVassal);
+			if (kVassal.GetWonderRequest() == NO_BUILDING) continue;
+			if (kVassal.m_iWonderConditionType > 0) continue;
+			ApproveVassalWonderRequest(eVassal, GetVassalLoyalty(eVassal) >= 50);
+		}
 	}
 }
 

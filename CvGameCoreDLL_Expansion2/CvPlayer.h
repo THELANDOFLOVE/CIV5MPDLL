@@ -2018,6 +2018,7 @@ public:
 	// Shared one-way gold transfer used by gifts, court gifts and memorial aid.
 	void TransferGoldTo(PlayerTypes eTo, int iGold);
 	void DoVassalCallToArms();
+	void DoVassalAIDiplomacyTurn();
 	// Breach detection and the overlord's right to punish
 	void DoVassalBreachTurn();
 	bool HasVassalPunishRight(PlayerTypes eVassal) const;

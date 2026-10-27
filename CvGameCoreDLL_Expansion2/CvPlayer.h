@@ -2026,6 +2026,8 @@ public:
 	int GetVassalMemorialField(int iIndex, int iField) const;
 	bool HasPendingMemorial(PlayerTypes eVassal, int iType) const;
 	bool IsVassalMilitarilyOvermatched(PlayerTypes eVassal) const;
+	int GetMemorialDefault(int iType) const;
+	void SetMemorialDefault(int iType, int iValue);
 	int AddVassalMemorial(int iType, int iLevel, int iMinistry, PlayerTypes eVassal, PlayerTypes eTarget, int iDeadlineTurns);
 	bool ResolveVassalMemorial(int iIndex, bool bApprove);
 	void DoVassalMemorialTurn();
@@ -3213,6 +3215,8 @@ protected:
 	std::vector<int> m_aiPrayerDenyStreak;
 	// Court gift log (derived, rebuilt each court turn; not serialized)
 	std::vector<int> m_aiCourtGiftLog;
+	// Minister default verdict per memorial type: 0 = reject, 1 = approve
+	std::vector<int> m_aiMemorialDefault;
 	std::vector<int> m_aiPrayerBlessing;
 	int m_iPrayerBlessingEndTurn;
 	int m_iPrayerThresholdTurns;

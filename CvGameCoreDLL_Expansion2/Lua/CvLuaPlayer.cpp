@@ -1535,6 +1535,8 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(CanVassalRevolt);
 	Method(GetVassalMemorialCount);
 	Method(GetVassalMemorialField);
+	Method(GetMemorialDefault);
+	Method(SetMemorialDefault);
 	Method(ResolveVassalMemorial);
 	Method(GetVassalCourtInterval);
 	Method(IsVassalCourtTurn);
@@ -7526,6 +7528,25 @@ int CvLuaPlayer::lGetVassalMemorialField(lua_State* L)
 	int iField = lua_tointeger(L, 3);
 	lua_pushinteger(L, pkPlayer->GetVassalMemorialField(iIndex, iField));
 	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetMemorialDefault(int iType);
+int CvLuaPlayer::lGetMemorialDefault(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	int iType = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetMemorialDefault(iType));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//void SetMemorialDefault(int iType, int iValue);
+int CvLuaPlayer::lSetMemorialDefault(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	int iType = lua_tointeger(L, 2);
+	int iValue = lua_tointeger(L, 3);
+	pkPlayer->SetMemorialDefault(iType, iValue);
+	return 0;
 }
 //------------------------------------------------------------------------------
 //bool ResolveVassalMemorial(int iIndex, bool bApprove);

@@ -1347,6 +1347,8 @@ void CvPlayer::uninit()
 	m_aiPrayerDenyStreak.clear();
 	m_aiPrayerDenyStreak.resize(MAX_MAJOR_CIVS, 0);
 	m_aiCourtGiftLog.clear();
+	m_aiMemorialDefault.clear();
+	m_aiMemorialDefault.resize(4, 0);
 	m_aiPrayerBlessing.clear();
 	m_aiPrayerBlessing.resize(NUM_YIELD_TYPES, 0);
 	m_iPrayerBlessingEndTurn = 0;
@@ -31322,6 +31324,7 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ(165, kStream, m_iVassalCourtPolicy, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalBreachCount, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalPunishRight, MAX_MAJOR_CIVS, 0);
+		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiMemorialDefault, 4, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalBreachTurn, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iMandate, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iFengshanEra, -1);
@@ -32288,6 +32291,7 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE(kStream, m_iVassalCourtPolicy);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalBreachCount);
 	MOD_SERIALIZE_WRITE(kStream, m_aiVassalPunishRight);
+	MOD_SERIALIZE_WRITE(kStream, m_aiMemorialDefault);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalBreachTurn);
 	MOD_SERIALIZE_WRITE(kStream, m_iMandate);
 	MOD_SERIALIZE_WRITE(kStream, m_iFengshanEra);
@@ -35419,6 +35423,22 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 }
 
 //--------------------------------------------------------------------------------
+int CvPlayer::GetMemorialDefault(int iType) const
+{
+	if (iType < 0 || iType >= (int)m_aiMemorialDefault.size()) return 0;
+	return m_aiMemorialDefault[iType];
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::SetMemorialDefault(int iType, int iValue)
+{
+	if (iType < 0 || iType >= 4) return;
+	if (m_aiMemorialDefault.size() != 4)
+		m_aiMemorialDefault.resize(4, 0);
+	m_aiMemorialDefault[iType] = (iValue != 0) ? 1 : 0;
+}
+
+//--------------------------------------------------------------------------------
 bool CvPlayer::HasPendingMemorial(PlayerTypes eVassal, int iType) const
 {
 	int iCount = GetVassalMemorialCount();
@@ -35539,12 +35559,28 @@ void CvPlayer::DoVassalMemorialTurn()
 		if (iDeadline <= 0 || iTurn < iDeadline) continue;
 
 		PlayerTypes eVassal = (PlayerTypes)GetVassalMemorialField(m, TIANDAO_MEMORIAL_VASSAL);
-		// An expired memorial is handled as a refusal, then marked as expired.
-		ResolveVassalMemorial(m, false);
+		int iType = GetVassalMemorialField(m, TIANDAO_MEMORIAL_TYPE);
+		int iDefault = GetMemorialDefault(iType);
+
+		// The minister settles the expired memorial with the pre-set verdict.
+		ResolveVassalMemorial(m, iDefault > 0);
 		if (iNeglect != 0)
 			ChangeVassalLoyalty(eVassal, iNeglect);
+		ChangeMandate(TiandaoDefineInt("TIANDAO_MINISTER_NEGLECT_MANDATE"));
 
 		m_aiVassalMemorials.setAt(m * TIANDAO_MEMORIAL_STRIDE + TIANDAO_MEMORIAL_STATE, 3);
+	}
+
+	// AI overlords run their own court: settle every pending memorial now.
+	if (!isHuman())
+	{
+		int iAiCount = GetVassalMemorialCount();
+		for (int m = 0; m < iAiCount; m++)
+		{
+			if (GetVassalMemorialField(m, TIANDAO_MEMORIAL_STATE) != 0) continue;
+			int iType = GetVassalMemorialField(m, TIANDAO_MEMORIAL_TYPE);
+			ResolveVassalMemorial(m, GetMemorialDefault(iType) > 0);
+		}
 	}
 }
 

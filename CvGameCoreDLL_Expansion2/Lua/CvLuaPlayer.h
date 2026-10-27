@@ -1411,6 +1411,8 @@ protected:
 	LUAAPIEXTN(CanVassalRevolt, bool, ePlayer);
 	LUAAPIEXTN(GetVassalMemorialCount, int);
 	LUAAPIEXTN(GetVassalMemorialField, int, iIndex, iField);
+	LUAAPIEXTN(GetMemorialDefault, int, iType);
+	LUAAPIEXTN(SetMemorialDefault, void, iType, iValue);
 	LUAAPIEXTN(ResolveVassalMemorial, bool, iIndex, bApprove);
 	LUAAPIEXTN(GetVassalCourtInterval, int);
 	LUAAPIEXTN(IsVassalCourtTurn, bool);

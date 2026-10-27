@@ -37554,6 +37554,101 @@ void CvPlayer::AddDaoUC(UnitTypes eUnit)
 }
 
 //--------------------------------------------------------------------------------
+int CvPlayer::GetDaoBeliefCost() const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	if (!HasDaoPerk(5)) return 0;
+	int iCost = TiandaoDefineInt("TIANDAO_DAO_BELIEF_FAITH_COST");
+	return (iCost > 0) ? iCost : 300;
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetDaoBeliefOptionCount() const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	if (!HasDaoPerk(5)) return 0;
+
+	CvGameReligions* pReligions = GC.getGame().GetGameReligions();
+	if (pReligions == NULL) return 0;
+
+	ReligionTypes eReligion = GetReligions()->GetReligionCreatedByPlayer(false);
+	if (eReligion == NO_RELIGION)
+	{
+		if (pReligions->HasCreatedPantheon(GetID())) return 0;
+		return (int)pReligions->GetAvailablePantheonBeliefs(GetID()).size();
+	}
+
+	return (int)pReligions->GetAvailableFollowerBeliefs(GetID(), eReligion).size();
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetDaoBeliefOption(int iIndex) const
+{
+	if (iIndex < 0) return NO_BELIEF;
+	CvGameReligions* pReligions = GC.getGame().GetGameReligions();
+	if (pReligions == NULL) return NO_BELIEF;
+
+	ReligionTypes eReligion = GetReligions()->GetReligionCreatedByPlayer(false);
+	std::vector<BeliefTypes> v;
+	if (eReligion == NO_RELIGION)
+	{
+		if (pReligions->HasCreatedPantheon(GetID())) return NO_BELIEF;
+		v = pReligions->GetAvailablePantheonBeliefs(GetID());
+	}
+	else
+	{
+		v = pReligions->GetAvailableFollowerBeliefs(GetID(), eReligion);
+	}
+
+	if (iIndex >= (int)v.size()) return NO_BELIEF;
+	return v[iIndex];
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::PurchaseDaoBelief(BeliefTypes eBelief)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (!HasDaoPerk(5)) return false;
+	if (eBelief == NO_BELIEF) return false;
+
+	int iCost = GetDaoBeliefCost();
+	if (iCost <= 0 || GetFaith() < iCost) return false;
+
+	CvGameReligions* pReligions = GC.getGame().GetGameReligions();
+	if (pReligions == NULL) return false;
+
+	ReligionTypes eReligion = GetReligions()->GetReligionCreatedByPlayer(false);
+	if (eReligion == NO_RELIGION)
+	{
+		if (pReligions->HasCreatedPantheon(GetID())) return false;
+
+		std::vector<BeliefTypes> v = pReligions->GetAvailablePantheonBeliefs(GetID());
+		bool bFound = false;
+		for (size_t i = 0; i < v.size(); i++)
+		{
+			if (v[i] == eBelief) { bFound = true; break; }
+		}
+		if (!bFound) return false;
+
+		ChangeFaith(-iCost);
+		pReligions->FoundPantheon(GetID(), eBelief);
+		return true;
+	}
+
+	std::vector<BeliefTypes> v = pReligions->GetAvailableFollowerBeliefs(GetID(), eReligion);
+	bool bFound = false;
+	for (size_t i = 0; i < v.size(); i++)
+	{
+		if (v[i] == eBelief) { bFound = true; break; }
+	}
+	if (!bFound) return false;
+
+	ChangeFaith(-iCost);
+	pReligions->AddBeliefToReligion(GetID(), eReligion, eBelief);
+	return true;
+}
+
+//--------------------------------------------------------------------------------
 int CvPlayer::GetDaoUCCount() const
 {
 	return (int)m_aiDaoUCs.size();

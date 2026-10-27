@@ -151,6 +151,7 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoDaoGrace);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lAddDaoUC);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lHasDaoPerk);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lPurchaseDaoBelief);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSubmitPrayer);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lResolvePrayer);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lChoosePrayerTech);
@@ -1563,6 +1564,10 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(AddDaoUC);
 	Method(GetDaoUCCount);
 	Method(GetDaoUC);
+	Method(GetDaoBeliefCost);
+	Method(GetDaoBeliefOptionCount);
+	Method(GetDaoBeliefOption);
+	Method(PurchaseDaoBelief);
 	Method(GetMandateMax);
 	Method(IsMandateFull);
 	Method(CanFengshan);
@@ -7755,6 +7760,40 @@ int CvLuaPlayer::lGetDaoUC(lua_State* L)
 	CvPlayerAI* pkPlayer = GetInstance(L);
 	int iIndex = lua_tointeger(L, 2);
 	lua_pushinteger(L, pkPlayer->GetDaoUC(iIndex));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetDaoBeliefCost();
+int CvLuaPlayer::lGetDaoBeliefCost(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->GetDaoBeliefCost());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetDaoBeliefOptionCount();
+int CvLuaPlayer::lGetDaoBeliefOptionCount(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->GetDaoBeliefOptionCount());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetDaoBeliefOption(int iIndex);
+int CvLuaPlayer::lGetDaoBeliefOption(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	int iIndex = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetDaoBeliefOption(iIndex));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool PurchaseDaoBelief(BeliefTypes eBelief);
+int CvLuaPlayer::lPurchaseDaoBelief(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	BeliefTypes eBelief = (BeliefTypes)lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->PurchaseDaoBelief(eBelief));
 	return 1;
 }
 //------------------------------------------------------------------------------

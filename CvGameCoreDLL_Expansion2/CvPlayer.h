@@ -2061,6 +2061,11 @@ public:
 	void AddDaoUC(UnitTypes eUnit);
 	int GetDaoUCCount() const;
 	int GetDaoUC(int iIndex) const;
+	// Faith purchase of beliefs (pantheon or a religion belief)
+	int GetDaoBeliefCost() const;
+	int GetDaoBeliefOptionCount() const;
+	int GetDaoBeliefOption(int iIndex) const;
+	bool PurchaseDaoBelief(BeliefTypes eBelief);
 	// Active dao grace effects
 	int GetDaoCombatModifier() const;
 	bool HasDaoSiegeNoHeal() const;

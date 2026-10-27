@@ -1435,6 +1435,10 @@ protected:
 	LUAAPIEXTN(AddDaoUC, void, eUnit);
 	LUAAPIEXTN(GetDaoUCCount, int);
 	LUAAPIEXTN(GetDaoUC, int, iIndex);
+	LUAAPIEXTN(GetDaoBeliefCost, int);
+	LUAAPIEXTN(GetDaoBeliefOptionCount, int);
+	LUAAPIEXTN(GetDaoBeliefOption, int, iIndex);
+	LUAAPIEXTN(PurchaseDaoBelief, bool, eBelief);
 	LUAAPIEXTN(GetMandateMax, int);
 	LUAAPIEXTN(IsMandateFull, bool);
 	LUAAPIEXTN(CanFengshan, bool);

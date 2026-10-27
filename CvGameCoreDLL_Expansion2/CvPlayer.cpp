@@ -35140,9 +35140,8 @@ void CvPlayer::DoVassalCallToArms()
 	for (size_t i = 0; i < m_vecVassals.size(); i++)
 	{
 		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
-		if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) continue;
+		if (!IsLiveVassal(eVassal)) continue;
 		CvPlayer& kVassal = GET_PLAYER(eVassal);
-		if (!kVassal.isAlive()) continue;
 
 		TeamTypes eVassalTeam = kVassal.getTeam();
 		if (eVassalTeam == NO_TEAM || eVassalTeam == eOurTeam) continue;
@@ -35217,9 +35216,8 @@ void CvPlayer::DoVassalBreachTurn()
 	for (size_t i = 0; i < m_vecVassals.size(); i++)
 	{
 		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
-		if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) continue;
+		if (!IsLiveVassal(eVassal)) continue;
 		CvPlayer& kVassal = GET_PLAYER(eVassal);
-		if (!kVassal.isAlive()) continue;
 
 		TeamTypes eVassalTeam = kVassal.getTeam();
 		if (eVassalTeam == NO_TEAM || eVassalTeam == getTeam()) continue;
@@ -35578,7 +35576,7 @@ void CvPlayer::DoVassalMemorialTurn()
 	for (size_t i = 0; i < m_vecVassals.size(); i++)
 	{
 		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
-		if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) continue;
+		if (!IsLiveVassal(eVassal)) continue;
 		if ((size_t)eVassal < m_aiVassalProtectHandled.size() && m_aiVassalProtectHandled[eVassal] != 0)
 			continue;
 
@@ -35606,9 +35604,8 @@ void CvPlayer::DoVassalMemorialTurn()
 	for (size_t i = 0; i < m_vecVassals.size(); i++)
 	{
 		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
-		if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) continue;
+		if (!IsLiveVassal(eVassal)) continue;
 		CvPlayer& kVassal = GET_PLAYER(eVassal);
-		if (!kVassal.isAlive()) continue;
 
 		PlayerTypes eAggressor = GetVassalAggressor(eVassal);
 		if (eAggressor == NO_PLAYER) continue;
@@ -35628,9 +35625,8 @@ void CvPlayer::DoVassalMemorialTurn()
 		for (size_t i = 0; i < m_vecVassals.size(); i++)
 		{
 			PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
-			if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) continue;
+			if (!IsLiveVassal(eVassal)) continue;
 			CvPlayer& kVassal = GET_PLAYER(eVassal);
-			if (!kVassal.isAlive()) continue;
 
 			if (iGiftMinLoyalty > 0 && GetVassalLoyalty(eVassal) >= iGiftMinLoyalty
 				&& !HasPendingMemorial(eVassal, 2))
@@ -35774,7 +35770,7 @@ bool CvPlayer::SetVassalCourtPolicy(int iPolicy)
 	for (size_t i = 0; i < m_vecVassals.size(); i++)
 	{
 		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
-		if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) continue;
+		if (!IsLiveVassal(eVassal)) continue;
 		if (GetVassalLoyalty(eVassal) >= iMinLoyalty)
 			ChangeVassalLoyalty(eVassal, iGain);
 	}
@@ -36044,8 +36040,7 @@ void CvPlayer::DoDaoTurn()
 		for (size_t i = 0; i < m_vecVassals.size(); i++)
 		{
 			PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
-			if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) continue;
-			if (!GET_PLAYER(eVassal).isAlive()) continue;
+			if (!IsLiveVassal(eVassal)) continue;
 			iSum += GetVassalLoyalty(eVassal);
 			iAlive++;
 		}
@@ -36085,7 +36080,7 @@ bool CvPlayer::DoFengshan()
 	for (size_t i = 0; i < m_vecVassals.size(); i++)
 	{
 		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
-		if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) continue;
+		if (!IsLiveVassal(eVassal)) continue;
 		ChangeVassalLoyalty(eVassal, iLoyalty);
 	}
 
@@ -36424,10 +36419,9 @@ void CvPlayer::DoVassalCourtGiftTurn()
 	for (size_t i = 0; i < m_vecVassals.size(); i++)
 	{
 		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
-		if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) continue;
+		if (!IsLiveVassal(eVassal)) continue;
 
 		CvPlayer& kVassal = GET_PLAYER(eVassal);
-		if (!kVassal.isAlive()) continue;
 
 		// Court gifts are voluntary: a content vassal comes to pay respects, a
 		// disaffected one simply stays home.
@@ -36844,7 +36838,7 @@ void CvPlayer::DoVassalWonderPoolTurn()
 	for (size_t i = 0; i < m_vecVassals.size(); i++)
 	{
 		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
-		if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) continue;
+		if (!IsLiveVassal(eVassal)) continue;
 		CheckWonderRequestCondition(eVassal);
 	}
 }
@@ -37307,7 +37301,7 @@ void CvPlayer::DoVassalLoyaltyDecay()
 	for (size_t i = 0; i < m_vecVassals.size(); i++)
 	{
 		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
-		if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) continue;
+		if (!IsLiveVassal(eVassal)) continue;
 		ChangeVassalLoyalty(eVassal, -iAmount);
 	}
 }
@@ -37345,6 +37339,15 @@ bool CvPlayer::IsOverlordOf(PlayerTypes e) const
 	for (size_t i = 0; i < m_vecVassals.size(); i++)
 		if (m_vecVassals[i] == (int)e) return true;
 	return false;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::IsLiveVassal(PlayerTypes eVassal) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) return false;
+	if (!IsOverlordOf(eVassal)) return false;
+	return GET_PLAYER(eVassal).isAlive();
 }
 
 //--------------------------------------------------------------------------------
@@ -37408,8 +37411,8 @@ void CvPlayer::RefreshUCFromVassals()
 	for (size_t i = 0; i < m_vecVassals.size(); i++)
 	{
 		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
+		if (!IsLiveVassal(eVassal)) continue;
 		CvPlayer& kVassal = GET_PLAYER(eVassal);
-		if (!kVassal.isAlive()) continue;
 		std::tr1::unordered_set<UnitTypes> uuSet;
 		std::tr1::unordered_set<BuildingTypes> ubSet;
 		std::tr1::unordered_set<ImprovementTypes> uiSet;

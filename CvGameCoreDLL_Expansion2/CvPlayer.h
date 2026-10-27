@@ -1980,6 +1980,8 @@ public:
 	void SetOverlord(PlayerTypes e);
 	bool IsVassalOf(PlayerTypes e) const;
 	bool IsOverlordOf(PlayerTypes e) const;
+	// One check for every "is this a live vassal of mine" loop.
+	bool IsLiveVassal(PlayerTypes eVassal) const;
 	bool HasAnyVassal() const;
 	const std::vector<int>& GetVassals() const;
 	void AddVassal(PlayerTypes e);

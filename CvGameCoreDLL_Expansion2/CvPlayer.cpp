@@ -34654,6 +34654,52 @@ bool CvPlayer::DoReturnCityToVassalByID(int iCityID)
 }
 
 //--------------------------------------------------------------------------------
+// Move an offering from a vassal to this overlord. Returns false (and moves
+// nothing) when any part of the offering cannot be paid.
+bool CvPlayer::TransferYieldToOverlord(PlayerTypes eVassal, int iScience, int iCulture, int iFaith, int iGold)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (eVassal == NO_PLAYER) return false;
+
+	CvPlayer& kVassal = GET_PLAYER(eVassal);
+	if (!kVassal.isAlive()) return false;
+
+	TechTypes eResearch = (iScience > 0) ? kVassal.GetPlayerTechs()->GetCurrentResearch() : NO_TECH;
+	if (iScience > 0)
+	{
+		if (eResearch == NO_TECH) return false;
+		if (kVassal.GetPlayerTechs()->GetResearchProgress(eResearch) < iScience) return false;
+	}
+	if (iGold > 0 && kVassal.GetTreasury()->GetGold() < iGold) return false;
+	if (iFaith > 0 && kVassal.GetFaith() < iFaith) return false;
+	if (iCulture > 0 && kVassal.getJONSCulture() < iCulture) return false;
+
+	if (iScience > 0)
+		GET_TEAM(kVassal.getTeam()).GetTeamTechs()->ChangeResearchProgress(eResearch, -iScience, eVassal);
+	if (iCulture > 0)
+		kVassal.changeJONSCulture(-iCulture);
+	if (iFaith > 0)
+		kVassal.ChangeFaith(-iFaith);
+	if (iGold > 0)
+		kVassal.GetTreasury()->ChangeGold(-iGold);
+
+	if (iScience > 0)
+	{
+		TechTypes eOurResearch = GetPlayerTechs()->GetCurrentResearch();
+		if (eOurResearch != NO_TECH)
+			GET_TEAM(getTeam()).GetTeamTechs()->ChangeResearchProgress(eOurResearch, iScience, GetID());
+	}
+	if (iCulture > 0)
+		changeJONSCulture(iCulture);
+	if (iFaith > 0)
+		ChangeFaith(iFaith);
+	if (iGold > 0)
+		GetTreasury()->ChangeGold(iGold);
+
+	return true;
+}
+
+//--------------------------------------------------------------------------------
 // Prayer: a vassal offers part of its science, culture, faith and gold to the
 // overlord and asks for a grace. The offering is collected immediately; the
 // request waits in the overlord's court queue until adjudicated.
@@ -34690,38 +34736,9 @@ bool CvPlayer::SubmitPrayer(int iScience, int iCulture, int iFaith, int iGold, i
 		if (iCount >= iMaxPerTurn) return false;
 	}
 
-	TechTypes eResearch = (iScience > 0) ? GetPlayerTechs()->GetCurrentResearch() : NO_TECH;
-	if (iScience > 0)
-	{
-		if (eResearch == NO_TECH) return false;
-		if (GetPlayerTechs()->GetResearchProgress(eResearch) < iScience) return false;
-	}
-	if (iGold > 0 && GetTreasury()->GetGold() < iGold) return false;
-	if (iFaith > 0 && GetFaith() < iFaith) return false;
-	if (iCulture > 0 && getJONSCulture() < iCulture) return false;
-
-	if (iScience > 0)
-		GET_TEAM(getTeam()).GetTeamTechs()->ChangeResearchProgress(eResearch, -iScience, GetID());
-	if (iCulture > 0)
-		changeJONSCulture(-iCulture);
-	if (iFaith > 0)
-		ChangeFaith(-iFaith);
-	if (iGold > 0)
-		GetTreasury()->ChangeGold(-iGold);
-
 	// The offering reaches the overlord immediately.
-	if (iScience > 0)
-	{
-		TechTypes eOverlordResearch = kOverlord.GetPlayerTechs()->GetCurrentResearch();
-		if (eOverlordResearch != NO_TECH)
-			GET_TEAM(kOverlord.getTeam()).GetTeamTechs()->ChangeResearchProgress(eOverlordResearch, iScience, eOverlord);
-	}
-	if (iCulture > 0)
-		kOverlord.changeJONSCulture(iCulture);
-	if (iFaith > 0)
-		kOverlord.ChangeFaith(iFaith);
-	if (iGold > 0)
-		kOverlord.GetTreasury()->ChangeGold(iGold);
+	if (!kOverlord.TransferYieldToOverlord(GetID(), iScience, iCulture, iFaith, iGold))
+		return false;
 
 	TiandaoPrayerRequest req;
 	req.eVassal = GetID();
@@ -36802,50 +36819,19 @@ bool CvPlayer::CheckWonderRequestCondition(PlayerTypes eVassal)
 	switch (kVassal.m_iWonderConditionType)
 	{
 	case 1: // gold
-	{
-		int iValue = kVassal.m_iWonderConditionValue;
-		if (iValue > 0 && kVassal.GetTreasury()->GetGold() >= iValue)
-		{
-			kVassal.GetTreasury()->ChangeGold(-iValue);
-			GetTreasury()->ChangeGold(iValue);
-			bMet = true;
-		}
-		break;
-	}
 	case 2: // science
-	{
-		int iValue = kVassal.m_iWonderConditionValue;
-		TechTypes eTech = kVassal.GetPlayerTechs()->GetCurrentResearch();
-		if (iValue > 0 && eTech != NO_TECH
-			&& kVassal.GetPlayerTechs()->GetResearchProgress(eTech) >= iValue)
-		{
-			GET_TEAM(kVassal.getTeam()).GetTeamTechs()->ChangeResearchProgress(eTech, -iValue, eVassal);
-			TechTypes eOur = GetPlayerTechs()->GetCurrentResearch();
-			if (eOur != NO_TECH)
-				GET_TEAM(getTeam()).GetTeamTechs()->ChangeResearchProgress(eOur, iValue, GetID());
-			bMet = true;
-		}
-		break;
-	}
 	case 3: // culture
-	{
-		int iValue = kVassal.m_iWonderConditionValue;
-		if (iValue > 0 && kVassal.getJONSCulture() >= iValue)
-		{
-			kVassal.changeJONSCulture(-iValue);
-			changeJONSCulture(iValue);
-			bMet = true;
-		}
-		break;
-	}
 	case 4: // faith
 	{
 		int iValue = kVassal.m_iWonderConditionValue;
-		if (iValue > 0 && kVassal.GetFaith() >= iValue)
+		if (iValue > 0)
 		{
-			kVassal.ChangeFaith(-iValue);
-			ChangeFaith(iValue);
-			bMet = true;
+			int iSci = (kVassal.m_iWonderConditionType == 2) ? iValue : 0;
+			int iCul = (kVassal.m_iWonderConditionType == 3) ? iValue : 0;
+			int iFai = (kVassal.m_iWonderConditionType == 4) ? iValue : 0;
+			int iGold = (kVassal.m_iWonderConditionType == 1) ? iValue : 0;
+			if (TransferYieldToOverlord(eVassal, iSci, iCul, iFai, iGold))
+				bMet = true;
 		}
 		break;
 	}

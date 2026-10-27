@@ -2010,6 +2010,9 @@ public:
 	bool CanReturnCityToVassal(CvCity* pCity) const;
 	bool DoReturnCityToVassal(CvCity* pCity);
 	bool DoReturnCityToVassalByID(int iCityID);
+	// Shared by prayer offerings and wonder-request conditions: with valid
+	// balances, move yields from a vassal to this (overlord) player.
+	bool TransferYieldToOverlord(PlayerTypes eVassal, int iScience, int iCulture, int iFaith, int iGold);
 	void DoVassalCallToArms();
 	// Breach detection and the overlord's right to punish
 	void DoVassalBreachTurn();

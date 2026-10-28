@@ -31431,8 +31431,8 @@ void CvPlayer::Read(FDataStream& kStream)
 				m_vPrayerRequests.push_back(req);
 			}
 		}
-		MOD_SERIALIZE_READ_VECTOR(166, kStream, m_aiPrayerDenyStreak, MAX_MAJOR_CIVS, 0);
-		MOD_SERIALIZE_READ_VECTOR(166, kStream, m_aiPrayerBlessing, NUM_YIELD_TYPES, 0);
+		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiPrayerDenyStreak, MAX_MAJOR_CIVS, 0);
+		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiPrayerBlessing, NUM_YIELD_TYPES, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iPrayerBlessingEndTurn, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iPrayerThresholdTurns, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iPrayerResearchCostModifier, 0);

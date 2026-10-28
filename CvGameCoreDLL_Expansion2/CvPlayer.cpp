@@ -35141,6 +35141,7 @@ void CvPlayer::DoPrayerTurn()
 //--------------------------------------------------------------------------------
 void CvPlayer::DoPrayerOverlordTurn()
 {
+	if (!IsSuzerainCiv()) return;
 	if (!MOD_GLOBAL_SUZERAIN) return;
 	if (isHuman()) return;
 	if (m_vPrayerRequests.empty()) return;
@@ -35230,6 +35231,7 @@ void CvPlayer::DoVassalCallToArms()
 // vassals, and recruit a new one when there is room.
 void CvPlayer::DoVassalAIDiplomacyTurn()
 {
+	if (!IsSuzerainCiv()) return;
 	if (!MOD_GLOBAL_SUZERAIN) return;
 	if (isHuman() || !isAlive() || !isMajorCiv()) return;
 	if (m_vecVassals.empty()) return;
@@ -35563,6 +35565,7 @@ bool CvPlayer::DoVassalRevolt(PlayerTypes eVassal)
 //--------------------------------------------------------------------------------
 void CvPlayer::DoVassalRevoltCheck()
 {
+	if (!IsSuzerainCiv()) return;
 	if (!MOD_GLOBAL_SUZERAIN) return;
 	if (m_vecVassals.empty()) return;
 
@@ -35782,6 +35785,7 @@ bool CvPlayer::IsVassalMilitarilyOvermatched(PlayerTypes eVassal) const
 //--------------------------------------------------------------------------------
 void CvPlayer::DoVassalMemorialTurn()
 {
+	if (!IsSuzerainCiv()) return;
 	if (!MOD_GLOBAL_SUZERAIN) return;
 
 	int iDeadlineTurns = TiandaoDefineInt("TIANDAO_MEMORIAL_URGENT_TURNS");
@@ -36021,6 +36025,38 @@ int CvPlayer::GetVassalCourtPolicy() const
 }
 
 //--------------------------------------------------------------------------------
+// Civilizations listed in TIANDAO_SUZERAIN_CIVILIZATIONS (comma separated) may
+// act as overlords: hold vassals, run courts, collect mandate and dao points.
+bool CvPlayer::IsSuzerainCiv() const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+
+	CvString sCivs = GC.getDefineSTRING("TIANDAO_SUZERAIN_CIVILIZATIONS", false);
+	if (sCivs.empty()) return false;
+
+	const char* p = sCivs.c_str();
+	while (p != NULL && *p != '\0')
+	{
+		const char* pEnd = strchr(p, ',');
+		std::string sOne(p, pEnd != NULL ? (size_t)(pEnd - p) : strlen(p));
+
+		size_t iStart = sOne.find_first_not_of(" 	");
+		size_t iStop = sOne.find_last_not_of(" 	");
+		if (iStart != std::string::npos)
+		{
+			sOne = sOne.substr(iStart, iStop - iStart + 1);
+			CivilizationTypes eCiv = (CivilizationTypes)GC.getInfoTypeForString(sOne.c_str(), true);
+			if (eCiv != NO_CIVILIZATION && getCivilizationType() == eCiv)
+				return true;
+		}
+
+		if (pEnd == NULL) break;
+		p = pEnd + 1;
+	}
+	return false;
+}
+
+//--------------------------------------------------------------------------------
 // Court policy in force for this player: vassals follow their overlord's policy.
 int CvPlayer::GetCourtPolicyType() const
 {
@@ -36064,6 +36100,7 @@ void CvPlayer::DoCourtPolicyTurn()
 // loyalty; the same policy cannot be re-applied to farm the bonus.
 bool CvPlayer::SetVassalCourtPolicy(int iPolicy)
 {
+	if (!IsSuzerainCiv()) return false;
 	if (!MOD_GLOBAL_SUZERAIN) return false;
 	if (iPolicy < 1 || iPolicy > 4) return false;
 	if (m_vecVassals.empty()) return false;
@@ -36359,6 +36396,7 @@ bool CvPlayer::DoDaoGrace(int iGrace)
 //--------------------------------------------------------------------------------
 void CvPlayer::DoDaoTurn()
 {
+	if (!IsSuzerainCiv()) return;
 	if (!MOD_GLOBAL_SUZERAIN) return;
 
 	// AI overlords spend their points at court, cheapest unreached grace first.
@@ -36505,6 +36543,7 @@ void CvPlayer::ApplyMandateBlessing(int iFood, int iProduction, int iCulture, in
 //--------------------------------------------------------------------------------
 void CvPlayer::DoMandateBlessingTurn()
 {
+	if (!IsSuzerainCiv()) return;
 	if (!MOD_GLOBAL_SUZERAIN) return;
 	if (m_iBlessingEndTurn <= 0) return;
 	if (GC.getGame().getGameTurn() >= m_iBlessingEndTurn)
@@ -36619,6 +36658,7 @@ bool CvPlayer::IsTradeBlockedWith(PlayerTypes eOther) const
 //--------------------------------------------------------------------------------
 void CvPlayer::DoMandatePunishmentTurn()
 {
+	if (!IsSuzerainCiv()) return;
 	if (!MOD_GLOBAL_SUZERAIN) return;
 	if (m_iPunishEndTurn <= 0) return;
 	if (GC.getGame().getGameTurn() < m_iPunishEndTurn) return;
@@ -36730,6 +36770,7 @@ void CvPlayer::DoVassalOverlordVictoryCheck()
 //--------------------------------------------------------------------------------
 void CvPlayer::DoVassalCourtGiftTurn()
 {
+	if (!IsSuzerainCiv()) return;
 	if (!MOD_GLOBAL_SUZERAIN) return;
 	if (m_vecVassals.empty()) return;
 	if (!IsVassalCourtTurn()) return;
@@ -37144,6 +37185,7 @@ bool CvPlayer::CanVassalBuildWonder(PlayerTypes eVassal, BuildingTypes eBuilding
 //--------------------------------------------------------------------------------
 void CvPlayer::DoVassalWonderPoolTurn()
 {
+	if (!IsSuzerainCiv()) return;
 	if (!MOD_GLOBAL_SUZERAIN) return;
 
 	// Drop entries that were built by anyone.
@@ -37219,6 +37261,7 @@ void CvPlayer::DoVassalWonderPoolTurn()
 //--------------------------------------------------------------------------------
 bool CvPlayer::CanInviteVassal(PlayerTypes eTarget) const
 {
+	if (!IsSuzerainCiv()) return false;
 	if (!MOD_GLOBAL_SUZERAIN) return false;
 	if (eTarget == NO_PLAYER || eTarget == GetID()) return false;
 	if (eTarget < 0 || eTarget >= MAX_MAJOR_CIVS) return false;
@@ -37341,6 +37384,7 @@ void CvPlayer::DoSeekProtectionTurn()
 
 		CvPlayer& kOther = GET_PLAYER(eOther);
 		if (!kOther.isAlive() || !kOther.isMajorCiv()) continue;
+		if (!kOther.IsSuzerainCiv()) continue;
 		if (GET_TEAM(getTeam()).isAtWar(kOther.getTeam())) continue;
 
 		long long iMight = kOther.GetMilitaryMight();
@@ -37370,6 +37414,7 @@ void CvPlayer::DoSeekProtectionTurn()
 // DoReturnCityToVassal for loyalty. Human targets are exempt.
 bool CvPlayer::CanSubjugate(PlayerTypes eTarget) const
 {
+	if (!IsSuzerainCiv()) return false;
 	if (!MOD_GLOBAL_SUZERAIN) return false;
 	if (eTarget == NO_PLAYER || eTarget == GetID()) return false;
 	if (!isAlive() || !isMajorCiv()) return false;
@@ -37424,6 +37469,7 @@ bool CvPlayer::DoSubjugate(PlayerTypes eTarget)
 // through DoSubjugate, so that finishing a civ off is never forced into vassalage.
 void CvPlayer::DoSubjugateTurn()
 {
+	if (!IsSuzerainCiv()) return;
 	if (!MOD_GLOBAL_SUZERAIN) return;
 	if (!isAlive() || !isMajorCiv()) return;
 	if (isHuman()) return;
@@ -37464,6 +37510,7 @@ void CvPlayer::DoSeekAllegianceTurn()
 
 		CvPlayer& kOther = GET_PLAYER(eOther);
 		if (!kOther.isAlive() || !kOther.isMajorCiv()) continue;
+		if (!kOther.IsSuzerainCiv()) continue;
 		if (GET_TEAM(getTeam()).isAtWar(kOther.getTeam())) continue;
 		if (kOther.GetMandate() < iMandateReq) continue;
 		if ((int)kOther.GetVassals().size() < iVassalsReq) continue;
@@ -37675,6 +37722,7 @@ void CvPlayer::DoEmbargoTurn()
 //--------------------------------------------------------------------------------
 void CvPlayer::DoVassalLoyaltyDecay()
 {
+	if (!IsSuzerainCiv()) return;
 	if (!MOD_GLOBAL_SUZERAIN) return;
 	if (m_vecVassals.empty()) return;
 

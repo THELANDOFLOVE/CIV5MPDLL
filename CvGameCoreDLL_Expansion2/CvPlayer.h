@@ -2046,6 +2046,7 @@ public:
 	bool DoVassalAid(PlayerTypes eVassal);
 	int GetVassalCourtPolicy() const;
 	bool SetVassalCourtPolicy(int iPolicy);
+	bool IsSuzerainCiv() const;
 	int GetCourtPolicyType() const;
 	int GetCourtPolicyPercent() const;
 	void DoCourtPolicyTurn();

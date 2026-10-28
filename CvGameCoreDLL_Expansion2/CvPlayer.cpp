@@ -36901,6 +36901,16 @@ bool CvPlayer::CanAddVassalWonderToPool(BuildingTypes eBuilding) const
 	if (pClass == NULL || !isWorldWonderClass(*pClass)) return false;
 	if (GC.getGame().isBuildingClassMaxedOut(eClass)) return false;
 
+	// Only wonders of the current era or earlier may enter the pool; future
+	// era wonders stay hidden until their era begins.
+	TechTypes ePrereqTech = (TechTypes)pBuilding->GetPrereqAndTech();
+	if (ePrereqTech != NO_TECH)
+	{
+		CvTechEntry* pTech = GC.getTechInfo(ePrereqTech);
+		if (pTech != NULL && (int)pTech->GetEra() > (int)GetCurrentEra())
+			return false;
+	}
+
 	for (size_t i = 0; i < m_aiWonderPool.size(); i++)
 		if (m_aiWonderPool[i] == (int)eBuilding) return false;
 

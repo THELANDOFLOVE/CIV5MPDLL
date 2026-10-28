@@ -36025,14 +36025,17 @@ int CvPlayer::GetVassalCourtPolicy() const
 }
 
 //--------------------------------------------------------------------------------
-// Civilizations listed in TIANDAO_SUZERAIN_CIVILIZATIONS (comma separated) may
+// Civilizations listed in SUZERAIN_CIVILIZATIONS (comma separated, or ALL) may
 // act as overlords: hold vassals, run courts, collect mandate and dao points.
 bool CvPlayer::IsSuzerainCiv() const
 {
 	if (!MOD_GLOBAL_SUZERAIN) return false;
 
-	CvString sCivs = GC.getDefineSTRING("TIANDAO_SUZERAIN_CIVILIZATIONS", false);
+	CvString sCivs = GC.getDefineSTRING("SUZERAIN_CIVILIZATIONS", false);
 	if (sCivs.empty()) return false;
+
+	// "ALL" lets every major civilization act as an overlord.
+	if (sCivs == "ALL") return isAlive() && isMajorCiv();
 
 	const char* p = sCivs.c_str();
 	while (p != NULL && *p != '\0')

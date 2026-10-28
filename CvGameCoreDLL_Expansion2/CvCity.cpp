@@ -14567,6 +14567,20 @@ int CvCity::getBaseYieldRate(YieldTypes eIndex, const bool bIgnoreFromOtherYield
 	}
 #endif
 
+#if defined(MOD_GLOBAL_SUZERAIN)
+	// Observatory: each vassal adds +1 science in a city that has one.
+	if (MOD_GLOBAL_SUZERAIN && eIndex == YIELD_SCIENCE)
+	{
+		BuildingTypes eObs = (BuildingTypes)GC.getInfoTypeForString("BUILDING_TIANDAO_OBSERVATORY", true);
+		if (eObs != NO_BUILDING && GetCityBuildings()->GetNumBuilding(eObs) > 0)
+		{
+			int iVassals = (int)GET_PLAYER(getOwner()).GetVassals().size();
+			if (iVassals > 0)
+				iValue += iVassals;
+		}
+	}
+#endif
+
 	return iValue;
 }
 

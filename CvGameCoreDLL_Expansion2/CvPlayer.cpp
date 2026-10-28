@@ -36402,6 +36402,24 @@ void CvPlayer::DoDaoTurn()
 	if (!IsSuzerainCiv()) return;
 	if (!MOD_GLOBAL_SUZERAIN) return;
 
+	// Observatory: +1 dao point each court session while a city has one.
+	if (IsVassalCourtTurn() && HasAnyVassal())
+	{
+		BuildingTypes eObs = (BuildingTypes)GC.getInfoTypeForString("BUILDING_TIANDAO_OBSERVATORY", true);
+		if (eObs != NO_BUILDING)
+		{
+			int iLoop = 0;
+			for (CvCity* pCity = firstCity(&iLoop); pCity != NULL; pCity = nextCity(&iLoop))
+			{
+				if (pCity->GetCityBuildings()->GetNumBuilding(eObs) > 0)
+				{
+					ChangeDaoPoints(1);
+					break;
+				}
+			}
+		}
+	}
+
 	// AI overlords spend their points at court, cheapest unreached grace first.
 	if (!isHuman() && IsVassalCourtTurn() && HasAnyVassal())
 	{

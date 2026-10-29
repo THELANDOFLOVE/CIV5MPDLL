@@ -147,6 +147,11 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lResolveWarOrder);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSubmitVassalMemorial);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lIsSuzerainCiv);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetPendingDecree);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lResolveDecree);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lIssueDecree);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lCanIssueDecree);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lHasVassalTitle);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lTryReleaseVassal);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lForceReleaseVassal);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lKeepVassal);
@@ -1572,6 +1577,11 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(ResolveWarOrder);
 	Method(SubmitVassalMemorial);
 	Method(IsSuzerainCiv);
+	Method(GetPendingDecree);
+	Method(ResolveDecree);
+	Method(IssueDecree);
+	Method(CanIssueDecree);
+	Method(HasVassalTitle);
 	Method(TryReleaseVassal);
 	Method(ForceReleaseVassal);
 	Method(KeepVassal);
@@ -15468,6 +15478,50 @@ int CvLuaPlayer::lIsSuzerainCiv(lua_State* L)
 {
 	CvPlayer* pkPlayer = GetInstance(L);
 	lua_pushboolean(L, pkPlayer->IsSuzerainCiv());
+	return 1;
+}
+//int GetPendingDecree(int iField);
+int CvLuaPlayer::lGetPendingDecree(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const int iField = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetPendingDecree(iField));
+	return 1;
+}
+//bool ResolveDecree(bool bAccept);
+int CvLuaPlayer::lResolveDecree(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const bool bAccept = lua_toboolean(L, 2);
+	lua_pushboolean(L, pkPlayer->ResolveDecree(bAccept));
+	return 1;
+}
+//bool IssueDecree(int iType, PlayerTypes eVassal, int iTarget);
+int CvLuaPlayer::lIssueDecree(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const int iType = lua_tointeger(L, 2);
+	const PlayerTypes eVassal = (PlayerTypes)lua_tointeger(L, 3);
+	const int iTarget = lua_tointeger(L, 4);
+	lua_pushboolean(L, pkPlayer->IssueDecree(iType, eVassal, iTarget));
+	return 1;
+}
+//bool CanIssueDecree(int iType, PlayerTypes eVassal, int iTarget);
+int CvLuaPlayer::lCanIssueDecree(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const int iType = lua_tointeger(L, 2);
+	const PlayerTypes eVassal = (PlayerTypes)lua_tointeger(L, 3);
+	const int iTarget = lua_tointeger(L, 4);
+	lua_pushboolean(L, pkPlayer->CanIssueDecree(iType, eVassal, iTarget));
+	return 1;
+}
+//bool HasVassalTitle(PlayerTypes eVassal);
+int CvLuaPlayer::lHasVassalTitle(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const PlayerTypes eVassal = (PlayerTypes)lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->HasVassalTitle(eVassal));
 	return 1;
 }
 //int TryReleaseVassal(PlayerTypes eVassal);

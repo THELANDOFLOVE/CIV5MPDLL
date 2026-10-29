@@ -432,6 +432,11 @@ CvPlayer::CvPlayer() :
 	, m_iPendingWarOrderFrom("CvPlayer::m_iPendingWarOrderFrom", m_syncArchive)
 	, m_iPendingWarOrderTarget("CvPlayer::m_iPendingWarOrderTarget", m_syncArchive)
 	, m_iPendingWarOrderTurn("CvPlayer::m_iPendingWarOrderTurn", m_syncArchive)
+	, m_iPendingDecreeType("CvPlayer::m_iPendingDecreeType", m_syncArchive)
+	, m_iPendingDecreeFrom("CvPlayer::m_iPendingDecreeFrom", m_syncArchive)
+	, m_iPendingDecreeTarget("CvPlayer::m_iPendingDecreeTarget", m_syncArchive)
+	, m_iPendingDecreeTurn("CvPlayer::m_iPendingDecreeTurn", m_syncArchive)
+	, m_aiVassalTitle("CvPlayer::m_aiVassalTitle", m_syncArchive)
 	, m_aiVassalBreachCount("CvPlayer::m_aiVassalBreachCount", m_syncArchive)
 	, m_aiVassalBreachTurn("CvPlayer::m_aiVassalBreachTurn", m_syncArchive)
 	, m_iMandate("CvPlayer::m_iMandate", m_syncArchive)
@@ -1345,6 +1350,8 @@ void CvPlayer::uninit()
 	m_aiVassalRank.resize(MAX_MAJOR_CIVS, 0);
 	m_aiVassalRankTurn.clear();
 	m_aiVassalRankTurn.resize(MAX_MAJOR_CIVS, 0);
+	m_aiVassalTitle.clear();
+	m_aiVassalTitle.resize(MAX_MAJOR_CIVS, 0);
 	m_aiVassalGiftCount.clear();
 	m_aiVassalGiftCount.resize(MAX_MAJOR_CIVS, 0);
 	m_aiVassalProtectHandled.clear();
@@ -5594,6 +5601,7 @@ void CvPlayer::doTurn()
 		DoSubjugateTurn();
 		DoSeekAllegianceTurn();
 		DoPendingWarOrderTurn();
+		DoVassalDecreeTurn();
 		DoVassalRankMandateTurn();
 		DoVassalLoyaltyDecay();
 		DoVassalRevoltCheck();
@@ -31416,6 +31424,11 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ(165, kStream, m_iPendingWarOrderFrom, NO_PLAYER);
 		MOD_SERIALIZE_READ(165, kStream, m_iPendingWarOrderTarget, NO_PLAYER);
 		MOD_SERIALIZE_READ(165, kStream, m_iPendingWarOrderTurn, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iPendingDecreeType, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iPendingDecreeFrom, NO_PLAYER);
+		MOD_SERIALIZE_READ(165, kStream, m_iPendingDecreeTarget, NO_PLAYER);
+		MOD_SERIALIZE_READ(165, kStream, m_iPendingDecreeTurn, 0);
+		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalTitle, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalBreachCount, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalPunishRight, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiMemorialDefault, 7, 0);
@@ -32399,6 +32412,11 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE(kStream, m_iPendingWarOrderFrom);
 	MOD_SERIALIZE_WRITE(kStream, m_iPendingWarOrderTarget);
 	MOD_SERIALIZE_WRITE(kStream, m_iPendingWarOrderTurn);
+	MOD_SERIALIZE_WRITE(kStream, m_iPendingDecreeType);
+	MOD_SERIALIZE_WRITE(kStream, m_iPendingDecreeFrom);
+	MOD_SERIALIZE_WRITE(kStream, m_iPendingDecreeTarget);
+	MOD_SERIALIZE_WRITE(kStream, m_iPendingDecreeTurn);
+	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalTitle);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalBreachCount);
 	MOD_SERIALIZE_WRITE(kStream, m_aiVassalPunishRight);
 	MOD_SERIALIZE_WRITE(kStream, m_aiMemorialDefault);
@@ -43783,6 +43801,231 @@ void CvPlayer::DoPendingWarOrderTurn()
 	m_iPendingWarOrderFrom = NO_PLAYER;
 	m_iPendingWarOrderTarget = NO_PLAYER;
 	m_iPendingWarOrderTurn = 0;
+}
+
+//--------------------------------------------------------------------------------
+// A decree waiting for this vassal's answer. iField: 0 type, 1 from, 2 target,
+// 3 turns left. 0/NO_PLAYER when there is none.
+int CvPlayer::GetPendingDecree(int iField) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return (iField == 3) ? 0 : NO_PLAYER;
+	if (m_iPendingDecreeTurn <= 0) return (iField == 3) ? 0 : NO_PLAYER;
+	if (GC.getGame().getGameTurn() > m_iPendingDecreeTurn) return (iField == 3) ? 0 : NO_PLAYER;
+
+	if (iField == 3)
+		return m_iPendingDecreeTurn - GC.getGame().getGameTurn();
+
+	int iFrom = m_iPendingDecreeFrom;
+	if (iFrom < 0 || iFrom >= MAX_MAJOR_CIVS) return NO_PLAYER;
+	if (!GET_PLAYER((PlayerTypes)iFrom).isAlive()) return NO_PLAYER;
+	if (!GET_PLAYER((PlayerTypes)iFrom).IsOverlordOf(GetID())) return NO_PLAYER;
+
+	if (iField == 0) return m_iPendingDecreeType;
+	if (iField == 2) return m_iPendingDecreeTarget;
+	return iFrom;
+}
+
+//--------------------------------------------------------------------------------
+// Answer an overlord's decree. bAccept means comply: receive the title,
+// cooperate, answer the summons, confess, or accept the fief.
+bool CvPlayer::ResolveDecree(bool bAccept)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+
+	int iType = GetPendingDecree(0);
+	int iFrom = GetPendingDecree(1);
+	int iTarget = GetPendingDecree(2);
+	if (iType <= 0 || iFrom == NO_PLAYER) return false;
+
+	m_iPendingDecreeType = 0;
+	m_iPendingDecreeFrom = NO_PLAYER;
+	m_iPendingDecreeTarget = NO_PLAYER;
+	m_iPendingDecreeTurn = 0;
+
+	CvPlayer& kOverlord = GET_PLAYER((PlayerTypes)iFrom);
+
+	switch (iType)
+	{
+	case 1: // title: receive it, or decline out of modesty
+		if (bAccept)
+		{
+			kOverlord.SetVassalTitle(GetID(), true);
+			kOverlord.ChangeVassalLoyalty(GetID(), 6);
+		}
+		else
+		{
+			kOverlord.ChangeMandate(3);
+		}
+		break;
+
+	case 2: // inspection: cooperate, or stonewall
+		if (bAccept)
+		{
+			int iCap = kOverlord.GetVassalLoyaltyCap(GetID());
+			int iGood = iCap * 70 / 100;
+			kOverlord.ChangeVassalLoyalty(GetID(), kOverlord.GetVassalLoyalty(GetID()) >= iGood ? 4 : -4);
+		}
+		else
+		{
+			kOverlord.ChangeVassalLoyalty(GetID(), -10);
+		}
+		break;
+
+	case 3: // summon: a great person is sent to court (consumed), or refused
+		if (bAccept)
+		{
+			CvUnit* pGreat = NULL;
+			int iLoop = 0;
+			for (CvUnit* pUnit = firstUnit(&iLoop); pUnit != NULL; pUnit = nextUnit(&iLoop))
+			{
+				if (!pUnit->IsGreatPerson()) continue;
+				pGreat = pUnit;
+				break;
+			}
+			if (pGreat != NULL)
+			{
+				pGreat->kill(false);
+				kOverlord.ChangeMandate(10);
+			}
+			kOverlord.ChangeVassalLoyalty(GetID(), 8);
+		}
+		else
+		{
+			kOverlord.ChangeVassalLoyalty(GetID(), -6);
+		}
+		break;
+
+	case 4: // questioning: confess or argue
+		if (bAccept)
+		{
+			kOverlord.ChangeVassalLoyalty(GetID(), -5);
+			kOverlord.ClearVassalPunishRight(GetID());
+		}
+		else
+		{
+			int iCap = kOverlord.GetVassalLoyaltyCap(GetID());
+			if (kOverlord.GetVassalLoyalty(GetID()) < iCap * 50 / 100)
+				kOverlord.ChangeVassalLoyalty(GetID(), -10);
+		}
+		break;
+
+	case 5: // fief: accept the returned city, or defy
+		if (bAccept)
+		{
+			if (iTarget >= 0) kOverlord.DoReturnCityToVassalByID(iTarget);
+			kOverlord.ChangeVassalLoyalty(GetID(), 10);
+		}
+		else
+		{
+			kOverlord.ChangeVassalLoyalty(GetID(), -15);
+		}
+		break;
+
+	default:
+		return false;
+	}
+
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+// Can the overlord issue this decree to eVassal? iType: 1 title, 2 inspection,
+// 3 summon, 4 questioning, 5 fief (iTarget = city ID).
+bool CvPlayer::CanIssueDecree(int iType, PlayerTypes eVassal, int iTarget) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (!IsOverlordOf(eVassal)) return false;
+	if (GetPendingDecreeFor(eVassal)) return false;
+
+	switch (iType)
+	{
+	case 1:
+		return !HasVassalTitle(eVassal) && GetVassalLoyalty(eVassal) >= 50;
+	case 2:
+		return true;
+	case 3:
+	{
+		CvPlayer& kVassal = GET_PLAYER(eVassal);
+		int iLoop = 0;
+		for (CvUnit* pUnit = kVassal.firstUnit(&iLoop); pUnit != NULL; pUnit = kVassal.nextUnit(&iLoop))
+		{
+			if (pUnit->IsGreatPerson()) return true;
+		}
+		return false;
+	}
+	case 4:
+		return HasVassalPunishRight(eVassal) || GetVassalBreachCount(eVassal) > 0;
+	case 5:
+		// The fief is a city the overlord holds; DoReturnCityToVassalByID
+		// validates ownership and origin when it runs.
+		return iTarget >= 0;
+	default:
+		return false;
+	}
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::IssueDecree(int iType, PlayerTypes eVassal, int iTarget)
+{
+	if (!CanIssueDecree(iType, eVassal, iTarget)) return false;
+
+	CvPlayer& kVassal = GET_PLAYER(eVassal);
+	kVassal.m_iPendingDecreeType = iType;
+	kVassal.m_iPendingDecreeFrom = GetID();
+	kVassal.m_iPendingDecreeTarget = iTarget;
+	kVassal.m_iPendingDecreeTurn = GC.getGame().getGameTurn() + 5;
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+// An AI vassal answers its overlord's decree on its own: loyal vassals comply,
+// drifting ones may refuse.
+void CvPlayer::DoVassalDecreeTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (isHuman()) return;
+	if (GetPendingDecree(0) <= 0) return;
+
+	int iFrom = GetPendingDecree(1);
+	bool bAccept = true;
+	if (iFrom != NO_PLAYER)
+	{
+		CvPlayer& kOverlord = GET_PLAYER((PlayerTypes)iFrom);
+		int iCap = kOverlord.GetVassalLoyaltyCap(GetID());
+		bAccept = (kOverlord.GetVassalLoyalty(GetID()) * 100 >= iCap * 50);
+	}
+	ResolveDecree(bAccept);
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::GetPendingDecreeFor(PlayerTypes eVassal) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) return false;
+
+	CvPlayer& kVassal = GET_PLAYER(eVassal);
+	if (kVassal.m_iPendingDecreeTurn <= 0) return false;
+	if (GC.getGame().getGameTurn() > kVassal.m_iPendingDecreeTurn) return false;
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::HasVassalTitle(PlayerTypes eVassal) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) return false;
+	if ((size_t)eVassal >= m_aiVassalTitle.size()) return false;
+	return m_aiVassalTitle[eVassal] != 0;
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::SetVassalTitle(PlayerTypes eVassal, bool bTitle)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) return;
+	if ((size_t)eVassal >= m_aiVassalTitle.size())
+		m_aiVassalTitle.resize(MAX_MAJOR_CIVS, 0);
+	m_aiVassalTitle.setAt((size_t)eVassal, bTitle ? 1 : 0);
 }
 
 //--------------------------------------------------------------------------------

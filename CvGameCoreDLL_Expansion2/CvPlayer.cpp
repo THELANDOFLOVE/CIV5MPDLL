@@ -37854,6 +37854,9 @@ bool CvPlayer::DoEmbargoResource(PlayerTypes eTarget, ResourceTypes eResource)
 	kTarget.m_aiEmbargoedResources.push_back((int)eResource);
 	kTarget.m_iEmbargoBy = GetID();
 	kTarget.m_iEmbargoEndTurn = GC.getGame().getGameTurn() + TiandaoDefineInt("TIANDAO_EMBARGO_TURNS");
+
+	// Same as the World Congress trade embargo: drop existing routes immediately.
+	GC.getGame().GetGameTrade()->ClearAllCivTradeRoutes(eTarget);
 	return true;
 }
 
@@ -39922,6 +39925,26 @@ void CvPlayer::processBelief(BeliefTypes eBelief, int iChange, bool bFirst)
 //	--------------------------------------------------------------------------------
 bool CvPlayer::IsAllowedToTradeWith(PlayerTypes eOtherPlayer)
 {
+#if defined(MOD_GLOBAL_SUZERAIN)
+	// Court-ordered blockade: no trade (and no new routes) with the target while
+	// the embargo is active, for the overlord and all of its vassals.
+	if (MOD_GLOBAL_SUZERAIN && eOtherPlayer != m_eID)
+	{
+		int iTurn = GC.getGame().getGameTurn();
+		PlayerTypes eMyOverlord = GetOverlord();
+		PlayerTypes eOtherOverlord = GET_PLAYER(eOtherPlayer).GetOverlord();
+
+		if (m_iEmbargoEndTurn > iTurn && m_iEmbargoBy != NO_PLAYER
+			&& (m_iEmbargoBy == eOtherPlayer || m_iEmbargoBy == eOtherOverlord))
+			return false;
+
+		CvPlayer& kOther = GET_PLAYER(eOtherPlayer);
+		if (kOther.m_iEmbargoEndTurn > iTurn && kOther.m_iEmbargoBy != NO_PLAYER
+			&& (kOther.m_iEmbargoBy == GetID() || kOther.m_iEmbargoBy == eMyOverlord))
+			return false;
+	}
+#endif
+
 #if defined(MOD_GLOBAL_SUZERAIN)
 	// The overlord and its vassals trade without embargo barriers.
 	if (MOD_GLOBAL_SUZERAIN && eOtherPlayer != m_eID)
@@ -43005,6 +43028,7 @@ void CvPlayer::DoVassalAIMemorialTurn()
 			PlayerTypes eBlockTarget = (PlayerTypes)GetVassalMemorialField(m, TIANDAO_MEMORIAL_TARGET);
 			if (eBlockTarget != NO_PLAYER)
 			{
+				DoTradeBlock(eBlockTarget);
 				DoEmbargoMonopoly(eBlockTarget);
 				DenounceTarget(eBlockTarget);
 				OrderPermanentAllyCityStatesWar(eBlockTarget);

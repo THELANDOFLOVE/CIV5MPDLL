@@ -1415,6 +1415,7 @@ protected:
 	LUAAPIEXTN(DoEmbargoMonopoly, bool, eTarget);
 	LUAAPIEXTN(DenounceTarget, void, eTarget);
 	LUAAPIEXTN(OrderPermanentAllyCityStatesWar, void, eTarget);
+	LUAAPIEXTN(DoTradeBlock, bool, eTarget);
 	LUAAPIEXTN(CanReturnCityToVassal, bool, pCity);
 	LUAAPIEXTN(DoReturnCityToVassal, bool, pCity);
 	LUAAPIEXTN(DoReturnCityToVassalByID, bool, iCityID);

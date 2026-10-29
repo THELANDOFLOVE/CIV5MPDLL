@@ -43471,6 +43471,47 @@ void CvPlayer::DoPendingWarOrderTurn()
 }
 
 //--------------------------------------------------------------------------------
+// Releasing a vassal: a loyal one (loyalty at or above
+// SUZERAIN_RELEASE_PLEA_LOYALTY) begs to stay, and the overlord decides whether
+// to insist. 0 = released quietly, 1 = waiting for the overlord's decision.
+int CvPlayer::TryReleaseVassal(PlayerTypes eVassal)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return -1;
+	if (!IsOverlordOf(eVassal)) return -1;
+
+	int iPlea = SuzerainDefineInt("SUZERAIN_RELEASE_PLEA_LOYALTY");
+	if (iPlea <= 0) iPlea = 60;
+	if (GetVassalLoyalty(eVassal) >= iPlea) return 1;
+
+	ForceReleaseVassal(eVassal);
+	return 0;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::ForceReleaseVassal(PlayerTypes eVassal)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (!IsOverlordOf(eVassal)) return false;
+
+	RemoveVassal(eVassal);
+	GET_PLAYER(eVassal).SetOverlord(NO_PLAYER);
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+// A vassal that asked to stay and was kept gains standing with its overlord.
+bool CvPlayer::KeepVassal(PlayerTypes eVassal)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (!IsOverlordOf(eVassal)) return false;
+
+	int iBonus = SuzerainDefineInt("SUZERAIN_RELEASE_KEEP_LOYALTY");
+	if (iBonus == 0) iBonus = 10;
+	ChangeVassalLoyalty(eVassal, iBonus);
+	return true;
+}
+
+//--------------------------------------------------------------------------------
 int CvPlayer::GetPressureOnCiv(PlayerTypes eTarget) const
 {
 	if (eTarget < 0 || eTarget >= MAX_MAJOR_CIVS) return 0;

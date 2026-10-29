@@ -144,6 +144,9 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSurrenderTo);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetPendingWarOrder);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lResolveWarOrder);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lTryReleaseVassal);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lForceReleaseVassal);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lKeepVassal);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lAcceptVassalPeaceCounterEx);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGiftUnitToVassal);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSpawnUnitForVassal);
@@ -1563,6 +1566,9 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(SurrenderTo);
 	Method(GetPendingWarOrder);
 	Method(ResolveWarOrder);
+	Method(TryReleaseVassal);
+	Method(ForceReleaseVassal);
+	Method(KeepVassal);
 	Method(GetVassalPeaceCounterField);
 	Method(AcceptVassalPeaceCounterEx);
 	Method(GetStrongestLandUnit);
@@ -15431,6 +15437,30 @@ int CvLuaPlayer::lResolveWarOrder(lua_State* L)
 	CvPlayer* pkPlayer = GetInstance(L);
 	const bool bObey = lua_toboolean(L, 2);
 	lua_pushboolean(L, pkPlayer->ResolveWarOrder(bObey));
+	return 1;
+}
+//int TryReleaseVassal(PlayerTypes eVassal);
+int CvLuaPlayer::lTryReleaseVassal(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const PlayerTypes eVassal = (PlayerTypes)lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->TryReleaseVassal(eVassal));
+	return 1;
+}
+//bool ForceReleaseVassal(PlayerTypes eVassal);
+int CvLuaPlayer::lForceReleaseVassal(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const PlayerTypes eVassal = (PlayerTypes)lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->ForceReleaseVassal(eVassal));
+	return 1;
+}
+//bool KeepVassal(PlayerTypes eVassal);
+int CvLuaPlayer::lKeepVassal(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const PlayerTypes eVassal = (PlayerTypes)lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->KeepVassal(eVassal));
 	return 1;
 }
 //int GetVassalPeaceCounterField(PlayerTypes eA, PlayerTypes eB, int iField);

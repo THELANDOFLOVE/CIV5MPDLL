@@ -2169,6 +2169,12 @@ public:
 	int GetPendingWarOrder(int iField) const;
 	bool ResolveWarOrder(bool bObey);
 	void DoPendingWarOrderTurn();
+	// Voluntary release. 0 = released quietly, 1 = the vassal begs to stay,
+	// -1 = not our vassal. ForceReleaseVassal skips the plea; KeepVassal
+	// rewards a loyal vassal that asked to stay.
+	int TryReleaseVassal(PlayerTypes eVassal);
+	bool ForceReleaseVassal(PlayerTypes eVassal);
+	bool KeepVassal(PlayerTypes eVassal);
 	void DoSeekProtectionTurn();
 	void DoSubjugateTurn();
 	bool CanSubjugate(PlayerTypes eTarget) const;

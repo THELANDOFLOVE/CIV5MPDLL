@@ -43984,6 +43984,13 @@ int CvPlayer::SubmitVassalMemorial(int iType, int iTarget)
 	case 13: // rites ministry: ask to be released from vassalage
 		iMinistry = 2;
 		break;
+	case 18: // revenue ministry: relief, loan, trade, offering, famine
+	case 19:
+	case 20:
+	case 21:
+	case 22:
+		iMinistry = 1;
+		break;
 	default:
 		return 2;
 	}

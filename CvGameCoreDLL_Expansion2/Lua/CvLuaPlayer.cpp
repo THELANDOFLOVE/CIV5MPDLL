@@ -144,6 +144,8 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDenounceTarget);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lOrderPermanentAllyCityStatesWar);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoTradeBlock);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lProposePeaceDemand);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lAcceptPeaceCounter);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoReturnCityToVassal);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoReturnCityToVassalByID);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lResolveVassalMemorial);
@@ -1555,6 +1557,9 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(DenounceTarget);
 	Method(OrderPermanentAllyCityStatesWar);
 	Method(DoTradeBlock);
+	Method(ProposePeaceDemand);
+	Method(GetPeaceCounterField);
+	Method(AcceptPeaceCounter);
 	Method(CanReturnCityToVassal);
 	Method(DoReturnCityToVassal);
 	Method(DoReturnCityToVassalByID);
@@ -15440,5 +15445,36 @@ int CvLuaPlayer::lDoTradeBlock(lua_State* L)
 	CvPlayer* pkPlayer = GetInstance(L);
 	const PlayerTypes eTarget = (PlayerTypes)lua_tointeger(L, 2);
 	lua_pushboolean(L, pkPlayer->DoTradeBlock(eTarget));
+	return 1;
+}
+//int ProposePeaceDemand(...);
+int CvLuaPlayer::lProposePeaceDemand(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const PlayerTypes eTarget = (PlayerTypes)lua_tointeger(L, 2);
+	const PlayerTypes eBeneficiary = (PlayerTypes)lua_tointeger(L, 3);
+	const int iGoldPercent = lua_tointeger(L, 4);
+	const bool bReturnCities = lua_toboolean(L, 5);
+	const bool bCedeCity = lua_toboolean(L, 6);
+	const bool bCeaseFire = lua_toboolean(L, 7);
+	lua_pushinteger(L, pkPlayer->ProposePeaceDemand(eTarget, eBeneficiary, iGoldPercent, bReturnCities, bCedeCity, bCeaseFire));
+	return 1;
+}
+//int GetPeaceCounterField(PlayerTypes eTarget, int iField);
+int CvLuaPlayer::lGetPeaceCounterField(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const PlayerTypes eTarget = (PlayerTypes)lua_tointeger(L, 2);
+	const int iField = lua_tointeger(L, 3);
+	lua_pushinteger(L, pkPlayer->GetPeaceCounterField(eTarget, iField));
+	return 1;
+}
+//bool AcceptPeaceCounter(PlayerTypes eTarget, PlayerTypes eBeneficiary);
+int CvLuaPlayer::lAcceptPeaceCounter(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const PlayerTypes eTarget = (PlayerTypes)lua_tointeger(L, 2);
+	const PlayerTypes eBeneficiary = (PlayerTypes)lua_tointeger(L, 3);
+	lua_pushboolean(L, pkPlayer->AcceptPeaceCounter(eTarget, eBeneficiary));
 	return 1;
 }

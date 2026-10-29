@@ -1356,6 +1356,7 @@ void CvPlayer::uninit()
 	m_aiTruceUntil.clear();
 	m_aiTruceUntil.assign(MAX_MAJOR_CIVS * MAX_MAJOR_CIVS, 0);
 	m_aiPeaceRejects.assign(MAX_MAJOR_CIVS * MAX_MAJOR_CIVS, 0);
+	m_aiPressureOnCiv.assign(MAX_MAJOR_CIVS, 0);
 	m_aiCourtGiftLog.clear();
 	m_aiMemorialDefault.clear();
 	m_aiMemorialDefault.resize(7, 0);
@@ -5576,6 +5577,7 @@ void CvPlayer::doTurn()
 		DoVassalWonderPoolTurn();
 		DoMonopolyTurn();
 		DoEmbargoTurn();
+		DoPressureTurn();
 		DoSeekProtectionTurn();
 		DoPrayerTurn();
 		DoPrayerOverlordTurn();
@@ -31438,6 +31440,7 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiPrayerDenyStreak, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiTruceUntil, MAX_MAJOR_CIVS * MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiPeaceRejects, MAX_MAJOR_CIVS * MAX_MAJOR_CIVS, 0);
+		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiPressureOnCiv, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiPrayerBlessing, NUM_YIELD_TYPES, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iPrayerBlessingEndTurn, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iPrayerThresholdTurns, 0);
@@ -32406,6 +32409,7 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE(kStream, m_aiPrayerDenyStreak);
 	MOD_SERIALIZE_WRITE(kStream, m_aiTruceUntil);
 	MOD_SERIALIZE_WRITE(kStream, m_aiPeaceRejects);
+	MOD_SERIALIZE_WRITE(kStream, m_aiPressureOnCiv);
 	MOD_SERIALIZE_WRITE(kStream, m_aiPrayerBlessing);
 	MOD_SERIALIZE_WRITE(kStream, m_iPrayerBlessingEndTurn);
 	MOD_SERIALIZE_WRITE(kStream, m_iPrayerThresholdTurns);
@@ -36022,6 +36026,29 @@ void CvPlayer::DoVassalMemorialTurn()
 					AddVassalMemorial(10, 0, 5, eVassal, (PlayerTypes)ePick, iNormalTurns);
 			}
 		}
+	}
+
+	// Diplomacy: an independent civ ground down by blockade may be ready to talk.
+	for (int i = 0; i < MAX_MAJOR_CIVS; i++)
+	{
+		PlayerTypes eTarget = (PlayerTypes)i;
+		if (!CanDemandPeaceFrom(eTarget)) continue;
+		bool bPending = false;
+		int iCount = GetVassalMemorialCount();
+		for (int m = 0; m < iCount; m++)
+		{
+			if (GetVassalMemorialField(m, SUZERAIN_MEMORIAL_TYPE) == 12
+				&& GetVassalMemorialField(m, SUZERAIN_MEMORIAL_STATE) == 0
+				&& GetVassalMemorialField(m, SUZERAIN_MEMORIAL_VASSAL) == eTarget)
+			{
+				bPending = true;
+				break;
+			}
+		}
+		if (bPending) continue;
+		int iDays = SuzerainDefineInt("SUZERAIN_MEMORIAL_NORMAL_TURNS");
+		if (iDays <= 0) iDays = 10;
+		AddVassalMemorial(12, 0, 1, eTarget, NO_PLAYER, iDays);
 	}
 
 	// Expire overdue memorials.
@@ -43105,11 +43132,15 @@ void CvPlayer::DenounceTarget(PlayerTypes eTarget)
 	if (!MOD_GLOBAL_SUZERAIN || !IsSuzerainCiv()) return;
 	if (eTarget == NO_PLAYER || eTarget == GetID()) return;
 
+	// Denouncing a friend would break the declaration of friendship; skip it.
+	if (GetDiplomacyAI()->IsDoFAccepted(eTarget)) return;
+
 	GetDiplomacyAI()->DoDenouncePlayer(eTarget);
 	for (size_t i = 0; i < m_vecVassals.size(); i++)
 	{
 		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
 		if (!IsLiveVassal(eVassal)) continue;
+		if (GET_PLAYER(eVassal).GetDiplomacyAI()->IsDoFAccepted(eTarget)) continue;
 		GET_PLAYER(eVassal).GetDiplomacyAI()->DoDenouncePlayer(eTarget);
 	}
 }
@@ -43159,4 +43190,233 @@ bool CvPlayer::OrderVassalJoinWar(PlayerTypes eVassal, PlayerTypes eTarget)
 	}
 	ChangeVassalLoyalty(eVassal, -5);
 	return false;
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetPressureOnCiv(PlayerTypes eTarget) const
+{
+	if (eTarget < 0 || eTarget >= MAX_MAJOR_CIVS) return 0;
+	if ((size_t)eTarget >= m_aiPressureOnCiv.size()) return 0;
+	return m_aiPressureOnCiv[eTarget];
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::ChangePressureOnCiv(PlayerTypes eTarget, int iChange)
+{
+	if (eTarget < 0 || eTarget >= MAX_MAJOR_CIVS) return;
+	if ((size_t)eTarget >= m_aiPressureOnCiv.size()) return;
+	int iValue = m_aiPressureOnCiv[eTarget] + iChange;
+	if (iValue < 0) iValue = 0;
+	int iMax = SuzerainDefineInt("SUZERAIN_PRESSURE_MAX");
+	if (iMax <= 0) iMax = 100;
+	if (iValue > iMax) iValue = iMax;
+	m_aiPressureOnCiv[eTarget] = iValue;
+}
+
+//--------------------------------------------------------------------------------
+// Each turn the overlord's coercion adds pressure on independent civs.
+void CvPlayer::DoPressureTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN || !IsSuzerainCiv()) return;
+
+	int iTradeBlock = SuzerainDefineInt("SUZERAIN_PRESSURE_TRADE_BLOCK");
+	int iEmbargo = SuzerainDefineInt("SUZERAIN_PRESSURE_EMBARGO");
+	int iCityStateWar = SuzerainDefineInt("SUZERAIN_PRESSURE_CS_WAR");
+	int iMight = SuzerainDefineInt("SUZERAIN_PRESSURE_MIGHT");
+	int iDecay = SuzerainDefineInt("SUZERAIN_PRESSURE_DECAY");
+
+	for (int i = 0; i < MAX_MAJOR_CIVS; i++)
+	{
+		PlayerTypes eTarget = (PlayerTypes)i;
+		if (eTarget == GetID()) continue;
+		CvPlayer& kTarget = GET_PLAYER(eTarget);
+		if (!kTarget.isAlive() || !kTarget.isMajorCiv()) continue;
+		if (kTarget.GetOverlord() != NO_PLAYER) continue; // vassals are handled by loyalty
+
+		int iDelta = -iDecay;
+
+		if (kTarget.m_iEmbargoEndTurn > GC.getGame().getGameTurn()
+			&& kTarget.m_iEmbargoBy == GetID())
+			iDelta += iTradeBlock;
+
+		for (size_t r = 0; r < kTarget.m_aiEmbargoedResources.size(); r++)
+		{
+			if (kTarget.m_iEmbargoBy == GetID())
+			{
+				iDelta += iEmbargo;
+				break;
+			}
+		}
+
+		// Our permanent-ally city-states at war with it add pressure.
+		for (int m = MAX_MAJOR_CIVS; m < MAX_CIV_PLAYERS; m++)
+		{
+			PlayerTypes eMinor = (PlayerTypes)m;
+			CvPlayer& kMinor = GET_PLAYER(eMinor);
+			if (!kMinor.isAlive() || !kMinor.isMinorCiv()) continue;
+			if (!IsPermanentAlly(eMinor)) continue;
+			if (GET_TEAM(kMinor.getTeam()).isAtWar(kTarget.getTeam()))
+			{
+				iDelta += iCityStateWar;
+				break;
+			}
+		}
+
+		// Military weight.
+		long long iOurs = GetMilitaryMight();
+		long long iTheirs = kTarget.GetMilitaryMight();
+		if (iTheirs > 0 && iOurs * 100 >= iTheirs * 150)
+			iDelta += iMight;
+
+		if (iDelta != 0)
+			ChangePressureOnCiv(eTarget, iDelta);
+	}
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::CanDemandPeaceFrom(PlayerTypes eTarget) const
+{
+	if (!MOD_GLOBAL_SUZERAIN || !IsSuzerainCiv()) return false;
+	if (eTarget < 0 || eTarget >= MAX_MAJOR_CIVS || eTarget == GetID()) return false;
+	CvPlayer& kTarget = GET_PLAYER(eTarget);
+	if (!kTarget.isAlive() || !kTarget.isMajorCiv()) return false;
+	if (kTarget.GetOverlord() != NO_PLAYER) return false;
+
+	int iMax = SuzerainDefineInt("SUZERAIN_PRESSURE_MAX");
+	if (iMax <= 0) iMax = 100;
+	return GetPressureOnCiv(eTarget) >= iMax;
+}
+
+//--------------------------------------------------------------------------------
+// Demand peace terms from an independent civ under pressure.
+// Returns 0 = accepted, 1 = refused.
+int CvPlayer::ProposePeaceDemand(PlayerTypes eTarget, PlayerTypes eBeneficiary,
+	int iGoldPercent, bool bReturnCities, bool bCedeCity, bool bCeaseFire, bool bForce)
+{
+	if (!MOD_GLOBAL_SUZERAIN || !IsSuzerainCiv()) return -1;
+	if (eTarget < 0 || eTarget >= MAX_MAJOR_CIVS || eTarget == GetID()) return -1;
+
+	CvPlayer& kTarget = GET_PLAYER(eTarget);
+	if (!kTarget.isAlive() || !kTarget.isMajorCiv()) return -1;
+	if (kTarget.GetOverlord() != NO_PLAYER) return -1;
+
+	if (eBeneficiary != GetID() && !IsOverlordOf(eBeneficiary)) eBeneficiary = GetID();
+	if (iGoldPercent < 0) iGoldPercent = 0;
+	if (iGoldPercent > 30) iGoldPercent = 30;
+
+	int iPressure = GetPressureOnCiv(eTarget);
+	int iMax = SuzerainDefineInt("SUZERAIN_PRESSURE_MAX");
+	if (iMax <= 0) iMax = 100;
+
+	bool bDesperate = (iPressure * 100 >= iMax * 90);
+	long long iOurs = GetMilitaryMight();
+	long long iTheirs = kTarget.GetMilitaryMight();
+
+	// A cession only works on a civ at the end of its rope.
+	if (bCedeCity && !(bDesperate && iTheirs > 0 && iOurs >= iTheirs * 2))
+		bCedeCity = false;
+
+	int iAccept = 50 + iPressure * 50 / iMax;
+
+	if (iTheirs > 0 && iOurs * 100 >= iTheirs * 150) iAccept += 15;
+	if (iTheirs * 100 >= iOurs * 150) iAccept -= 20;
+
+	int iBias = 0;
+	if (iGoldPercent > 0) iBias += (iGoldPercent >= 30 ? 2 : (iGoldPercent >= 20 ? 1 : 1));
+	if (bReturnCities) iBias += 1;
+	if (bCedeCity) iBias += 3;
+	iAccept -= iBias * 15;
+
+	if (!bForce && iAccept < 50) return 1;
+
+	// Execute.
+	if (bCeaseFire)
+	{
+		TeamTypes eOurTeam = getTeam();
+		TeamTypes eTheirTeam = kTarget.getTeam();
+		if (GET_TEAM(eOurTeam).isAtWar(eTheirTeam))
+			GET_TEAM(eOurTeam).makePeace(eTheirTeam, true, false, GetID());
+		for (size_t i = 0; i < m_vecVassals.size(); i++)
+		{
+			PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
+			if (!IsLiveVassal(eVassal)) continue;
+			if (GET_TEAM(GET_PLAYER(eVassal).getTeam()).isAtWar(eTheirTeam))
+				GET_TEAM(GET_PLAYER(eVassal).getTeam()).makePeace(eTheirTeam, true, false, eVassal);
+		}
+	}
+
+	if (iGoldPercent > 0)
+	{
+		int iGold = (int)(kTarget.GetTreasury()->GetGold() * iGoldPercent / 100);
+		if (iGold > 0) kTarget.TransferGoldTo(eBeneficiary, iGold);
+	}
+
+	if (bReturnCities)
+	{
+		int iLoop = 0;
+		std::vector<int> vReturn;
+		for (CvCity* pCity = kTarget.firstCity(&iLoop); pCity != NULL; pCity = kTarget.nextCity(&iLoop))
+		{
+			PlayerTypes eOriginal = pCity->getOriginalOwner();
+			if (eOriginal == GetID() || IsOverlordOf(eOriginal))
+				vReturn.push_back(pCity->GetID());
+		}
+		for (size_t i = 0; i < vReturn.size(); i++)
+		{
+			CvCity* pCity = kTarget.getCity(vReturn[i]);
+			if (pCity == NULL) continue;
+			GET_PLAYER((PlayerTypes)pCity->getOriginalOwner()).acquireCity(pCity, false, true);
+		}
+	}
+
+	if (bCedeCity)
+	{
+		// Hand over the least valuable non-capital city.
+		CvCity* pWorst = NULL;
+		int iLoop = 0;
+		for (CvCity* pCity = kTarget.firstCity(&iLoop); pCity != NULL; pCity = kTarget.nextCity(&iLoop))
+		{
+			if (pCity->isCapital()) continue;
+			if (pCity->getOriginalOwner() != eTarget) continue;
+			if (pWorst == NULL || pCity->getPopulation() < pWorst->getPopulation())
+				pWorst = pCity;
+		}
+		if (pWorst != NULL)
+			GET_PLAYER(eBeneficiary).acquireCity(pWorst, false, true);
+	}
+
+	ChangePressureOnCiv(eTarget, -iMax / 2);
+	return 0;
+}
+
+//--------------------------------------------------------------------------------
+// The terms the target is willing to accept after refusing the first demand.
+int CvPlayer::GetPeaceCounterField(PlayerTypes eTarget, int iField) const
+{
+	if (eTarget < 0 || eTarget >= MAX_MAJOR_CIVS) return -1;
+
+	int iPressure = GetPressureOnCiv(eTarget);
+	int iMax = SuzerainDefineInt("SUZERAIN_PRESSURE_MAX");
+	if (iMax <= 0) iMax = 100;
+
+	bool bHigh = iPressure * 100 >= iMax * 70;
+	bool bDesperate = iPressure * 100 >= iMax * 95;
+
+	if (iField == 0) return bHigh ? 10 : 0;
+	if (iField == 1) return bHigh ? 1 : 0;
+	if (iField == 2) return bDesperate ? 1 : 0;
+	if (iField == 3) return 1;
+	return -1;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::AcceptPeaceCounter(PlayerTypes eTarget, PlayerTypes eBeneficiary)
+{
+	if (!MOD_GLOBAL_SUZERAIN || !IsSuzerainCiv()) return false;
+	return ProposePeaceDemand(eTarget, eBeneficiary,
+		GetPeaceCounterField(eTarget, 0),
+		GetPeaceCounterField(eTarget, 1) == 1,
+		GetPeaceCounterField(eTarget, 2) == 1,
+		GetPeaceCounterField(eTarget, 3) == 1,
+		true) == 0;
 }

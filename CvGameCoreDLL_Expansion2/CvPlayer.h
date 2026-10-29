@@ -2024,6 +2024,13 @@ public:
 	void DenounceTarget(PlayerTypes eTarget);
 	void OrderPermanentAllyCityStatesWar(PlayerTypes eTarget);
 	bool DoTradeBlock(PlayerTypes eTarget);
+	int GetPressureOnCiv(PlayerTypes eTarget) const;
+	void ChangePressureOnCiv(PlayerTypes eTarget, int iChange);
+	void DoPressureTurn();
+	bool CanDemandPeaceFrom(PlayerTypes eTarget) const;
+	int ProposePeaceDemand(PlayerTypes eTarget, PlayerTypes eBeneficiary, int iGoldPercent, bool bReturnCities, bool bCedeCity, bool bCeaseFire, bool bForce = false);
+	int GetPeaceCounterField(PlayerTypes eTarget, int iField) const;
+	bool AcceptPeaceCounter(PlayerTypes eTarget, PlayerTypes eBeneficiary);
 	bool CanReturnCityToVassal(CvCity* pCity) const;
 	bool DoReturnCityToVassal(CvCity* pCity);
 	bool DoReturnCityToVassalByID(int iCityID);
@@ -3289,6 +3296,7 @@ protected:
 	std::vector<int> m_aiPrayerDenyStreak;
 	std::vector<int> m_aiTruceUntil;
 	std::vector<int> m_aiPeaceRejects;
+	std::vector<int> m_aiPressureOnCiv;
 
 	// Court gift log (derived, rebuilt each court turn; not serialized)
 	std::vector<int> m_aiCourtGiftLog;

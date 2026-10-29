@@ -1416,6 +1416,9 @@ protected:
 	LUAAPIEXTN(DenounceTarget, void, eTarget);
 	LUAAPIEXTN(OrderPermanentAllyCityStatesWar, void, eTarget);
 	LUAAPIEXTN(DoTradeBlock, bool, eTarget);
+	LUAAPIEXTN(ProposePeaceDemand, int, eTarget, eBeneficiary, iGoldPercent, bReturnCities, bCedeCity, bCeaseFire);
+	LUAAPIEXTN(GetPeaceCounterField, int, eTarget, iField);
+	LUAAPIEXTN(AcceptPeaceCounter, bool, eTarget, eBeneficiary);
 	LUAAPIEXTN(CanReturnCityToVassal, bool, pCity);
 	LUAAPIEXTN(DoReturnCityToVassal, bool, pCity);
 	LUAAPIEXTN(DoReturnCityToVassalByID, bool, iCityID);

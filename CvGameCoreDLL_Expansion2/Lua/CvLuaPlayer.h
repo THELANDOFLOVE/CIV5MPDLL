@@ -1419,6 +1419,7 @@ protected:
 	LUAAPIEXTN(ProposePeaceDemand, int, eTarget, eBeneficiary, iGoldPercent, bReturnCities, bCedeCity, bCeaseFire);
 	LUAAPIEXTN(GetPeaceCounterField, int, eTarget, iField);
 	LUAAPIEXTN(AcceptPeaceCounter, bool, eTarget, eBeneficiary);
+	LUAAPIEXTN(PunishVassal, bool, eVassal);
 	LUAAPIEXTN(CanReturnCityToVassal, bool, pCity);
 	LUAAPIEXTN(DoReturnCityToVassal, bool, pCity);
 	LUAAPIEXTN(DoReturnCityToVassalByID, bool, iCityID);

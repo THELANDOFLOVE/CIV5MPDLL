@@ -5579,6 +5579,7 @@ void CvPlayer::doTurn()
 		DoEmbargoTurn();
 		DoPressureTurn();
 		DoVassalWonderRequestTurn();
+		DoVassalAutoJoinWarTurn();
 		DoSeekProtectionTurn();
 		DoPrayerTurn();
 		DoPrayerOverlordTurn();
@@ -35792,6 +35793,18 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 	case 8: // military ministry: unit aid; the unit is handed over from the UI
 		bOk = true;
 		break;
+	case 13: // rites ministry: a proud vassal asks to leave
+		if (bApprove)
+		{
+			RemoveVassal(eVassal);
+			GET_PLAYER(eVassal).SetOverlord(NO_PLAYER);
+		}
+		else
+		{
+			ChangeVassalLoyalty(eVassal, -30);
+		}
+		bOk = true;
+		break;
 	case 11: // revenue ministry: the court UI picks the blockade measures
 		bOk = true;
 		break;
@@ -36009,6 +36022,14 @@ void CvPlayer::DoVassalMemorialTurn()
 				&& !HasPendingMemorial(eVassal, 6))
 			{
 				AddVassalMemorial(6, 1, 4, eVassal, NO_PLAYER, iNormalTurns);
+			}
+
+			// A proud vassal may ask for independence when the overlord looks weak.
+			if (GetVassalLoyalty(eVassal) >= 60
+				&& GetMilitaryMight() * 100 < kVassal.GetMilitaryMight() * 150
+				&& !HasPendingMemorial(eVassal, 13))
+			{
+				AddVassalMemorial(13, 0, 2, eVassal, NO_PLAYER, iNormalTurns);
 			}
 
 			// Works ministry: ask for a technology the overlord already knows.
@@ -43063,6 +43084,12 @@ void CvPlayer::DoVassalAIMemorialTurn()
 			}
 			ResolveVassalMemorial(m, true);
 		}
+		else if (iType == 13)
+		{
+			// Yield only if the vassal is clearly stronger; otherwise refuse.
+			bool bYield = (GET_PLAYER(eVassal).GetMilitaryMight() * 100 >= GetMilitaryMight() * 150);
+			ResolveVassalMemorial(m, bYield);
+		}
 		else if (iType == 12)
 		{
 			// Diplomacy: demand moderate terms, then take the counter if refused.
@@ -43453,4 +43480,56 @@ void CvPlayer::DoVassalWonderRequestTurn()
 	BuildingTypes eBuilding = (BuildingTypes)kOverlord.GetVassalWonderPoolEntry(iPick);
 	if (eBuilding != NO_BUILDING)
 		RequestVassalWonder(eBuilding);
+}
+
+//--------------------------------------------------------------------------------
+// Punish a breaching vassal: break the bond and declare war (no warmonger hit
+// while the punish right is held).
+bool CvPlayer::PunishVassal(PlayerTypes eVassal)
+{
+	if (!MOD_GLOBAL_SUZERAIN || !IsSuzerainCiv()) return false;
+	if (!IsOverlordOf(eVassal) || !IsLiveVassal(eVassal)) return false;
+	if (!HasVassalPunishRight(eVassal)) return false;
+
+	TeamTypes eVassalTeam = GET_PLAYER(eVassal).getTeam();
+	RemoveVassal(eVassal);
+	GET_PLAYER(eVassal).SetOverlord(NO_PLAYER);
+	ClearVassalPunishRight(eVassal);
+
+	if (GET_TEAM(getTeam()).canDeclareWar(eVassalTeam, GetID()))
+		GET_TEAM(getTeam()).declareWar(eVassalTeam, false, GetID());
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+// AI overlord answers a call to arms: joins wars against its vassals' aggressors.
+void CvPlayer::DoVassalAutoJoinWarTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN || !IsSuzerainCiv()) return;
+	if (isHuman() || !isAlive() || !isMajorCiv()) return;
+
+	for (size_t i = 0; i < m_vecVassals.size(); i++)
+	{
+		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
+		if (!IsLiveVassal(eVassal)) continue;
+		if (GetVassalLoyalty(eVassal) < 50) continue;
+
+		TeamTypes eVassalTeam = GET_PLAYER(eVassal).getTeam();
+		for (int j = 0; j < MAX_MAJOR_CIVS; j++)
+		{
+			PlayerTypes eOther = (PlayerTypes)j;
+			if (eOther == GetID() || eOther == eVassal) continue;
+			CvPlayer& kOther = GET_PLAYER(eOther);
+			if (!kOther.isAlive() || !kOther.isMajorCiv()) continue;
+			if (!GET_TEAM(eVassalTeam).isAtWar(kOther.getTeam())) continue;
+			if (GET_TEAM(getTeam()).isAtWar(kOther.getTeam())) continue;
+
+			long long iOurs = GetMilitaryMight();
+			long long iTheirs = kOther.GetMilitaryMight();
+			if (iTheirs > 0 && iOurs * 100 < iTheirs * 120) continue;
+
+			if (GET_TEAM(getTeam()).canDeclareWar(kOther.getTeam(), GetID()))
+				GET_TEAM(getTeam()).declareWar(kOther.getTeam(), false, GetID());
+		}
+	}
 }

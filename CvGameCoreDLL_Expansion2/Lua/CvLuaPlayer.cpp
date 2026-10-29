@@ -146,6 +146,7 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoTradeBlock);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lProposePeaceDemand);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lAcceptPeaceCounter);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lPunishVassal);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoReturnCityToVassal);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoReturnCityToVassalByID);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lResolveVassalMemorial);
@@ -1560,6 +1561,7 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(ProposePeaceDemand);
 	Method(GetPeaceCounterField);
 	Method(AcceptPeaceCounter);
+	Method(PunishVassal);
 	Method(CanReturnCityToVassal);
 	Method(DoReturnCityToVassal);
 	Method(DoReturnCityToVassalByID);
@@ -15476,5 +15478,13 @@ int CvLuaPlayer::lAcceptPeaceCounter(lua_State* L)
 	const PlayerTypes eTarget = (PlayerTypes)lua_tointeger(L, 2);
 	const PlayerTypes eBeneficiary = (PlayerTypes)lua_tointeger(L, 3);
 	lua_pushboolean(L, pkPlayer->AcceptPeaceCounter(eTarget, eBeneficiary));
+	return 1;
+}
+//bool PunishVassal(PlayerTypes eVassal);
+int CvLuaPlayer::lPunishVassal(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const PlayerTypes eVassal = (PlayerTypes)lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->PunishVassal(eVassal));
 	return 1;
 }

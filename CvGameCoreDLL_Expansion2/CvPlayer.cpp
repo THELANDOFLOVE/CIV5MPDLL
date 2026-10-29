@@ -35305,8 +35305,9 @@ void CvPlayer::DoVassalAIDiplomacyTurn()
 		if (eTarget == GetID()) continue;
 		if (CanInviteVassal(eTarget))
 		{
-			DoInviteVassal(eTarget);
-			break;
+			// A human who is still deciding (or recently refused) must not stop
+			// the AI from recruiting someone else this turn.
+			if (DoInviteVassal(eTarget)) break;
 		}
 	}
 

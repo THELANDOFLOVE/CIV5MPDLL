@@ -2018,6 +2018,8 @@ public:
 	int GetStrongestLandUnitCost() const;
 	bool GiftUnitToVassal(PlayerTypes eVassal, int iUnitID);
 	bool SpawnUnitForVassal(PlayerTypes eVassal);
+	void OrderVassalsJoinWar(PlayerTypes eTarget);
+	bool DoTradeBlock(PlayerTypes eTarget);
 	bool CanReturnCityToVassal(CvCity* pCity) const;
 	bool DoReturnCityToVassal(CvCity* pCity);
 	bool DoReturnCityToVassalByID(int iCityID);

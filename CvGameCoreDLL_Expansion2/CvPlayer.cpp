@@ -35787,6 +35787,22 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 	case 8: // military ministry: unit aid; the unit is handed over from the UI
 		bOk = true;
 		break;
+	case 11: // revenue ministry: blockade the aggressor
+	{
+		PlayerTypes eBlockTarget = (PlayerTypes)GetVassalMemorialField(iIndex, TIANDAO_MEMORIAL_TARGET);
+		if (bApprove && eBlockTarget != NO_PLAYER)
+			DoTradeBlock(eBlockTarget);
+		bOk = true;
+		break;
+	}
+	case 9: // military ministry: call the other vassals to war
+	{
+		PlayerTypes eWarTarget = (PlayerTypes)GetVassalMemorialField(iIndex, TIANDAO_MEMORIAL_TARGET);
+		if (bApprove && eWarTarget != NO_PLAYER)
+			OrderVassalsJoinWar(eWarTarget);
+		bOk = true;
+		break;
+	}
 	case 10: // works ministry: grant a technology
 	{
 		PlayerTypes eTargetPlayer = (PlayerTypes)GetVassalMemorialField(iIndex, TIANDAO_MEMORIAL_TARGET);
@@ -35912,6 +35928,14 @@ void CvPlayer::DoVassalMemorialTurn()
 		// Military ministry: ask the overlord for a unit when badly outmatched.
 		if (!HasPendingMemorial(eVassal, 8))
 			AddVassalMemorial(8, 0, 3, eVassal, eAggressor, iDeadlineTurns);
+
+		// Military ministry: ask the overlord to call the other vassals to war.
+		if (HasAnyVassal() && !HasPendingMemorial(eVassal, 9))
+			AddVassalMemorial(9, 0, 3, eVassal, eAggressor, iDeadlineTurns);
+
+		// Revenue ministry: ask the overlord to blockade the aggressor.
+		if (!HasPendingMemorial(eVassal, 11))
+			AddVassalMemorial(11, 0, 1, eVassal, eAggressor, iDeadlineTurns);
 	}
 
 	// Justice ministry: two vassals at war — one complaint per pair.
@@ -37860,7 +37884,13 @@ void CvPlayer::DoEmbargoTurn()
 {
 	if (!MOD_GLOBAL_SUZERAIN) return;
 	if (m_iEmbargoEndTurn <= 0) return;
-	if (GC.getGame().getGameTurn() < m_iEmbargoEndTurn) return;
+	if (GC.getGame().getGameTurn() < m_iEmbargoEndTurn)
+	{
+		// Economic blockade: the embargoed side bleeds gold each turn.
+		int iPenalty = TiandaoDefineInt("TIANDAO_EMBARGO_GOLD");
+		if (iPenalty > 0) GetTreasury()->ChangeGold(-iPenalty);
+		return;
+	}
 
 	m_aiEmbargoedResources.clear();
 	m_iEmbargoEndTurn = 0;
@@ -42958,5 +42988,66 @@ void CvPlayer::DoVassalAIMemorialTurn()
 				SpawnUnitForVassal(eVassal);
 			ResolveVassalMemorial(m, bGive);
 		}
+		else if (iType == 9)
+		{
+			PlayerTypes eWarTarget = (PlayerTypes)GetVassalMemorialField(m, TIANDAO_MEMORIAL_TARGET);
+			if (eWarTarget != NO_PLAYER)
+				OrderVassalsJoinWar(eWarTarget);
+			ResolveVassalMemorial(m, true);
+		}
+		else if (iType == 10)
+		{
+			ResolveVassalMemorial(m, true); // free technology
+		}
+		else if (iType == 11)
+		{
+			PlayerTypes eBlockTarget = (PlayerTypes)GetVassalMemorialField(m, TIANDAO_MEMORIAL_TARGET);
+			if (eBlockTarget != NO_PLAYER)
+				DoTradeBlock(eBlockTarget);
+			ResolveVassalMemorial(m, true);
+		}
 	}
+}
+
+//--------------------------------------------------------------------------------
+// Call every vassal to war against a common enemy; loyal vassals obey.
+void CvPlayer::OrderVassalsJoinWar(PlayerTypes eTarget)
+{
+	if (!MOD_GLOBAL_SUZERAIN || !IsSuzerainCiv()) return;
+	if (eTarget == NO_PLAYER || !GET_PLAYER(eTarget).isAlive()) return;
+
+	for (size_t i = 0; i < m_vecVassals.size(); i++)
+	{
+		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
+		if (!IsLiveVassal(eVassal)) continue;
+
+		TeamTypes eVassalTeam = GET_PLAYER(eVassal).getTeam();
+		TeamTypes eTargetTeam = GET_PLAYER(eTarget).getTeam();
+		if (eVassalTeam == eTargetTeam) continue;
+		if (GET_TEAM(eVassalTeam).isAtWar(eTargetTeam)) continue;
+
+		if (GetVassalLoyalty(eVassal) >= 40
+			&& GET_TEAM(eVassalTeam).canDeclareWar(eTargetTeam, eVassal))
+		{
+			GET_TEAM(eVassalTeam).declareWar(eTargetTeam, false, eVassal);
+			ChangeVassalLoyalty(eVassal, 2);
+		}
+		else
+		{
+			ChangeVassalLoyalty(eVassal, -5);
+		}
+	}
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::DoTradeBlock(PlayerTypes eTarget)
+{
+	if (!MOD_GLOBAL_SUZERAIN || !IsSuzerainCiv()) return false;
+	if (eTarget == NO_PLAYER || eTarget == GetID()) return false;
+	CvPlayer& kTarget = GET_PLAYER(eTarget);
+	if (!kTarget.isAlive()) return false;
+
+	kTarget.m_iEmbargoBy = GetID();
+	kTarget.m_iEmbargoEndTurn = GC.getGame().getGameTurn() + TiandaoDefineInt("TIANDAO_EMBARGO_TURNS");
+	return true;
 }

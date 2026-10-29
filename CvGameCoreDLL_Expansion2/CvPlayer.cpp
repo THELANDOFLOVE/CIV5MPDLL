@@ -38665,12 +38665,14 @@ void CvPlayer::UpdateVassalTaxation()
 		int iTaxPercent = pRes->GetEffects()->iVassalTaxPercent;
 		if (iTaxPercent <= 0) continue; // no configured rate = no tax
 
-		// A higher rank pays less: a count pays 5% less than an untitled vassal.
+		// A higher rank pays proportionally less: each rank keeps another slice
+		// of the tithe, so a duke at rank 5 with 5% relief keeps 75% of it.
 		int iRelief = SuzerainDefineInt("SUZERAIN_RANK_TRIBUTE_RELIEF");
 		if (iRelief > 0)
 		{
-			iTaxPercent -= GetVassalRank(e) * iRelief;
-			if (iTaxPercent < 0) iTaxPercent = 0;
+			int iKeep = 100 - GetVassalRank(e) * iRelief;
+			if (iKeep < 0) iKeep = 0;
+			iTaxPercent = iTaxPercent * iKeep / 100;
 		}
 		// Taxes are levied on gross output. The vassal's per-turn getters already net out its own
 		// downstream vassal taxes, so re-adding the amount it pays to us makes the base "tax-on-tax":
@@ -38767,13 +38769,14 @@ void CvPlayer::UpdateVassalTaxation()
 		CvPlayer& v = GET_PLAYER(e);
 		if (!v.isAlive()) continue;
 
-		// Titled vassals pay a reduced tithe.
+		// Titled vassals pay a reduced tithe (proportional, never zero).
 		int iRate = iBaseline;
 		int iRelief = SuzerainDefineInt("SUZERAIN_RANK_TRIBUTE_RELIEF");
 		if (iRelief > 0)
 		{
-			iRate -= GetVassalRank(e) * iRelief;
-			if (iRate < 0) iRate = 0;
+			int iKeep = 100 - GetVassalRank(e) * iRelief;
+			if (iKeep < 0) iKeep = 0;
+			iRate = iRate * iKeep / 100;
 		}
 
 		unsigned long long iScienceGross = v.GetScienceTimes100(true) + v.GetScienceTimes100ToOverlord();

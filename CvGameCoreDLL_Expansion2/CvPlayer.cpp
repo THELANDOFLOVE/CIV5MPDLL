@@ -35829,11 +35829,49 @@ void CvPlayer::DoVassalRevoltCheck()
 	if (!MOD_GLOBAL_SUZERAIN) return;
 	if (m_vecVassals.empty()) return;
 
+	int iThreshold = SuzerainDefineInt("SUZERAIN_REVOLT_THRESHOLD");
+	int iMargin = SuzerainDefineInt("SUZERAIN_REVOLT_WARN_MARGIN");
+	if (iMargin <= 0) iMargin = 10;
+
 	for (size_t i = m_vecVassals.size(); i > 0; i--)
 	{
 		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i - 1];
+
+		// A bond that is about to snap should not do so without warning. Every
+		// few turns, tell a human vassal or overlord that revolt is close.
+		if (iThreshold > 0 && (GC.getGame().getGameTurn() % 5) == 0)
+		{
+			int iScore = GetVassalRevoltScore(eVassal);
+			if (iScore >= iThreshold - iMargin && iScore < iThreshold)
+				WarnVassalRevolt(eVassal);
+		}
+
 		if (CanVassalRevolt(eVassal))
 			DoVassalRevolt(eVassal);
+	}
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::WarnVassalRevolt(PlayerTypes eVassal)
+{
+	CvPlayer& kVassal = GET_PLAYER(eVassal);
+
+	if (kVassal.isHuman() && kVassal.GetNotifications())
+	{
+		Localization::String sMsg = Localization::Lookup("TXT_KEY_NOTIFICATION_VASSAL_REVOLT_WARNING_TO_VASSAL");
+		sMsg << getCivilizationShortDescriptionKey();
+		Localization::String sSum = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_VASSAL_REVOLT_WARNING");
+		sSum << getCivilizationShortDescriptionKey();
+		kVassal.GetNotifications()->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), -1, -1, GetID());
+	}
+
+	if (isHuman() && GetNotifications())
+	{
+		Localization::String sMsg = Localization::Lookup("TXT_KEY_NOTIFICATION_VASSAL_REVOLT_WARNING_TO_OVERLORD");
+		sMsg << kVassal.getCivilizationShortDescriptionKey();
+		Localization::String sSum = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_VASSAL_REVOLT_WARNING");
+		sSum << kVassal.getCivilizationShortDescriptionKey();
+		GetNotifications()->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), -1, -1, eVassal);
 	}
 }
 
@@ -43638,6 +43676,9 @@ int CvPlayer::SubmitVassalMemorial(int iType, int iTarget)
 	case 11: // revenue ministry: ask for a blockade
 		iMinistry = 1;
 		iDeadline = iUrgent;
+		break;
+	case 13: // rites ministry: ask to be released from vassalage
+		iMinistry = 2;
 		break;
 	default:
 		return 2;

@@ -2174,6 +2174,7 @@ public:
 	int GetPendingWarOrder(int iField) const;
 	bool ResolveWarOrder(bool bObey);
 	void DoPendingWarOrderTurn();
+	void WarnVassalRevolt(PlayerTypes eVassal);
 	// A human vassal petitions its overlord directly. 0 = accepted, 1 = not a
 	// vassal, 2 = type cannot be raised manually, 3 = already pending,
 	// 4 = invalid target.

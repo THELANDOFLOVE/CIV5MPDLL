@@ -1355,6 +1355,7 @@ void CvPlayer::uninit()
 	m_aiPrayerDenyStreak.resize(MAX_MAJOR_CIVS, 0);
 	m_aiTruceUntil.clear();
 	m_aiTruceUntil.assign(MAX_MAJOR_CIVS * MAX_MAJOR_CIVS, 0);
+	m_aiPeaceRejects.assign(MAX_MAJOR_CIVS * MAX_MAJOR_CIVS, 0);
 	m_aiCourtGiftLog.clear();
 	m_aiMemorialDefault.clear();
 	m_aiMemorialDefault.resize(7, 0);
@@ -31435,6 +31436,7 @@ void CvPlayer::Read(FDataStream& kStream)
 		}
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiPrayerDenyStreak, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiTruceUntil, MAX_MAJOR_CIVS * MAX_MAJOR_CIVS, 0);
+		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiPeaceRejects, MAX_MAJOR_CIVS * MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiPrayerBlessing, NUM_YIELD_TYPES, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iPrayerBlessingEndTurn, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iPrayerThresholdTurns, 0);
@@ -32402,6 +32404,7 @@ void CvPlayer::Write(FDataStream& kStream) const
 	}
 	MOD_SERIALIZE_WRITE(kStream, m_aiPrayerDenyStreak);
 	MOD_SERIALIZE_WRITE(kStream, m_aiTruceUntil);
+	MOD_SERIALIZE_WRITE(kStream, m_aiPeaceRejects);
 	MOD_SERIALIZE_WRITE(kStream, m_aiPrayerBlessing);
 	MOD_SERIALIZE_WRITE(kStream, m_iPrayerBlessingEndTurn);
 	MOD_SERIALIZE_WRITE(kStream, m_iPrayerThresholdTurns);
@@ -42587,8 +42590,21 @@ int CvPlayer::ProposeVassalPeace(PlayerTypes eA, PlayerTypes eB, PlayerTypes ePa
 	if (GetVassalBreachCount(eA) > 0) iAcceptA -= 10;
 	if (GetVassalBreachCount(eB) > 0) iAcceptB -= 10;
 
-	if (iAcceptA < 50) return 1;
-	if (iAcceptB < 50) return 2;
+	// Track refusals per pair; the third refusal produces a counter-proposal.
+	PlayerTypes eLow = (eA < eB) ? eA : eB;
+	PlayerTypes eHigh = (eA < eB) ? eB : eA;
+	size_t iPair = (size_t)eLow * MAX_MAJOR_CIVS + eHigh;
+
+	if (iAcceptA < 50 || iAcceptB < 50)
+	{
+		if (iPair < m_aiPeaceRejects.size())
+		{
+			m_aiPeaceRejects[iPair]++;
+			if (m_aiPeaceRejects[iPair] >= 3) return 3;
+		}
+		return (iAcceptA < 50) ? 1 : 2;
+	}
+	if (iPair < m_aiPeaceRejects.size()) m_aiPeaceRejects[iPair] = 0;
 
 	// Both accept: enforce the treaty.
 	GET_TEAM(kA.getTeam()).makePeace(kB.getTeam(), true, false, GetID());
@@ -42642,4 +42658,49 @@ bool CvPlayer::IsVassalTruceActive(PlayerTypes eA, PlayerTypes eB) const
 	size_t i = (size_t)eA * MAX_MAJOR_CIVS + eB;
 	if (i >= m_aiTruceUntil.size()) return false;
 	return m_aiTruceUntil[i] > GC.getGame().getGameTurn();
+}
+
+//--------------------------------------------------------------------------------
+// Accept the counter-proposal after three refusals: white peace plus one city
+// returned by whichever side holds enemy cities.
+bool CvPlayer::AcceptVassalPeaceCounter(PlayerTypes eA, PlayerTypes eB)
+{
+	if (!MOD_GLOBAL_SUZERAIN || !IsSuzerainCiv()) return false;
+	if (eA == eB || !IsOverlordOf(eA) || !IsOverlordOf(eB)) return false;
+
+	CvPlayer& kA = GET_PLAYER(eA);
+	CvPlayer& kB = GET_PLAYER(eB);
+	if (!GET_TEAM(kA.getTeam()).isAtWar(kB.getTeam())) return false;
+
+	GET_TEAM(kA.getTeam()).makePeace(kB.getTeam(), true, false, GetID());
+
+	int iLoop = 0;
+	bool bReturned = false;
+	for (CvCity* pCity = kA.firstCity(&iLoop); pCity != NULL; pCity = kA.nextCity(&iLoop))
+	{
+		if (pCity->getOriginalOwner() == eB)
+		{
+			GET_PLAYER(eB).acquireCity(pCity, false, true);
+			bReturned = true;
+			break;
+		}
+	}
+	if (!bReturned)
+	{
+		iLoop = 0;
+		for (CvCity* pCity = kB.firstCity(&iLoop); pCity != NULL; pCity = kB.nextCity(&iLoop))
+		{
+			if (pCity->getOriginalOwner() == eA)
+			{
+				GET_PLAYER(eA).acquireCity(pCity, false, true);
+				break;
+			}
+		}
+	}
+
+	PlayerTypes eLow = (eA < eB) ? eA : eB;
+	PlayerTypes eHigh = (eA < eB) ? eB : eA;
+	size_t iPair = (size_t)eLow * MAX_MAJOR_CIVS + eHigh;
+	if (iPair < m_aiPeaceRejects.size()) m_aiPeaceRejects[iPair] = 0;
+	return true;
 }

@@ -2011,6 +2011,7 @@ public:
 	bool DoVassalMediate(PlayerTypes eA, PlayerTypes eB);
 	int ProposeVassalPeace(PlayerTypes eA, PlayerTypes eB, PlayerTypes ePayer, int iGoldPercent, bool bReturnCities, int iTruceTurns, PlayerTypes eCensure);
 	bool IsVassalTruceActive(PlayerTypes eA, PlayerTypes eB) const;
+	bool AcceptVassalPeaceCounter(PlayerTypes eA, PlayerTypes eB);
 	bool CanReturnCityToVassal(CvCity* pCity) const;
 	bool DoReturnCityToVassal(CvCity* pCity);
 	bool DoReturnCityToVassalByID(int iCityID);
@@ -3274,6 +3275,7 @@ protected:
 	std::vector<TiandaoPrayerRequest> m_vPrayerRequests;
 	std::vector<int> m_aiPrayerDenyStreak;
 	std::vector<int> m_aiTruceUntil;
+	std::vector<int> m_aiPeaceRejects;
 
 	// Court gift log (derived, rebuilt each court turn; not serialized)
 	std::vector<int> m_aiCourtGiftLog;

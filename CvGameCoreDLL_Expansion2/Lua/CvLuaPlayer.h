@@ -1404,6 +1404,7 @@ protected:
 	LUAAPIEXTN(CanMediateVassals, bool, eA, eB);
 	LUAAPIEXTN(DoVassalMediate, bool, eA, eB);
 	LUAAPIEXTN(ProposeVassalPeace, int, eA, eB, ePayer, iGoldPercent, bReturnCities, iTruceTurns, eCensure);
+	LUAAPIEXTN(AcceptVassalPeaceCounter, bool, eA, eB);
 	LUAAPIEXTN(CanReturnCityToVassal, bool, pCity);
 	LUAAPIEXTN(DoReturnCityToVassal, bool, pCity);
 	LUAAPIEXTN(DoReturnCityToVassalByID, bool, iCityID);

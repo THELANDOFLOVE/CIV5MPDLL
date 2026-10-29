@@ -35725,6 +35725,9 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 		}
 		break;
 	}
+	case 7: // justice ministry: dispute; the treaty itself is handled by ProposeVassalPeace
+		bOk = true;
+		break;
 	default:
 		break;
 	}

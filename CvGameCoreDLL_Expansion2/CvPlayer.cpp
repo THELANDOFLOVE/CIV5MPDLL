@@ -35787,6 +35787,20 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 	case 8: // military ministry: unit aid; the unit is handed over from the UI
 		bOk = true;
 		break;
+	case 10: // works ministry: grant a technology
+	{
+		PlayerTypes eTargetPlayer = (PlayerTypes)GetVassalMemorialField(iIndex, TIANDAO_MEMORIAL_TARGET);
+		TechTypes eTech = (TechTypes)(int)eTargetPlayer;
+		if (bApprove && eTech != NO_TECH
+			&& GET_TEAM(getTeam()).GetTeamTechs()->HasTech(eTech))
+		{
+			GET_TEAM(GET_PLAYER(eVassal).getTeam()).GetTeamTechs()->SetHasTech(eTech, true);
+			int iGain = TiandaoDefineInt("TIANDAO_MEMORIAL_AID_LOYALTY");
+			if (iGain != 0) ChangeVassalLoyalty(eVassal, iGain);
+		}
+		bOk = true;
+		break;
+	}
 	default:
 		break;
 	}
@@ -35976,6 +35990,22 @@ void CvPlayer::DoVassalMemorialTurn()
 				&& !HasPendingMemorial(eVassal, 6))
 			{
 				AddVassalMemorial(6, 1, 4, eVassal, NO_PLAYER, iNormalTurns);
+			}
+
+			// Works ministry: ask for a technology the overlord already knows.
+			if (!HasPendingMemorial(eVassal, 10))
+			{
+				TechTypes ePick = NO_TECH;
+				for (int iT = 0; iT < GC.getNumTechInfos(); iT++)
+				{
+					TechTypes e = (TechTypes)iT;
+					if (!GET_TEAM(getTeam()).GetTeamTechs()->HasTech(e)) continue;
+					if (GET_TEAM(GET_PLAYER(eVassal).getTeam()).GetTeamTechs()->HasTech(e)) continue;
+					ePick = e;
+					break;
+				}
+				if (ePick != NO_TECH)
+					AddVassalMemorial(10, 0, 5, eVassal, (PlayerTypes)ePick, iNormalTurns);
 			}
 		}
 	}

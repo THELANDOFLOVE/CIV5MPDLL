@@ -145,6 +145,7 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSurrenderTo);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetPendingWarOrder);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lResolveWarOrder);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSubmitVassalMemorial);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lTryReleaseVassal);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lForceReleaseVassal);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lKeepVassal);
@@ -1568,6 +1569,7 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(SurrenderTo);
 	Method(GetPendingWarOrder);
 	Method(ResolveWarOrder);
+	Method(SubmitVassalMemorial);
 	Method(TryReleaseVassal);
 	Method(ForceReleaseVassal);
 	Method(KeepVassal);
@@ -15448,6 +15450,15 @@ int CvLuaPlayer::lResolveWarOrder(lua_State* L)
 	CvPlayer* pkPlayer = GetInstance(L);
 	const bool bObey = lua_toboolean(L, 2);
 	lua_pushboolean(L, pkPlayer->ResolveWarOrder(bObey));
+	return 1;
+}
+//int SubmitVassalMemorial(int iType, int iTarget);
+int CvLuaPlayer::lSubmitVassalMemorial(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const int iType = lua_tointeger(L, 2);
+	const int iTarget = lua_tointeger(L, 3);
+	lua_pushinteger(L, pkPlayer->SubmitVassalMemorial(iType, iTarget));
 	return 1;
 }
 //int TryReleaseVassal(PlayerTypes eVassal);

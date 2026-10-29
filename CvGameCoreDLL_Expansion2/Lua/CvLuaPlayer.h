@@ -1414,6 +1414,7 @@ protected:
 	LUAAPIEXTN(SurrenderTo, int, eWinner);
 	LUAAPIEXTN(GetPendingWarOrder, int, iField);
 	LUAAPIEXTN(ResolveWarOrder, bool, bObey);
+	LUAAPIEXTN(SubmitVassalMemorial, int, iType, iTarget);
 	LUAAPIEXTN(TryReleaseVassal, int, eVassal);
 	LUAAPIEXTN(ForceReleaseVassal, bool, eVassal);
 	LUAAPIEXTN(KeepVassal, bool, eVassal);

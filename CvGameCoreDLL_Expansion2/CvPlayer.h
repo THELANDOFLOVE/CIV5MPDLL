@@ -2174,6 +2174,10 @@ public:
 	int GetPendingWarOrder(int iField) const;
 	bool ResolveWarOrder(bool bObey);
 	void DoPendingWarOrderTurn();
+	// A human vassal petitions its overlord directly. 0 = accepted, 1 = not a
+	// vassal, 2 = type cannot be raised manually, 3 = already pending,
+	// 4 = invalid target.
+	int SubmitVassalMemorial(int iType, int iTarget);
 	// Voluntary release. 0 = released quietly, 1 = the vassal begs to stay,
 	// -1 = not our vassal. ForceReleaseVassal skips the plea; KeepVassal
 	// rewards a loyal vassal that asked to stay.

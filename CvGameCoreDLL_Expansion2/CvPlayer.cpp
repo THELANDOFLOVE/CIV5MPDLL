@@ -36222,8 +36222,15 @@ void CvPlayer::DoVassalMemorialTurn()
 				AddVassalMemorial(6, 1, 4, eVassal, NO_PLAYER, iNormalTurns);
 			}
 
-			// A proud vassal may ask for independence when the overlord looks weak.
-			if (GetVassalLoyalty(eVassal) >= 60
+			// A proud but not yet mutinous vassal asks to leave when the overlord
+			// looks weaker than itself. Loyal vassals (at or above the upper bound)
+			// stay even if they could win.
+			int iIndepMin = SuzerainDefineInt("SUZERAIN_INDEPENDENCE_MIN_LOYALTY");
+			int iIndepMax = SuzerainDefineInt("SUZERAIN_INDEPENDENCE_MAX_LOYALTY");
+			if (iIndepMin <= 0) iIndepMin = 30;
+			if (iIndepMax <= 0) iIndepMax = 60;
+			int iLoyalty = GetVassalLoyalty(eVassal);
+			if (iLoyalty >= iIndepMin && iLoyalty < iIndepMax
 				&& GetMilitaryMight() * 100 < kVassal.GetMilitaryMight() * 150
 				&& !HasPendingMemorial(eVassal, 13))
 			{
@@ -43592,6 +43599,66 @@ bool CvPlayer::OrderVassalJoinWar(PlayerTypes eVassal, PlayerTypes eTarget)
 	}
 	ChangeVassalLoyalty(eVassal, -5);
 	return false;
+}
+
+//--------------------------------------------------------------------------------
+// A human vassal raises a petition itself instead of waiting for the automatic
+// one. Only the types a vassal can sensibly ask for are allowed.
+int CvPlayer::SubmitVassalMemorial(int iType, int iTarget)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 1;
+
+	PlayerTypes eOverlord = GetOverlord();
+	if (eOverlord == NO_PLAYER) return 1;
+
+	int iMinistry = -1;
+	int iDeadline = SuzerainDefineInt("SUZERAIN_MEMORIAL_NORMAL_TURNS");
+	if (iDeadline <= 0) iDeadline = 10;
+
+	int iUrgent = SuzerainDefineInt("SUZERAIN_MEMORIAL_URGENT_TURNS");
+	if (iUrgent <= 0) iUrgent = 3;
+
+	switch (iType)
+	{
+	case 8: // military ministry: ask for a unit
+		iMinistry = 3;
+		iDeadline = iUrgent;
+		break;
+	case 9: // military ministry: ask for a call to arms
+		iMinistry = 3;
+		iDeadline = iUrgent;
+		break;
+	case 10: // works ministry: ask for a technology
+		iMinistry = 5;
+		break;
+	case 11: // revenue ministry: ask for a blockade
+		iMinistry = 1;
+		iDeadline = iUrgent;
+		break;
+	default:
+		return 2;
+	}
+
+	CvPlayer& kOverlord = GET_PLAYER(eOverlord);
+	if (!kOverlord.isAlive() || !kOverlord.IsOverlordOf(GetID())) return 1;
+	if (kOverlord.HasPendingMemorial(GetID(), iType)) return 3;
+
+	if (iType == 10)
+	{
+		TechTypes eTech = (TechTypes)iTarget;
+		if (eTech < 0 || eTech >= GC.getNumTechInfos()) return 4;
+		if (!GET_TEAM(kOverlord.getTeam()).GetTeamTechs()->HasTech(eTech)) return 4;
+		if (GET_TEAM(getTeam()).GetTeamTechs()->HasTech(eTech)) return 4;
+	}
+	else if (iType == 9 || iType == 11)
+	{
+		if (iTarget < 0 || iTarget >= MAX_MAJOR_CIVS) return 4;
+		if (iTarget == GetID() || iTarget == eOverlord) return 4;
+		if (!GET_PLAYER((PlayerTypes)iTarget).isAlive()) return 4;
+	}
+
+	kOverlord.AddVassalMemorial(iType, 0, iMinistry, GetID(), (PlayerTypes)iTarget, iDeadline);
+	return 0;
 }
 
 //--------------------------------------------------------------------------------

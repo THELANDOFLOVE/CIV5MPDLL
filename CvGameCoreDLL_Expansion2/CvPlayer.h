@@ -2010,6 +2010,7 @@ public:
 	bool CanMediateVassals(PlayerTypes eA, PlayerTypes eB) const;
 	bool DoVassalMediate(PlayerTypes eA, PlayerTypes eB);
 	int ProposeVassalPeace(PlayerTypes eA, PlayerTypes eB, PlayerTypes ePayer, int iGoldPercent, bool bReturnCities, int iTruceTurns, PlayerTypes eCensure);
+	bool IsVassalTruceActive(PlayerTypes eA, PlayerTypes eB) const;
 	bool CanReturnCityToVassal(CvCity* pCity) const;
 	bool DoReturnCityToVassal(CvCity* pCity);
 	bool DoReturnCityToVassalByID(int iCityID);
@@ -3272,6 +3273,8 @@ protected:
 	// Prayer state. The overlord keeps the queue; the vassal keeps its temporary grace.
 	std::vector<TiandaoPrayerRequest> m_vPrayerRequests;
 	std::vector<int> m_aiPrayerDenyStreak;
+	std::vector<int> m_aiTruceUntil;
+
 	// Court gift log (derived, rebuilt each court turn; not serialized)
 	std::vector<int> m_aiCourtGiftLog;
 	// Minister default verdict per memorial type: 0 = reject, 1 = approve

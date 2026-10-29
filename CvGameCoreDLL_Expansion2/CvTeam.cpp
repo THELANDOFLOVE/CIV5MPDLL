@@ -1126,6 +1126,26 @@ bool CvTeam::canDeclareWar(TeamTypes eTeam) const
 		return false;
 	}
 
+#if defined(MOD_GLOBAL_SUZERAIN)
+	// A court-ordered truce bars the vassal from restarting the war.
+	if (MOD_GLOBAL_SUZERAIN)
+	{
+		for (int i = 0; i < MAX_MAJOR_CIVS; i++)
+		{
+			PlayerTypes eA = (PlayerTypes)i;
+			if (!GET_PLAYER(eA).isAlive() || GET_PLAYER(eA).getTeam() != GetID()) continue;
+			PlayerTypes eOverlord = GET_PLAYER(eA).GetOverlord();
+			if (eOverlord == NO_PLAYER) continue;
+			for (int j = 0; j < MAX_MAJOR_CIVS; j++)
+			{
+				PlayerTypes eB = (PlayerTypes)j;
+				if (!GET_PLAYER(eB).isAlive() || GET_PLAYER(eB).getTeam() != eTeam) continue;
+				if (GET_PLAYER(eOverlord).IsVassalTruceActive(eA, eB)) return false;
+			}
+		}
+	}
+#endif
+
 	if(!canChangeWarPeace(eTeam))
 	{
 		return false;

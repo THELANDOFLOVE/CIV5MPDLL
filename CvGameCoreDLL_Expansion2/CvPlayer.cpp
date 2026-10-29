@@ -1353,6 +1353,8 @@ void CvPlayer::uninit()
 	m_vPrayerRequests.clear();
 	m_aiPrayerDenyStreak.clear();
 	m_aiPrayerDenyStreak.resize(MAX_MAJOR_CIVS, 0);
+	m_aiTruceUntil.clear();
+	m_aiTruceUntil.assign(MAX_MAJOR_CIVS * MAX_MAJOR_CIVS, 0);
 	m_aiCourtGiftLog.clear();
 	m_aiMemorialDefault.clear();
 	m_aiMemorialDefault.resize(7, 0);
@@ -31432,6 +31434,7 @@ void CvPlayer::Read(FDataStream& kStream)
 			}
 		}
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiPrayerDenyStreak, MAX_MAJOR_CIVS, 0);
+		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiTruceUntil, MAX_MAJOR_CIVS * MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiPrayerBlessing, NUM_YIELD_TYPES, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iPrayerBlessingEndTurn, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iPrayerThresholdTurns, 0);
@@ -32398,6 +32401,7 @@ void CvPlayer::Write(FDataStream& kStream) const
 		}
 	}
 	MOD_SERIALIZE_WRITE(kStream, m_aiPrayerDenyStreak);
+	MOD_SERIALIZE_WRITE(kStream, m_aiTruceUntil);
 	MOD_SERIALIZE_WRITE(kStream, m_aiPrayerBlessing);
 	MOD_SERIALIZE_WRITE(kStream, m_iPrayerBlessingEndTurn);
 	MOD_SERIALIZE_WRITE(kStream, m_iPrayerThresholdTurns);
@@ -35287,6 +35291,33 @@ void CvPlayer::DoVassalAIDiplomacyTurn()
 		{
 			DoInviteVassal(eTarget);
 			break;
+		}
+	}
+
+	// AI overlord settles wars between its vassals: side with the more loyal
+	// one; if neither stands out, impose a white peace.
+	for (size_t a = 0; a < m_vecVassals.size(); a++)
+	{
+		PlayerTypes eA = (PlayerTypes)m_vecVassals[a];
+		if (!IsLiveVassal(eA)) continue;
+		for (size_t b = a + 1; b < m_vecVassals.size(); b++)
+		{
+			PlayerTypes eB = (PlayerTypes)m_vecVassals[b];
+			if (!IsLiveVassal(eB)) continue;
+			if (!GET_TEAM(GET_PLAYER(eA).getTeam()).isAtWar(GET_PLAYER(eB).getTeam())) continue;
+
+			int iLoyalA = GetVassalLoyalty(eA);
+			int iLoyalB = GetVassalLoyalty(eB);
+			int iResult = -1;
+			if (iLoyalA >= iLoyalB + 15)
+				iResult = ProposeVassalPeace(eA, eB, eB, 0, true, 10, eB);
+			else if (iLoyalB >= iLoyalA + 15)
+				iResult = ProposeVassalPeace(eA, eB, eA, 0, true, 10, eA);
+			else
+				iResult = ProposeVassalPeace(eA, eB, eA, 0, false, 10, NO_PLAYER);
+
+			if (iResult != 0)
+				ProposeVassalPeace(eA, eB, eA, 0, false, 10, NO_PLAYER); // white peace fallback
 		}
 	}
 
@@ -42591,6 +42622,24 @@ int CvPlayer::ProposeVassalPeace(PlayerTypes eA, PlayerTypes eB, PlayerTypes ePa
 	if (eCensure == eA || eCensure == eB)
 		ChangeVassalLoyalty(eCensure, -10);
 
-	(void)iTruceTurns;
+	// Record the court-ordered truce.
+	if (iTruceTurns > 0)
+	{
+		int iUntil = GC.getGame().getGameTurn() + iTruceTurns;
+		size_t iAB = (size_t)eA * MAX_MAJOR_CIVS + eB;
+		size_t iBA = (size_t)eB * MAX_MAJOR_CIVS + eA;
+		if (iAB < m_aiTruceUntil.size()) m_aiTruceUntil[iAB] = iUntil;
+		if (iBA < m_aiTruceUntil.size()) m_aiTruceUntil[iBA] = iUntil;
+	}
 	return 0;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::IsVassalTruceActive(PlayerTypes eA, PlayerTypes eB) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (eA < 0 || eB < 0 || eA >= MAX_MAJOR_CIVS || eB >= MAX_MAJOR_CIVS) return false;
+	size_t i = (size_t)eA * MAX_MAJOR_CIVS + eB;
+	if (i >= m_aiTruceUntil.size()) return false;
+	return m_aiTruceUntil[i] > GC.getGame().getGameTurn();
 }

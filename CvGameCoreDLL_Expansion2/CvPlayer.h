@@ -2009,6 +2009,7 @@ public:
 	void ResetVassalProtectFlags();
 	bool CanMediateVassals(PlayerTypes eA, PlayerTypes eB) const;
 	bool DoVassalMediate(PlayerTypes eA, PlayerTypes eB);
+	int ProposeVassalPeace(PlayerTypes eA, PlayerTypes eB, PlayerTypes ePayer, int iGoldPercent, bool bReturnCities, int iTruceTurns, PlayerTypes eCensure);
 	bool CanReturnCityToVassal(CvCity* pCity) const;
 	bool DoReturnCityToVassal(CvCity* pCity);
 	bool DoReturnCityToVassalByID(int iCityID);

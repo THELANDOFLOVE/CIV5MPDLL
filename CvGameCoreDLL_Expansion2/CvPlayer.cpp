@@ -35834,6 +35834,37 @@ void CvPlayer::DoVassalMemorialTurn()
 		AddVassalMemorial(1, 0, 3, eVassal, eAggressor, iDeadlineTurns);
 	}
 
+	// Justice ministry: two vassals at war — one complaint per pair.
+	if (IsVassalCourtTurn())
+	{
+		int iWarDeadline = TiandaoDefineInt("TIANDAO_MEMORIAL_NORMAL_TURNS");
+		if (iWarDeadline <= 0) iWarDeadline = 10;
+		for (size_t a = 0; a < m_vecVassals.size(); a++)
+		{
+			PlayerTypes eA = (PlayerTypes)m_vecVassals[a];
+			if (!IsLiveVassal(eA)) continue;
+			for (size_t b = a + 1; b < m_vecVassals.size(); b++)
+			{
+				PlayerTypes eB = (PlayerTypes)m_vecVassals[b];
+				if (!IsLiveVassal(eB)) continue;
+				if (!GET_TEAM(GET_PLAYER(eA).getTeam()).isAtWar(GET_PLAYER(eB).getTeam())) continue;
+
+				bool bPending = false;
+				int iCount = GetVassalMemorialCount();
+				for (int m = 0; m < iCount; m++)
+				{
+					if (GetVassalMemorialField(m, TIANDAO_MEMORIAL_TYPE) != 7) continue;
+					if (GetVassalMemorialField(m, TIANDAO_MEMORIAL_STATE) != 0) continue;
+					int iV = GetVassalMemorialField(m, TIANDAO_MEMORIAL_VASSAL);
+					int iT = GetVassalMemorialField(m, TIANDAO_MEMORIAL_TARGET);
+					if ((iV == eA && iT == eB) || (iV == eB && iT == eA)) { bPending = true; break; }
+				}
+				if (bPending) continue;
+				AddVassalMemorial(7, 0, 4, eA, eB, iWarDeadline);
+			}
+		}
+	}
+
 	// Court turns only: reward requests (revenue ministry) and hardship reports.
 	if (IsVassalCourtTurn())
 	{
@@ -42450,4 +42481,113 @@ UnitTypes CvPlayer::GetCivUnitWithDefault(UnitClassTypes eUnitClass) const
 		if(pUnitClassInfo) eUnitType = (UnitTypes)pUnitClassInfo->getDefaultUnitIndex();
 	}
 	return eUnitType;
+}
+
+//--------------------------------------------------------------------------------
+// Overlord-drafted peace treaty between two warring vassals.
+// Returns 0 = both accepted (peace made), 1 = first side refused, 2 = second side refused.
+int CvPlayer::ProposeVassalPeace(PlayerTypes eA, PlayerTypes eB, PlayerTypes ePayer,
+	int iGoldPercent, bool bReturnCities, int iTruceTurns, PlayerTypes eCensure)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return -1;
+	if (!IsSuzerainCiv()) return -1;
+	if (eA == eB || !IsOverlordOf(eA) || !IsOverlordOf(eB)) return -1;
+
+	CvPlayer& kA = GET_PLAYER(eA);
+	CvPlayer& kB = GET_PLAYER(eB);
+	if (!GET_TEAM(kA.getTeam()).isAtWar(kB.getTeam())) return -1;
+
+	if (iGoldPercent < 0) iGoldPercent = 0;
+	if (iGoldPercent > 30) iGoldPercent = 30;
+	if (ePayer != eA && ePayer != eB) iGoldPercent = 0;
+
+	// Cities each side holds from the other.
+	int iHeldByA = 0, iHeldByB = 0;
+	int iLoop = 0;
+	for (CvCity* pCity = kA.firstCity(&iLoop); pCity != NULL; pCity = kA.nextCity(&iLoop))
+		if (pCity->getOriginalOwner() == eB) iHeldByA++;
+	iLoop = 0;
+	for (CvCity* pCity = kB.firstCity(&iLoop); pCity != NULL; pCity = kB.nextCity(&iLoop))
+		if (pCity->getOriginalOwner() == eA) iHeldByB++;
+
+	int iAcceptA = 50, iAcceptB = 50;
+
+	// The stronger side resists any peace that costs it.
+	long long iMightA = kA.GetMilitaryMight();
+	long long iMightB = kB.GetMilitaryMight();
+	if (iMightA > 0 && iMightB > 0)
+	{
+		if (iMightA * 100 >= iMightB * 120) { iAcceptA -= 20; iAcceptB += 20; }
+		else if (iMightB * 100 >= iMightA * 120) { iAcceptB -= 20; iAcceptA += 20; }
+	}
+
+	// Loyal vassals obey the overlord; disloyal ones resist.
+	if (GetVassalLoyalty(eA) >= 60) iAcceptA += 10;
+	else if (GetVassalLoyalty(eA) < 40) iAcceptA -= 10;
+	if (GetVassalLoyalty(eB) >= 60) iAcceptB += 10;
+	else if (GetVassalLoyalty(eB) < 40) iAcceptB -= 10;
+
+	// Bias: whoever has to give something resists it.
+	int iGoldBias = iGoldPercent >= 30 ? 2 : (iGoldPercent >= 20 ? 1.5 : (iGoldPercent > 0 ? 1 : 0));
+	if (iGoldPercent > 0)
+	{
+		if (ePayer == eA) iAcceptA -= (int)(iGoldBias * 15); else iAcceptB -= (int)(iGoldBias * 15);
+		if (ePayer == eA) iAcceptB += (int)(iGoldBias * 5); else iAcceptA += (int)(iGoldBias * 5);
+	}
+	if (bReturnCities)
+	{
+		if (iHeldByA == 0 && iHeldByB == 0) bReturnCities = false;
+		if (iHeldByA > 0) iAcceptA -= 30;
+		if (iHeldByB > 0) iAcceptB -= 30;
+		// Mutual occupation: only the net difference is punished.
+		if (iHeldByA > iHeldByB) iAcceptA -= 10 * (iHeldByA - iHeldByB);
+		else if (iHeldByB > iHeldByA) iAcceptB -= 10 * (iHeldByB - iHeldByA);
+	}
+	if (eCensure == eA) iAcceptA -= 15;
+	else if (eCensure == eB) iAcceptB -= 15;
+
+	// Fault: only the net occupation counts, so mutual captures cancel out.
+	int iNetA = iHeldByA - iHeldByB;
+	if (iNetA > 0) { iAcceptA -= 10 * iNetA; iAcceptB += 10; }
+	else if (iNetA < 0) { iAcceptB -= 10 * (-iNetA); iAcceptA += 10; }
+	if (GetVassalBreachCount(eA) > 0) iAcceptA -= 10;
+	if (GetVassalBreachCount(eB) > 0) iAcceptB -= 10;
+
+	if (iAcceptA < 50) return 1;
+	if (iAcceptB < 50) return 2;
+
+	// Both accept: enforce the treaty.
+	GET_TEAM(kA.getTeam()).makePeace(kB.getTeam(), true, false, GetID());
+
+	if (iGoldPercent > 0)
+	{
+		CvPlayer& kPayer = GET_PLAYER(ePayer);
+		CvPlayer& kReceiver = GET_PLAYER(ePayer == eA ? eB : eA);
+		int iGold = (int)(kPayer.GetTreasury()->GetGold() * iGoldPercent / 100);
+		if (iGold > 0) kPayer.TransferGoldTo(kReceiver.GetID(), iGold);
+	}
+
+	if (bReturnCities)
+	{
+		iLoop = 0;
+		std::vector<int> vReturn;
+		for (CvCity* pCity = kA.firstCity(&iLoop); pCity != NULL; pCity = kA.nextCity(&iLoop))
+			if (pCity->getOriginalOwner() == eB) vReturn.push_back(pCity->GetID());
+		iLoop = 0;
+		for (CvCity* pCity = kB.firstCity(&iLoop); pCity != NULL; pCity = kB.nextCity(&iLoop))
+			if (pCity->getOriginalOwner() == eA) vReturn.push_back(pCity->GetID());
+		for (size_t i = 0; i < vReturn.size(); i++)
+		{
+			CvCity* pCity = kA.getCity(vReturn[i]);
+			if (pCity == NULL) pCity = kB.getCity(vReturn[i]);
+			if (pCity == NULL) continue;
+			GET_PLAYER((PlayerTypes)pCity->getOriginalOwner()).acquireCity(pCity, false, true);
+		}
+	}
+
+	if (eCensure == eA || eCensure == eB)
+		ChangeVassalLoyalty(eCensure, -10);
+
+	(void)iTruceTurns;
+	return 0;
 }

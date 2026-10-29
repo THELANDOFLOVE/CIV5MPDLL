@@ -134,6 +134,7 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoVassalGift);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoVassalProtect);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoVassalMediate);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lProposeVassalPeace);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoReturnCityToVassal);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoReturnCityToVassalByID);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lResolveVassalMemorial);
@@ -1532,6 +1533,7 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(DoVassalProtect);
 	Method(CanMediateVassals);
 	Method(DoVassalMediate);
+	Method(ProposeVassalPeace);
 	Method(CanReturnCityToVassal);
 	Method(DoReturnCityToVassal);
 	Method(DoReturnCityToVassalByID);
@@ -15301,5 +15303,17 @@ int CvLuaPlayer::lGetBorderPromiseTurnLeft(lua_State* L)
 	return 1;
 }
 
-
-
+//int ProposeVassalPeace(PlayerTypes eA, PlayerTypes eB, PlayerTypes ePayer, int iGoldPercent, bool bReturnCities, int iTruceTurns, PlayerTypes eCensure);
+int CvLuaPlayer::lProposeVassalPeace(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const PlayerTypes eA = (PlayerTypes)lua_tointeger(L, 2);
+	const PlayerTypes eB = (PlayerTypes)lua_tointeger(L, 3);
+	const PlayerTypes ePayer = (PlayerTypes)lua_tointeger(L, 4);
+	const int iGoldPercent = lua_tointeger(L, 5);
+	const bool bReturnCities = lua_toboolean(L, 6);
+	const int iTruceTurns = lua_tointeger(L, 7);
+	const PlayerTypes eCensure = (PlayerTypes)lua_tointeger(L, 8);
+	lua_pushinteger(L, pkPlayer->ProposeVassalPeace(eA, eB, ePayer, iGoldPercent, bReturnCities, iTruceTurns, eCensure));
+	return 1;
+}

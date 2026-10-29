@@ -434,6 +434,9 @@ CvPlayer::CvPlayer() :
 	, m_iPendingWarOrderTurn("CvPlayer::m_iPendingWarOrderTurn", m_syncArchive)
 	, m_aiPendingDecrees("CvPlayer::m_aiPendingDecrees", m_syncArchive)
 	, m_aiVassalTitle("CvPlayer::m_aiVassalTitle", m_syncArchive)
+	, m_aiTributeRelief("CvPlayer::m_aiTributeRelief", m_syncArchive)
+	, m_aiLoanDueTurn("CvPlayer::m_aiLoanDueTurn", m_syncArchive)
+	, m_aiLoanAmount("CvPlayer::m_aiLoanAmount", m_syncArchive)
 	, m_aiVassalBreachCount("CvPlayer::m_aiVassalBreachCount", m_syncArchive)
 	, m_aiVassalBreachTurn("CvPlayer::m_aiVassalBreachTurn", m_syncArchive)
 	, m_iMandate("CvPlayer::m_iMandate", m_syncArchive)
@@ -1349,6 +1352,12 @@ void CvPlayer::uninit()
 	m_aiVassalRankTurn.resize(MAX_MAJOR_CIVS, 0);
 	m_aiVassalTitle.clear();
 	m_aiVassalTitle.resize(MAX_MAJOR_CIVS, 0);
+	m_aiTributeRelief.clear();
+	m_aiTributeRelief.resize(MAX_MAJOR_CIVS, 0);
+	m_aiLoanDueTurn.clear();
+	m_aiLoanDueTurn.resize(MAX_MAJOR_CIVS, 0);
+	m_aiLoanAmount.clear();
+	m_aiLoanAmount.resize(MAX_MAJOR_CIVS, 0);
 	m_aiVassalGiftCount.clear();
 	m_aiVassalGiftCount.resize(MAX_MAJOR_CIVS, 0);
 	m_aiVassalProtectHandled.clear();
@@ -5599,6 +5608,7 @@ void CvPlayer::doTurn()
 		DoSeekAllegianceTurn();
 		DoPendingWarOrderTurn();
 		DoVassalDecreeTurn();
+		DoVassalFinanceTurn();
 		DoVassalRankMandateTurn();
 		DoVassalLoyaltyDecay();
 		DoVassalRevoltCheck();
@@ -31423,6 +31433,9 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ(165, kStream, m_iPendingWarOrderTurn, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiPendingDecrees, 0, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalTitle, MAX_MAJOR_CIVS, 0);
+		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiTributeRelief, MAX_MAJOR_CIVS, 0);
+		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiLoanDueTurn, MAX_MAJOR_CIVS, 0);
+		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiLoanAmount, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalBreachCount, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalPunishRight, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiMemorialDefault, 7, 0);
@@ -32408,6 +32421,9 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE(kStream, m_iPendingWarOrderTurn);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiPendingDecrees);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalTitle);
+	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiTributeRelief);
+	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiLoanDueTurn);
+	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiLoanAmount);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalBreachCount);
 	MOD_SERIALIZE_WRITE(kStream, m_aiVassalPunishRight);
 	MOD_SERIALIZE_WRITE(kStream, m_aiMemorialDefault);
@@ -36060,6 +36076,96 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 			bOk = true;
 		}
 		break;
+	case 18: // revenue ministry: relief from tribute
+		if (bApprove)
+		{
+			int iTurns = SuzerainDefineInt("SUZERAIN_TRIBUTE_RELIEF_TURNS");
+			if (iTurns <= 0) iTurns = 10;
+			SetTributeRelief(eVassal, iTurns);
+			ChangeVassalLoyalty(eVassal, 5);
+		}
+		else
+		{
+			ChangeVassalLoyalty(eVassal, -5);
+		}
+		bOk = true;
+		break;
+	case 19: // revenue ministry: a loan
+		if (bApprove)
+		{
+			int iLoan = SuzerainDefineInt("SUZERAIN_LOAN_GOLD");
+			int iRepay = SuzerainDefineInt("SUZERAIN_LOAN_REPAY");
+			int iTurns = SuzerainDefineInt("SUZERAIN_LOAN_TURNS");
+			if (iTurns <= 0) iTurns = 15;
+			if (iLoan > 0 && GetTreasury()->GetGold() >= iLoan)
+			{
+				TransferGoldTo(eVassal, iLoan);
+				SetLoan(eVassal, GC.getGame().getGameTurn() + iTurns, iRepay);
+				ChangeVassalLoyalty(eVassal, 3);
+				bOk = true;
+			}
+		}
+		else
+		{
+			ChangeVassalLoyalty(eVassal, -3);
+			bOk = true;
+		}
+		break;
+	case 20: // revenue ministry: open trade
+		if (bApprove)
+		{
+			// A trade route when the vassal has a trade unit; otherwise fund one.
+			if (!DoVassalTradeRoute(eVassal))
+			{
+				int iGold = SuzerainDefineInt("SUZERAIN_TRADE_GOLD");
+				int iPay = std::min(iGold, (int)GetTreasury()->GetGold());
+				if (iPay > 0) TransferGoldTo(eVassal, iPay);
+			}
+			ChangeVassalLoyalty(eVassal, 4);
+			bOk = true;
+		}
+		else
+		{
+			ChangeVassalLoyalty(eVassal, -3);
+			bOk = true;
+		}
+		break;
+	case 21: // revenue ministry: a rich vassal offers gold
+		if (bApprove)
+		{
+			int iGold = SuzerainDefineInt("SUZERAIN_TRIBUTE_GIFT_GOLD");
+			CvPlayer& kV = GET_PLAYER(eVassal);
+			int iPay = std::min(iGold, (int)kV.GetTreasury()->GetGold());
+			if (iPay > 0)
+			{
+				kV.GetTreasury()->ChangeGold(-iPay);
+				GetTreasury()->ChangeGold(iPay);
+			}
+			ChangeVassalLoyalty(eVassal, 3);
+			bOk = true;
+		}
+		else
+		{
+			// Declining a gift is gracious, not insulting.
+			ChangeVassalLoyalty(eVassal, 5);
+			bOk = true;
+		}
+		break;
+	case 22: // revenue ministry: famine relief
+		if (bApprove)
+		{
+			int iGold = SuzerainDefineInt("SUZERAIN_DISASTER_AID_GOLD");
+			int iPay = std::min(iGold, (int)GetTreasury()->GetGold());
+			if (iPay > 0) TransferGoldTo(eVassal, iPay);
+			ChangeVassalLoyalty(eVassal, 6);
+			bOk = true;
+		}
+		else
+		{
+			ChangeVassalLoyalty(eVassal, -4);
+			bOk = true;
+		}
+		break;
 	case 1: // material aid while losing a war
 	case 2: // request for a reward
 	case 3: // report of hardship
@@ -36362,6 +36468,49 @@ void CvPlayer::DoVassalMemorialTurn()
 				}
 				if (iOldCity >= 0 && !HasPendingMemorial(eVassal, 17))
 					AddVassalMemorial(17, 1, 0, eVassal, (PlayerTypes)iOldCity, iNormalTurns);
+			}
+
+			// Revenue ministry: relief from tribute.
+			if (kVassal.calculateGoldRate() < 0 && GetTributeRelief(eVassal) <= 0
+				&& !HasPendingMemorial(eVassal, 18))
+			{
+				AddVassalMemorial(18, 1, 1, eVassal, NO_PLAYER, iNormalTurns);
+			}
+
+			// Revenue ministry: a loan.
+			if (kVassal.GetTreasury()->GetGold() < 0 && GetLoanAmount(eVassal) <= 0
+				&& !HasPendingMemorial(eVassal, 19))
+			{
+				AddVassalMemorial(19, 1, 1, eVassal, NO_PLAYER, iNormalTurns);
+			}
+
+			// Revenue ministry: opening trade.
+			if (!GET_TEAM(getTeam()).isAtWar(kVassal.getTeam())
+				&& !HasPendingMemorial(eVassal, 20))
+			{
+				AddVassalMemorial(20, 1, 1, eVassal, NO_PLAYER, iNormalTurns);
+			}
+
+			// Revenue ministry: a rich vassal offers gold.
+			{
+				int iOfferGold = SuzerainDefineInt("SUZERAIN_TRIBUTE_GIFT_GOLD");
+				if (iOfferGold > 0 && kVassal.GetTreasury()->GetGold() >= iOfferGold
+					&& !HasPendingMemorial(eVassal, 21))
+				{
+					AddVassalMemorial(21, 1, 1, eVassal, NO_PLAYER, iNormalTurns);
+				}
+			}
+
+			// Revenue ministry: famine relief.
+			{
+				bool bFamine = false;
+				int iFoodLoop = 0;
+				for (CvCity* pFoodCity = kVassal.firstCity(&iFoodLoop); pFoodCity != NULL; pFoodCity = kVassal.nextCity(&iFoodLoop))
+				{
+					if (pFoodCity->getFood() <= 0) { bFamine = true; break; }
+				}
+				if (bFamine && !HasPendingMemorial(eVassal, 22))
+					AddVassalMemorial(22, 1, 1, eVassal, NO_PLAYER, iNormalTurns);
 			}
 
 			// Rites ministry: a content vassal asks for a gift in return.
@@ -38837,6 +38986,9 @@ void CvPlayer::UpdateVassalTaxation()
 		// rate is only the fallback for an unlisted rank.
 		int iListed = SuzerainDefineListInt("SUZERAIN_TRIBUTE_RATE_BY_RANK", GetVassalRank(e), -1);
 		if (iListed >= 0) iTaxPercent = iListed;
+
+		// A granted tribute relief waives the whole tithe for its duration.
+		if (GetTributeRelief(e) > 0) iTaxPercent = 0;
 		// Taxes are levied on gross output. The vassal's per-turn getters already net out its own
 		// downstream vassal taxes, so re-adding the amount it pays to us makes the base "tax-on-tax":
 		// a vassal tithes a share of everything it produces, including what it receives from its own
@@ -38936,6 +39088,9 @@ void CvPlayer::UpdateVassalTaxation()
 		int iRate = iBaseline;
 		int iListed = SuzerainDefineListInt("SUZERAIN_TRIBUTE_RATE_BY_RANK", GetVassalRank(e), -1);
 		if (iListed >= 0) iRate = iListed;
+
+		// A granted tribute relief waives the whole tithe for its duration.
+		if (GetTributeRelief(e) > 0) iRate = 0;
 
 		unsigned long long iScienceGross = v.GetScienceTimes100(true) + v.GetScienceTimes100ToOverlord();
 		unsigned long long iScienceTax = iScienceGross * iRate / 100;
@@ -43624,6 +43779,22 @@ void CvPlayer::DoVassalAIMemorialTurn()
 			// A gifted great person or an old city back is always worth taking.
 			ResolveVassalMemorial(m, true);
 		}
+		else if (iType == 18 || iType == 22)
+		{
+			// Relief only for a reasonably loyal vassal.
+			ResolveVassalMemorial(m, GetVassalLoyalty(eVassal) >= 40);
+		}
+		else if (iType == 19)
+		{
+			int iLoan = SuzerainDefineInt("SUZERAIN_LOAN_GOLD");
+			ResolveVassalMemorial(m, GetVassalLoyalty(eVassal) >= 40
+				&& GetTreasury()->GetGold() >= iLoan);
+		}
+		else if (iType == 20 || iType == 21)
+		{
+			// Trade and offered gold are always welcome.
+			ResolveVassalMemorial(m, true);
+		}
 		else if (iType == 12)
 		{
 			// Diplomacy: demand moderate terms, then take the counter if refused.
@@ -44073,6 +44244,74 @@ bool CvPlayer::ResolveDecree(int iIndex, bool bAccept)
 		}
 		break;
 
+	case 6: // levy: pay the extra demand, or refuse
+		if (bAccept)
+		{
+			int iGold = SuzerainDefineInt("SUZERAIN_LEVY_GOLD");
+			int iPay = std::min(iGold, (int)GetTreasury()->GetGold());
+			if (iPay > 0)
+			{
+				GetTreasury()->ChangeGold(-iPay);
+				kOverlord.GetTreasury()->ChangeGold(iPay);
+			}
+			kOverlord.ChangeVassalLoyalty(GetID(), -5);
+		}
+		else
+		{
+			kOverlord.ChangeVassalLoyalty(GetID(), -15);
+		}
+		break;
+
+	case 7: // remission: accept the waived tithe, or decline out of modesty
+		if (bAccept)
+		{
+			int iTurns = SuzerainDefineInt("SUZERAIN_TRIBUTE_RELIEF_TURNS");
+			if (iTurns <= 0) iTurns = 10;
+			kOverlord.SetTributeRelief(GetID(), iTurns);
+			kOverlord.ChangeVassalLoyalty(GetID(), 6);
+		}
+		else
+		{
+			kOverlord.ChangeMandate(3);
+		}
+		break;
+
+	case 8: // offering: hand over a token tribute, or refuse
+		if (bAccept)
+		{
+			int iGold = SuzerainDefineInt("SUZERAIN_TRIBUTE_OFFERING_GOLD");
+			int iPay = std::min(iGold, (int)GetTreasury()->GetGold());
+			if (iPay > 0)
+			{
+				GetTreasury()->ChangeGold(-iPay);
+				kOverlord.GetTreasury()->ChangeGold(iPay);
+			}
+			kOverlord.ChangeMandate(5);
+			kOverlord.ChangeVassalLoyalty(GetID(), -4);
+		}
+		else
+		{
+			kOverlord.ChangeVassalLoyalty(GetID(), -15);
+		}
+		break;
+
+	case 9: // open market: the overlord opens trade
+		if (bAccept)
+		{
+			if (!kOverlord.DoVassalTradeRoute(GetID()))
+			{
+				int iGold = SuzerainDefineInt("SUZERAIN_TRADE_GOLD");
+				int iPay = std::min(iGold, (int)kOverlord.GetTreasury()->GetGold());
+				if (iPay > 0) kOverlord.TransferGoldTo(GetID(), iPay);
+			}
+			kOverlord.ChangeVassalLoyalty(GetID(), 5);
+		}
+		else
+		{
+			kOverlord.ChangeVassalLoyalty(GetID(), -5);
+		}
+		break;
+
 	default:
 		return false;
 	}
@@ -44119,6 +44358,11 @@ bool CvPlayer::CanIssueDecree(int iType, PlayerTypes eVassal, int iTarget) const
 		// The fief is a city the overlord holds; DoReturnCityToVassalByID
 		// validates ownership and origin when it runs.
 		return iTarget >= 0;
+	case 6: // levy
+	case 7: // remission
+	case 8: // offering
+	case 9: // open market
+		return true;
 	default:
 		return false;
 	}
@@ -44212,6 +44456,140 @@ int CvPlayer::PickFreeTitle() const
 		if (!bUsed) return iTitle;
 	}
 	return 0;
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetTributeRelief(PlayerTypes eVassal) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) return 0;
+	if ((size_t)eVassal >= m_aiTributeRelief.size()) return 0;
+	return m_aiTributeRelief[eVassal];
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::SetTributeRelief(PlayerTypes eVassal, int iTurns)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) return;
+	if ((size_t)eVassal >= m_aiTributeRelief.size())
+		m_aiTributeRelief.resize(MAX_MAJOR_CIVS, 0);
+	m_aiTributeRelief.setAt((size_t)eVassal, iTurns < 0 ? 0 : iTurns);
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetLoanDueTurn(PlayerTypes eVassal) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) return 0;
+	if ((size_t)eVassal >= m_aiLoanDueTurn.size()) return 0;
+	return m_aiLoanDueTurn[eVassal];
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetLoanAmount(PlayerTypes eVassal) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) return 0;
+	if ((size_t)eVassal >= m_aiLoanAmount.size()) return 0;
+	return m_aiLoanAmount[eVassal];
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::SetLoan(PlayerTypes eVassal, int iDueTurn, int iAmount)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) return;
+	if ((size_t)eVassal >= m_aiLoanDueTurn.size())
+		m_aiLoanDueTurn.resize(MAX_MAJOR_CIVS, 0);
+	if ((size_t)eVassal >= m_aiLoanAmount.size())
+		m_aiLoanAmount.resize(MAX_MAJOR_CIVS, 0);
+	m_aiLoanDueTurn.setAt((size_t)eVassal, iDueTurn);
+	m_aiLoanAmount.setAt((size_t)eVassal, iAmount);
+}
+
+//--------------------------------------------------------------------------------
+// Finance tick: tribute relief winds down; loans are collected, and a vassal
+// that cannot pay is marked as a defaulter (punish right plus growing debt).
+void CvPlayer::DoVassalFinanceTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (!IsSuzerainCiv()) return;
+
+	int iTurn = GC.getGame().getGameTurn();
+	int iLateFee = SuzerainDefineInt("SUZERAIN_LOAN_LATE_FEE");
+	int iLateEvery = SuzerainDefineInt("SUZERAIN_LOAN_LATE_TURNS");
+	if (iLateEvery <= 0) iLateEvery = 5;
+
+	for (size_t i = 0; i < m_vecVassals.size(); i++)
+	{
+		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
+		if (!IsLiveVassal(eVassal)) continue;
+
+		if (GetTributeRelief(eVassal) > 0)
+			SetTributeRelief(eVassal, GetTributeRelief(eVassal) - 1);
+
+		int iDue = GetLoanDueTurn(eVassal);
+		if (iDue <= 0 || iTurn < iDue) continue;
+
+		int iOwed = GetLoanAmount(eVassal);
+		if (iOwed <= 0)
+		{
+			SetLoan(eVassal, 0, 0);
+			continue;
+		}
+
+		CvPlayer& kVassal = GET_PLAYER(eVassal);
+		int iHave = (int)kVassal.GetTreasury()->GetGold();
+		int iPay = std::min(iHave, iOwed);
+		if (iPay > 0)
+		{
+			kVassal.GetTreasury()->ChangeGold(-iPay);
+			GetTreasury()->ChangeGold(iPay);
+			iOwed -= iPay;
+		}
+
+		if (iOwed <= 0)
+		{
+			SetLoan(eVassal, 0, 0);
+		}
+		else
+		{
+			// Default: the debt keeps growing and the overlord gains the right
+			// to punish. Loyalty is untouched: low loyalty would only help the
+			// debtor walk away.
+			if (iLateFee > 0 && (iTurn % iLateEvery) == 0)
+				iOwed += iLateFee;
+			SetLoan(eVassal, iTurn + 1, iOwed);
+
+			if (!HasVassalPunishRight(eVassal))
+				GrantVassalPunishRight(eVassal, SuzerainDefineInt("SUZERAIN_PUNISH_TURNS"));
+		}
+	}
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::DoVassalTradeRoute(PlayerTypes eVassal)
+{
+	// Connect to our largest city.
+	CvCity* pTarget = NULL;
+	int iCityLoop = 0;
+	for (CvCity* pCity = firstCity(&iCityLoop); pCity != NULL; pCity = nextCity(&iCityLoop))
+	{
+		if (pTarget == NULL || pCity->getPopulation() > pTarget->getPopulation())
+			pTarget = pCity;
+	}
+	if (pTarget == NULL) return false;
+
+	CvPlayer& kVassal = GET_PLAYER(eVassal);
+	int iLoop = 0;
+	for (CvUnit* pUnit = kVassal.firstUnit(&iLoop); pUnit != NULL; pUnit = kVassal.nextUnit(&iLoop))
+	{
+		if (pUnit->getUnitInfo().GetDefaultUnitAIType() != UNITAI_TRADE_UNIT) continue;
+		if (pUnit->makeTradeRoute(pTarget->getX(), pTarget->getY(), TRADE_CONNECTION_INTERNATIONAL))
+			return true;
+	}
+	return false;
 }
 
 //--------------------------------------------------------------------------------

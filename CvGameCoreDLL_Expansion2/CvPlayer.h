@@ -2189,6 +2189,16 @@ public:
 	void SetVassalTitle(PlayerTypes eVassal, int iTitle);
 	// First title index not yet held by any vassal, or 0 when all are taken.
 	int PickFreeTitle() const;
+	// Finance: tribute relief and loans
+	int GetTributeRelief(PlayerTypes eVassal) const;
+	void SetTributeRelief(PlayerTypes eVassal, int iTurns);
+	int GetLoanDueTurn(PlayerTypes eVassal) const;
+	int GetLoanAmount(PlayerTypes eVassal) const;
+	void SetLoan(PlayerTypes eVassal, int iDueTurn, int iAmount);
+	void DoVassalFinanceTurn();
+	// Have a vassal trade unit open a route to one of our cities; false when
+	// the vassal has no trade unit available.
+	bool DoVassalTradeRoute(PlayerTypes eVassal);
 	// A human vassal petitions its overlord directly. 0 = accepted, 1 = not a
 	// vassal, 2 = type cannot be raised manually, 3 = already pending,
 	// 4 = invalid target.
@@ -3296,6 +3306,11 @@ protected:
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiPendingDecrees;
 	// Title index granted to each vassal (0 = none, 1..N = named title)
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalTitle;
+	// Turns of full tribute relief remaining per vassal (0 = none)
+	FAutoVariable<std::vector<int>, CvPlayer> m_aiTributeRelief;
+	// Loan due turn and amount owed per vassal
+	FAutoVariable<std::vector<int>, CvPlayer> m_aiLoanDueTurn;
+	FAutoVariable<std::vector<int>, CvPlayer> m_aiLoanAmount;
 	// Broken-obligation record: count and the turn of the last breach
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalBreachCount;
 	// Punish right expiry turn per vassal (serialized)

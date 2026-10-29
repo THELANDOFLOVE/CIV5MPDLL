@@ -42980,14 +42980,25 @@ void CvPlayer::DoVassalAIMemorialTurn()
 		}
 		else if (iType == 9)
 		{
+			// Only call vassals loyal enough to obey; skip the rest instead of
+			// forcing a refusal that would cost loyalty.
 			PlayerTypes eWarTarget = (PlayerTypes)GetVassalMemorialField(m, TIANDAO_MEMORIAL_TARGET);
 			if (eWarTarget != NO_PLAYER)
-				OrderVassalsJoinWar(eWarTarget);
+			{
+				for (size_t i = 0; i < m_vecVassals.size(); i++)
+				{
+					PlayerTypes eCall = (PlayerTypes)m_vecVassals[i];
+					if (!IsLiveVassal(eCall)) continue;
+					if (GetVassalLoyalty(eCall) < 50) continue;
+					OrderVassalJoinWar(eCall, eWarTarget);
+				}
+			}
 			ResolveVassalMemorial(m, true);
 		}
 		else if (iType == 10)
 		{
-			ResolveVassalMemorial(m, true); // free technology
+			// Grant the technology only to a reasonably loyal vassal.
+			ResolveVassalMemorial(m, GetVassalLoyalty(eVassal) >= 40);
 		}
 		else if (iType == 11)
 		{

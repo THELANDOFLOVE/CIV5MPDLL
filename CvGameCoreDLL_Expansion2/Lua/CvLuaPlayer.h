@@ -1411,6 +1411,10 @@ protected:
 	LUAAPIEXTN(GetStrongestLandUnitCost, int);
 	LUAAPIEXTN(GiftUnitToVassal, bool, eVassal, iUnitID);
 	LUAAPIEXTN(SpawnUnitForVassal, bool, eVassal);
+	LUAAPIEXTN(OrderVassalJoinWar, bool, eVassal, eTarget);
+	LUAAPIEXTN(DoEmbargoMonopoly, bool, eTarget);
+	LUAAPIEXTN(DenounceTarget, void, eTarget);
+	LUAAPIEXTN(OrderPermanentAllyCityStatesWar, void, eTarget);
 	LUAAPIEXTN(CanReturnCityToVassal, bool, pCity);
 	LUAAPIEXTN(DoReturnCityToVassal, bool, pCity);
 	LUAAPIEXTN(DoReturnCityToVassalByID, bool, iCityID);

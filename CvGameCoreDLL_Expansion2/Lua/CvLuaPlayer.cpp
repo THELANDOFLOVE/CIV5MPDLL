@@ -139,6 +139,10 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lAcceptVassalPeaceCounterEx);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGiftUnitToVassal);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSpawnUnitForVassal);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lOrderVassalJoinWar);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoEmbargoMonopoly);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDenounceTarget);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lOrderPermanentAllyCityStatesWar);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoReturnCityToVassal);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoReturnCityToVassalByID);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lResolveVassalMemorial);
@@ -1545,6 +1549,10 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(GetStrongestLandUnitCost);
 	Method(GiftUnitToVassal);
 	Method(SpawnUnitForVassal);
+	Method(OrderVassalJoinWar);
+	Method(DoEmbargoMonopoly);
+	Method(DenounceTarget);
+	Method(OrderPermanentAllyCityStatesWar);
 	Method(CanReturnCityToVassal);
 	Method(DoReturnCityToVassal);
 	Method(DoReturnCityToVassalByID);
@@ -15390,4 +15398,37 @@ int CvLuaPlayer::lSpawnUnitForVassal(lua_State* L)
 	const PlayerTypes eVassal = (PlayerTypes)lua_tointeger(L, 2);
 	lua_pushboolean(L, pkPlayer->SpawnUnitForVassal(eVassal));
 	return 1;
+}
+//bool OrderVassalJoinWar(PlayerTypes eVassal, PlayerTypes eTarget);
+int CvLuaPlayer::lOrderVassalJoinWar(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const PlayerTypes eVassal = (PlayerTypes)lua_tointeger(L, 2);
+	const PlayerTypes eTarget = (PlayerTypes)lua_tointeger(L, 3);
+	lua_pushboolean(L, pkPlayer->OrderVassalJoinWar(eVassal, eTarget));
+	return 1;
+}
+//bool DoEmbargoMonopoly(PlayerTypes eTarget);
+int CvLuaPlayer::lDoEmbargoMonopoly(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const PlayerTypes eTarget = (PlayerTypes)lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->DoEmbargoMonopoly(eTarget));
+	return 1;
+}
+//void DenounceTarget(PlayerTypes eTarget);
+int CvLuaPlayer::lDenounceTarget(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const PlayerTypes eTarget = (PlayerTypes)lua_tointeger(L, 2);
+	pkPlayer->DenounceTarget(eTarget);
+	return 0;
+}
+//void OrderPermanentAllyCityStatesWar(PlayerTypes eTarget);
+int CvLuaPlayer::lOrderPermanentAllyCityStatesWar(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const PlayerTypes eTarget = (PlayerTypes)lua_tointeger(L, 2);
+	pkPlayer->OrderPermanentAllyCityStatesWar(eTarget);
+	return 0;
 }

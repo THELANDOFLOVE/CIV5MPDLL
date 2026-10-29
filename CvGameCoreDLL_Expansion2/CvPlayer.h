@@ -2019,6 +2019,10 @@ public:
 	bool GiftUnitToVassal(PlayerTypes eVassal, int iUnitID);
 	bool SpawnUnitForVassal(PlayerTypes eVassal);
 	void OrderVassalsJoinWar(PlayerTypes eTarget);
+	bool OrderVassalJoinWar(PlayerTypes eVassal, PlayerTypes eTarget);
+	bool DoEmbargoMonopoly(PlayerTypes eTarget);
+	void DenounceTarget(PlayerTypes eTarget);
+	void OrderPermanentAllyCityStatesWar(PlayerTypes eTarget);
 	bool DoTradeBlock(PlayerTypes eTarget);
 	bool CanReturnCityToVassal(CvCity* pCity) const;
 	bool DoReturnCityToVassal(CvCity* pCity);

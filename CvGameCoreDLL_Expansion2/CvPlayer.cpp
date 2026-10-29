@@ -35787,22 +35787,12 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 	case 8: // military ministry: unit aid; the unit is handed over from the UI
 		bOk = true;
 		break;
-	case 11: // revenue ministry: blockade the aggressor
-	{
-		PlayerTypes eBlockTarget = (PlayerTypes)GetVassalMemorialField(iIndex, TIANDAO_MEMORIAL_TARGET);
-		if (bApprove && eBlockTarget != NO_PLAYER)
-			DoTradeBlock(eBlockTarget);
+	case 11: // revenue ministry: the court UI picks the blockade measures
 		bOk = true;
 		break;
-	}
-	case 9: // military ministry: call the other vassals to war
-	{
-		PlayerTypes eWarTarget = (PlayerTypes)GetVassalMemorialField(iIndex, TIANDAO_MEMORIAL_TARGET);
-		if (bApprove && eWarTarget != NO_PLAYER)
-			OrderVassalsJoinWar(eWarTarget);
+	case 9: // military ministry: the court UI picks which vassals to call
 		bOk = true;
 		break;
-	}
 	case 10: // works ministry: grant a technology
 	{
 		PlayerTypes eTargetPlayer = (PlayerTypes)GetVassalMemorialField(iIndex, TIANDAO_MEMORIAL_TARGET);
@@ -43003,7 +42993,11 @@ void CvPlayer::DoVassalAIMemorialTurn()
 		{
 			PlayerTypes eBlockTarget = (PlayerTypes)GetVassalMemorialField(m, TIANDAO_MEMORIAL_TARGET);
 			if (eBlockTarget != NO_PLAYER)
-				DoTradeBlock(eBlockTarget);
+			{
+				DoEmbargoMonopoly(eBlockTarget);
+				DenounceTarget(eBlockTarget);
+				OrderPermanentAllyCityStatesWar(eBlockTarget);
+			}
 			ResolveVassalMemorial(m, true);
 		}
 	}
@@ -43050,4 +43044,84 @@ bool CvPlayer::DoTradeBlock(PlayerTypes eTarget)
 	kTarget.m_iEmbargoBy = GetID();
 	kTarget.m_iEmbargoEndTurn = GC.getGame().getGameTurn() + TiandaoDefineInt("TIANDAO_EMBARGO_TURNS");
 	return true;
+}
+
+//--------------------------------------------------------------------------------
+// Blockade option 1: embargo every resource we monopolize from the target.
+bool CvPlayer::DoEmbargoMonopoly(PlayerTypes eTarget)
+{
+	if (!MOD_GLOBAL_SUZERAIN || !IsSuzerainCiv()) return false;
+	if (eTarget == NO_PLAYER) return false;
+
+	bool bAny = false;
+	for (int i = 0; i < GC.getNumResourceInfos(); i++)
+	{
+		ResourceTypes eRes = (ResourceTypes)i;
+		if (!HasMonopolyResource(eRes)) continue;
+		if (DoEmbargoResource(eTarget, eRes)) bAny = true;
+	}
+	return bAny;
+}
+
+//--------------------------------------------------------------------------------
+// Blockade option 2: the overlord and every vassal denounce the target.
+void CvPlayer::DenounceTarget(PlayerTypes eTarget)
+{
+	if (!MOD_GLOBAL_SUZERAIN || !IsSuzerainCiv()) return;
+	if (eTarget == NO_PLAYER || eTarget == GetID()) return;
+
+	GetDiplomacyAI()->DoDenouncePlayer(eTarget);
+	for (size_t i = 0; i < m_vecVassals.size(); i++)
+	{
+		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
+		if (!IsLiveVassal(eVassal)) continue;
+		GET_PLAYER(eVassal).GetDiplomacyAI()->DoDenouncePlayer(eTarget);
+	}
+}
+
+//--------------------------------------------------------------------------------
+// Blockade option 3: permanent-ally city-states declare war on the target.
+void CvPlayer::OrderPermanentAllyCityStatesWar(PlayerTypes eTarget)
+{
+	if (!MOD_GLOBAL_SUZERAIN || !IsSuzerainCiv()) return;
+	if (eTarget == NO_PLAYER) return;
+
+	TeamTypes eTargetTeam = GET_PLAYER(eTarget).getTeam();
+	for (int i = MAX_MAJOR_CIVS; i < MAX_CIV_PLAYERS; i++)
+	{
+		PlayerTypes eMinor = (PlayerTypes)i;
+		CvPlayer& kMinor = GET_PLAYER(eMinor);
+		if (!kMinor.isAlive() || !kMinor.isMinorCiv()) continue;
+		if (!IsPermanentAlly(eMinor)) continue;
+
+		TeamTypes eMinorTeam = kMinor.getTeam();
+		if (eMinorTeam == eTargetTeam) continue;
+		if (GET_TEAM(eMinorTeam).isAtWar(eTargetTeam)) continue;
+		if (GET_TEAM(eMinorTeam).canDeclareWar(eTargetTeam, eMinor))
+			GET_TEAM(eMinorTeam).declareWar(eTargetTeam, false, eMinor);
+	}
+}
+
+//--------------------------------------------------------------------------------
+// Call a single vassal to war.
+bool CvPlayer::OrderVassalJoinWar(PlayerTypes eVassal, PlayerTypes eTarget)
+{
+	if (!MOD_GLOBAL_SUZERAIN || !IsSuzerainCiv()) return false;
+	if (eTarget == NO_PLAYER || !GET_PLAYER(eTarget).isAlive()) return false;
+	if (!IsOverlordOf(eVassal) || !IsLiveVassal(eVassal)) return false;
+
+	TeamTypes eVassalTeam = GET_PLAYER(eVassal).getTeam();
+	TeamTypes eTargetTeam = GET_PLAYER(eTarget).getTeam();
+	if (eVassalTeam == eTargetTeam) return false;
+	if (GET_TEAM(eVassalTeam).isAtWar(eTargetTeam)) return true;
+
+	if (GetVassalLoyalty(eVassal) >= 40
+		&& GET_TEAM(eVassalTeam).canDeclareWar(eTargetTeam, eVassal))
+	{
+		GET_TEAM(eVassalTeam).declareWar(eTargetTeam, false, eVassal);
+		ChangeVassalLoyalty(eVassal, 2);
+		return true;
+	}
+	ChangeVassalLoyalty(eVassal, -5);
+	return false;
 }

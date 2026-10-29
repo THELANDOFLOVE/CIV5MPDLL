@@ -14579,6 +14579,24 @@ int CvCity::getBaseYieldRate(YieldTypes eIndex, const bool bIgnoreFromOtherYield
 				iValue += iVassals;
 		}
 	}
+
+	// NoSpecialistFood also cancels negative specialist food yields added by
+	// other rules (for example world-patch specialists costing 2 food each).
+	if (MOD_GLOBAL_SUZERAIN && eIndex == YIELD_FOOD
+		&& GET_PLAYER(getOwner()).GetPlayerTraits()->IsNoSpecialistFood())
+	{
+		for (int iI = 0; iI < GC.getNumSpecialistInfos(); iI++)
+		{
+			SpecialistTypes eSpec = (SpecialistTypes)iI;
+			int iFoodYield = GET_PLAYER(getOwner()).specialistYield(eSpec, YIELD_FOOD);
+			if (iFoodYield < 0)
+			{
+				int iCount = GetCityCitizens()->GetSpecialistCount(eSpec);
+				if (iCount > 0)
+					iValue -= iFoodYield * iCount;
+			}
+		}
+	}
 #endif
 
 	return iValue;

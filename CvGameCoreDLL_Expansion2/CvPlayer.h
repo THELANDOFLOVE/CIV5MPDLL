@@ -2150,6 +2150,7 @@ public:
 	int GetWonderConditionTurns() const;
 	bool CanVassalBuildWonder(PlayerTypes eVassal, BuildingTypes eBuilding) const;
 	void DoVassalWonderPoolTurn();
+	void DoVassalWonderRequestTurn();
 	bool CanInviteVassal(PlayerTypes eTarget) const;
 	bool DoInviteVassal(PlayerTypes eTarget);
 	void DoSeekProtectionTurn();

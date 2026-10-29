@@ -5578,6 +5578,7 @@ void CvPlayer::doTurn()
 		DoMonopolyTurn();
 		DoEmbargoTurn();
 		DoPressureTurn();
+		DoVassalWonderRequestTurn();
 		DoSeekProtectionTurn();
 		DoPrayerTurn();
 		DoPrayerOverlordTurn();
@@ -43062,6 +43063,17 @@ void CvPlayer::DoVassalAIMemorialTurn()
 			}
 			ResolveVassalMemorial(m, true);
 		}
+		else if (iType == 12)
+		{
+			// Diplomacy: demand moderate terms, then take the counter if refused.
+			PlayerTypes eTargetCiv = (PlayerTypes)GetVassalMemorialField(m, SUZERAIN_MEMORIAL_VASSAL);
+			if (eTargetCiv != NO_PLAYER && CanDemandPeaceFrom(eTargetCiv))
+			{
+				if (ProposePeaceDemand(eTargetCiv, GetID(), 10, true, false, true) != 0)
+					AcceptPeaceCounter(eTargetCiv, GetID());
+			}
+			ResolveVassalMemorial(m, true);
+		}
 	}
 }
 
@@ -43419,4 +43431,26 @@ bool CvPlayer::AcceptPeaceCounter(PlayerTypes eTarget, PlayerTypes eBeneficiary)
 		GetPeaceCounterField(eTarget, 2) == 1,
 		GetPeaceCounterField(eTarget, 3) == 1,
 		true) == 0;
+}
+
+//--------------------------------------------------------------------------------
+// AI vassal asks its overlord for a wonder from the reward pool.
+void CvPlayer::DoVassalWonderRequestTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (isHuman() || !isAlive() || !isMajorCiv()) return;
+
+	PlayerTypes eOverlord = GetOverlord();
+	if (eOverlord == NO_PLAYER) return;
+	if (GC.getGame().getGameTurn() % 10 != 0) return;
+	if (GetWonderRequest() != NO_BUILDING) return;
+
+	CvPlayer& kOverlord = GET_PLAYER(eOverlord);
+	int iCount = kOverlord.GetVassalWonderPoolCount();
+	if (iCount <= 0) return;
+
+	int iPick = GC.getGame().getGameTurn() % iCount;
+	BuildingTypes eBuilding = (BuildingTypes)kOverlord.GetVassalWonderPoolEntry(iPick);
+	if (eBuilding != NO_BUILDING)
+		RequestVassalWonder(eBuilding);
 }

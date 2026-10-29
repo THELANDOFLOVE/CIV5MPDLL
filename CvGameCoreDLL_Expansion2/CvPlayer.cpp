@@ -34623,11 +34623,20 @@ void CvPlayer::DoVassalRankUp(PlayerTypes eVassal)
 		GetTreasury()->ChangeGold(-iGold);
 	}
 
-	SetVassalRank(eVassal, GetVassalRank(eVassal) + 1);
+	int iOldRank = GetVassalRank(eVassal);
+	SetVassalRank(eVassal, iOldRank + 1);
 	SetVassalRankTurn(eVassal, GC.getGame().getGameTurn());
 	ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_LOYALTY_RANK"));
-	ChangeMandate(SuzerainDefineInt("SUZERAIN_MANDATE_RANK"));
-	ChangeDaoPoints(SuzerainDefineInt("SUZERAIN_DAO_POINT_RANK"));
+
+	// The overlord's cut grows with the rank just granted. Both tables are keyed
+	// by the old rank (its index 0 is the promotion out of being untitled).
+	int iMandate = SuzerainDefineListInt("SUZERAIN_RANK_UP_MANDATE", iOldRank, 5);
+	if (iMandate != 0)
+		ChangeMandate(iMandate);
+
+	int iDao = SuzerainDefineListInt("SUZERAIN_RANK_UP_DAO", iOldRank, 1);
+	if (iDao != 0)
+		ChangeDaoPoints(iDao);
 }
 
 //--------------------------------------------------------------------------------
@@ -34641,17 +34650,18 @@ void CvPlayer::DoVassalRankMandateTurn()
 	int iPer = SuzerainDefineInt("SUZERAIN_RANK_MANDATE_PER_TURN");
 	if (iPer <= 0) return;
 
-	int iTitled = 0;
+	// Ranked vassals pay mandate in proportion to their rank, so a duke is worth
+	// more than a baron every turn.
+	int iRanks = 0;
 	for (size_t i = 0; i < m_vecVassals.size(); i++)
 	{
 		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
 		if (!IsLiveVassal(eVassal)) continue;
-		if (GetVassalRank(eVassal) > 0)
-			iTitled++;
+		iRanks += GetVassalRank(eVassal);
 	}
 
-	if (iTitled > 0)
-		ChangeMandate(iTitled * iPer);
+	if (iRanks > 0)
+		ChangeMandate(iRanks * iPer);
 }
 
 //--------------------------------------------------------------------------------

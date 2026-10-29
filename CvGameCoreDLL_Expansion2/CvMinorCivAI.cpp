@@ -12539,6 +12539,15 @@ void CvMinorCivAI::DoUnitGiftFromMajor(PlayerTypes eFromPlayer, CvUnit* pGiftUni
 		// Only the first player to gift a Great Person becomes the permanent ally
 		if (!HasPermanentAlly())
 		{
+			// The gift above adds the gap against EFFECTIVE influence, but the
+			// change lands on BASE influence. When the two differ (temporary
+			// modifiers) the stored value can stop short of the target, so top
+			// up the base influence before locking the permanent ally.
+			int iBaseInf = GetBaseFriendshipWithMajorTimes100(eFromPlayer) / 100;
+			int iTargetInf = GetPermanentAllyTargetInfluence(eFromPlayer);
+			if (iBaseInf < iTargetInf)
+				ChangeFriendshipWithMajor(eFromPlayer, iTargetInf - iBaseInf);
+
 			GET_PLAYER(eFromPlayer).SetPermanentAlly(GetPlayer()->GetID(), true);
 
 			// Clear all quests and notify players

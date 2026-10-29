@@ -1993,8 +1993,13 @@ public:
 	int GetVassalLoyaltyCap(PlayerTypes eVassal) const;
 	int GetVassalRank(PlayerTypes eVassal) const;
 	void SetVassalRank(PlayerTypes eVassal, int iRank);
+	int GetVassalRankTurn(PlayerTypes eVassal) const;
+	void SetVassalRankTurn(PlayerTypes eVassal, int iTurn);
+	// Gold the overlord pays to promote a vassal to its next rank.
+	int GetVassalRankUpGold(PlayerTypes eVassal) const;
 	bool CanRankUpVassal(PlayerTypes eVassal) const;
 	void DoVassalRankUp(PlayerTypes eVassal);
+	void DoVassalRankMandateTurn();
 	int GetVassalGiftLoyalty(PlayerTypes eVassal) const;
 	void DoVassalGift(PlayerTypes eVassal);
 	// Court gift log: who came to court this session and what they brought
@@ -3249,6 +3254,8 @@ protected:
 	// Loyalty and rank per vassal, indexed by vassal player id
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalLoyalty;
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalRank;
+	// Turn of the last promotion per vassal (0 = never promoted)
+	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalRankTurn;
 	// Gifts given this turn, used for the diminishing return
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalGiftCount;
 	// 1 while the current war on a vassal has already been answered

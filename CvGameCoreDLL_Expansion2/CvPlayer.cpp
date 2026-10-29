@@ -422,6 +422,7 @@ CvPlayer::CvPlayer() :
 	, m_eOverlord(NO_PLAYER)
 	, m_aiVassalLoyalty("CvPlayer::m_aiVassalLoyalty", m_syncArchive)
 	, m_aiVassalRank("CvPlayer::m_aiVassalRank", m_syncArchive)
+	, m_aiVassalRankTurn("CvPlayer::m_aiVassalRankTurn", m_syncArchive)
 	, m_aiVassalGiftCount("CvPlayer::m_aiVassalGiftCount", m_syncArchive)
 	, m_aiVassalProtectHandled("CvPlayer::m_aiVassalProtectHandled", m_syncArchive)
 	, m_aiVassalMemorials("CvPlayer::m_aiVassalMemorials", m_syncArchive)
@@ -1342,6 +1343,8 @@ void CvPlayer::uninit()
 	m_aiVassalLoyalty.resize(MAX_MAJOR_CIVS, 0);
 	m_aiVassalRank.clear();
 	m_aiVassalRank.resize(MAX_MAJOR_CIVS, 0);
+	m_aiVassalRankTurn.clear();
+	m_aiVassalRankTurn.resize(MAX_MAJOR_CIVS, 0);
 	m_aiVassalGiftCount.clear();
 	m_aiVassalGiftCount.resize(MAX_MAJOR_CIVS, 0);
 	m_aiVassalProtectHandled.clear();
@@ -5591,6 +5594,7 @@ void CvPlayer::doTurn()
 		DoSubjugateTurn();
 		DoSeekAllegianceTurn();
 		DoPendingWarOrderTurn();
+		DoVassalRankMandateTurn();
 		DoVassalLoyaltyDecay();
 		DoVassalRevoltCheck();
 		DoVassalOverlordVictoryCheck();
@@ -31402,6 +31406,7 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ(163, kStream, m_eOverlord, NO_PLAYER);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalLoyalty, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalRank, MAX_MAJOR_CIVS, 0);
+		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalRankTurn, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalGiftCount, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalProtectHandled, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalMemorials, 0, 0);
@@ -32384,6 +32389,7 @@ void CvPlayer::Write(FDataStream& kStream) const
 	kStream << m_eOverlord;
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalLoyalty);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalRank);
+	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalRankTurn);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalGiftCount);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalProtectHandled);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalMemorials);
@@ -34401,6 +34407,74 @@ static int SuzerainDefineInt(const char* szName)
 }
 
 //--------------------------------------------------------------------------------
+// Number of entries in a comma separated STRING define.
+static int SuzerainDefineListCount(const char* szName)
+{
+	CvString sValue = GC.getDefineSTRING(szName, false);
+	if (sValue.empty()) return 0;
+
+	int iCount = 1;
+	const char* p = sValue.c_str();
+	for (; *p != '\0'; p++)
+	{
+		if (*p == ',')
+			iCount++;
+	}
+	return iCount;
+}
+
+//--------------------------------------------------------------------------------
+// Read the iIndex-th comma separated integer from a STRING define, so rank
+// tables (caps, promotion costs) live entirely in SQL and never need a rebuild.
+static int SuzerainDefineListInt(const char* szName, int iIndex, int iDefault)
+{
+	if (iIndex < 0) return iDefault;
+
+	CvString sValue = GC.getDefineSTRING(szName, false);
+	if (sValue.empty()) return iDefault;
+
+	const char* p = sValue.c_str();
+	int iCurrent = 0;
+	bool bNegative = false;
+	bool bInNumber = false;
+	int iValue = 0;
+
+	for (;; p++)
+	{
+		char c = *p;
+
+		if (c == ' ' || c == '\t')
+			continue;
+
+		if (c == ',' || c == '\0')
+		{
+			if (iCurrent == iIndex)
+				return bInNumber ? (bNegative ? -iValue : iValue) : iDefault;
+			if (c == '\0') break;
+			iCurrent++;
+			iValue = 0;
+			bNegative = false;
+			bInNumber = false;
+			continue;
+		}
+
+		if (c == '-')
+		{
+			bNegative = true;
+			continue;
+		}
+
+		if (c >= '0' && c <= '9')
+		{
+			iValue = iValue * 10 + (c - '0');
+			bInNumber = true;
+		}
+	}
+
+	return iDefault;
+}
+
+//--------------------------------------------------------------------------------
 int CvPlayer::GetVassalLoyalty(PlayerTypes eVassal) const
 {
 	if (!MOD_GLOBAL_SUZERAIN) return 0;
@@ -34410,12 +34484,20 @@ int CvPlayer::GetVassalLoyalty(PlayerTypes eVassal) const
 }
 
 //--------------------------------------------------------------------------------
+// Loyalty ceiling per rank. The table lives in SUZERAIN_LOYALTY_MAX_RANK as a
+// comma separated list (60,75,90,105,120,140); ranks past the list reuse the
+// last value so adding ranks only touches SQL.
 int CvPlayer::GetVassalLoyaltyCap(PlayerTypes eVassal) const
 {
 	if (!MOD_GLOBAL_SUZERAIN) return 0;
-	if (GetVassalRank(eVassal) > 0)
-		return SuzerainDefineInt("SUZERAIN_LOYALTY_MAX_RANKED");
-	return SuzerainDefineInt("SUZERAIN_LOYALTY_MAX_UNRANKED");
+
+	int iCount = SuzerainDefineListCount("SUZERAIN_LOYALTY_MAX_RANK");
+	if (iCount <= 0) iCount = 6;
+
+	int iRank = GetVassalRank(eVassal);
+	if (iRank < 0) iRank = 0;
+	if (iRank > iCount - 1) iRank = iCount - 1;
+	return SuzerainDefineListInt("SUZERAIN_LOYALTY_MAX_RANK", iRank, 60);
 }
 
 //--------------------------------------------------------------------------------
@@ -34465,11 +34547,67 @@ void CvPlayer::SetVassalRank(PlayerTypes eVassal, int iRank)
 }
 
 //--------------------------------------------------------------------------------
+int CvPlayer::GetVassalRankTurn(PlayerTypes eVassal) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) return 0;
+	if ((size_t)eVassal >= m_aiVassalRankTurn.size()) return 0;
+	return m_aiVassalRankTurn[eVassal];
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::SetVassalRankTurn(PlayerTypes eVassal, int iTurn)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) return;
+	if ((size_t)eVassal >= m_aiVassalRankTurn.size())
+		m_aiVassalRankTurn.resize(MAX_MAJOR_CIVS, 0);
+	m_aiVassalRankTurn.setAt((size_t)eVassal, iTurn);
+}
+
+//--------------------------------------------------------------------------------
+// Gold the overlord pays to promote a vassal one rank. The cost table lives in
+// SUZERAIN_RANK_UP_GOLD (200,300,400,500,600) keyed by the current rank.
+int CvPlayer::GetVassalRankUpGold(PlayerTypes eVassal) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	if (!IsOverlordOf(eVassal)) return 0;
+
+	int iCount = SuzerainDefineListCount("SUZERAIN_RANK_UP_GOLD");
+	if (iCount <= 0) return 0;
+
+	int iRank = GetVassalRank(eVassal);
+	if (iRank < 0) iRank = 0;
+	if (iRank >= iCount) return 0;
+	return SuzerainDefineListInt("SUZERAIN_RANK_UP_GOLD", iRank, 0);
+}
+
+//--------------------------------------------------------------------------------
 bool CvPlayer::CanRankUpVassal(PlayerTypes eVassal) const
 {
 	if (!MOD_GLOBAL_SUZERAIN) return false;
 	if (!IsOverlordOf(eVassal)) return false;
-	return GetVassalRank(eVassal) == 0;
+
+	// The loyalty cap table also defines how many ranks exist.
+	int iCount = SuzerainDefineListCount("SUZERAIN_LOYALTY_MAX_RANK");
+	if (iCount <= 0) iCount = 6;
+	int iRank = GetVassalRank(eVassal);
+	if (iRank < 0) iRank = 0;
+	if (iRank >= iCount - 1) return false;
+
+	// Loyalty must be close to the current ceiling.
+	int iMargin = SuzerainDefineInt("SUZERAIN_RANK_UP_LOYALTY_MARGIN");
+	if (iMargin < 0) iMargin = 0;
+	if (GetVassalLoyalty(eVassal) < GetVassalLoyaltyCap(eVassal) - iMargin) return false;
+
+	// And the vassal must have served long enough since the last promotion.
+	int iTurns = SuzerainDefineInt("SUZERAIN_RANK_UP_TURNS");
+	if (iTurns > 0)
+	{
+		int iLast = GetVassalRankTurn(eVassal);
+		if (iLast > 0 && GC.getGame().getGameTurn() < iLast + iTurns) return false;
+	}
+	return true;
 }
 
 //--------------------------------------------------------------------------------
@@ -34478,10 +34616,42 @@ void CvPlayer::DoVassalRankUp(PlayerTypes eVassal)
 	if (!MOD_GLOBAL_SUZERAIN) return;
 	if (!CanRankUpVassal(eVassal)) return;
 
-	SetVassalRank(eVassal, 1);
+	int iGold = GetVassalRankUpGold(eVassal);
+	if (iGold > 0)
+	{
+		if (GetTreasury()->GetGold() < iGold) return;
+		GetTreasury()->ChangeGold(-iGold);
+	}
+
+	SetVassalRank(eVassal, GetVassalRank(eVassal) + 1);
+	SetVassalRankTurn(eVassal, GC.getGame().getGameTurn());
 	ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_LOYALTY_RANK"));
 	ChangeMandate(SuzerainDefineInt("SUZERAIN_MANDATE_RANK"));
 	ChangeDaoPoints(SuzerainDefineInt("SUZERAIN_DAO_POINT_RANK"));
+}
+
+//--------------------------------------------------------------------------------
+// A titled vassal brings its overlord a trickle of mandate every turn.
+void CvPlayer::DoVassalRankMandateTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (!IsSuzerainCiv()) return;
+	if (!isAlive() || !isMajorCiv()) return;
+
+	int iPer = SuzerainDefineInt("SUZERAIN_RANK_MANDATE_PER_TURN");
+	if (iPer <= 0) return;
+
+	int iTitled = 0;
+	for (size_t i = 0; i < m_vecVassals.size(); i++)
+	{
+		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
+		if (!IsLiveVassal(eVassal)) continue;
+		if (GetVassalRank(eVassal) > 0)
+			iTitled++;
+	}
+
+	if (iTitled > 0)
+		ChangeMandate(iTitled * iPer);
 }
 
 //--------------------------------------------------------------------------------
@@ -35292,7 +35462,8 @@ void CvPlayer::DoVassalAIDiplomacyTurn()
 		if (!IsLiveVassal(eVassal)) continue;
 		if (GetVassalLoyalty(eVassal) >= 40) continue;
 
-		if (CanRankUpVassal(eVassal))
+		if (CanRankUpVassal(eVassal)
+			&& GetTreasury()->GetGold() >= GetVassalRankUpGold(eVassal))
 		{
 			DoVassalRankUp(eVassal);
 			continue;
@@ -36021,7 +36192,7 @@ void CvPlayer::DoVassalMemorialTurn()
 			// Personnel ministry: an unranked, content vassal asks for a title.
 			int iRankMin = SuzerainDefineInt("SUZERAIN_MEMORIAL_RANK_MIN_LOYALTY");
 			if (iRankMin > 0 && GetVassalLoyalty(eVassal) >= iRankMin
-				&& GetVassalRank(eVassal) == 0 && !HasPendingMemorial(eVassal, 4))
+				&& CanRankUpVassal(eVassal) && !HasPendingMemorial(eVassal, 4))
 			{
 				AddVassalMemorial(4, 1, 0, eVassal, NO_PLAYER, iNormalTurns);
 			}
@@ -36146,7 +36317,8 @@ void CvPlayer::DoVassalMemorialTurn()
 				bApprove = true;
 				break;
 			case 4: // request for a title
-				bApprove = (GetVassalLoyalty(eVassal) >= 60) && CanRankUpVassal(eVassal);
+				bApprove = CanRankUpVassal(eVassal)
+					&& GetTreasury()->GetGold() >= GetVassalRankUpGold(eVassal);
 				break;
 			case 5: // request for a gift
 				bApprove = (GetVassalLoyalty(eVassal) >= 50);
@@ -37137,6 +37309,15 @@ int CvPlayer::GetVassalWonderPoolCapacity() const
 	int iPerOverlord = SuzerainDefineInt("SUZERAIN_WONDER_POOL_PER_OVERLORD");
 	int iPerVassal = SuzerainDefineInt("SUZERAIN_WONDER_POOL_PER_VASSAL");
 	int iCapacity = iPerOverlord + (int)m_vecVassals.size() * iPerVassal;
+
+	// Each rank a vassal holds widens the shared pool a little.
+	int iPerRank = SuzerainDefineInt("SUZERAIN_RANK_WONDER_POOL");
+	if (iPerRank > 0)
+	{
+		for (size_t i = 0; i < m_vecVassals.size(); i++)
+			iCapacity += GetVassalRank((PlayerTypes)m_vecVassals[i]) * iPerRank;
+	}
+
 	return iCapacity > 0 ? iCapacity : 0;
 }
 
@@ -38203,6 +38384,8 @@ void CvPlayer::RemoveVassal(PlayerTypes e)
 		m_aiVassalLoyalty.setAt((size_t)e, 0);
 	if ((size_t)e < m_aiVassalRank.size())
 		m_aiVassalRank.setAt((size_t)e, 0);
+	if ((size_t)e < m_aiVassalRankTurn.size())
+		m_aiVassalRankTurn.setAt((size_t)e, 0);
 	if ((size_t)e < m_aiVassalGiftCount.size())
 		m_aiVassalGiftCount.setAt((size_t)e, 0);
 	if ((size_t)e < m_aiVassalProtectHandled.size())
@@ -38471,6 +38654,14 @@ void CvPlayer::UpdateVassalTaxation()
 		if (!v.isAlive()) continue;
 		int iTaxPercent = pRes->GetEffects()->iVassalTaxPercent;
 		if (iTaxPercent <= 0) continue; // no configured rate = no tax
+
+		// A higher rank pays less: a count pays 5% less than an untitled vassal.
+		int iRelief = SuzerainDefineInt("SUZERAIN_RANK_TRIBUTE_RELIEF");
+		if (iRelief > 0)
+		{
+			iTaxPercent -= GetVassalRank(e) * iRelief;
+			if (iTaxPercent < 0) iTaxPercent = 0;
+		}
 		// Taxes are levied on gross output. The vassal's per-turn getters already net out its own
 		// downstream vassal taxes, so re-adding the amount it pays to us makes the base "tax-on-tax":
 		// a vassal tithes a share of everything it produces, including what it receives from its own
@@ -38566,8 +38757,17 @@ void CvPlayer::UpdateVassalTaxation()
 		CvPlayer& v = GET_PLAYER(e);
 		if (!v.isAlive()) continue;
 
+		// Titled vassals pay a reduced tithe.
+		int iRate = iBaseline;
+		int iRelief = SuzerainDefineInt("SUZERAIN_RANK_TRIBUTE_RELIEF");
+		if (iRelief > 0)
+		{
+			iRate -= GetVassalRank(e) * iRelief;
+			if (iRate < 0) iRate = 0;
+		}
+
 		unsigned long long iScienceGross = v.GetScienceTimes100(true) + v.GetScienceTimes100ToOverlord();
-		unsigned long long iScienceTax = iScienceGross * iBaseline / 100;
+		unsigned long long iScienceTax = iScienceGross * iRate / 100;
 		m_aScienceTimes100FromVassals[e] = iScienceTax;
 		v.m_iScienceTimes100ToOverlord = iScienceTax;
 
@@ -43806,7 +44006,16 @@ void CvPlayer::DoVassalAutoJoinWarTurn()
 
 			long long iOurs = GetMilitaryMight();
 			long long iTheirs = kOther.GetMilitaryMight();
-			if (iTheirs > 0 && iOurs * 100 < iTheirs * 120) continue;
+			// Titled vassals are defended more readily: each rank lowers the bar.
+			int iRequire = SuzerainDefineInt("SUZERAIN_AUTOJOIN_MILITARY_PERCENT");
+			if (iRequire <= 0) iRequire = 120;
+			int iRelief = SuzerainDefineInt("SUZERAIN_RANK_AUTOJOIN_RELIEF");
+			if (iRelief > 0)
+			{
+				iRequire -= GetVassalRank(eVassal) * iRelief;
+				if (iRequire < 100) iRequire = 100;
+			}
+			if (iTheirs > 0 && iOurs * 100 < iTheirs * iRequire) continue;
 
 			if (GET_TEAM(getTeam()).canDeclareWar(kOther.getTeam(), GetID()))
 				GET_TEAM(getTeam()).declareWar(kOther.getTeam(), false, GetID());

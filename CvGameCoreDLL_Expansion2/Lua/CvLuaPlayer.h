@@ -1390,6 +1390,7 @@ protected:
 	LUAAPIEXTN(GetVassalLoyalty, int, ePlayer);
 	LUAAPIEXTN(GetVassalLoyaltyCap, int, ePlayer);
 	LUAAPIEXTN(GetVassalRank, int, ePlayer);
+	LUAAPIEXTN(GetVassalRankUpGold, int, ePlayer);
 	LUAAPIEXTN(CanRankUpVassal, bool, ePlayer);
 	LUAAPIEXTN(DoVassalRankUp, void, ePlayer);
 	LUAAPIEXTN(GetVassalGiftLoyalty, int, ePlayer);

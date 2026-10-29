@@ -131,6 +131,7 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lChangeUBFromExtra);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lChangeUIFromExtra);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoVassalRankUp);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetVassalRankUpGold);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoVassalGift);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoVassalProtect);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoVassalMediate);
@@ -1545,6 +1546,7 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(GetVassalRank);
 	Method(CanRankUpVassal);
 	Method(DoVassalRankUp);
+	Method(GetVassalRankUpGold);
 	Method(GetVassalGiftLoyalty);
 	Method(DoVassalGift);
 	Method(GetCourtGiftCount);
@@ -7427,6 +7429,15 @@ int CvLuaPlayer::lDoVassalRankUp(lua_State* L)
 	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
 	pkPlayer->DoVassalRankUp(e);
 	return 0;
+}
+//------------------------------------------------------------------------------
+//int GetVassalRankUpGold(PlayerTypes e);
+int CvLuaPlayer::lGetVassalRankUpGold(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetVassalRankUpGold(e));
+	return 1;
 }
 //------------------------------------------------------------------------------
 //int GetVassalGiftLoyalty(PlayerTypes e);

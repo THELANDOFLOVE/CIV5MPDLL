@@ -426,6 +426,8 @@ CvPlayer::CvPlayer() :
 	, m_aiVassalProtectHandled("CvPlayer::m_aiVassalProtectHandled", m_syncArchive)
 	, m_aiVassalMemorials("CvPlayer::m_aiVassalMemorials", m_syncArchive)
 	, m_iVassalCourtPolicy("CvPlayer::m_iVassalCourtPolicy", m_syncArchive)
+	, m_iPendingInviteFrom("CvPlayer::m_iPendingInviteFrom", m_syncArchive)
+	, m_iPendingInviteTurn("CvPlayer::m_iPendingInviteTurn", m_syncArchive)
 	, m_aiVassalBreachCount("CvPlayer::m_aiVassalBreachCount", m_syncArchive)
 	, m_aiVassalBreachTurn("CvPlayer::m_aiVassalBreachTurn", m_syncArchive)
 	, m_iMandate("CvPlayer::m_iMandate", m_syncArchive)
@@ -31400,6 +31402,8 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalProtectHandled, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalMemorials, 0, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iVassalCourtPolicy, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iPendingInviteFrom, NO_PLAYER);
+		MOD_SERIALIZE_READ(165, kStream, m_iPendingInviteTurn, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalBreachCount, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalPunishRight, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiMemorialDefault, 7, 0);
@@ -32377,6 +32381,8 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalProtectHandled);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalMemorials);
 	MOD_SERIALIZE_WRITE(kStream, m_iVassalCourtPolicy);
+	MOD_SERIALIZE_WRITE(kStream, m_iPendingInviteFrom);
+	MOD_SERIALIZE_WRITE(kStream, m_iPendingInviteTurn);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalBreachCount);
 	MOD_SERIALIZE_WRITE(kStream, m_aiVassalPunishRight);
 	MOD_SERIALIZE_WRITE(kStream, m_aiMemorialDefault);
@@ -37496,6 +37502,19 @@ bool CvPlayer::DoInviteVassal(PlayerTypes eTarget)
 	if (!CanInviteVassal(eTarget)) return false;
 
 	CvPlayer& kTarget = GET_PLAYER(eTarget);
+
+	// A human target decides for itself: leave a pending invitation. A still-live
+	// invitation (or a refusal cooldown, which stores NO_PLAYER as the sender)
+	// suppresses a fresh one so the AI does not re-ask every turn.
+	if (kTarget.isHuman())
+	{
+		if (kTarget.m_iPendingInviteTurn >= GC.getGame().getGameTurn()) return false;
+
+		kTarget.m_iPendingInviteFrom = GetID();
+		kTarget.m_iPendingInviteTurn = GC.getGame().getGameTurn() + 5;
+		return false;
+	}
+
 	long long iOurMight = GetMilitaryMight();
 	long long iTargetMight = kTarget.GetMilitaryMight();
 
@@ -43532,4 +43551,70 @@ void CvPlayer::DoVassalAutoJoinWarTurn()
 				GET_TEAM(getTeam()).declareWar(kOther.getTeam(), false, GetID());
 		}
 	}
+}
+
+//--------------------------------------------------------------------------------
+// The overlord that offered this player vassalage and is still waiting for an
+// answer. NO_PLAYER when there is nothing to answer (expired, refused, or the
+// offer no longer makes sense).
+int CvPlayer::GetPendingVassalInvite() const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return NO_PLAYER;
+	if (m_iPendingInviteTurn <= 0) return NO_PLAYER;
+	if (GC.getGame().getGameTurn() > m_iPendingInviteTurn) return NO_PLAYER;
+
+	// VC9 cannot cast a const FAutoVariable straight to an enum, so read it out.
+	int iFrom = m_iPendingInviteFrom;
+	if (iFrom < 0 || iFrom >= MAX_MAJOR_CIVS) return NO_PLAYER;
+
+	// The offer dies if the player already has an overlord or the offerer can no
+	// longer take vassals (dead, dethroned, or now at war with us).
+	if (GetOverlord() != NO_PLAYER) return NO_PLAYER;
+	CvPlayer& kOverlord = GET_PLAYER((PlayerTypes)iFrom);
+	if (!kOverlord.isAlive() || !kOverlord.isMajorCiv() || !kOverlord.IsSuzerainCiv()) return NO_PLAYER;
+	if (GET_TEAM(getTeam()).isAtWar(kOverlord.getTeam())) return NO_PLAYER;
+
+	return (PlayerTypes)iFrom;
+}
+
+//--------------------------------------------------------------------------------
+// Answer a pending invitation. Accepting swears the player in as a vassal;
+// refusing starts a cooldown and sours the offerer's attitude.
+bool CvPlayer::ResolveVassalInvite(bool bAccept)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+
+	PlayerTypes eOverlord = (PlayerTypes)GetPendingVassalInvite();
+	if (eOverlord == NO_PLAYER) return false;
+
+	m_iPendingInviteFrom = NO_PLAYER;
+	m_iPendingInviteTurn = 0;
+
+	CvPlayer& kOverlord = GET_PLAYER(eOverlord);
+
+	if (!bAccept)
+	{
+		int iCooldown = SuzerainDefineInt("SUZERAIN_LOYALTY_INVITE_REFUSE_COOLDOWN");
+		if (iCooldown > 0)
+			m_iPendingInviteTurn = GC.getGame().getGameTurn() + iCooldown;
+
+		// Turning down protection angers a ruler who thought it was welcome.
+		CvDiplomacyAI* pOverlordAI = kOverlord.GetDiplomacyAI();
+		if (pOverlordAI != NULL)
+		{
+			MajorCivApproachTypes eApproach = pOverlordAI->GetMajorCivApproach(GetID(), false);
+			if (eApproach == MAJOR_CIV_APPROACH_FRIENDLY || eApproach == MAJOR_CIV_APPROACH_NEUTRAL)
+				pOverlordAI->SetMajorCivApproach(GetID(), MAJOR_CIV_APPROACH_HOSTILE);
+		}
+		return true;
+	}
+
+	SetOverlord(eOverlord);
+	kOverlord.AddVassal(GetID());
+	kOverlord.RefreshUCFromVassals();
+
+	int iStart = SuzerainDefineInt("SUZERAIN_LOYALTY_INVITE_START");
+	if (iStart > 0)
+		kOverlord.ChangeVassalLoyalty(GetID(), iStart);
+	return true;
 }

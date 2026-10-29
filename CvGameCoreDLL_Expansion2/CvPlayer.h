@@ -2029,6 +2029,8 @@ public:
 	void DoPressureTurn();
 	bool CanDemandPeaceFrom(PlayerTypes eTarget) const;
 	int ProposePeaceDemand(PlayerTypes eTarget, PlayerTypes eBeneficiary, int iGoldPercent, bool bReturnCities, bool bCedeCity, bool bCeaseFire, bool bForce = false);
+	int GetPendingVassalInvite() const;
+	bool ResolveVassalInvite(bool bAccept);
 	int GetPeaceCounterField(PlayerTypes eTarget, int iField) const;
 	bool AcceptPeaceCounter(PlayerTypes eTarget, PlayerTypes eBeneficiary);
 	bool CanReturnCityToVassal(CvCity* pCity) const;
@@ -3237,6 +3239,8 @@ protected:
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalMemorials;
 	// Court policy: 0 none, 1 military, 2 science, 3 culture, 4 economy
 	FAutoVariable<int, CvPlayer> m_iVassalCourtPolicy;
+	FAutoVariable<int, CvPlayer> m_iPendingInviteFrom;
+	FAutoVariable<int, CvPlayer> m_iPendingInviteTurn;
 	// Broken-obligation record: count and the turn of the last breach
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalBreachCount;
 	// Punish right expiry turn per vassal (serialized)

@@ -37570,6 +37570,66 @@ bool CvPlayer::DoInviteVassal(PlayerTypes eTarget)
 }
 
 //--------------------------------------------------------------------------------
+// May this player ask eProtector to take it in as a vassal?
+// 0 = the request may be made; otherwise the reason it cannot:
+// 1 already sworn or holding vassals, 2 not a suzerain, 3 at war,
+// 4 protector is at its vassal cap, 5 not applicable.
+int CvPlayer::CanRequestSubmission(PlayerTypes eProtector) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 5;
+	if (!isAlive() || !isMajorCiv()) return 5;
+	if (eProtector == NO_PLAYER || eProtector == GetID()) return 5;
+	if (GetOverlord() != NO_PLAYER) return 1;
+	if (HasAnyVassal()) return 1;
+
+	CvPlayer& kProtector = GET_PLAYER(eProtector);
+	if (!kProtector.isAlive() || !kProtector.isMajorCiv()) return 5;
+	if (!kProtector.IsSuzerainCiv()) return 2;
+	// Another human decides for itself through its own client; not supported yet.
+	if (kProtector.isHuman()) return 5;
+	if (GET_TEAM(getTeam()).isAtWar(kProtector.getTeam())) return 3;
+
+	int iMax = SuzerainDefineInt("SUZERAIN_AI_MAX_VASSALS");
+	if (iMax > 0 && (int)kProtector.GetVassals().size() >= iMax) return 4;
+	return 0;
+}
+
+//--------------------------------------------------------------------------------
+// A civ offers itself to a suzerain. Unlike DoInviteVassal, the petitioner is
+// the weak side: the protector only accepts if it is not weaker and does not
+// hold the petitioner in contempt.
+// Returns 0 on acceptance, 2 when the protector declines.
+int CvPlayer::RequestVassalSubmission(PlayerTypes eProtector)
+{
+	if (CanRequestSubmission(eProtector) != 0) return 1;
+
+	CvPlayer& kProtector = GET_PLAYER(eProtector);
+
+	long long iOurMight = GetMilitaryMight();
+	long long iTheirMight = kProtector.GetMilitaryMight();
+	int iAcceptPercent = SuzerainDefineInt("SUZERAIN_SEEK_ACCEPT_PERCENT");
+	if (iAcceptPercent <= 0) iAcceptPercent = 100;
+	if (iTheirMight * 100 < iOurMight * iAcceptPercent) return 2;
+
+	MajorCivApproachTypes eApproach = kProtector.GetDiplomacyAI()->GetMajorCivApproach(GetID(), false);
+	if (eApproach == MAJOR_CIV_APPROACH_WAR || eApproach == MAJOR_CIV_APPROACH_HOSTILE
+		|| eApproach == MAJOR_CIV_APPROACH_DECEPTIVE)
+	{
+		return 2;
+	}
+
+	SetOverlord(eProtector);
+	kProtector.AddVassal(GetID());
+	kProtector.RefreshUCFromVassals();
+
+	int iStart = SuzerainDefineInt("SUZERAIN_LOYALTY_SEEK_START");
+	if (iStart > 0)
+		kProtector.ChangeVassalLoyalty(GetID(), iStart);
+
+	return 0;
+}
+
+//--------------------------------------------------------------------------------
 // An AI major civ that is losing a war looks for a stronger protector and
 // submits to it. Humans decide for themselves.
 void CvPlayer::DoSeekProtectionTurn()

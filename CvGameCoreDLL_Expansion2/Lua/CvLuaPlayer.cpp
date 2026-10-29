@@ -138,6 +138,8 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lAcceptVassalPeaceCounter);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetPendingVassalInvite);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lResolveVassalInvite);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lCanRequestSubmission);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lRequestVassalSubmission);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lAcceptVassalPeaceCounterEx);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGiftUnitToVassal);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSpawnUnitForVassal);
@@ -1551,6 +1553,8 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(AcceptVassalPeaceCounter);
 	Method(GetPendingVassalInvite);
 	Method(ResolveVassalInvite);
+	Method(CanRequestSubmission);
+	Method(RequestVassalSubmission);
 	Method(GetVassalPeaceCounterField);
 	Method(AcceptVassalPeaceCounterEx);
 	Method(GetStrongestLandUnit);
@@ -15371,6 +15375,22 @@ int CvLuaPlayer::lResolveVassalInvite(lua_State* L)
 	CvPlayer* pkPlayer = GetInstance(L);
 	const bool bAccept = lua_toboolean(L, 2);
 	lua_pushboolean(L, pkPlayer->ResolveVassalInvite(bAccept));
+	return 1;
+}
+//int CanRequestSubmission(PlayerTypes eProtector);
+int CvLuaPlayer::lCanRequestSubmission(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const PlayerTypes eProtector = (PlayerTypes)lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->CanRequestSubmission(eProtector));
+	return 1;
+}
+//int RequestVassalSubmission(PlayerTypes eProtector);
+int CvLuaPlayer::lRequestVassalSubmission(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const PlayerTypes eProtector = (PlayerTypes)lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->RequestVassalSubmission(eProtector));
 	return 1;
 }
 //int GetVassalPeaceCounterField(PlayerTypes eA, PlayerTypes eB, int iField);

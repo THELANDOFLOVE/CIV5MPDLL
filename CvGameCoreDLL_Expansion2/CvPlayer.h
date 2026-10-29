@@ -2157,6 +2157,10 @@ public:
 	void DoVassalAutoJoinWarTurn();
 	bool CanInviteVassal(PlayerTypes eTarget) const;
 	bool DoInviteVassal(PlayerTypes eTarget);
+	// A lesser civ asks a suzerain to take it in. 0 = allowed/accepted,
+	// positive = reason the request cannot run, 2 = the protector declines.
+	int CanRequestSubmission(PlayerTypes eProtector) const;
+	int RequestVassalSubmission(PlayerTypes eProtector);
 	void DoSeekProtectionTurn();
 	void DoSubjugateTurn();
 	bool CanSubjugate(PlayerTypes eTarget) const;

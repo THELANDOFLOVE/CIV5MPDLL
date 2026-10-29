@@ -1407,6 +1407,8 @@ protected:
 	LUAAPIEXTN(AcceptVassalPeaceCounter, bool, eA, eB);
 	LUAAPIEXTN(GetPendingVassalInvite, int);
 	LUAAPIEXTN(ResolveVassalInvite, bool, bAccept);
+	LUAAPIEXTN(CanRequestSubmission, int, eProtector);
+	LUAAPIEXTN(RequestVassalSubmission, int, eProtector);
 	LUAAPIEXTN(GetVassalPeaceCounterField, int, eA, eB, iField);
 	LUAAPIEXTN(AcceptVassalPeaceCounterEx, bool, eA, eB, ePayer, iGoldPercent, bReturnCities, eCensure);
 	LUAAPIEXTN(GetStrongestLandUnit, int);

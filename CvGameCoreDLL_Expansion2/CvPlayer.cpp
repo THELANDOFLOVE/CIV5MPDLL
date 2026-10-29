@@ -37630,6 +37630,65 @@ int CvPlayer::RequestVassalSubmission(PlayerTypes eProtector)
 }
 
 //--------------------------------------------------------------------------------
+// A civ that is losing a war to a suzerain may offer to submit. It must be at
+// war, losing badly enough, and have already lost its original capital, which
+// mirrors CanSubjugate from the loser's side.
+// 0 = the offer may be made; otherwise the reason it cannot.
+int CvPlayer::CanSurrenderTo(PlayerTypes eWinner) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 5;
+	if (!isAlive() || !isMajorCiv()) return 5;
+	if (eWinner == NO_PLAYER || eWinner == GetID()) return 5;
+	if (GetOverlord() != NO_PLAYER) return 1;
+
+	CvPlayer& kWinner = GET_PLAYER(eWinner);
+	if (!kWinner.isAlive() || !kWinner.isMajorCiv()) return 5;
+	if (!kWinner.IsSuzerainCiv()) return 2;
+	if (!GET_TEAM(getTeam()).isAtWar(kWinner.getTeam())) return 3;
+	if (!GET_TEAM(kWinner.getTeam()).canChangeWarPeace(getTeam())) return 4;
+	// Another human decides for itself; not supported yet.
+	if (kWinner.isHuman()) return 5;
+
+	int iTurns = SuzerainDefineInt("SUZERAIN_SUBJUGATE_TURNS");
+	int iMilPercent = SuzerainDefineInt("SUZERAIN_SUBJUGATE_MILITARY_PERCENT");
+	if (iTurns <= 0 || iMilPercent <= 0) return 5;
+
+	// The winner must be holding our original capital right now.
+	int iCapitalX = GetOriginalCapitalX();
+	int iCapitalY = GetOriginalCapitalY();
+	if (iCapitalX < 0 || iCapitalY < 0) return 6;
+	CvPlot* pOriginalCapital = GC.getMap().plot(iCapitalX, iCapitalY);
+	if (pOriginalCapital == NULL || pOriginalCapital->getOwner() != eWinner) return 6;
+
+	if (kWinner.GetDiplomacyAI()->GetPlayerNumTurnsAtWar(GetID()) < iTurns) return 6;
+	if (kWinner.GetMilitaryMight() * 100 < GetMilitaryMight() * iMilPercent) return 6;
+
+	return 0;
+}
+
+//--------------------------------------------------------------------------------
+// Peace on the winner's terms: the loser swears fealty and stops fighting. Its
+// original capital stays with the winner, who may return it later for loyalty.
+int CvPlayer::SurrenderTo(PlayerTypes eWinner)
+{
+	if (CanSurrenderTo(eWinner) != 0) return 1;
+
+	CvPlayer& kWinner = GET_PLAYER(eWinner);
+
+	GET_TEAM(getTeam()).makePeace(kWinner.getTeam(), true, false, GetID());
+
+	SetOverlord(eWinner);
+	kWinner.AddVassal(GetID());
+	kWinner.RefreshUCFromVassals();
+
+	int iStart = SuzerainDefineInt("SUZERAIN_LOYALTY_SUBJUGATE_START");
+	if (iStart > 0)
+		kWinner.ChangeVassalLoyalty(GetID(), iStart);
+
+	return 0;
+}
+
+//--------------------------------------------------------------------------------
 // An AI major civ that is losing a war looks for a stronger protector and
 // submits to it. Humans decide for themselves.
 void CvPlayer::DoSeekProtectionTurn()

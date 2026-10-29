@@ -2161,6 +2161,9 @@ public:
 	// positive = reason the request cannot run, 2 = the protector declines.
 	int CanRequestSubmission(PlayerTypes eProtector) const;
 	int RequestVassalSubmission(PlayerTypes eProtector);
+	// A civ losing a war to a suzerain may offer to submit. 0 = allowed/accepted.
+	int CanSurrenderTo(PlayerTypes eWinner) const;
+	int SurrenderTo(PlayerTypes eWinner);
 	void DoSeekProtectionTurn();
 	void DoSubjugateTurn();
 	bool CanSubjugate(PlayerTypes eTarget) const;

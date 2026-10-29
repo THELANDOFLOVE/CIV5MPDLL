@@ -2012,6 +2012,8 @@ public:
 	int ProposeVassalPeace(PlayerTypes eA, PlayerTypes eB, PlayerTypes ePayer, int iGoldPercent, bool bReturnCities, int iTruceTurns, PlayerTypes eCensure);
 	bool IsVassalTruceActive(PlayerTypes eA, PlayerTypes eB) const;
 	bool AcceptVassalPeaceCounter(PlayerTypes eA, PlayerTypes eB);
+	int GetVassalPeaceCounterField(PlayerTypes eA, PlayerTypes eB, int iField) const;
+	bool AcceptVassalPeaceCounterEx(PlayerTypes eA, PlayerTypes eB, PlayerTypes ePayer, int iGoldPercent, bool bReturnCities, PlayerTypes eCensure);
 	bool CanReturnCityToVassal(CvCity* pCity) const;
 	bool DoReturnCityToVassal(CvCity* pCity);
 	bool DoReturnCityToVassalByID(int iCityID);

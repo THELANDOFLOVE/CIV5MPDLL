@@ -136,6 +136,7 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoVassalMediate);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lProposeVassalPeace);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lAcceptVassalPeaceCounter);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lAcceptVassalPeaceCounterEx);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoReturnCityToVassal);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoReturnCityToVassalByID);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lResolveVassalMemorial);
@@ -1536,6 +1537,8 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(DoVassalMediate);
 	Method(ProposeVassalPeace);
 	Method(AcceptVassalPeaceCounter);
+	Method(GetVassalPeaceCounterField);
+	Method(AcceptVassalPeaceCounterEx);
 	Method(CanReturnCityToVassal);
 	Method(DoReturnCityToVassal);
 	Method(DoReturnCityToVassalByID);
@@ -15326,5 +15329,28 @@ int CvLuaPlayer::lAcceptVassalPeaceCounter(lua_State* L)
 	const PlayerTypes eA = (PlayerTypes)lua_tointeger(L, 2);
 	const PlayerTypes eB = (PlayerTypes)lua_tointeger(L, 3);
 	lua_pushboolean(L, pkPlayer->AcceptVassalPeaceCounter(eA, eB));
+	return 1;
+}
+//int GetVassalPeaceCounterField(PlayerTypes eA, PlayerTypes eB, int iField);
+int CvLuaPlayer::lGetVassalPeaceCounterField(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const PlayerTypes eA = (PlayerTypes)lua_tointeger(L, 2);
+	const PlayerTypes eB = (PlayerTypes)lua_tointeger(L, 3);
+	const int iField = lua_tointeger(L, 4);
+	lua_pushinteger(L, pkPlayer->GetVassalPeaceCounterField(eA, eB, iField));
+	return 1;
+}
+//bool AcceptVassalPeaceCounterEx(PlayerTypes eA, PlayerTypes eB, PlayerTypes ePayer, int iGoldPercent, bool bReturnCities, PlayerTypes eCensure);
+int CvLuaPlayer::lAcceptVassalPeaceCounterEx(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const PlayerTypes eA = (PlayerTypes)lua_tointeger(L, 2);
+	const PlayerTypes eB = (PlayerTypes)lua_tointeger(L, 3);
+	const PlayerTypes ePayer = (PlayerTypes)lua_tointeger(L, 4);
+	const int iGoldPercent = lua_tointeger(L, 5);
+	const bool bReturnCities = lua_toboolean(L, 6);
+	const PlayerTypes eCensure = (PlayerTypes)lua_tointeger(L, 7);
+	lua_pushboolean(L, pkPlayer->AcceptVassalPeaceCounterEx(eA, eB, ePayer, iGoldPercent, bReturnCities, eCensure));
 	return 1;
 }

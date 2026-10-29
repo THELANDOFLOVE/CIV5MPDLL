@@ -42704,3 +42704,80 @@ bool CvPlayer::AcceptVassalPeaceCounter(PlayerTypes eA, PlayerTypes eB)
 	if (iPair < m_aiPeaceRejects.size()) m_aiPeaceRejects[iPair] = 0;
 	return true;
 }
+
+//--------------------------------------------------------------------------------
+// Counter-proposal the refusing side would accept: weaker side wants cities
+// back, stronger side settles for a white peace; loyal vassals are softer.
+int CvPlayer::GetVassalPeaceCounterField(PlayerTypes eA, PlayerTypes eB, int iField) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return -1;
+	if (eA == eB || !IsOverlordOf(eA) || !IsOverlordOf(eB)) return -1;
+
+	long long iMightA = GET_PLAYER(eA).GetMilitaryMight();
+	long long iMightB = GET_PLAYER(eB).GetMilitaryMight();
+	bool bAWeaker = (iMightA < iMightB);
+	PlayerTypes eProposer = bAWeaker ? eA : eB;
+
+	int iGold = 0;
+	PlayerTypes ePayer = NO_PLAYER;
+	bool bReturn = bAWeaker;
+	PlayerTypes eCensure = NO_PLAYER;
+
+	if (GetVassalLoyalty(eProposer) >= 60 && !bAWeaker)
+		bReturn = true; // loyal stronger side is willing to return cities
+
+	if (iField == 0) return iGold;
+	if (iField == 1) return (int)ePayer;
+	if (iField == 2) return bReturn ? 1 : 0;
+	if (iField == 3) return (int)eCensure;
+	return -1;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::AcceptVassalPeaceCounterEx(PlayerTypes eA, PlayerTypes eB, PlayerTypes ePayer,
+	int iGoldPercent, bool bReturnCities, PlayerTypes eCensure)
+{
+	if (!MOD_GLOBAL_SUZERAIN || !IsSuzerainCiv()) return false;
+	if (eA == eB || !IsOverlordOf(eA) || !IsOverlordOf(eB)) return false;
+
+	CvPlayer& kA = GET_PLAYER(eA);
+	CvPlayer& kB = GET_PLAYER(eB);
+	if (!GET_TEAM(kA.getTeam()).isAtWar(kB.getTeam())) return false;
+
+	GET_TEAM(kA.getTeam()).makePeace(kB.getTeam(), true, false, GetID());
+
+	if (iGoldPercent > 0 && (ePayer == eA || ePayer == eB))
+	{
+		CvPlayer& kPayer = GET_PLAYER(ePayer);
+		CvPlayer& kReceiver = GET_PLAYER(ePayer == eA ? eB : eA);
+		int iGold = (int)(kPayer.GetTreasury()->GetGold() * iGoldPercent / 100);
+		if (iGold > 0) kPayer.TransferGoldTo(kReceiver.GetID(), iGold);
+	}
+
+	if (bReturnCities)
+	{
+		int iLoop = 0;
+		std::vector<int> vReturn;
+		for (CvCity* pCity = kA.firstCity(&iLoop); pCity != NULL; pCity = kA.nextCity(&iLoop))
+			if (pCity->getOriginalOwner() == eB) vReturn.push_back(pCity->GetID());
+		iLoop = 0;
+		for (CvCity* pCity = kB.firstCity(&iLoop); pCity != NULL; pCity = kB.nextCity(&iLoop))
+			if (pCity->getOriginalOwner() == eA) vReturn.push_back(pCity->GetID());
+		for (size_t i = 0; i < vReturn.size(); i++)
+		{
+			CvCity* pCity = kA.getCity(vReturn[i]);
+			if (pCity == NULL) pCity = kB.getCity(vReturn[i]);
+			if (pCity == NULL) continue;
+			GET_PLAYER((PlayerTypes)pCity->getOriginalOwner()).acquireCity(pCity, false, true);
+		}
+	}
+
+	if (eCensure == eA || eCensure == eB)
+		ChangeVassalLoyalty(eCensure, -10);
+
+	PlayerTypes eLow = (eA < eB) ? eA : eB;
+	PlayerTypes eHigh = (eA < eB) ? eB : eA;
+	size_t iPair = (size_t)eLow * MAX_MAJOR_CIVS + eHigh;
+	if (iPair < m_aiPeaceRejects.size()) m_aiPeaceRejects[iPair] = 0;
+	return true;
+}

@@ -2175,17 +2175,20 @@ public:
 	bool ResolveWarOrder(bool bObey);
 	void DoPendingWarOrderTurn();
 	void WarnVassalRevolt(PlayerTypes eVassal);
-	// A decree the overlord issues; the vassal answers with bAccept meaning
-	// "comply" (receive/cooperate/confess/accept). iField: 0 type, 1 from,
-	// 2 target (city ID for fief), 3 turns left.
-	int GetPendingDecree(int iField) const;
-	bool ResolveDecree(bool bAccept);
+	// Decrees the overlord issues; the vassal answers each with bAccept meaning
+	// "comply" (receive/cooperate/confess/accept). Several may be pending.
+	int GetPendingDecreeCount() const;
+	// iField: 0 type, 1 target, 2 turns left, 3 sender.
+	int GetPendingDecreeField(int iIndex, int iField) const;
+	void CleanExpiredDecrees();
+	bool ResolveDecree(int iIndex, bool bAccept);
 	bool IssueDecree(int iType, PlayerTypes eVassal, int iTarget);
 	bool CanIssueDecree(int iType, PlayerTypes eVassal, int iTarget) const;
-	bool GetPendingDecreeFor(PlayerTypes eVassal) const;
 	void DoVassalDecreeTurn();
-	bool HasVassalTitle(PlayerTypes eVassal) const;
-	void SetVassalTitle(PlayerTypes eVassal, bool bTitle);
+	int GetVassalTitle(PlayerTypes eVassal) const;
+	void SetVassalTitle(PlayerTypes eVassal, int iTitle);
+	// First title index not yet held by any vassal, or 0 when all are taken.
+	int PickFreeTitle() const;
 	// A human vassal petitions its overlord directly. 0 = accepted, 1 = not a
 	// vassal, 2 = type cannot be raised manually, 3 = already pending,
 	// 4 = invalid target.
@@ -3286,13 +3289,12 @@ protected:
 	FAutoVariable<int, CvPlayer> m_iPendingWarOrderFrom;
 	FAutoVariable<int, CvPlayer> m_iPendingWarOrderTarget;
 	FAutoVariable<int, CvPlayer> m_iPendingWarOrderTurn;
-	// Decree waiting for the vassal's answer: 1 title, 2 inspection, 3 summon,
-	// 4 questioning, 5 fief. Target is a city ID (fief) or NO_PLAYER.
-	FAutoVariable<int, CvPlayer> m_iPendingDecreeType;
-	FAutoVariable<int, CvPlayer> m_iPendingDecreeFrom;
-	FAutoVariable<int, CvPlayer> m_iPendingDecreeTarget;
-	FAutoVariable<int, CvPlayer> m_iPendingDecreeTurn;
-	// Vassals the overlord has granted a title to (0/1 per player)
+	// Decrees waiting for this vassal's answer. Stride 4 per decree:
+	// type (1 title, 2 inspection, 3 summon, 4 questioning, 5 fief),
+	// target (city ID for fief, title index for a title), deadline turn,
+	// and sender. Several decrees may be pending at once.
+	FAutoVariable<std::vector<int>, CvPlayer> m_aiPendingDecrees;
+	// Title index granted to each vassal (0 = none, 1..N = named title)
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalTitle;
 	// Broken-obligation record: count and the turn of the last breach
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalBreachCount;

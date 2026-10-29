@@ -1416,11 +1416,12 @@ protected:
 	LUAAPIEXTN(ResolveWarOrder, bool, bObey);
 	LUAAPIEXTN(SubmitVassalMemorial, int, iType, iTarget);
 	LUAAPIEXTN(IsSuzerainCiv, bool);
-	LUAAPIEXTN(GetPendingDecree, int, iField);
-	LUAAPIEXTN(ResolveDecree, bool, bAccept);
+	LUAAPIEXTN(GetPendingDecreeCount, int);
+	LUAAPIEXTN(GetPendingDecreeField, int, iIndex, iField);
+	LUAAPIEXTN(ResolveDecree, bool, iIndex, bAccept);
 	LUAAPIEXTN(IssueDecree, bool, iType, eVassal, iTarget);
 	LUAAPIEXTN(CanIssueDecree, bool, iType, eVassal, iTarget);
-	LUAAPIEXTN(HasVassalTitle, bool, eVassal);
+	LUAAPIEXTN(GetVassalTitle, int, eVassal);
 	LUAAPIEXTN(TryReleaseVassal, int, eVassal);
 	LUAAPIEXTN(ForceReleaseVassal, bool, eVassal);
 	LUAAPIEXTN(KeepVassal, bool, eVassal);

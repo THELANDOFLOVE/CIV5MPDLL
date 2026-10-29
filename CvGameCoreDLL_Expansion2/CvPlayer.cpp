@@ -35996,6 +35996,70 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 		}
 		break;
 	}
+	case 14: // personnel ministry: request for a named title
+		if (bApprove)
+		{
+			int iTitle = PickFreeTitle();
+			if (iTitle > 0)
+			{
+				SetVassalTitle(eVassal, iTitle);
+				ChangeVassalLoyalty(eVassal, 6);
+				bOk = true;
+			}
+		}
+		else
+		{
+			ChangeVassalLoyalty(eVassal, -4);
+			bOk = true;
+		}
+		break;
+	case 15: // personnel ministry: request for an appraisal
+		ChangeVassalLoyalty(eVassal, bApprove ? 5 : -3);
+		bOk = true;
+		break;
+	case 16: // personnel ministry: offering a great person
+		if (bApprove)
+		{
+			CvUnit* pGreat = NULL;
+			int iLoop = 0;
+			CvPlayer& kV = GET_PLAYER(eVassal);
+			for (CvUnit* pUnit = kV.firstUnit(&iLoop); pUnit != NULL; pUnit = kV.nextUnit(&iLoop))
+			{
+				if (!pUnit->IsGreatPerson()) continue;
+				pGreat = pUnit;
+				break;
+			}
+			if (pGreat != NULL)
+			{
+				pGreat->kill(false);
+				ChangeMandate(10);
+			}
+			ChangeVassalLoyalty(eVassal, 8);
+			bOk = true;
+		}
+		else
+		{
+			ChangeVassalLoyalty(eVassal, -4);
+			bOk = true;
+		}
+		break;
+	case 17: // personnel ministry: asking for an old city back
+		if (bApprove)
+		{
+			int iCity = GetVassalMemorialField(iIndex, SUZERAIN_MEMORIAL_TARGET);
+			if (iCity >= 0)
+			{
+				DoReturnCityToVassalByID(iCity);
+				ChangeVassalLoyalty(eVassal, 10);
+				bOk = true;
+			}
+		}
+		else
+		{
+			ChangeVassalLoyalty(eVassal, -6);
+			bOk = true;
+		}
+		break;
 	case 1: // material aid while losing a war
 	case 2: // request for a reward
 	case 3: // report of hardship
@@ -36252,6 +36316,52 @@ void CvPlayer::DoVassalMemorialTurn()
 				&& CanRankUpVassal(eVassal) && !HasPendingMemorial(eVassal, 4))
 			{
 				AddVassalMemorial(4, 1, 0, eVassal, NO_PLAYER, iNormalTurns);
+			}
+
+			// Personnel ministry: a loyal vassal asks for a named title.
+			if (GetVassalTitle(eVassal) == 0 && GetVassalLoyalty(eVassal) >= 50
+				&& PickFreeTitle() > 0 && !HasPendingMemorial(eVassal, 14))
+			{
+				AddVassalMemorial(14, 1, 0, eVassal, NO_PLAYER, iNormalTurns);
+			}
+
+			// Personnel ministry: a wavering vassal asks for an appraisal.
+			{
+				int iAppraise = GetVassalLoyalty(eVassal);
+				int iAppraiseCap = GetVassalLoyaltyCap(eVassal);
+				if (iAppraise >= 40 && iAppraise * 100 <= iAppraiseCap * 70
+					&& !HasPendingMemorial(eVassal, 15))
+				{
+					AddVassalMemorial(15, 1, 0, eVassal, NO_PLAYER, iNormalTurns);
+				}
+			}
+
+			// Personnel ministry: a vassal offers a great person to the court.
+			{
+				bool bHasGreat = false;
+				int iGreatLoop = 0;
+				for (CvUnit* pUnit = kVassal.firstUnit(&iGreatLoop); pUnit != NULL; pUnit = kVassal.nextUnit(&iGreatLoop))
+				{
+					if (pUnit->IsGreatPerson()) { bHasGreat = true; break; }
+				}
+				if (bHasGreat && !HasPendingMemorial(eVassal, 16))
+					AddVassalMemorial(16, 1, 0, eVassal, NO_PLAYER, iNormalTurns);
+			}
+
+			// Personnel ministry: a vassal asks for an old city back.
+			{
+				int iOldCity = -1;
+				int iCityLoop = 0;
+				for (CvCity* pCity = firstCity(&iCityLoop); pCity != NULL; pCity = nextCity(&iCityLoop))
+				{
+					if (pCity->getOriginalOwner() == eVassal)
+					{
+						iOldCity = pCity->GetID();
+						break;
+					}
+				}
+				if (iOldCity >= 0 && !HasPendingMemorial(eVassal, 17))
+					AddVassalMemorial(17, 1, 0, eVassal, (PlayerTypes)iOldCity, iNormalTurns);
 			}
 
 			// Rites ministry: a content vassal asks for a gift in return.
@@ -43500,6 +43610,20 @@ void CvPlayer::DoVassalAIMemorialTurn()
 			bool bYield = (GET_PLAYER(eVassal).GetMilitaryMight() * 100 >= GetMilitaryMight() * 150);
 			ResolveVassalMemorial(m, bYield);
 		}
+		else if (iType == 14)
+		{
+			ResolveVassalMemorial(m, GetVassalLoyalty(eVassal) >= 60 && PickFreeTitle() > 0);
+		}
+		else if (iType == 15)
+		{
+			int iAppraiseCap = GetVassalLoyaltyCap(eVassal);
+			ResolveVassalMemorial(m, GetVassalLoyalty(eVassal) * 100 >= iAppraiseCap * 60);
+		}
+		else if (iType == 16 || iType == 17)
+		{
+			// A gifted great person or an old city back is always worth taking.
+			ResolveVassalMemorial(m, true);
+		}
 		else if (iType == 12)
 		{
 			// Diplomacy: demand moderate terms, then take the counter if refused.
@@ -43975,7 +44099,8 @@ bool CvPlayer::CanIssueDecree(int iType, PlayerTypes eVassal, int iTarget) const
 	switch (iType)
 	{
 	case 1:
-		return GetVassalTitle(eVassal) == 0 && GetVassalLoyalty(eVassal) >= 50;
+		// A vassal may be re-titled; the old title returns to the pool.
+		return GetVassalLoyalty(eVassal) >= 50 && PickFreeTitle() > 0;
 	case 2:
 		return true;
 	case 3:

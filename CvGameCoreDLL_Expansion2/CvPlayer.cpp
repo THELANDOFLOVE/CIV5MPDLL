@@ -35309,18 +35309,39 @@ void CvPlayer::DoVassalAIDiplomacyTurn()
 			if (!IsLiveVassal(eB)) continue;
 			if (!GET_TEAM(GET_PLAYER(eA).getTeam()).isAtWar(GET_PLAYER(eB).getTeam())) continue;
 
+			int iGap = TiandaoDefineInt("TIANDAO_AI_PEACE_LOYALTY_GAP");
+			if (iGap <= 0) iGap = 20;
+			int iIndemnity = TiandaoDefineInt("TIANDAO_AI_PEACE_INDEMNITY_PERCENT");
+			if (iIndemnity < 0) iIndemnity = 0;
+			if (iIndemnity > 30) iIndemnity = 30;
+
 			int iLoyalA = GetVassalLoyalty(eA);
 			int iLoyalB = GetVassalLoyalty(eB);
 			int iResult = -1;
-			if (iLoyalA >= iLoyalB + 15)
-				iResult = ProposeVassalPeace(eA, eB, eB, 0, true, 10, eB);
-			else if (iLoyalB >= iLoyalA + 15)
-				iResult = ProposeVassalPeace(eA, eB, eA, 0, true, 10, eA);
+			if (iLoyalA >= iLoyalB + iGap)
+				iResult = ProposeVassalPeace(eA, eB, eB, iIndemnity, true, 10, eB);
+			else if (iLoyalB >= iLoyalA + iGap)
+				iResult = ProposeVassalPeace(eA, eB, eA, iIndemnity, true, 10, eA);
 			else
 				iResult = ProposeVassalPeace(eA, eB, eA, 0, false, 10, NO_PLAYER);
 
 			if (iResult != 0)
-				ProposeVassalPeace(eA, eB, eA, 0, false, 10, NO_PLAYER); // white peace fallback
+			{
+				// Try the refusing side's counter terms, then fall back to white peace.
+				int iGold = 0;
+				PlayerTypes ePayerCounter = NO_PLAYER;
+				bool bReturn = false;
+				PlayerTypes eCensure = NO_PLAYER;
+				if (iResult == 3)
+				{
+					iGold = GetVassalPeaceCounterField(eA, eB, 0);
+					ePayerCounter = (PlayerTypes)GetVassalPeaceCounterField(eA, eB, 1);
+					bReturn = GetVassalPeaceCounterField(eA, eB, 2) == 1;
+					eCensure = (PlayerTypes)GetVassalPeaceCounterField(eA, eB, 3);
+				}
+				if (!AcceptVassalPeaceCounterEx(eA, eB, ePayerCounter, iGold, bReturn, eCensure))
+					ProposeVassalPeace(eA, eB, eA, 0, false, 10, NO_PLAYER);
+			}
 		}
 	}
 

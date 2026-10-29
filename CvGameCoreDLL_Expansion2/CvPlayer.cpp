@@ -37695,6 +37695,8 @@ bool CvPlayer::CanInviteVassal(PlayerTypes eTarget) const
 	CvPlayer& kTarget = GET_PLAYER(eTarget);
 	if (!kTarget.isAlive() || !kTarget.isMajorCiv()) return false;
 	if (kTarget.GetOverlord() != NO_PLAYER) return false;
+	// A civ that already rules vassals of its own cannot also be one.
+	if (kTarget.HasAnyVassal()) return false;
 	if (GET_TEAM(getTeam()).isAtWar(kTarget.getTeam())) return false;
 
 	int iPercent = SuzerainDefineInt("SUZERAIN_JOIN_SUZERAIN_INVITE_MILITARY_PERCENT");
@@ -37981,6 +37983,8 @@ bool CvPlayer::CanSubjugate(PlayerTypes eTarget) const
 	if (!kTarget.isAlive() || !kTarget.isMajorCiv()) return false;
 	if (kTarget.isHuman()) return false;
 	if (kTarget.GetOverlord() != NO_PLAYER) return false;
+	// A civ that already rules vassals of its own cannot also be one.
+	if (kTarget.HasAnyVassal()) return false;
 	if (!GET_TEAM(getTeam()).isAtWar(kTarget.getTeam())) return false;
 	if (!GET_TEAM(getTeam()).canChangeWarPeace(kTarget.getTeam())) return false;
 

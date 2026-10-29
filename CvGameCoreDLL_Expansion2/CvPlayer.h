@@ -2164,6 +2164,11 @@ public:
 	// A civ losing a war to a suzerain may offer to submit. 0 = allowed/accepted.
 	int CanSurrenderTo(PlayerTypes eWinner) const;
 	int SurrenderTo(PlayerTypes eWinner);
+	// A call to arms waiting for the human vassal's answer. iField:
+	// 0 = overlord, 1 = target, 2 = turns left.
+	int GetPendingWarOrder(int iField) const;
+	bool ResolveWarOrder(bool bObey);
+	void DoPendingWarOrderTurn();
 	void DoSeekProtectionTurn();
 	void DoSubjugateTurn();
 	bool CanSubjugate(PlayerTypes eTarget) const;
@@ -3248,6 +3253,10 @@ protected:
 	FAutoVariable<int, CvPlayer> m_iVassalCourtPolicy;
 	FAutoVariable<int, CvPlayer> m_iPendingInviteFrom;
 	FAutoVariable<int, CvPlayer> m_iPendingInviteTurn;
+	// Call to arms from the overlord: who ordered it, whom to attack, deadline
+	FAutoVariable<int, CvPlayer> m_iPendingWarOrderFrom;
+	FAutoVariable<int, CvPlayer> m_iPendingWarOrderTarget;
+	FAutoVariable<int, CvPlayer> m_iPendingWarOrderTurn;
 	// Broken-obligation record: count and the turn of the last breach
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalBreachCount;
 	// Punish right expiry turn per vassal (serialized)

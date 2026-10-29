@@ -142,6 +142,8 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lRequestVassalSubmission);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lCanSurrenderTo);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSurrenderTo);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetPendingWarOrder);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lResolveWarOrder);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lAcceptVassalPeaceCounterEx);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGiftUnitToVassal);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSpawnUnitForVassal);
@@ -1559,6 +1561,8 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(RequestVassalSubmission);
 	Method(CanSurrenderTo);
 	Method(SurrenderTo);
+	Method(GetPendingWarOrder);
+	Method(ResolveWarOrder);
 	Method(GetVassalPeaceCounterField);
 	Method(AcceptVassalPeaceCounterEx);
 	Method(GetStrongestLandUnit);
@@ -15411,6 +15415,22 @@ int CvLuaPlayer::lSurrenderTo(lua_State* L)
 	CvPlayer* pkPlayer = GetInstance(L);
 	const PlayerTypes eWinner = (PlayerTypes)lua_tointeger(L, 2);
 	lua_pushinteger(L, pkPlayer->SurrenderTo(eWinner));
+	return 1;
+}
+//int GetPendingWarOrder(int iField);
+int CvLuaPlayer::lGetPendingWarOrder(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const int iField = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetPendingWarOrder(iField));
+	return 1;
+}
+//bool ResolveWarOrder(bool bObey);
+int CvLuaPlayer::lResolveWarOrder(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const bool bObey = lua_toboolean(L, 2);
+	lua_pushboolean(L, pkPlayer->ResolveWarOrder(bObey));
 	return 1;
 }
 //int GetVassalPeaceCounterField(PlayerTypes eA, PlayerTypes eB, int iField);

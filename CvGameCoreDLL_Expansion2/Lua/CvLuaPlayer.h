@@ -1411,6 +1411,8 @@ protected:
 	LUAAPIEXTN(RequestVassalSubmission, int, eProtector);
 	LUAAPIEXTN(CanSurrenderTo, int, eWinner);
 	LUAAPIEXTN(SurrenderTo, int, eWinner);
+	LUAAPIEXTN(GetPendingWarOrder, int, iField);
+	LUAAPIEXTN(ResolveWarOrder, bool, bObey);
 	LUAAPIEXTN(GetVassalPeaceCounterField, int, eA, eB, iField);
 	LUAAPIEXTN(AcceptVassalPeaceCounterEx, bool, eA, eB, ePayer, iGoldPercent, bReturnCities, eCensure);
 	LUAAPIEXTN(GetStrongestLandUnit, int);

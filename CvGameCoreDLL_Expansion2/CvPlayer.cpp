@@ -428,6 +428,9 @@ CvPlayer::CvPlayer() :
 	, m_iVassalCourtPolicy("CvPlayer::m_iVassalCourtPolicy", m_syncArchive)
 	, m_iPendingInviteFrom("CvPlayer::m_iPendingInviteFrom", m_syncArchive)
 	, m_iPendingInviteTurn("CvPlayer::m_iPendingInviteTurn", m_syncArchive)
+	, m_iPendingWarOrderFrom("CvPlayer::m_iPendingWarOrderFrom", m_syncArchive)
+	, m_iPendingWarOrderTarget("CvPlayer::m_iPendingWarOrderTarget", m_syncArchive)
+	, m_iPendingWarOrderTurn("CvPlayer::m_iPendingWarOrderTurn", m_syncArchive)
 	, m_aiVassalBreachCount("CvPlayer::m_aiVassalBreachCount", m_syncArchive)
 	, m_aiVassalBreachTurn("CvPlayer::m_aiVassalBreachTurn", m_syncArchive)
 	, m_iMandate("CvPlayer::m_iMandate", m_syncArchive)
@@ -5587,6 +5590,7 @@ void CvPlayer::doTurn()
 		DoPrayerOverlordTurn();
 		DoSubjugateTurn();
 		DoSeekAllegianceTurn();
+		DoPendingWarOrderTurn();
 		DoVassalLoyaltyDecay();
 		DoVassalRevoltCheck();
 		DoVassalOverlordVictoryCheck();
@@ -31404,6 +31408,9 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ(165, kStream, m_iVassalCourtPolicy, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iPendingInviteFrom, NO_PLAYER);
 		MOD_SERIALIZE_READ(165, kStream, m_iPendingInviteTurn, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iPendingWarOrderFrom, NO_PLAYER);
+		MOD_SERIALIZE_READ(165, kStream, m_iPendingWarOrderTarget, NO_PLAYER);
+		MOD_SERIALIZE_READ(165, kStream, m_iPendingWarOrderTurn, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalBreachCount, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalPunishRight, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiMemorialDefault, 7, 0);
@@ -32383,6 +32390,9 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE(kStream, m_iVassalCourtPolicy);
 	MOD_SERIALIZE_WRITE(kStream, m_iPendingInviteFrom);
 	MOD_SERIALIZE_WRITE(kStream, m_iPendingInviteTurn);
+	MOD_SERIALIZE_WRITE(kStream, m_iPendingWarOrderFrom);
+	MOD_SERIALIZE_WRITE(kStream, m_iPendingWarOrderTarget);
+	MOD_SERIALIZE_WRITE(kStream, m_iPendingWarOrderTurn);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalBreachCount);
 	MOD_SERIALIZE_WRITE(kStream, m_aiVassalPunishRight);
 	MOD_SERIALIZE_WRITE(kStream, m_aiMemorialDefault);
@@ -43359,6 +43369,17 @@ bool CvPlayer::OrderVassalJoinWar(PlayerTypes eVassal, PlayerTypes eTarget)
 	if (eVassalTeam == eTargetTeam) return false;
 	if (GET_TEAM(eVassalTeam).isAtWar(eTargetTeam)) return true;
 
+	// A human vassal answers for itself: leave the order pending instead of
+	// declaring war behind its back.
+	CvPlayer& kVassal = GET_PLAYER(eVassal);
+	if (kVassal.isHuman())
+	{
+		kVassal.m_iPendingWarOrderFrom = GetID();
+		kVassal.m_iPendingWarOrderTarget = eTarget;
+		kVassal.m_iPendingWarOrderTurn = GC.getGame().getGameTurn() + 5;
+		return false;
+	}
+
 	if (GetVassalLoyalty(eVassal) >= 40
 		&& GET_TEAM(eVassalTeam).canDeclareWar(eTargetTeam, eVassal))
 	{
@@ -43368,6 +43389,85 @@ bool CvPlayer::OrderVassalJoinWar(PlayerTypes eVassal, PlayerTypes eTarget)
 	}
 	ChangeVassalLoyalty(eVassal, -5);
 	return false;
+}
+
+//--------------------------------------------------------------------------------
+// A call to arms waiting for the human vassal's answer. iField:
+// 0 = overlord, 1 = target, 2 = turns left. NO_PLAYER / 0 when there is none.
+int CvPlayer::GetPendingWarOrder(int iField) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return (iField == 2) ? 0 : NO_PLAYER;
+	if (m_iPendingWarOrderTurn <= 0) return (iField == 2) ? 0 : NO_PLAYER;
+	if (GC.getGame().getGameTurn() > m_iPendingWarOrderTurn) return (iField == 2) ? 0 : NO_PLAYER;
+
+	int iFrom = m_iPendingWarOrderFrom;
+	int iTarget = m_iPendingWarOrderTarget;
+
+	if (iField == 2)
+		return m_iPendingWarOrderTurn - GC.getGame().getGameTurn();
+
+	int iValue = (iField == 1) ? iTarget : iFrom;
+	if (iValue < 0 || iValue >= MAX_MAJOR_CIVS) return NO_PLAYER;
+
+	// The order dies if the overlord no longer rules us or the target is gone.
+	if (iFrom < 0 || iFrom >= MAX_MAJOR_CIVS) return NO_PLAYER;
+	CvPlayer& kOverlord = GET_PLAYER((PlayerTypes)iFrom);
+	if (!kOverlord.isAlive() || !kOverlord.IsOverlordOf(GetID())) return NO_PLAYER;
+	if (iTarget < 0 || iTarget >= MAX_MAJOR_CIVS) return NO_PLAYER;
+	if (!GET_PLAYER((PlayerTypes)iTarget).isAlive()) return NO_PLAYER;
+
+	return iValue;
+}
+
+//--------------------------------------------------------------------------------
+// Obey or defy a call to arms. Obeying declares war and earns a little
+// loyalty; defying leaves the war alone and costs loyalty.
+bool CvPlayer::ResolveWarOrder(bool bObey)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (GetPendingWarOrder(0) == NO_PLAYER) return false;
+
+	int iFrom = m_iPendingWarOrderFrom;
+	int iTarget = m_iPendingWarOrderTarget;
+
+	m_iPendingWarOrderFrom = NO_PLAYER;
+	m_iPendingWarOrderTarget = NO_PLAYER;
+	m_iPendingWarOrderTurn = 0;
+
+	CvPlayer& kOverlord = GET_PLAYER((PlayerTypes)iFrom);
+
+	if (!bObey)
+	{
+		int iPenalty = SuzerainDefineInt("SUZERAIN_LOYALTY_DEFY_PENALTY");
+		if (iPenalty == 0) iPenalty = -5;
+		kOverlord.ChangeVassalLoyalty(GetID(), iPenalty);
+		return true;
+	}
+
+	TeamTypes eTargetTeam = GET_PLAYER((PlayerTypes)iTarget).getTeam();
+	if (getTeam() != eTargetTeam)
+	{
+		if (!GET_TEAM(getTeam()).isAtWar(eTargetTeam))
+		{
+			if (!GET_TEAM(getTeam()).canDeclareWar(eTargetTeam, GetID())) return false;
+			GET_TEAM(getTeam()).declareWar(eTargetTeam, false, GetID());
+		}
+		kOverlord.ChangeVassalLoyalty(GetID(), 2);
+	}
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+// An unanswered call to arms simply lapses; it is not counted as defiance.
+void CvPlayer::DoPendingWarOrderTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (m_iPendingWarOrderTurn <= 0) return;
+	if (GC.getGame().getGameTurn() <= m_iPendingWarOrderTurn) return;
+
+	m_iPendingWarOrderFrom = NO_PLAYER;
+	m_iPendingWarOrderTarget = NO_PLAYER;
+	m_iPendingWarOrderTurn = 0;
 }
 
 //--------------------------------------------------------------------------------

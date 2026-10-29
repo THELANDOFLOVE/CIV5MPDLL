@@ -1407,6 +1407,10 @@ protected:
 	LUAAPIEXTN(AcceptVassalPeaceCounter, bool, eA, eB);
 	LUAAPIEXTN(GetVassalPeaceCounterField, int, eA, eB, iField);
 	LUAAPIEXTN(AcceptVassalPeaceCounterEx, bool, eA, eB, ePayer, iGoldPercent, bReturnCities, eCensure);
+	LUAAPIEXTN(GetStrongestLandUnit, int);
+	LUAAPIEXTN(GetStrongestLandUnitCost, int);
+	LUAAPIEXTN(GiftUnitToVassal, bool, eVassal, iUnitID);
+	LUAAPIEXTN(SpawnUnitForVassal, bool, eVassal);
 	LUAAPIEXTN(CanReturnCityToVassal, bool, pCity);
 	LUAAPIEXTN(DoReturnCityToVassal, bool, pCity);
 	LUAAPIEXTN(DoReturnCityToVassalByID, bool, iCityID);

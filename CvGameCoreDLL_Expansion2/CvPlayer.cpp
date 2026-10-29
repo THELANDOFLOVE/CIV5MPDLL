@@ -35783,6 +35783,9 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 	case 7: // justice ministry: dispute; the treaty itself is handled by ProposeVassalPeace
 		bOk = true;
 		break;
+	case 8: // military ministry: unit aid; the unit is handed over from the UI
+		bOk = true;
+		break;
 	default:
 		break;
 	}
@@ -35890,6 +35893,10 @@ void CvPlayer::DoVassalMemorialTurn()
 		if (!IsVassalMilitarilyOvermatched(eVassal)) continue;
 
 		AddVassalMemorial(1, 0, 3, eVassal, eAggressor, iDeadlineTurns);
+
+		// Military ministry: ask the overlord for a unit when badly outmatched.
+		if (!HasPendingMemorial(eVassal, 8))
+			AddVassalMemorial(8, 0, 3, eVassal, eAggressor, iDeadlineTurns);
 	}
 
 	// Justice ministry: two vassals at war — one complaint per pair.
@@ -42801,4 +42808,89 @@ bool CvPlayer::AcceptVassalPeaceCounterEx(PlayerTypes eA, PlayerTypes eB, Player
 	size_t iPair = (size_t)eLow * MAX_MAJOR_CIVS + eHigh;
 	if (iPair < m_aiPeaceRejects.size()) m_aiPeaceRejects[iPair] = 0;
 	return true;
+}
+
+//--------------------------------------------------------------------------------
+// Best land combat unit this player could build right now.
+UnitTypes CvPlayer::GetStrongestLandUnit() const
+{
+	UnitTypes eBest = NO_UNIT;
+	int iBest = -1;
+	for (int i = 0; i < GC.getNumUnitInfos(); i++)
+	{
+		UnitTypes e = (UnitTypes)i;
+		CvUnitEntry* pInfo = GC.getUnitInfo(e);
+		if (pInfo == NULL) continue;
+		if (pInfo->GetDomainType() != DOMAIN_LAND) continue;
+		if (pInfo->GetCombat() <= 0) continue;
+		if (!canTrain(e, false, false, true)) continue;
+		if (pInfo->GetCombat() > iBest)
+		{
+			iBest = pInfo->GetCombat();
+			eBest = e;
+		}
+	}
+	return eBest;
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetStrongestLandUnitCost() const
+{
+	UnitTypes e = GetStrongestLandUnit();
+	if (e == NO_UNIT) return 0;
+	CvUnitEntry* pInfo = GC.getUnitInfo(e);
+	if (pInfo == NULL) return 0;
+	return pInfo->GetProductionCost() * 2;
+}
+
+//--------------------------------------------------------------------------------
+// Hand one of our own units over to a vassal (re-spawned at its capital).
+bool CvPlayer::GiftUnitToVassal(PlayerTypes eVassal, int iUnitID)
+{
+	if (!MOD_GLOBAL_SUZERAIN || !IsSuzerainCiv()) return false;
+	if (!IsOverlordOf(eVassal)) return false;
+
+	CvUnit* pUnit = getUnit(iUnitID);
+	if (pUnit == NULL || !pUnit->IsCombatUnit()) return false;
+
+	CvCity* pCapital = GET_PLAYER(eVassal).getCapitalCity();
+	if (pCapital == NULL) return false;
+
+	UnitTypes eType = pUnit->getUnitType();
+#if defined(MOD_UNITS_XP_TIMES_100)
+	int iXP100 = pUnit->getExperienceTimes100();
+#else
+	int iXP = pUnit->getExperience();
+#endif
+
+	CvUnit* pNew = GET_PLAYER(eVassal).initUnit(eType, pCapital->getX(), pCapital->getY());
+	if (pNew == NULL) return false;
+#if defined(MOD_UNITS_XP_TIMES_100)
+	pNew->setExperienceTimes100(iXP100);
+#else
+	pNew->setExperience(iXP);
+#endif
+	pUnit->kill(false);
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+// No unit to spare: recruit the strongest land unit for the vassal, paid in gold.
+bool CvPlayer::SpawnUnitForVassal(PlayerTypes eVassal)
+{
+	if (!MOD_GLOBAL_SUZERAIN || !IsSuzerainCiv()) return false;
+	if (!IsOverlordOf(eVassal)) return false;
+
+	UnitTypes eBest = GetStrongestLandUnit();
+	if (eBest == NO_UNIT) return false;
+
+	int iCost = GetStrongestLandUnitCost();
+	if (iCost <= 0 || GetTreasury()->GetGold() < iCost) return false;
+
+	CvCity* pCapital = GET_PLAYER(eVassal).getCapitalCity();
+	if (pCapital == NULL) return false;
+
+	GetTreasury()->ChangeGold(-iCost);
+	CvUnit* pNew = GET_PLAYER(eVassal).initUnit(eBest, pCapital->getX(), pCapital->getY());
+	return pNew != NULL;
 }

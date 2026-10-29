@@ -137,6 +137,8 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lProposeVassalPeace);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lAcceptVassalPeaceCounter);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lAcceptVassalPeaceCounterEx);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGiftUnitToVassal);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSpawnUnitForVassal);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoReturnCityToVassal);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoReturnCityToVassalByID);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lResolveVassalMemorial);
@@ -1539,6 +1541,10 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(AcceptVassalPeaceCounter);
 	Method(GetVassalPeaceCounterField);
 	Method(AcceptVassalPeaceCounterEx);
+	Method(GetStrongestLandUnit);
+	Method(GetStrongestLandUnitCost);
+	Method(GiftUnitToVassal);
+	Method(SpawnUnitForVassal);
 	Method(CanReturnCityToVassal);
 	Method(DoReturnCityToVassal);
 	Method(DoReturnCityToVassalByID);
@@ -15352,5 +15358,36 @@ int CvLuaPlayer::lAcceptVassalPeaceCounterEx(lua_State* L)
 	const bool bReturnCities = lua_toboolean(L, 6);
 	const PlayerTypes eCensure = (PlayerTypes)lua_tointeger(L, 7);
 	lua_pushboolean(L, pkPlayer->AcceptVassalPeaceCounterEx(eA, eB, ePayer, iGoldPercent, bReturnCities, eCensure));
+	return 1;
+}
+//int GetStrongestLandUnit();
+int CvLuaPlayer::lGetStrongestLandUnit(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->GetStrongestLandUnit());
+	return 1;
+}
+//int GetStrongestLandUnitCost();
+int CvLuaPlayer::lGetStrongestLandUnitCost(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->GetStrongestLandUnitCost());
+	return 1;
+}
+//bool GiftUnitToVassal(PlayerTypes eVassal, int iUnitID);
+int CvLuaPlayer::lGiftUnitToVassal(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const PlayerTypes eVassal = (PlayerTypes)lua_tointeger(L, 2);
+	const int iUnitID = lua_tointeger(L, 3);
+	lua_pushboolean(L, pkPlayer->GiftUnitToVassal(eVassal, iUnitID));
+	return 1;
+}
+//bool SpawnUnitForVassal(PlayerTypes eVassal);
+int CvLuaPlayer::lSpawnUnitForVassal(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const PlayerTypes eVassal = (PlayerTypes)lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->SpawnUnitForVassal(eVassal));
 	return 1;
 }

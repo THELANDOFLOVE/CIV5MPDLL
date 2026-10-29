@@ -2014,6 +2014,10 @@ public:
 	bool AcceptVassalPeaceCounter(PlayerTypes eA, PlayerTypes eB);
 	int GetVassalPeaceCounterField(PlayerTypes eA, PlayerTypes eB, int iField) const;
 	bool AcceptVassalPeaceCounterEx(PlayerTypes eA, PlayerTypes eB, PlayerTypes ePayer, int iGoldPercent, bool bReturnCities, PlayerTypes eCensure);
+	UnitTypes GetStrongestLandUnit() const;
+	int GetStrongestLandUnitCost() const;
+	bool GiftUnitToVassal(PlayerTypes eVassal, int iUnitID);
+	bool SpawnUnitForVassal(PlayerTypes eVassal);
 	bool CanReturnCityToVassal(CvCity* pCity) const;
 	bool DoReturnCityToVassal(CvCity* pCity);
 	bool DoReturnCityToVassalByID(int iCityID);

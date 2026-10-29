@@ -146,6 +146,7 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetPendingWarOrder);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lResolveWarOrder);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSubmitVassalMemorial);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lIsSuzerainCiv);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lTryReleaseVassal);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lForceReleaseVassal);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lKeepVassal);
@@ -1570,6 +1571,7 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(GetPendingWarOrder);
 	Method(ResolveWarOrder);
 	Method(SubmitVassalMemorial);
+	Method(IsSuzerainCiv);
 	Method(TryReleaseVassal);
 	Method(ForceReleaseVassal);
 	Method(KeepVassal);
@@ -15459,6 +15461,13 @@ int CvLuaPlayer::lSubmitVassalMemorial(lua_State* L)
 	const int iType = lua_tointeger(L, 2);
 	const int iTarget = lua_tointeger(L, 3);
 	lua_pushinteger(L, pkPlayer->SubmitVassalMemorial(iType, iTarget));
+	return 1;
+}
+//bool IsSuzerainCiv();
+int CvLuaPlayer::lIsSuzerainCiv(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	lua_pushboolean(L, pkPlayer->IsSuzerainCiv());
 	return 1;
 }
 //int TryReleaseVassal(PlayerTypes eVassal);

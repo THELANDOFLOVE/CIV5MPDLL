@@ -5571,6 +5571,7 @@ void CvPlayer::doTurn()
 		ResetVassalGiftCounts();
 		ResetVassalProtectFlags();
 		DoVassalMemorialTurn();
+		DoVassalAIMemorialTurn();
 		DoVassalCourtGiftTurn();
 		DoVassalWonderPoolTurn();
 		DoMonopolyTurn();
@@ -42893,4 +42894,39 @@ bool CvPlayer::SpawnUnitForVassal(PlayerTypes eVassal)
 	GetTreasury()->ChangeGold(-iCost);
 	CvUnit* pNew = GET_PLAYER(eVassal).initUnit(eBest, pCapital->getX(), pCapital->getY());
 	return pNew != NULL;
+}
+
+//--------------------------------------------------------------------------------
+// AI overlord closes the memorials its own turn logic has already resolved, so
+// new memorial types never pile up until they expire.
+void CvPlayer::DoVassalAIMemorialTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN || !IsSuzerainCiv()) return;
+	if (isHuman() || !isAlive() || !isMajorCiv()) return;
+	if (!IsVassalCourtTurn()) return;
+
+	int iCount = GetVassalMemorialCount();
+	for (int m = 0; m < iCount; m++)
+	{
+		if (GetVassalMemorialField(m, TIANDAO_MEMORIAL_STATE) != 0) continue;
+
+		int iType = GetVassalMemorialField(m, TIANDAO_MEMORIAL_TYPE);
+		PlayerTypes eVassal = (PlayerTypes)GetVassalMemorialField(m, TIANDAO_MEMORIAL_VASSAL);
+		if (!IsLiveVassal(eVassal)) continue;
+
+		if (iType == 7)
+		{
+			// The war itself is settled by DoVassalAIDiplomacyTurn.
+			ResolveVassalMemorial(m, true);
+		}
+		else if (iType == 8)
+		{
+			int iCost = GetStrongestLandUnitCost();
+			bool bGive = (iCost > 0 && GetTreasury()->GetGold() >= iCost
+				&& GetVassalLoyalty(eVassal) >= 40);
+			if (bGive)
+				SpawnUnitForVassal(eVassal);
+			ResolveVassalMemorial(m, bGive);
+		}
+	}
 }

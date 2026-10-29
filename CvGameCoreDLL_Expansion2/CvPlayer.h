@@ -2048,6 +2048,7 @@ public:
 	int AddVassalMemorial(int iType, int iLevel, int iMinistry, PlayerTypes eVassal, PlayerTypes eTarget, int iDeadlineTurns);
 	bool ResolveVassalMemorial(int iIndex, bool bApprove);
 	void DoVassalMemorialTurn();
+	void DoVassalAIMemorialTurn();
 	int GetVassalCourtInterval() const;
 	bool IsVassalCourtTurn() const;
 	bool IsVassalLosingWar(PlayerTypes eVassal) const;

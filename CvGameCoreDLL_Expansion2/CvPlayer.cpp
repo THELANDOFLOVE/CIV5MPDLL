@@ -11677,7 +11677,7 @@ int CvPlayer::calculateResearchModifier(TechTypes eTech)
 	// The per-vassal value comes from SQL, falling back to the suzerain resolution.
 	if (HasAnyVassal())
 	{
-		int iDiscountPerVassal = GC.getDefineINT("TIANDAO_VASSAL_TECH_DISCOUNT", false);
+		int iDiscountPerVassal = GC.getDefineINT("SUZERAIN_TECH_DISCOUNT", false);
 		if (iDiscountPerVassal <= 0)
 			iDiscountPerVassal = GetVassalTechDiscount();
 		if (iDiscountPerVassal > 0)
@@ -11713,7 +11713,7 @@ int CvPlayer::calculateResearchModifier(TechTypes eTech)
 		if (kOverlord.isAlive()
 			&& GET_TEAM(kOverlord.getTeam()).GetTeamTechs()->HasTech(eTech))
 		{
-			int iTeachingDiscount = GC.getDefineINT("TIANDAO_TEACHING_DISCOUNT", false);
+			int iTeachingDiscount = GC.getDefineINT("SUZERAIN_TEACHING_DISCOUNT", false);
 			if (iTeachingDiscount > 0)
 			{
 				int iCostMod = std::min(99, iTeachingDiscount);
@@ -11725,7 +11725,7 @@ int CvPlayer::calculateResearchModifier(TechTypes eTech)
 	// Dao learning: permanent research cost cut.
 	if (HasDaoPerk(3))
 	{
-		int iDaoMod = GC.getDefineINT("TIANDAO_DAO_RESEARCH_COST", false);
+		int iDaoMod = GC.getDefineINT("SUZERAIN_DAO_RESEARCH_COST", false);
 		if (iDaoMod > 0)
 			iModifier = iModifier * 100 / (100 - std::min(99, iDaoMod));
 	}
@@ -11749,7 +11749,7 @@ void CvPlayer::DoVassalLevy()
 	CvCity* pCapital = getCapitalCity();
 	if (!isAlive() || !isMajorCiv() || !HasAnyVassal() || pCapital == NULL)
 		return;
-	int iBaseInterval = GC.getDefineINT("TIANDAO_LEVY_INTERVAL", false);
+	int iBaseInterval = GC.getDefineINT("SUZERAIN_LEVY_INTERVAL", false);
 	if (iBaseInterval <= 0) return; // not configured = levy off
 	const int iInterval = std::max(1, (iBaseInterval * GC.getGame().getGameSpeedInfo().getTrainPercent()) / 100);
 	if (GC.getGame().getGameTurn() <= 0 || GC.getGame().getGameTurn() % iInterval != 0)
@@ -14766,7 +14766,7 @@ int CvPlayer::DoUpdateTotalUnhappiness(CvCity* pAssumeCityAnnexed, CvCity* pAssu
 	// Mandate punishment: a flat unhappiness penalty on top of the percentage mod.
 	if (IsUnderMandatePunishment())
 	{
-		int iFixedUnhappiness = GC.getDefineINT("TIANDAO_MANDATE_TIANFA_UNHAPPINESS", false);
+		int iFixedUnhappiness = GC.getDefineINT("SUZERAIN_MANDATE_TIANFA_UNHAPPINESS", false);
 		if (iFixedUnhappiness > 0)
 			iUnhappiness += iFixedUnhappiness;
 	}
@@ -33821,7 +33821,7 @@ int CvPlayer::GetCSACityAttackIgnoreBuildingDefensePercent() const
 	// Dao war: siege permanently ignores a large share of building defense.
 	if (HasDaoPerk(4))
 	{
-		int iDaoPercent = GC.getDefineINT("TIANDAO_DAO_WAR_CITY_DEFENSE", false);
+		int iDaoPercent = GC.getDefineINT("SUZERAIN_DAO_WAR_CITY_DEFENSE", false);
 		if (iDaoPercent > iPercent)
 			iPercent = iDaoPercent;
 	}
@@ -34373,7 +34373,7 @@ int CvPlayer::GetExtraUnitPlayerInstances() const
 //--------------------------------------------------------------------------------
 // Reads a Tiandao balance value from Defines. A missing row reads as 0, which means
 // "feature off" for the new data columns; there is no hardcoded balance fallback.
-static int TiandaoDefineInt(const char* szName)
+static int SuzerainDefineInt(const char* szName)
 {
 	return GC.getDefineINT(szName, false);
 }
@@ -34392,8 +34392,8 @@ int CvPlayer::GetVassalLoyaltyCap(PlayerTypes eVassal) const
 {
 	if (!MOD_GLOBAL_SUZERAIN) return 0;
 	if (GetVassalRank(eVassal) > 0)
-		return TiandaoDefineInt("TIANDAO_LOYALTY_MAX_RANKED");
-	return TiandaoDefineInt("TIANDAO_LOYALTY_MAX_UNRANKED");
+		return SuzerainDefineInt("SUZERAIN_LOYALTY_MAX_RANKED");
+	return SuzerainDefineInt("SUZERAIN_LOYALTY_MAX_UNRANKED");
 }
 
 //--------------------------------------------------------------------------------
@@ -34457,9 +34457,9 @@ void CvPlayer::DoVassalRankUp(PlayerTypes eVassal)
 	if (!CanRankUpVassal(eVassal)) return;
 
 	SetVassalRank(eVassal, 1);
-	ChangeVassalLoyalty(eVassal, TiandaoDefineInt("TIANDAO_LOYALTY_RANK"));
-	ChangeMandate(TiandaoDefineInt("TIANDAO_MANDATE_RANK"));
-	ChangeDaoPoints(TiandaoDefineInt("TIANDAO_DAO_POINT_RANK"));
+	ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_LOYALTY_RANK"));
+	ChangeMandate(SuzerainDefineInt("SUZERAIN_MANDATE_RANK"));
+	ChangeDaoPoints(SuzerainDefineInt("SUZERAIN_DAO_POINT_RANK"));
 }
 
 //--------------------------------------------------------------------------------
@@ -34469,10 +34469,10 @@ int CvPlayer::GetVassalGiftLoyalty(PlayerTypes eVassal) const
 	if (!IsOverlordOf(eVassal)) return 0;
 	if ((size_t)eVassal >= m_aiVassalGiftCount.size()) return 0;
 
-	int iGift = TiandaoDefineInt("TIANDAO_LOYALTY_GIFT");
+	int iGift = SuzerainDefineInt("SUZERAIN_LOYALTY_GIFT");
 	if (iGift <= 0) return 0;
 
-	int iStep = TiandaoDefineInt("TIANDAO_LOYALTY_GIFT_DECAY");
+	int iStep = SuzerainDefineInt("SUZERAIN_LOYALTY_GIFT_DECAY");
 	int iLoyalty = iGift - iStep * m_aiVassalGiftCount[eVassal];
 	return iLoyalty > 0 ? iLoyalty : 0;
 }
@@ -34484,7 +34484,7 @@ void CvPlayer::DoVassalGift(PlayerTypes eVassal)
 	if (!IsOverlordOf(eVassal)) return;
 	if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) return;
 
-	int iGold = TiandaoDefineInt("TIANDAO_GIFT_GOLD");
+	int iGold = SuzerainDefineInt("SUZERAIN_GIFT_GOLD");
 	if (iGold <= 0) return; // no configured cost = gift off
 	if (GetTreasury()->GetGold() < iGold) return;
 
@@ -34497,8 +34497,8 @@ void CvPlayer::DoVassalGift(PlayerTypes eVassal)
 	TransferGoldTo(eVassal, iGold);
 	ChangeVassalLoyalty(eVassal, iLoyalty);
 	m_aiVassalGiftCount.setAt((size_t)eVassal, m_aiVassalGiftCount[eVassal] + 1);
-	ChangeMandate(TiandaoDefineInt("TIANDAO_MANDATE_GIFT"));
-	ChangeDaoPoints(TiandaoDefineInt("TIANDAO_DAO_POINT_REWARD"));
+	ChangeMandate(SuzerainDefineInt("SUZERAIN_MANDATE_GIFT"));
+	ChangeDaoPoints(SuzerainDefineInt("SUZERAIN_DAO_POINT_REWARD"));
 }
 
 //--------------------------------------------------------------------------------
@@ -34557,13 +34557,13 @@ bool CvPlayer::DoVassalProtect(PlayerTypes eVassal, bool bProtect)
 				return false;
 			GET_TEAM(getTeam()).declareWar(eAggressorTeam, false, GetID());
 		}
-		ChangeVassalLoyalty(eVassal, TiandaoDefineInt("TIANDAO_LOYALTY_PROTECT"));
-		ChangeMandate(TiandaoDefineInt("TIANDAO_MANDATE_PROTECT"));
-		ChangeDaoPoints(TiandaoDefineInt("TIANDAO_DAO_POINT_PROTECT"));
+		ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_LOYALTY_PROTECT"));
+		ChangeMandate(SuzerainDefineInt("SUZERAIN_MANDATE_PROTECT"));
+		ChangeDaoPoints(SuzerainDefineInt("SUZERAIN_DAO_POINT_PROTECT"));
 	}
 	else
 	{
-		ChangeVassalLoyalty(eVassal, TiandaoDefineInt("TIANDAO_LOYALTY_FAIL_PROTECT"));
+		ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_LOYALTY_FAIL_PROTECT"));
 	}
 
 	m_aiVassalProtectHandled.setAt((size_t)eVassal, 1);
@@ -34608,10 +34608,10 @@ bool CvPlayer::DoVassalMediate(PlayerTypes eA, PlayerTypes eB)
 	TeamTypes eTeamB = GET_PLAYER(eB).getTeam();
 	GET_TEAM(eTeamA).makePeace(eTeamB, true, false, GetID());
 
-	ChangeVassalLoyalty(eA, TiandaoDefineInt("TIANDAO_LOYALTY_MEDIATE"));
-	ChangeVassalLoyalty(eB, TiandaoDefineInt("TIANDAO_LOYALTY_MEDIATE"));
-	ChangeMandate(TiandaoDefineInt("TIANDAO_MANDATE_MEDIATE"));
-	ChangeDaoPoints(TiandaoDefineInt("TIANDAO_DAO_POINT_MEDIATE"));
+	ChangeVassalLoyalty(eA, SuzerainDefineInt("SUZERAIN_LOYALTY_MEDIATE"));
+	ChangeVassalLoyalty(eB, SuzerainDefineInt("SUZERAIN_LOYALTY_MEDIATE"));
+	ChangeMandate(SuzerainDefineInt("SUZERAIN_MANDATE_MEDIATE"));
+	ChangeDaoPoints(SuzerainDefineInt("SUZERAIN_DAO_POINT_MEDIATE"));
 	return true;
 }
 
@@ -34635,9 +34635,9 @@ bool CvPlayer::DoReturnCityToVassal(CvCity* pCity)
 
 	PlayerTypes eVassal = pCity->getPreviousOwner();
 	GET_PLAYER(eVassal).acquireCity(pCity, false, true);
-	ChangeVassalLoyalty(eVassal, TiandaoDefineInt("TIANDAO_LOYALTY_RETURN_CITY"));
-	ChangeMandate(TiandaoDefineInt("TIANDAO_MANDATE_RETURN_CITY"));
-	ChangeDaoPoints(TiandaoDefineInt("TIANDAO_DAO_POINT_RETURN"));
+	ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_LOYALTY_RETURN_CITY"));
+	ChangeMandate(SuzerainDefineInt("SUZERAIN_MANDATE_RETURN_CITY"));
+	ChangeDaoPoints(SuzerainDefineInt("SUZERAIN_DAO_POINT_RETURN"));
 	return true;
 }
 
@@ -34729,7 +34729,7 @@ bool CvPlayer::SubmitPrayer(int iScience, int iCulture, int iFaith, int iGold, i
 	if (!kOverlord.isAlive()) return false;
 
 	int iTurn = GC.getGame().getGameTurn();
-	int iMaxPerTurn = TiandaoDefineInt("TIANDAO_PRAYER_REQUESTS_PER_TURN");
+	int iMaxPerTurn = SuzerainDefineInt("SUZERAIN_PRAYER_REQUESTS_PER_TURN");
 	if (iMaxPerTurn > 0)
 	{
 		int iCount = 0;
@@ -34805,9 +34805,9 @@ int CvPlayer::GetPrayerWish(int iIndex) const
 //--------------------------------------------------------------------------------
 int CvPlayer::GetPrayerChanceForInvestment(int iTotal) const
 {
-	int iBase = TiandaoDefineInt("TIANDAO_PRAYER_CHANCE_BASE");
-	int iUnit = TiandaoDefineInt("TIANDAO_PRAYER_INVEST_UNIT");
-	int iMax = TiandaoDefineInt("TIANDAO_PRAYER_CHANCE_MAX");
+	int iBase = SuzerainDefineInt("SUZERAIN_PRAYER_CHANCE_BASE");
+	int iUnit = SuzerainDefineInt("SUZERAIN_PRAYER_INVEST_UNIT");
+	int iMax = SuzerainDefineInt("SUZERAIN_PRAYER_CHANCE_MAX");
 	if (iBase <= 0) iBase = 40;
 	if (iUnit <= 0) iUnit = 200;
 	if (iMax <= 0) iMax = 60;
@@ -34899,24 +34899,24 @@ bool CvPlayer::ResolvePrayer(int iIndex, bool bGrant)
 	if (bSuccess)
 	{
 		ApplyPrayerGrace(req.eVassal, req.iWish);
-		int iGrant = TiandaoDefineInt("TIANDAO_PRAYER_LOYALTY_GRANT");
+		int iGrant = SuzerainDefineInt("SUZERAIN_PRAYER_LOYALTY_GRANT");
 		if (iGrant != 0)
 			ChangeVassalLoyalty(req.eVassal, iGrant);
 		if ((size_t)req.eVassal < m_aiPrayerDenyStreak.size())
 			m_aiPrayerDenyStreak[req.eVassal] = 0;
 
-		ChangeDaoPoints(TiandaoDefineInt("TIANDAO_DAO_POINT_PRAYER"));
+		ChangeDaoPoints(SuzerainDefineInt("SUZERAIN_DAO_POINT_PRAYER"));
 	}
 	else if (!bGrant)
 	{
 		// Keeping the offering is a betrayal; repeated betrayals end in revolt.
-		int iDeny = TiandaoDefineInt("TIANDAO_PRAYER_LOYALTY_DENY");
+		int iDeny = SuzerainDefineInt("SUZERAIN_PRAYER_LOYALTY_DENY");
 		if (iDeny != 0)
 			ChangeVassalLoyalty(req.eVassal, iDeny);
 		if ((size_t)req.eVassal < m_aiPrayerDenyStreak.size())
 		{
 			m_aiPrayerDenyStreak[req.eVassal] += 1;
-			int iRevolt = TiandaoDefineInt("TIANDAO_PRAYER_DENY_REVOLT");
+			int iRevolt = SuzerainDefineInt("SUZERAIN_PRAYER_DENY_REVOLT");
 			if (iRevolt > 0 && m_aiPrayerDenyStreak[req.eVassal] >= iRevolt)
 				DoVassalRevolt(req.eVassal);
 		}
@@ -34999,21 +34999,21 @@ void CvPlayer::ApplyPrayerGrace(PlayerTypes eVassal, int iWish)
 	CvPlayer& kVassal = GET_PLAYER(eVassal);
 	if (!kVassal.isAlive()) return;
 
-	int iTurns = TiandaoDefineInt("TIANDAO_PRAYER_BLESSING_TURNS");
+	int iTurns = SuzerainDefineInt("SUZERAIN_PRAYER_BLESSING_TURNS");
 	if (iTurns <= 0) iTurns = 15;
 
 	switch (iWish)
 	{
 	case PRAYER_WISH_BLESSING:
 	{
-		int iAmount = TiandaoDefineInt("TIANDAO_PRAYER_BLESSING_AMOUNT");
+		int iAmount = SuzerainDefineInt("SUZERAIN_PRAYER_BLESSING_AMOUNT");
 		if (iAmount <= 0) iAmount = 2;
 		kVassal.ApplyPrayerBlessing(-1, iAmount, iTurns);
 		break;
 	}
 	case PRAYER_WISH_THRESHOLD:
 	{
-		int iPercent = TiandaoDefineInt("TIANDAO_PRAYER_THRESHOLD_PERCENT");
+		int iPercent = SuzerainDefineInt("SUZERAIN_PRAYER_THRESHOLD_PERCENT");
 		if (iPercent <= 0) iPercent = 10;
 		kVassal.m_iPrayerResearchCostModifier = -iPercent;
 		kVassal.m_iPrayerPolicyCostModifier = -iPercent;
@@ -35050,7 +35050,7 @@ void CvPlayer::ApplyPrayerGrace(PlayerTypes eVassal, int iWish)
 	}
 	case PRAYER_WISH_HAPPINESS:
 	{
-		int iHappiness = TiandaoDefineInt("TIANDAO_PRAYER_HAPPINESS");
+		int iHappiness = SuzerainDefineInt("SUZERAIN_PRAYER_HAPPINESS");
 		if (iHappiness <= 0) iHappiness = 1;
 		if (kVassal.m_iPrayerHappinessEndTurn > 0)
 			kVassal.ChangeExtraHappinessPerCity(-1);
@@ -35062,7 +35062,7 @@ void CvPlayer::ApplyPrayerGrace(PlayerTypes eVassal, int iWish)
 	case PRAYER_WISH_PURCHASE:
 	{
 		// Clean governance: the whole realm sits one corruption level lower.
-		int iCorruptionTurns = TiandaoDefineInt("TIANDAO_PRAYER_CORRUPTION_TURNS");
+		int iCorruptionTurns = SuzerainDefineInt("SUZERAIN_PRAYER_CORRUPTION_TURNS");
 		if (iCorruptionTurns <= 0) iCorruptionTurns = 15;
 		if (kVassal.m_iPrayerCorruptionTurns <= 0)
 			kVassal.ChangeCorruptionLevelReduceByOneRC(1);
@@ -35125,11 +35125,11 @@ void CvPlayer::DoPrayerTurn()
 
 	// AI vassals offer a small share of their stock on a fixed rhythm.
 	if (isHuman() || GetOverlord() == NO_PLAYER) return;
-	int iInterval = TiandaoDefineInt("TIANDAO_PRAYER_AI_INTERVAL");
+	int iInterval = SuzerainDefineInt("SUZERAIN_PRAYER_AI_INTERVAL");
 	if (iInterval <= 0) iInterval = 10;
 	if (iTurn % iInterval != 0) return;
 
-	int iPercent = TiandaoDefineInt("TIANDAO_PRAYER_AI_PERCENT");
+	int iPercent = SuzerainDefineInt("SUZERAIN_PRAYER_AI_PERCENT");
 	if (iPercent <= 0) iPercent = 5;
 
 	int iScience = 0;
@@ -35155,12 +35155,12 @@ void CvPlayer::DoPrayerOverlordTurn()
 	if (m_vPrayerRequests.empty()) return;
 
 	int iTurn = GC.getGame().getGameTurn();
-	int iInterval = TiandaoDefineInt("TIANDAO_PRAYER_AI_INTERVAL");
+	int iInterval = SuzerainDefineInt("SUZERAIN_PRAYER_AI_INTERVAL");
 	if (iInterval <= 0) iInterval = 10;
 	if (iTurn % iInterval != 0) return;
 
 	// AI overlords grant most petitions, but not all, so loyalty still moves.
-	int iGrantPercent = TiandaoDefineInt("TIANDAO_PRAYER_AI_GRANT_PERCENT");
+	int iGrantPercent = SuzerainDefineInt("SUZERAIN_PRAYER_AI_GRANT_PERCENT");
 	if (iGrantPercent <= 0) iGrantPercent = 60;
 
 	while (!m_vPrayerRequests.empty())
@@ -35201,12 +35201,12 @@ void CvPlayer::DoVassalCallToArms()
 		// The execution framework decides whether the vassal answers the call.
 		// When the framework is not configured, keep the old automatic behavior.
 		bool bObey = true;
-		if (TiandaoDefineInt("TIANDAO_EXECUTION_WEIGHT_LOYALTY") > 0)
+		if (SuzerainDefineInt("SUZERAIN_EXECUTION_WEIGHT_LOYALTY") > 0)
 			bObey = GetVassalExecutionTier(eVassal) >= 3;
 
 		if (!bObey)
 		{
-			int iInterval = TiandaoDefineInt("TIANDAO_BREACH_INTERVAL");
+			int iInterval = SuzerainDefineInt("SUZERAIN_BREACH_INTERVAL");
 			if (iInterval > 0)
 			{
 				if ((size_t)eVassal >= m_aiVassalBreachTurn.size())
@@ -35263,7 +35263,7 @@ void CvPlayer::DoVassalAIDiplomacyTurn()
 	}
 
 	// Shore up a shaky vassal: rank first, then a gift if affordable.
-	int iGiftGold = TiandaoDefineInt("TIANDAO_GIFT_GOLD");
+	int iGiftGold = SuzerainDefineInt("SUZERAIN_GIFT_GOLD");
 	for (size_t i = 0; i < m_vecVassals.size(); i++)
 	{
 		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
@@ -35283,7 +35283,7 @@ void CvPlayer::DoVassalAIDiplomacyTurn()
 	}
 
 	// Recruit when under the cap.
-	int iMax = TiandaoDefineInt("TIANDAO_AI_MAX_VASSALS");
+	int iMax = SuzerainDefineInt("SUZERAIN_AI_MAX_VASSALS");
 	if (iMax <= 0) iMax = 3;
 	if ((int)m_vecVassals.size() >= iMax) return;
 
@@ -35310,9 +35310,9 @@ void CvPlayer::DoVassalAIDiplomacyTurn()
 			if (!IsLiveVassal(eB)) continue;
 			if (!GET_TEAM(GET_PLAYER(eA).getTeam()).isAtWar(GET_PLAYER(eB).getTeam())) continue;
 
-			int iGap = TiandaoDefineInt("TIANDAO_AI_PEACE_LOYALTY_GAP");
+			int iGap = SuzerainDefineInt("SUZERAIN_AI_PEACE_LOYALTY_GAP");
 			if (iGap <= 0) iGap = 20;
-			int iIndemnity = TiandaoDefineInt("TIANDAO_AI_PEACE_INDEMNITY_PERCENT");
+			int iIndemnity = SuzerainDefineInt("SUZERAIN_AI_PEACE_INDEMNITY_PERCENT");
 			if (iIndemnity < 0) iIndemnity = 0;
 			if (iIndemnity > 30) iIndemnity = 30;
 
@@ -35415,11 +35415,11 @@ void CvPlayer::DoVassalBreachTurn()
 	if (!MOD_GLOBAL_SUZERAIN) return;
 	if (m_vecVassals.empty()) return;
 
-	int iUnauthorizedBreach = TiandaoDefineInt("TIANDAO_BREACH_UNAUTHORIZED_WAR");
-	int iVassalAttackBreach = TiandaoDefineInt("TIANDAO_BREACH_ATTACK_VASSAL");
-	int iLoyaltyPenalty = TiandaoDefineInt("TIANDAO_BREACH_LOYALTY_PENALTY");
-	int iThreshold = TiandaoDefineInt("TIANDAO_PUNISH_RIGHT_THRESHOLD");
-	int iRightTurns = TiandaoDefineInt("TIANDAO_PUNISH_RIGHT_TURNS");
+	int iUnauthorizedBreach = SuzerainDefineInt("SUZERAIN_BREACH_UNAUTHORIZED_WAR");
+	int iVassalAttackBreach = SuzerainDefineInt("SUZERAIN_BREACH_ATTACK_VASSAL");
+	int iLoyaltyPenalty = SuzerainDefineInt("SUZERAIN_BREACH_LOYALTY_PENALTY");
+	int iThreshold = SuzerainDefineInt("SUZERAIN_PUNISH_THRESHOLD");
+	int iRightTurns = SuzerainDefineInt("SUZERAIN_PUNISH_TURNS");
 	if (iUnauthorizedBreach <= 0) iUnauthorizedBreach = 1;
 	if (iVassalAttackBreach <= 0) iVassalAttackBreach = 2;
 
@@ -35505,7 +35505,7 @@ void CvPlayer::GrantVassalPunishRight(PlayerTypes eVassal, int iTurns)
 
 	m_aiVassalPunishRight[eVassal] = GC.getGame().getGameTurn() + iTurns;
 
-	int iPenalty = TiandaoDefineInt("TIANDAO_PUNISH_RIGHT_LOYALTY");
+	int iPenalty = SuzerainDefineInt("SUZERAIN_PUNISH_LOYALTY");
 	if (iPenalty != 0)
 		ChangeVassalLoyalty(eVassal, iPenalty);
 }
@@ -35534,15 +35534,15 @@ int CvPlayer::GetVassalExecutionTier(PlayerTypes eVassal) const
 	if (!MOD_GLOBAL_SUZERAIN) return 0;
 	if (!IsOverlordOf(eVassal)) return 0;
 
-	int iLoyaltyWeight = TiandaoDefineInt("TIANDAO_EXECUTION_WEIGHT_LOYALTY");
+	int iLoyaltyWeight = SuzerainDefineInt("SUZERAIN_EXECUTION_WEIGHT_LOYALTY");
 	if (iLoyaltyWeight <= 0) return 0;
 
 	int iScore = GetVassalLoyalty(eVassal) * iLoyaltyWeight / 100;
 
-	int iTierActive = TiandaoDefineInt("TIANDAO_EXECUTION_TIER_ACTIVE");
-	int iTierNormal = TiandaoDefineInt("TIANDAO_EXECUTION_TIER_NORMAL");
-	int iTierDelay = TiandaoDefineInt("TIANDAO_EXECUTION_TIER_DELAY");
-	int iTierEvade = TiandaoDefineInt("TIANDAO_EXECUTION_TIER_EVADE");
+	int iTierActive = SuzerainDefineInt("SUZERAIN_EXECUTION_TIER_ACTIVE");
+	int iTierNormal = SuzerainDefineInt("SUZERAIN_EXECUTION_TIER_NORMAL");
+	int iTierDelay = SuzerainDefineInt("SUZERAIN_EXECUTION_TIER_DELAY");
+	int iTierEvade = SuzerainDefineInt("SUZERAIN_EXECUTION_TIER_EVADE");
 
 	if (iTierActive <= 0) return 0;
 	if (iScore >= iTierActive) return 4;
@@ -35560,8 +35560,8 @@ int CvPlayer::GetVassalRevoltScore(PlayerTypes eVassal) const
 	if (!MOD_GLOBAL_SUZERAIN) return 0;
 	if (!IsOverlordOf(eVassal)) return 0;
 
-	int iLoyaltyWeight = TiandaoDefineInt("TIANDAO_REVOLT_LOYALTY_WEIGHT");
-	int iMilitaryWeight = TiandaoDefineInt("TIANDAO_REVOLT_MILITARY_WEIGHT");
+	int iLoyaltyWeight = SuzerainDefineInt("SUZERAIN_REVOLT_LOYALTY_WEIGHT");
+	int iMilitaryWeight = SuzerainDefineInt("SUZERAIN_REVOLT_MILITARY_WEIGHT");
 	if (iLoyaltyWeight <= 0 && iMilitaryWeight <= 0) return 0;
 
 	int iScore = (100 - GetVassalLoyalty(eVassal)) * iLoyaltyWeight;
@@ -35584,16 +35584,16 @@ bool CvPlayer::CanVassalRevolt(PlayerTypes eVassal) const
 	if (!IsOverlordOf(eVassal)) return false;
 
 	// Repeatedly keeping a vassal's offering leaves it no choice but to rise.
-	int iDenyRevolt = TiandaoDefineInt("TIANDAO_PRAYER_DENY_REVOLT");
+	int iDenyRevolt = SuzerainDefineInt("SUZERAIN_PRAYER_DENY_REVOLT");
 	if (iDenyRevolt > 0 && GetPrayerDenyStreak(eVassal) >= iDenyRevolt)
 		return true;
 
 	// High loyalty means the vassal stays even if the overlord has no army.
-	int iLoyaltyFloor = TiandaoDefineInt("TIANDAO_REVOLT_LOYALTY_FLOOR");
+	int iLoyaltyFloor = SuzerainDefineInt("SUZERAIN_REVOLT_LOYALTY_FLOOR");
 	if (iLoyaltyFloor > 0 && GetVassalLoyalty(eVassal) >= iLoyaltyFloor)
 		return false;
 
-	int iThreshold = TiandaoDefineInt("TIANDAO_REVOLT_THRESHOLD");
+	int iThreshold = SuzerainDefineInt("SUZERAIN_REVOLT_THRESHOLD");
 	if (iThreshold <= 0) return false;
 	return GetVassalRevoltScore(eVassal) >= iThreshold;
 }
@@ -35637,16 +35637,16 @@ void CvPlayer::DoVassalRevoltCheck()
 int CvPlayer::GetVassalMemorialCount() const
 {
 	if (!MOD_GLOBAL_SUZERAIN) return 0;
-	return (int)m_aiVassalMemorials.size() / TIANDAO_MEMORIAL_STRIDE;
+	return (int)m_aiVassalMemorials.size() / SUZERAIN_MEMORIAL_STRIDE;
 }
 
 //--------------------------------------------------------------------------------
 int CvPlayer::GetVassalMemorialField(int iIndex, int iField) const
 {
 	if (!MOD_GLOBAL_SUZERAIN) return 0;
-	if (iIndex < 0 || iField < 0 || iField >= TIANDAO_MEMORIAL_STRIDE) return 0;
+	if (iIndex < 0 || iField < 0 || iField >= SUZERAIN_MEMORIAL_STRIDE) return 0;
 
-	int iOffset = iIndex * TIANDAO_MEMORIAL_STRIDE + iField;
+	int iOffset = iIndex * SUZERAIN_MEMORIAL_STRIDE + iField;
 	if ((size_t)iOffset >= m_aiVassalMemorials.size()) return 0;
 	return m_aiVassalMemorials[iOffset];
 }
@@ -35675,11 +35675,11 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 	if (!MOD_GLOBAL_SUZERAIN) return false;
 	if (iIndex < 0 || iIndex >= GetVassalMemorialCount()) return false;
 
-	int iStateOffset = iIndex * TIANDAO_MEMORIAL_STRIDE + TIANDAO_MEMORIAL_STATE;
+	int iStateOffset = iIndex * SUZERAIN_MEMORIAL_STRIDE + SUZERAIN_MEMORIAL_STATE;
 	if (m_aiVassalMemorials[iStateOffset] != 0) return false;
 
-	int iType = GetVassalMemorialField(iIndex, TIANDAO_MEMORIAL_TYPE);
-	PlayerTypes eVassal = (PlayerTypes)GetVassalMemorialField(iIndex, TIANDAO_MEMORIAL_VASSAL);
+	int iType = GetVassalMemorialField(iIndex, SUZERAIN_MEMORIAL_TYPE);
+	PlayerTypes eVassal = (PlayerTypes)GetVassalMemorialField(iIndex, SUZERAIN_MEMORIAL_VASSAL);
 
 	bool bOk = false;
 	switch (iType)
@@ -35696,7 +35696,7 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 		}
 		else
 		{
-			int iLoss = TiandaoDefineInt("TIANDAO_MEMORIAL_RANK_DENY_LOYALTY");
+			int iLoss = SuzerainDefineInt("SUZERAIN_MEMORIAL_RANK_DENY_LOYALTY");
 			if (iLoss != 0) ChangeVassalLoyalty(eVassal, iLoss);
 			bOk = true;
 		}
@@ -35706,12 +35706,12 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 	{
 		if (bApprove)
 		{
-			int iGold = TiandaoDefineInt("TIANDAO_MEMORIAL_AID_GOLD");
+			int iGold = SuzerainDefineInt("SUZERAIN_MEMORIAL_AID_GOLD");
 			int iPay = std::min(iGold, (int)GetTreasury()->GetGold());
 			if (iPay > 0)
 				TransferGoldTo(eVassal, iPay);
 
-			int iGain = TiandaoDefineInt("TIANDAO_MEMORIAL_AID_LOYALTY");
+			int iGain = SuzerainDefineInt("SUZERAIN_MEMORIAL_AID_LOYALTY");
 			if (iGain != 0) ChangeVassalLoyalty(eVassal, iGain);
 			bOk = true;
 		}
@@ -35733,13 +35733,13 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 				int iCut = (iBreach / 2 > 0) ? iBreach / 2 : 1;
 				ChangeVassalBreachCount(eVassal, -iCut);
 			}
-			int iGain = TiandaoDefineInt("TIANDAO_MEMORIAL_APOLOGY_LOYALTY");
+			int iGain = SuzerainDefineInt("SUZERAIN_MEMORIAL_APOLOGY_LOYALTY");
 			if (iGain != 0) ChangeVassalLoyalty(eVassal, iGain);
 			bOk = true;
 		}
 		else
 		{
-			int iLoss = TiandaoDefineInt("TIANDAO_MEMORIAL_APOLOGY_DENY_LOYALTY");
+			int iLoss = SuzerainDefineInt("SUZERAIN_MEMORIAL_APOLOGY_DENY_LOYALTY");
 			if (iLoss != 0) ChangeVassalLoyalty(eVassal, iLoss);
 			bOk = true;
 		}
@@ -35752,8 +35752,8 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 		if (bApprove)
 		{
 			int iGold = (iType == 3)
-				? TiandaoDefineInt("TIANDAO_MEMORIAL_CRISIS_GOLD")
-				: TiandaoDefineInt("TIANDAO_MEMORIAL_AID_GOLD");
+				? SuzerainDefineInt("SUZERAIN_MEMORIAL_CRISIS_GOLD")
+				: SuzerainDefineInt("SUZERAIN_MEMORIAL_AID_GOLD");
 			if (iGold > 0)
 			{
 				int iPay = std::min(iGold, (int)GetTreasury()->GetGold());
@@ -35763,7 +35763,7 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 				}
 			}
 
-			int iGain = TiandaoDefineInt("TIANDAO_MEMORIAL_AID_LOYALTY");
+			int iGain = SuzerainDefineInt("SUZERAIN_MEMORIAL_AID_LOYALTY");
 			if (iGain != 0)
 				ChangeVassalLoyalty(eVassal, iGain);
 			bOk = true;
@@ -35773,7 +35773,7 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 			// A hardship report is not a demand; refusing it costs no loyalty.
 			if (iType != 3)
 			{
-				int iLoss = TiandaoDefineInt("TIANDAO_MEMORIAL_DENY_LOYALTY");
+				int iLoss = SuzerainDefineInt("SUZERAIN_MEMORIAL_DENY_LOYALTY");
 				if (iLoss != 0)
 					ChangeVassalLoyalty(eVassal, iLoss);
 			}
@@ -35795,13 +35795,13 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 		break;
 	case 10: // works ministry: grant a technology
 	{
-		PlayerTypes eTargetPlayer = (PlayerTypes)GetVassalMemorialField(iIndex, TIANDAO_MEMORIAL_TARGET);
+		PlayerTypes eTargetPlayer = (PlayerTypes)GetVassalMemorialField(iIndex, SUZERAIN_MEMORIAL_TARGET);
 		TechTypes eTech = (TechTypes)(int)eTargetPlayer;
 		if (bApprove && eTech != NO_TECH
 			&& GET_TEAM(getTeam()).GetTeamTechs()->HasTech(eTech))
 		{
 			GET_TEAM(GET_PLAYER(eVassal).getTeam()).GetTeamTechs()->SetHasTech(eTech, true);
-			int iGain = TiandaoDefineInt("TIANDAO_MEMORIAL_AID_LOYALTY");
+			int iGain = SuzerainDefineInt("SUZERAIN_MEMORIAL_AID_LOYALTY");
 			if (iGain != 0) ChangeVassalLoyalty(eVassal, iGain);
 		}
 		bOk = true;
@@ -35812,7 +35812,7 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 	}
 
 	if (bApprove && bOk)
-		ChangeDaoPoints(TiandaoDefineInt("TIANDAO_DAO_POINT_MEMORIAL"));
+		ChangeDaoPoints(SuzerainDefineInt("SUZERAIN_DAO_POINT_MEMORIAL"));
 
 	m_aiVassalMemorials.setAt(iStateOffset, (bApprove && bOk) ? 1 : 2);
 	return bOk;
@@ -35840,9 +35840,9 @@ bool CvPlayer::HasPendingMemorial(PlayerTypes eVassal, int iType) const
 	int iCount = GetVassalMemorialCount();
 	for (int m = 0; m < iCount; m++)
 	{
-		if (GetVassalMemorialField(m, TIANDAO_MEMORIAL_TYPE) == iType
-			&& GetVassalMemorialField(m, TIANDAO_MEMORIAL_VASSAL) == (int)eVassal
-			&& GetVassalMemorialField(m, TIANDAO_MEMORIAL_STATE) == 0)
+		if (GetVassalMemorialField(m, SUZERAIN_MEMORIAL_TYPE) == iType
+			&& GetVassalMemorialField(m, SUZERAIN_MEMORIAL_VASSAL) == (int)eVassal
+			&& GetVassalMemorialField(m, SUZERAIN_MEMORIAL_STATE) == 0)
 			return true;
 	}
 	return false;
@@ -35851,7 +35851,7 @@ bool CvPlayer::HasPendingMemorial(PlayerTypes eVassal, int iType) const
 //--------------------------------------------------------------------------------
 bool CvPlayer::IsVassalMilitarilyOvermatched(PlayerTypes eVassal) const
 {
-	int iPercent = TiandaoDefineInt("TIANDAO_MEMORIAL_CRISIS_PERCENT");
+	int iPercent = SuzerainDefineInt("SUZERAIN_MEMORIAL_CRISIS_PERCENT");
 	if (iPercent <= 0) return false;
 
 	PlayerTypes eEnemy = GetVassalAggressor(eVassal);
@@ -35870,7 +35870,7 @@ void CvPlayer::DoVassalMemorialTurn()
 	if (!IsSuzerainCiv()) return;
 	if (!MOD_GLOBAL_SUZERAIN) return;
 
-	int iDeadlineTurns = TiandaoDefineInt("TIANDAO_MEMORIAL_URGENT_TURNS");
+	int iDeadlineTurns = SuzerainDefineInt("SUZERAIN_MEMORIAL_URGENT_TURNS");
 	if (iDeadlineTurns <= 0) return; // not configured = memorials off
 
 	// One urgent protect memorial per threatened vassal.
@@ -35888,9 +35888,9 @@ void CvPlayer::DoVassalMemorialTurn()
 		int iCount = GetVassalMemorialCount();
 		for (int m = 0; m < iCount; m++)
 		{
-			if (GetVassalMemorialField(m, TIANDAO_MEMORIAL_TYPE) == 0
-				&& GetVassalMemorialField(m, TIANDAO_MEMORIAL_VASSAL) == (int)eVassal
-				&& GetVassalMemorialField(m, TIANDAO_MEMORIAL_STATE) == 0)
+			if (GetVassalMemorialField(m, SUZERAIN_MEMORIAL_TYPE) == 0
+				&& GetVassalMemorialField(m, SUZERAIN_MEMORIAL_VASSAL) == (int)eVassal
+				&& GetVassalMemorialField(m, SUZERAIN_MEMORIAL_STATE) == 0)
 			{
 				bPending = true;
 				break;
@@ -35931,7 +35931,7 @@ void CvPlayer::DoVassalMemorialTurn()
 	// Justice ministry: two vassals at war — one complaint per pair.
 	if (IsVassalCourtTurn())
 	{
-		int iWarDeadline = TiandaoDefineInt("TIANDAO_MEMORIAL_NORMAL_TURNS");
+		int iWarDeadline = SuzerainDefineInt("SUZERAIN_MEMORIAL_NORMAL_TURNS");
 		if (iWarDeadline <= 0) iWarDeadline = 10;
 		for (size_t a = 0; a < m_vecVassals.size(); a++)
 		{
@@ -35947,10 +35947,10 @@ void CvPlayer::DoVassalMemorialTurn()
 				int iCount = GetVassalMemorialCount();
 				for (int m = 0; m < iCount; m++)
 				{
-					if (GetVassalMemorialField(m, TIANDAO_MEMORIAL_TYPE) != 7) continue;
-					if (GetVassalMemorialField(m, TIANDAO_MEMORIAL_STATE) != 0) continue;
-					int iV = GetVassalMemorialField(m, TIANDAO_MEMORIAL_VASSAL);
-					int iT = GetVassalMemorialField(m, TIANDAO_MEMORIAL_TARGET);
+					if (GetVassalMemorialField(m, SUZERAIN_MEMORIAL_TYPE) != 7) continue;
+					if (GetVassalMemorialField(m, SUZERAIN_MEMORIAL_STATE) != 0) continue;
+					int iV = GetVassalMemorialField(m, SUZERAIN_MEMORIAL_VASSAL);
+					int iT = GetVassalMemorialField(m, SUZERAIN_MEMORIAL_TARGET);
 					if ((iV == eA && iT == eB) || (iV == eB && iT == eA)) { bPending = true; break; }
 				}
 				if (bPending) continue;
@@ -35962,9 +35962,9 @@ void CvPlayer::DoVassalMemorialTurn()
 	// Court turns only: reward requests (revenue ministry) and hardship reports.
 	if (IsVassalCourtTurn())
 	{
-		int iNormalTurns = TiandaoDefineInt("TIANDAO_MEMORIAL_NORMAL_TURNS");
+		int iNormalTurns = SuzerainDefineInt("SUZERAIN_MEMORIAL_NORMAL_TURNS");
 		if (iNormalTurns <= 0) iNormalTurns = 10;
-		int iGiftMinLoyalty = TiandaoDefineInt("TIANDAO_MEMORIAL_GIFT_MIN_LOYALTY");
+		int iGiftMinLoyalty = SuzerainDefineInt("SUZERAIN_MEMORIAL_GIFT_MIN_LOYALTY");
 
 		for (size_t i = 0; i < m_vecVassals.size(); i++)
 		{
@@ -35984,7 +35984,7 @@ void CvPlayer::DoVassalMemorialTurn()
 			}
 
 			// Personnel ministry: an unranked, content vassal asks for a title.
-			int iRankMin = TiandaoDefineInt("TIANDAO_MEMORIAL_RANK_MIN_LOYALTY");
+			int iRankMin = SuzerainDefineInt("SUZERAIN_MEMORIAL_RANK_MIN_LOYALTY");
 			if (iRankMin > 0 && GetVassalLoyalty(eVassal) >= iRankMin
 				&& GetVassalRank(eVassal) == 0 && !HasPendingMemorial(eVassal, 4))
 			{
@@ -35992,7 +35992,7 @@ void CvPlayer::DoVassalMemorialTurn()
 			}
 
 			// Rites ministry: a content vassal asks for a gift in return.
-			int iGiftMin = TiandaoDefineInt("TIANDAO_MEMORIAL_GIFT_REQUEST_MIN_LOYALTY");
+			int iGiftMin = SuzerainDefineInt("SUZERAIN_MEMORIAL_GIFT_REQUEST_MIN_LOYALTY");
 			if (iGiftMin > 0 && GetVassalLoyalty(eVassal) >= iGiftMin
 				&& !HasPendingMemorial(eVassal, 5))
 			{
@@ -36025,35 +36025,35 @@ void CvPlayer::DoVassalMemorialTurn()
 	}
 
 	// Expire overdue memorials.
-	int iNeglect = TiandaoDefineInt("TIANDAO_LOYALTY_NEGLECT");
+	int iNeglect = SuzerainDefineInt("SUZERAIN_LOYALTY_NEGLECT");
 	int iTurn = GC.getGame().getGameTurn();
 	int iCount = GetVassalMemorialCount();
 	bool bAnyExpired = false;
 	for (int m = 0; m < iCount; m++)
 	{
-		if (GetVassalMemorialField(m, TIANDAO_MEMORIAL_STATE) != 0) continue;
+		if (GetVassalMemorialField(m, SUZERAIN_MEMORIAL_STATE) != 0) continue;
 
-		int iDeadline = GetVassalMemorialField(m, TIANDAO_MEMORIAL_DEADLINE);
+		int iDeadline = GetVassalMemorialField(m, SUZERAIN_MEMORIAL_DEADLINE);
 		if (iDeadline <= 0 || iTurn < iDeadline) continue;
 
 		bAnyExpired = true;
 
-		PlayerTypes eVassal = (PlayerTypes)GetVassalMemorialField(m, TIANDAO_MEMORIAL_VASSAL);
-		int iType = GetVassalMemorialField(m, TIANDAO_MEMORIAL_TYPE);
+		PlayerTypes eVassal = (PlayerTypes)GetVassalMemorialField(m, SUZERAIN_MEMORIAL_VASSAL);
+		int iType = GetVassalMemorialField(m, SUZERAIN_MEMORIAL_TYPE);
 		int iDefault = GetMemorialDefault(iType);
 
 		// The minister settles the expired memorial with the pre-set verdict.
 		ResolveVassalMemorial(m, iDefault > 0);
 		if (iNeglect != 0)
 			ChangeVassalLoyalty(eVassal, iNeglect);
-		ChangeMandate(TiandaoDefineInt("TIANDAO_MINISTER_NEGLECT_MANDATE"));
+		ChangeMandate(SuzerainDefineInt("SUZERAIN_MINISTER_NEGLECT_MANDATE"));
 
-		m_aiVassalMemorials.setAt(m * TIANDAO_MEMORIAL_STRIDE + TIANDAO_MEMORIAL_STATE, 3);
+		m_aiVassalMemorials.setAt(m * SUZERAIN_MEMORIAL_STRIDE + SUZERAIN_MEMORIAL_STATE, 3);
 	}
 
 	// A court that cleared every memorial earns dao points.
 	if (!bAnyExpired && IsVassalCourtTurn())
-		ChangeDaoPoints(TiandaoDefineInt("TIANDAO_DAO_POINT_COURT_CLEAN"));
+		ChangeDaoPoints(SuzerainDefineInt("SUZERAIN_DAO_POINT_COURT_CLEAN"));
 
 	// AI overlords run their own court: settle every pending memorial now,
 	// judging each by the vassal's loyalty instead of the player's defaults.
@@ -36062,9 +36062,9 @@ void CvPlayer::DoVassalMemorialTurn()
 		int iAiCount = GetVassalMemorialCount();
 		for (int m = 0; m < iAiCount; m++)
 		{
-			if (GetVassalMemorialField(m, TIANDAO_MEMORIAL_STATE) != 0) continue;
-			int iType = GetVassalMemorialField(m, TIANDAO_MEMORIAL_TYPE);
-			PlayerTypes eVassal = (PlayerTypes)GetVassalMemorialField(m, TIANDAO_MEMORIAL_VASSAL);
+			if (GetVassalMemorialField(m, SUZERAIN_MEMORIAL_STATE) != 0) continue;
+			int iType = GetVassalMemorialField(m, SUZERAIN_MEMORIAL_TYPE);
+			PlayerTypes eVassal = (PlayerTypes)GetVassalMemorialField(m, SUZERAIN_MEMORIAL_VASSAL);
 
 			bool bApprove = false;
 			switch (iType)
@@ -36101,7 +36101,7 @@ void CvPlayer::DoVassalMemorialTurn()
 int CvPlayer::GetVassalCourtInterval() const
 {
 	if (!MOD_GLOBAL_SUZERAIN) return 0;
-	return TiandaoDefineInt("TIANDAO_COURT_INTERVAL");
+	return SuzerainDefineInt("SUZERAIN_COURT_INTERVAL");
 }
 
 //--------------------------------------------------------------------------------
@@ -36147,14 +36147,14 @@ bool CvPlayer::DoVassalAid(PlayerTypes eVassal)
 	if (!MOD_GLOBAL_SUZERAIN) return false;
 	if (!IsOverlordOf(eVassal)) return false;
 
-	int iAid = TiandaoDefineInt("TIANDAO_VASSAL_AID_GOLD");
+	int iAid = SuzerainDefineInt("SUZERAIN_AID_GOLD");
 	if (iAid <= 0) return false;
 	if (GetTreasury()->GetGold() < iAid) return false;
 
 	GetTreasury()->ChangeGold(-iAid);
 	GET_PLAYER(eVassal).GetTreasury()->ChangeGold(iAid);
-	ChangeVassalLoyalty(eVassal, TiandaoDefineInt("TIANDAO_LOYALTY_AID"));
-	ChangeMandate(TiandaoDefineInt("TIANDAO_MANDATE_AID"));
+	ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_LOYALTY_AID"));
+	ChangeMandate(SuzerainDefineInt("SUZERAIN_MANDATE_AID"));
 	return true;
 }
 
@@ -36217,7 +36217,7 @@ int CvPlayer::GetCourtPolicyPercent() const
 	if (!MOD_GLOBAL_SUZERAIN) return 0;
 	if (GetCourtPolicyType() <= 0) return 0;
 
-	int iBase = TiandaoDefineInt("TIANDAO_COURT_POLICY_PERCENT");
+	int iBase = SuzerainDefineInt("SUZERAIN_COURT_POLICY_PERCENT");
 	if (iBase <= 0) return 0;
 
 	if (GetOverlord() != NO_PLAYER) return iBase;
@@ -36252,8 +36252,8 @@ bool CvPlayer::SetVassalCourtPolicy(int iPolicy)
 
 	m_iVassalCourtPolicy = iPolicy;
 
-	int iMinLoyalty = TiandaoDefineInt("TIANDAO_COURT_POLICY_MIN_LOYALTY");
-	int iGain = TiandaoDefineInt("TIANDAO_COURT_POLICY_LOYALTY");
+	int iMinLoyalty = SuzerainDefineInt("SUZERAIN_COURT_POLICY_MIN_LOYALTY");
+	int iGain = SuzerainDefineInt("SUZERAIN_COURT_POLICY_LOYALTY");
 	for (size_t i = 0; i < m_vecVassals.size(); i++)
 	{
 		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
@@ -36292,7 +36292,7 @@ bool CvPlayer::IsVassalIncompetent(PlayerTypes eVassal) const
 	if (!MOD_GLOBAL_SUZERAIN) return false;
 	if (!IsOverlordOf(eVassal)) return false;
 
-	int iThreshold = TiandaoDefineInt("TIANDAO_BREACH_THRESHOLD");
+	int iThreshold = SuzerainDefineInt("SUZERAIN_BREACH_THRESHOLD");
 	if (iThreshold <= 0) return false;
 	return GetVassalBreachCount(eVassal) >= iThreshold;
 }
@@ -36334,7 +36334,7 @@ int CvPlayer::GetMandate() const
 int CvPlayer::GetMandateMax() const
 {
 	if (!MOD_GLOBAL_SUZERAIN) return 0;
-	return TiandaoDefineInt("TIANDAO_MANDATE_MAX");
+	return SuzerainDefineInt("SUZERAIN_MANDATE_MAX");
 }
 
 //--------------------------------------------------------------------------------
@@ -36365,7 +36365,7 @@ void CvPlayer::ChangeDaoPoints(int iChange)
 	if (!MOD_GLOBAL_SUZERAIN) return;
 	if (iChange == 0) return;
 
-	int iMax = TiandaoDefineInt("TIANDAO_DAO_POINT_MAX");
+	int iMax = SuzerainDefineInt("SUZERAIN_DAO_POINT_MAX");
 	if (iMax <= 0) iMax = 100;
 
 	int iValue = m_iDaoPoints + iChange;
@@ -36385,7 +36385,7 @@ bool CvPlayer::CanSpendDaoPoints(int iCost) const
 int CvPlayer::GetDaoCombatModifier() const
 {
 	if (!HasDaoPerk(4)) return 0;
-	return TiandaoDefineInt("TIANDAO_DAO_WAR_COMBAT");
+	return SuzerainDefineInt("SUZERAIN_DAO_WAR_COMBAT");
 }
 
 //--------------------------------------------------------------------------------
@@ -36412,17 +36412,17 @@ static const char* TiandaoDaoGraceCostKey(int iGrace)
 {
 	switch (iGrace)
 	{
-	case 0: return "TIANDAO_DAO_COST_BLESSING";
-	case 1: return "TIANDAO_DAO_COST_GROWTH";
-	case 2: return "TIANDAO_DAO_COST_WORKS";
-	case 3: return "TIANDAO_DAO_COST_RESEARCH";
-	case 4: return "TIANDAO_DAO_COST_WAR";
-	case 5: return "TIANDAO_DAO_COST_EDUCATION";
-	case 6: return "TIANDAO_DAO_COST_INSIGHT";
-	case 7: return "TIANDAO_DAO_COST_TALENT";
-	case 8: return "TIANDAO_DAO_COST_WONDER";
-	case 9: return "TIANDAO_DAO_COST_SPY";
-	case 10: return "TIANDAO_DAO_COST_UC";
+	case 0: return "SUZERAIN_DAO_COST_BLESSING";
+	case 1: return "SUZERAIN_DAO_COST_GROWTH";
+	case 2: return "SUZERAIN_DAO_COST_WORKS";
+	case 3: return "SUZERAIN_DAO_COST_RESEARCH";
+	case 4: return "SUZERAIN_DAO_COST_WAR";
+	case 5: return "SUZERAIN_DAO_COST_EDUCATION";
+	case 6: return "SUZERAIN_DAO_COST_INSIGHT";
+	case 7: return "SUZERAIN_DAO_COST_TALENT";
+	case 8: return "SUZERAIN_DAO_COST_WONDER";
+	case 9: return "SUZERAIN_DAO_COST_SPY";
+	case 10: return "SUZERAIN_DAO_COST_UC";
 	default: return NULL;
 	}
 }
@@ -36432,7 +36432,7 @@ int CvPlayer::GetDaoGraceCost(int iGrace) const
 {
 	const char* szCostKey = TiandaoDaoGraceCostKey(iGrace);
 	if (szCostKey == NULL) return 0;
-	return TiandaoDefineInt(szCostKey);
+	return SuzerainDefineInt(szCostKey);
 }
 
 //--------------------------------------------------------------------------------
@@ -36448,15 +36448,15 @@ bool CvPlayer::DoDaoGrace(int iGrace)
 	const char* szCostKey = TiandaoDaoGraceCostKey(iGrace);
 	if (szCostKey == NULL) return false;
 
-	int iCost = TiandaoDefineInt(szCostKey);
+	int iCost = SuzerainDefineInt(szCostKey);
 	if (!CanSpendDaoPoints(iCost)) return false;
 
-	int iTurns = TiandaoDefineInt("TIANDAO_DAO_GRACE_TURNS");
+	int iTurns = SuzerainDefineInt("SUZERAIN_DAO_GRACE_TURNS");
 	if (iTurns <= 0) iTurns = 30;
 	if (iGrace == 0)
 	{
 		// Abundance: permanent flat yields in every city.
-		int iAmount = TiandaoDefineInt("TIANDAO_DAO_BLESSING_AMOUNT");
+		int iAmount = SuzerainDefineInt("SUZERAIN_DAO_BLESSING_AMOUNT");
 		if (iAmount <= 0) iAmount = 3;
 		int iLoop = 0;
 		for (CvCity* pCity = firstCity(&iLoop); pCity != NULL; pCity = nextCity(&iLoop))
@@ -36490,7 +36490,7 @@ bool CvPlayer::DoDaoGrace(int iGrace)
 		// Teaching: stronger religious spread and permanent ideology pressure.
 		GrantDaoPerk(5);
 
-		int iPressure = TiandaoDefineInt("TIANDAO_DAO_IDEOLOGY_PRESSURE");
+		int iPressure = SuzerainDefineInt("SUZERAIN_DAO_IDEOLOGY_PRESSURE");
 		if (iPressure != 0)
 			ChangeIdeologyPressureModifier(iPressure);
 	}
@@ -36587,7 +36587,7 @@ bool CvPlayer::CanFengshan() const
 {
 	if (!MOD_GLOBAL_SUZERAIN) return false;
 
-	int iCost = TiandaoDefineInt("TIANDAO_MANDATE_FENGSHAN_COST");
+	int iCost = SuzerainDefineInt("SUZERAIN_MANDATE_FENGSHAN_COST");
 	if (iCost <= 0) return false;
 	if (m_iMandate < iCost) return false;
 	return m_iFengshanEra != (int)GetCurrentEra();
@@ -36598,10 +36598,10 @@ bool CvPlayer::DoFengshan()
 {
 	if (!CanFengshan()) return false;
 
-	ChangeMandate(-TiandaoDefineInt("TIANDAO_MANDATE_FENGSHAN_COST"));
+	ChangeMandate(-SuzerainDefineInt("SUZERAIN_MANDATE_FENGSHAN_COST"));
 	ChangeNumFreeGreatPeople(1);
 
-	int iLoyalty = TiandaoDefineInt("TIANDAO_MANDATE_FENGSHAN_LOYALTY");
+	int iLoyalty = SuzerainDefineInt("SUZERAIN_MANDATE_FENGSHAN_LOYALTY");
 	for (size_t i = 0; i < m_vecVassals.size(); i++)
 	{
 		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
@@ -36617,7 +36617,7 @@ bool CvPlayer::DoFengshan()
 bool CvPlayer::CanQifeng() const
 {
 	if (!MOD_GLOBAL_SUZERAIN) return false;
-	int iCost = TiandaoDefineInt("TIANDAO_MANDATE_QIFENG_COST");
+	int iCost = SuzerainDefineInt("SUZERAIN_MANDATE_QIFENG_COST");
 	return iCost > 0 && m_iMandate >= iCost;
 }
 
@@ -36626,9 +36626,9 @@ bool CvPlayer::DoQifeng()
 {
 	if (!CanQifeng()) return false;
 
-	ChangeMandate(-TiandaoDefineInt("TIANDAO_MANDATE_QIFENG_COST"));
-	ApplyMandateBlessing(TiandaoDefineInt("TIANDAO_MANDATE_QIFENG_FOOD"), 0, 0,
-		TiandaoDefineInt("TIANDAO_MANDATE_QIFENG_TURNS"));
+	ChangeMandate(-SuzerainDefineInt("SUZERAIN_MANDATE_QIFENG_COST"));
+	ApplyMandateBlessing(SuzerainDefineInt("SUZERAIN_MANDATE_QIFENG_FOOD"), 0, 0,
+		SuzerainDefineInt("SUZERAIN_MANDATE_QIFENG_TURNS"));
 	return true;
 }
 
@@ -36636,7 +36636,7 @@ bool CvPlayer::DoQifeng()
 bool CvPlayer::CanRangzai() const
 {
 	if (!MOD_GLOBAL_SUZERAIN) return false;
-	int iCost = TiandaoDefineInt("TIANDAO_MANDATE_RANGZAI_COST");
+	int iCost = SuzerainDefineInt("SUZERAIN_MANDATE_RANGZAI_COST");
 	return iCost > 0 && m_iMandate >= iCost;
 }
 
@@ -36645,11 +36645,11 @@ bool CvPlayer::DoRangzai()
 {
 	if (!CanRangzai()) return false;
 
-	ChangeMandate(-TiandaoDefineInt("TIANDAO_MANDATE_RANGZAI_COST"));
+	ChangeMandate(-SuzerainDefineInt("SUZERAIN_MANDATE_RANGZAI_COST"));
 	ApplyMandateBlessing(0,
-		TiandaoDefineInt("TIANDAO_MANDATE_RANGZAI_PRODUCTION"),
-		TiandaoDefineInt("TIANDAO_MANDATE_RANGZAI_CULTURE"),
-		TiandaoDefineInt("TIANDAO_MANDATE_RANGZAI_TURNS"));
+		SuzerainDefineInt("SUZERAIN_MANDATE_RANGZAI_PRODUCTION"),
+		SuzerainDefineInt("SUZERAIN_MANDATE_RANGZAI_CULTURE"),
+		SuzerainDefineInt("SUZERAIN_MANDATE_RANGZAI_TURNS"));
 	return true;
 }
 
@@ -36723,7 +36723,7 @@ bool CvPlayer::CanTianfa(PlayerTypes eTarget) const
 	if (!kTarget.isAlive() || !kTarget.isMajorCiv()) return false;
 	if (kTarget.IsUnderMandatePunishment()) return false;
 
-	int iCost = TiandaoDefineInt("TIANDAO_MANDATE_TIANFA_COST");
+	int iCost = SuzerainDefineInt("SUZERAIN_MANDATE_TIANFA_COST");
 	return iCost > 0 && m_iMandate >= iCost;
 }
 
@@ -36732,23 +36732,23 @@ bool CvPlayer::DoTianfa(PlayerTypes eTarget)
 {
 	if (!CanTianfa(eTarget)) return false;
 
-	ChangeMandate(-TiandaoDefineInt("TIANDAO_MANDATE_TIANFA_COST"));
+	ChangeMandate(-SuzerainDefineInt("SUZERAIN_MANDATE_TIANFA_COST"));
 
 	CvPlayer& kTarget = GET_PLAYER(eTarget);
-	int iTurns = TiandaoDefineInt("TIANDAO_MANDATE_TIANFA_TURNS");
+	int iTurns = SuzerainDefineInt("SUZERAIN_MANDATE_TIANFA_TURNS");
 
 	kTarget.m_iPunishEndTurn = GC.getGame().getGameTurn() + iTurns;
 	kTarget.m_iPunishBy = GetID();
 
-	int iUnhappinessPercent = TiandaoDefineInt("TIANDAO_MANDATE_TIANFA_UNHAPPINESS_PERCENT");
+	int iUnhappinessPercent = SuzerainDefineInt("SUZERAIN_MANDATE_TIANFA_UNHAPPINESS_PERCENT");
 	if (iUnhappinessPercent != 0)
 	{
 		kTarget.ChangeUnhappinessMod(iUnhappinessPercent);
 		kTarget.m_iPunishUnhappiness = iUnhappinessPercent;
 	}
 
-	int iFood = TiandaoDefineInt("TIANDAO_MANDATE_TIANFA_FOOD");
-	int iProduction = TiandaoDefineInt("TIANDAO_MANDATE_TIANFA_PRODUCTION");
+	int iFood = SuzerainDefineInt("SUZERAIN_MANDATE_TIANFA_FOOD");
+	int iProduction = SuzerainDefineInt("SUZERAIN_MANDATE_TIANFA_PRODUCTION");
 	kTarget.m_iPunishFood = iFood;
 	kTarget.m_iPunishProduction = iProduction;
 
@@ -36761,7 +36761,7 @@ bool CvPlayer::DoTianfa(PlayerTypes eTarget)
 			pCity->ChangeBaseYieldRateFromMisc(YIELD_PRODUCTION, -iProduction);
 	}
 
-	int iCSInfluence = TiandaoDefineInt("TIANDAO_MANDATE_TIANFA_CS_INFLUENCE");
+	int iCSInfluence = SuzerainDefineInt("SUZERAIN_MANDATE_TIANFA_CS_INFLUENCE");
 	if (iCSInfluence > 0)
 	{
 		for (int iMinor = 0; iMinor < MAX_CIV_PLAYERS; iMinor++)
@@ -36851,14 +36851,14 @@ bool CvPlayer::CanMandateVictory() const
 	if (!IsMandateFull()) return false;
 
 	// Early eras may spend a full mandate on rewards, but cannot end the game.
-	CvString sRequiredEra = GC.getDefineSTRING("TIANDAO_MANDATE_VICTORY_ERA", false);
+	CvString sRequiredEra = GC.getDefineSTRING("SUZERAIN_MANDATE_VICTORY_ERA", false);
 	if (sRequiredEra.empty()) return false;
 	EraTypes eRequiredEra = (EraTypes)GC.getInfoTypeForString(sRequiredEra.c_str(), true);
 	if (eRequiredEra == NO_ERA || GetCurrentEra() < eRequiredEra)
 		return false;
 
 	// The mandate must actually be backed by enough vassals.
-	int iPercent = TiandaoDefineInt("TIANDAO_MANDATE_VICTORY_VASSAL_PERCENT");
+	int iPercent = SuzerainDefineInt("SUZERAIN_MANDATE_VICTORY_VASSAL_PERCENT");
 	if (iPercent <= 0) return false;
 
 	int iAliveMajors = 0;
@@ -36937,10 +36937,10 @@ void CvPlayer::DoVassalCourtGiftTurn()
 	if (m_vecVassals.empty()) return;
 	if (!IsVassalCourtTurn()) return;
 
-	int iGoldBase = TiandaoDefineInt("TIANDAO_COURT_GIFT_GOLD");
-	int iResource = TiandaoDefineInt("TIANDAO_COURT_GIFT_RESOURCE");
-	int iGiftLoyalty = TiandaoDefineInt("TIANDAO_COURT_GIFT_LOYALTY");
-	int iMinLoyalty = TiandaoDefineInt("TIANDAO_COURT_GIFT_MIN_LOYALTY");
+	int iGoldBase = SuzerainDefineInt("SUZERAIN_COURT_GIFT_GOLD");
+	int iResource = SuzerainDefineInt("SUZERAIN_COURT_GIFT_RESOURCE");
+	int iGiftLoyalty = SuzerainDefineInt("SUZERAIN_COURT_GIFT_LOYALTY");
+	int iMinLoyalty = SuzerainDefineInt("SUZERAIN_COURT_GIFT_MIN_LOYALTY");
 
 	m_aiCourtGiftLog.clear();
 
@@ -37068,8 +37068,8 @@ int CvPlayer::GetVassalWonderPoolCapacity() const
 {
 	if (!MOD_GLOBAL_SUZERAIN) return 0;
 
-	int iPerOverlord = TiandaoDefineInt("TIANDAO_WONDER_POOL_PER_OVERLORD");
-	int iPerVassal = TiandaoDefineInt("TIANDAO_WONDER_POOL_PER_VASSAL");
+	int iPerOverlord = SuzerainDefineInt("SUZERAIN_WONDER_POOL_PER_OVERLORD");
+	int iPerVassal = SuzerainDefineInt("SUZERAIN_WONDER_POOL_PER_VASSAL");
 	int iCapacity = iPerOverlord + (int)m_vecVassals.size() * iPerVassal;
 	return iCapacity > 0 ? iCapacity : 0;
 }
@@ -37237,7 +37237,7 @@ void CvPlayer::SetWonderRequestCondition(PlayerTypes eVassal, int iType, int iVa
 	if (kVassal.GetWonderRequest() == NO_BUILDING) return;
 	if (iType < 0 || iType > 5) return;
 
-	int iTurns = TiandaoDefineInt("TIANDAO_WONDER_CONDITION_TURNS");
+	int iTurns = SuzerainDefineInt("SUZERAIN_WONDER_CONDITION_TURNS");
 	if (iTurns <= 0) iTurns = 10;
 
 	kVassal.m_iWonderConditionType = iType;
@@ -37262,7 +37262,7 @@ bool CvPlayer::CheckWonderRequestCondition(PlayerTypes eVassal)
 		kVassal.m_iWonderRequest = NO_BUILDING;
 		kVassal.m_iWonderConditionType = 0;
 		kVassal.m_iWonderConditionDeadline = 0;
-		ChangeVassalLoyalty(eVassal, TiandaoDefineInt("TIANDAO_WONDER_CONDITION_DENY_LOYALTY"));
+		ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_WONDER_CONDITION_DENY_LOYALTY"));
 		return false;
 	}
 
@@ -37302,7 +37302,7 @@ bool CvPlayer::CheckWonderRequestCondition(PlayerTypes eVassal)
 	{
 		kVassal.m_iWonderConditionType = 0;
 		kVassal.m_iWonderConditionDeadline = 0;
-		int iGain = TiandaoDefineInt("TIANDAO_WONDER_CONDITION_APPROVE_LOYALTY");
+		int iGain = SuzerainDefineInt("SUZERAIN_WONDER_CONDITION_APPROVE_LOYALTY");
 		if (iGain != 0)
 			ChangeVassalLoyalty(eVassal, iGain);
 		return true;
@@ -37433,7 +37433,7 @@ bool CvPlayer::CanInviteVassal(PlayerTypes eTarget) const
 	if (kTarget.GetOverlord() != NO_PLAYER) return false;
 	if (GET_TEAM(getTeam()).isAtWar(kTarget.getTeam())) return false;
 
-	int iPercent = TiandaoDefineInt("TIANDAO_INVITE_MILITARY_PERCENT");
+	int iPercent = SuzerainDefineInt("SUZERAIN_JOIN_SUZERAIN_INVITE_MILITARY_PERCENT");
 	if (iPercent <= 0) return false;
 
 	long long iOurMight = GetMilitaryMight();
@@ -37450,8 +37450,8 @@ bool CvPlayer::DoInviteVassal(PlayerTypes eTarget)
 	long long iOurMight = GetMilitaryMight();
 	long long iTargetMight = kTarget.GetMilitaryMight();
 
-	int iAcceptPercent = TiandaoDefineInt("TIANDAO_INVITE_ACCEPT_PERCENT");
-	int iThreatPercent = TiandaoDefineInt("TIANDAO_INVITE_THREAT_PERCENT");
+	int iAcceptPercent = SuzerainDefineInt("SUZERAIN_JOIN_SUZERAIN_INVITE_ACCEPT_PERCENT");
+	int iThreatPercent = SuzerainDefineInt("SUZERAIN_JOIN_SUZERAIN_INVITE_THREAT_PERCENT");
 
 	bool bAccept = (iAcceptPercent > 0 && iOurMight * 100 >= iTargetMight * iAcceptPercent);
 	bool bThreatAccept = false;
@@ -37493,7 +37493,7 @@ bool CvPlayer::DoInviteVassal(PlayerTypes eTarget)
 	AddVassal(eTarget);
 	RefreshUCFromVassals();
 
-	int iStart = TiandaoDefineInt("TIANDAO_LOYALTY_INVITE_START");
+	int iStart = SuzerainDefineInt("SUZERAIN_LOYALTY_INVITE_START");
 	if (iStart > 0)
 		ChangeVassalLoyalty(eTarget, iStart);
 
@@ -37511,8 +37511,8 @@ void CvPlayer::DoSeekProtectionTurn()
 	if (GetOverlord() != NO_PLAYER) return;
 	if (HasAnyVassal()) return;
 
-	int iThreatPercent = TiandaoDefineInt("TIANDAO_SEEK_THREAT_PERCENT");
-	int iProtectorPercent = TiandaoDefineInt("TIANDAO_SEEK_PROTECTOR_PERCENT");
+	int iThreatPercent = SuzerainDefineInt("SUZERAIN_SEEK_THREAT_PERCENT");
+	int iProtectorPercent = SuzerainDefineInt("SUZERAIN_SEEK_PROTECTOR_PERCENT");
 	if (iThreatPercent <= 0 || iProtectorPercent <= 0) return;
 
 	long long iOurMight = GetMilitaryMight();
@@ -37564,7 +37564,7 @@ void CvPlayer::DoSeekProtectionTurn()
 	GET_PLAYER(eProtector).AddVassal(GetID());
 	GET_PLAYER(eProtector).RefreshUCFromVassals();
 
-	int iStart = TiandaoDefineInt("TIANDAO_LOYALTY_SEEK_START");
+	int iStart = SuzerainDefineInt("SUZERAIN_LOYALTY_SEEK_START");
 	if (iStart > 0)
 		GET_PLAYER(eProtector).ChangeVassalLoyalty(GetID(), iStart);
 }
@@ -37588,8 +37588,8 @@ bool CvPlayer::CanSubjugate(PlayerTypes eTarget) const
 	if (!GET_TEAM(getTeam()).isAtWar(kTarget.getTeam())) return false;
 	if (!GET_TEAM(getTeam()).canChangeWarPeace(kTarget.getTeam())) return false;
 
-	int iTurns = TiandaoDefineInt("TIANDAO_SUBJUGATE_TURNS");
-	int iMilPercent = TiandaoDefineInt("TIANDAO_SUBJUGATE_MILITARY_PERCENT");
+	int iTurns = SuzerainDefineInt("SUZERAIN_SUBJUGATE_TURNS");
+	int iMilPercent = SuzerainDefineInt("SUZERAIN_SUBJUGATE_MILITARY_PERCENT");
 	if (iTurns <= 0 || iMilPercent <= 0) return false;
 
 	// We must be holding the target's original capital right now. The capital
@@ -37619,7 +37619,7 @@ bool CvPlayer::DoSubjugate(PlayerTypes eTarget)
 	AddVassal(eTarget);
 	RefreshUCFromVassals();
 
-	int iStart = TiandaoDefineInt("TIANDAO_LOYALTY_SUBJUGATE_START");
+	int iStart = SuzerainDefineInt("SUZERAIN_LOYALTY_SUBJUGATE_START");
 	if (iStart > 0)
 		ChangeVassalLoyalty(eTarget, iStart);
 
@@ -37655,9 +37655,9 @@ void CvPlayer::DoSeekAllegianceTurn()
 	if (GetOverlord() != NO_PLAYER) return;
 	if (HasAnyVassal()) return;
 
-	int iMandateReq = TiandaoDefineInt("TIANDAO_MERIT_MANDATE");
-	int iVassalsReq = TiandaoDefineInt("TIANDAO_MERIT_VASSALS");
-	int iMilPercent = TiandaoDefineInt("TIANDAO_MERIT_MILITARY_PERCENT");
+	int iMandateReq = SuzerainDefineInt("SUZERAIN_MERIT_MANDATE");
+	int iVassalsReq = SuzerainDefineInt("SUZERAIN_MERIT_VASSALS");
+	int iMilPercent = SuzerainDefineInt("SUZERAIN_MERIT_MILITARY_PERCENT");
 	if (iMandateReq <= 0 || iVassalsReq <= 0 || iMilPercent <= 0) return;
 
 	long long iOurMight = GetMilitaryMight();
@@ -37691,7 +37691,7 @@ void CvPlayer::DoSeekAllegianceTurn()
 	GET_PLAYER(eBest).AddVassal(GetID());
 	GET_PLAYER(eBest).RefreshUCFromVassals();
 
-	int iStart = TiandaoDefineInt("TIANDAO_LOYALTY_MERIT_START");
+	int iStart = SuzerainDefineInt("SUZERAIN_LOYALTY_MERIT_START");
 	if (iStart > 0)
 		GET_PLAYER(eBest).ChangeVassalLoyalty(GetID(), iStart);
 }
@@ -37743,7 +37743,7 @@ void CvPlayer::DoMonopolyTurn()
 	m_aiMonopolyYieldBonuses.resize(NUM_YIELD_TYPES, 0);
 	m_iMonopolyHappiness = 0;
 
-	int iThreshold = TiandaoDefineInt("TIANDAO_MONOPOLY_PERCENT");
+	int iThreshold = SuzerainDefineInt("SUZERAIN_MONOPOLY_PERCENT");
 	if (iThreshold <= 0) return;
 
 	for (int r = 0; r < GC.getNumResourceInfos(); r++)
@@ -37777,7 +37777,7 @@ void CvPlayer::DoMonopolyTurn()
 		m_aiMonopolyResources.push_back((int)eResource);
 
 		// Read this resource's per-yield bonuses, e.g.
-		// TIANDAO_MONOPOLY_WINE_CULTURE or TIANDAO_MONOPOLY_SILK_GOLD.
+		// SUZERAIN_MONOPOLY_WINE_CULTURE or SUZERAIN_MONOPOLY_SILK_GOLD.
 		CvString sResource = pInfo->GetType();
 		if (sResource.compare(0, 9, "RESOURCE_") == 0)
 			sResource = sResource.substr(9);
@@ -37791,7 +37791,7 @@ void CvPlayer::DoMonopolyTurn()
 			if (sYield.compare(0, 6, "YIELD_") == 0)
 				sYield = sYield.substr(6);
 
-			CvString sKey = "TIANDAO_MONOPOLY_";
+			CvString sKey = "SUZERAIN_MONOPOLY_";
 			sKey += sResource;
 			sKey += "_";
 			sKey += sYield;
@@ -37823,7 +37823,7 @@ bool CvPlayer::CanEmbargoResource(PlayerTypes eTarget, ResourceTypes eResource) 
 	CvPlayer& kTarget = GET_PLAYER(eTarget);
 	if (!kTarget.isAlive() || !kTarget.isMajorCiv()) return false;
 
-	int iPercent = TiandaoDefineInt("TIANDAO_EMBARGO_PERCENT");
+	int iPercent = SuzerainDefineInt("SUZERAIN_TRADE_EMBARGO_PERCENT");
 	if (iPercent <= 0) return false;
 
 	int iGlobal = 0;
@@ -37853,7 +37853,7 @@ bool CvPlayer::DoEmbargoResource(PlayerTypes eTarget, ResourceTypes eResource)
 
 	kTarget.m_aiEmbargoedResources.push_back((int)eResource);
 	kTarget.m_iEmbargoBy = GetID();
-	kTarget.m_iEmbargoEndTurn = GC.getGame().getGameTurn() + TiandaoDefineInt("TIANDAO_EMBARGO_TURNS");
+	kTarget.m_iEmbargoEndTurn = GC.getGame().getGameTurn() + SuzerainDefineInt("SUZERAIN_TRADE_EMBARGO_TURNS");
 
 	// Same as the World Congress trade embargo: drop existing routes immediately.
 	GC.getGame().GetGameTrade()->ClearAllCivTradeRoutes(eTarget);
@@ -37880,7 +37880,7 @@ void CvPlayer::DoEmbargoTurn()
 	if (GC.getGame().getGameTurn() < m_iEmbargoEndTurn)
 	{
 		// Economic blockade: the embargoed side bleeds gold each turn.
-		int iPenalty = TiandaoDefineInt("TIANDAO_EMBARGO_GOLD");
+		int iPenalty = SuzerainDefineInt("SUZERAIN_TRADE_EMBARGO_GOLD");
 		if (iPenalty > 0) GetTreasury()->ChangeGold(-iPenalty);
 		return;
 	}
@@ -37897,10 +37897,10 @@ void CvPlayer::DoVassalLoyaltyDecay()
 	if (!MOD_GLOBAL_SUZERAIN) return;
 	if (m_vecVassals.empty()) return;
 
-	int iInterval = TiandaoDefineInt("TIANDAO_LOYALTY_DECAY_INTERVAL");
+	int iInterval = SuzerainDefineInt("SUZERAIN_LOYALTY_DECAY_INTERVAL");
 	if (iInterval <= 0) return; // 0 or missing = decay disabled
 
-	int iAmount = TiandaoDefineInt("TIANDAO_LOYALTY_DECAY_AMOUNT");
+	int iAmount = SuzerainDefineInt("SUZERAIN_LOYALTY_DECAY_AMOUNT");
 	if (iAmount <= 0) return; // 0 or missing = decay disabled
 
 	if ((GC.getGame().getGameTurn() % iInterval) != 0) return;
@@ -38132,7 +38132,7 @@ int CvPlayer::GetDaoBeliefCost() const
 {
 	if (!MOD_GLOBAL_SUZERAIN) return 0;
 	if (!HasDaoPerk(5)) return 0;
-	int iCost = TiandaoDefineInt("TIANDAO_DAO_BELIEF_FAITH_COST");
+	int iCost = SuzerainDefineInt("SUZERAIN_DAO_BELIEF_FAITH_COST");
 	return (iCost > 0) ? iCost : 300;
 }
 
@@ -38348,7 +38348,7 @@ void CvPlayer::UpdateVassalTaxation()
 
 	// Vassals that joined outside the World Congress have no resolution of their own.
 	// They still pay the baseline tithe, so every path into vassalage yields revenue.
-	int iBaseline = TiandaoDefineInt("TIANDAO_VASSAL_BASELINE_TAX");
+	int iBaseline = SuzerainDefineInt("SUZERAIN_TRIBUTE_BASELINE");
 	if (iBaseline <= 0) iBaseline = 10;
 	for (size_t iV = 0; iV < m_vecVassals.size(); iV++)
 	{
@@ -38481,7 +38481,7 @@ int CvPlayer::GetTariffPercentFor(PlayerTypes eOther) const
 	if (!MOD_GLOBAL_SUZERAIN) return 0;
 	if (eOther == NO_PLAYER || eOther == GetID()) return 0;
 	if (GET_PLAYER(eOther).IsVassalOf(GetID())) return 0;
-	return TiandaoDefineInt("TIANDAO_TARIFF_PERCENT");
+	return SuzerainDefineInt("SUZERAIN_TARIFF_PERCENT");
 }
 
 //--------------------------------------------------------------------------------
@@ -42981,10 +42981,10 @@ void CvPlayer::DoVassalAIMemorialTurn()
 	int iCount = GetVassalMemorialCount();
 	for (int m = 0; m < iCount; m++)
 	{
-		if (GetVassalMemorialField(m, TIANDAO_MEMORIAL_STATE) != 0) continue;
+		if (GetVassalMemorialField(m, SUZERAIN_MEMORIAL_STATE) != 0) continue;
 
-		int iType = GetVassalMemorialField(m, TIANDAO_MEMORIAL_TYPE);
-		PlayerTypes eVassal = (PlayerTypes)GetVassalMemorialField(m, TIANDAO_MEMORIAL_VASSAL);
+		int iType = GetVassalMemorialField(m, SUZERAIN_MEMORIAL_TYPE);
+		PlayerTypes eVassal = (PlayerTypes)GetVassalMemorialField(m, SUZERAIN_MEMORIAL_VASSAL);
 		if (!IsLiveVassal(eVassal)) continue;
 
 		if (iType == 7)
@@ -43005,7 +43005,7 @@ void CvPlayer::DoVassalAIMemorialTurn()
 		{
 			// Only call vassals loyal enough to obey; skip the rest instead of
 			// forcing a refusal that would cost loyalty.
-			PlayerTypes eWarTarget = (PlayerTypes)GetVassalMemorialField(m, TIANDAO_MEMORIAL_TARGET);
+			PlayerTypes eWarTarget = (PlayerTypes)GetVassalMemorialField(m, SUZERAIN_MEMORIAL_TARGET);
 			if (eWarTarget != NO_PLAYER)
 			{
 				for (size_t i = 0; i < m_vecVassals.size(); i++)
@@ -43025,7 +43025,7 @@ void CvPlayer::DoVassalAIMemorialTurn()
 		}
 		else if (iType == 11)
 		{
-			PlayerTypes eBlockTarget = (PlayerTypes)GetVassalMemorialField(m, TIANDAO_MEMORIAL_TARGET);
+			PlayerTypes eBlockTarget = (PlayerTypes)GetVassalMemorialField(m, SUZERAIN_MEMORIAL_TARGET);
 			if (eBlockTarget != NO_PLAYER)
 			{
 				DoTradeBlock(eBlockTarget);
@@ -43077,7 +43077,7 @@ bool CvPlayer::DoTradeBlock(PlayerTypes eTarget)
 	if (!kTarget.isAlive()) return false;
 
 	kTarget.m_iEmbargoBy = GetID();
-	kTarget.m_iEmbargoEndTurn = GC.getGame().getGameTurn() + TiandaoDefineInt("TIANDAO_EMBARGO_TURNS");
+	kTarget.m_iEmbargoEndTurn = GC.getGame().getGameTurn() + SuzerainDefineInt("SUZERAIN_TRADE_EMBARGO_TURNS");
 	return true;
 }
 

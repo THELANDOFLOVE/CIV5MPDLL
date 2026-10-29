@@ -1965,15 +1965,15 @@ public:
 
 #if defined(MOD_GLOBAL_SUZERAIN)
 	enum TiandaoMemorialField {
-		TIANDAO_MEMORIAL_TYPE = 0,
-		TIANDAO_MEMORIAL_LEVEL,
-		TIANDAO_MEMORIAL_MINISTRY,
-		TIANDAO_MEMORIAL_VASSAL,
-		TIANDAO_MEMORIAL_TARGET,
-		TIANDAO_MEMORIAL_CREATED,
-		TIANDAO_MEMORIAL_DEADLINE,
-		TIANDAO_MEMORIAL_STATE,
-		TIANDAO_MEMORIAL_STRIDE
+		SUZERAIN_MEMORIAL_TYPE = 0,
+		SUZERAIN_MEMORIAL_LEVEL,
+		SUZERAIN_MEMORIAL_MINISTRY,
+		SUZERAIN_MEMORIAL_VASSAL,
+		SUZERAIN_MEMORIAL_TARGET,
+		SUZERAIN_MEMORIAL_CREATED,
+		SUZERAIN_MEMORIAL_DEADLINE,
+		SUZERAIN_MEMORIAL_STATE,
+		SUZERAIN_MEMORIAL_STRIDE
 	};
 	// Vassal suzerain relationship
 	PlayerTypes GetOverlord() const;
@@ -3223,7 +3223,7 @@ protected:
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalGiftCount;
 	// 1 while the current war on a vassal has already been answered
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalProtectHandled;
-	// Vassal memorials, flat array of TIANDAO_MEMORIAL_STRIDE ints per entry
+	// Vassal memorials, flat array of SUZERAIN_MEMORIAL_STRIDE ints per entry
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalMemorials;
 	// Court policy: 0 none, 1 military, 2 science, 3 culture, 4 economy
 	FAutoVariable<int, CvPlayer> m_iVassalCourtPolicy;

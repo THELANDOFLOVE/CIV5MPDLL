@@ -6503,7 +6503,7 @@ int CvCity::GetFaithPurchaseCost(BuildingTypes eBuilding)
 	if (iCost <= 0 && GET_PLAYER(getOwner()).HasDaoPerk(8)
 		&& isWorldWonderClass(pkBuildingInfo->GetBuildingClassInfo()))
 	{
-		int iMultiplier = GC.getDefineINT("TIANDAO_DAO_WONDER_FAITH_MULTIPLIER", false);
+		int iMultiplier = GC.getDefineINT("SUZERAIN_DAO_WONDER_FAITH_MULTIPLIER", false);
 		if (iMultiplier <= 0) iMultiplier = 2;
 		iCost = getProductionNeeded(eBuilding) * iMultiplier;
 	}
@@ -9624,7 +9624,7 @@ int CvCity::growthThreshold() const
 	// Dao diligence: lower the food needed for growth.
 	if (MOD_GLOBAL_SUZERAIN && GET_PLAYER(getOwner()).HasDaoPerk(1))
 	{
-		int iDaoMod = GC.getDefineINT("TIANDAO_DAO_GROWTH_COST", false);
+		int iDaoMod = GC.getDefineINT("SUZERAIN_DAO_GROWTH_COST", false);
 		if (iDaoMod > 0)
 		{
 			iNumFoodNeeded *= (100 - iDaoMod);
@@ -14219,9 +14219,9 @@ int CvCity::getBaseYieldRateModifier(YieldTypes eIndex, int iExtra, CvString* to
 	{
 		int iPenalty = 0;
 		if (eIndex == YIELD_FOOD)
-			iPenalty = GC.getDefineINT("TIANDAO_MANDATE_TIANFA_FOOD_PERCENT", false);
+			iPenalty = GC.getDefineINT("SUZERAIN_MANDATE_TIANFA_FOOD_PERCENT", false);
 		else if (eIndex == YIELD_PRODUCTION)
-			iPenalty = GC.getDefineINT("TIANDAO_MANDATE_TIANFA_PRODUCTION_PERCENT", false);
+			iPenalty = GC.getDefineINT("SUZERAIN_MANDATE_TIANFA_PRODUCTION_PERCENT", false);
 
 		if (iPenalty > 0)
 			iModifier -= iPenalty;
@@ -20848,7 +20848,7 @@ void CvCity::doProduction(bool bAllowNoProduction)
 	// Dao industry: more projects may finish per city per turn.
 	if (MOD_GLOBAL_SUZERAIN && GET_PLAYER(getOwner()).HasDaoPerk(2))
 	{
-		int iExtra = GC.getDefineINT("TIANDAO_DAO_MULTI_BUILD_COUNT", false);
+		int iExtra = GC.getDefineINT("SUZERAIN_DAO_MULTI_BUILD_COUNT", false);
 		if (iExtra > 0)
 			iMaxProductionCount += iExtra;
 	}

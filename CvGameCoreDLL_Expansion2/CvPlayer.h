@@ -1920,6 +1920,8 @@ public:
 	bool GetCSUAAnyFaithBeliefPurchase() const;
 	// Wittenberg CS UA: keep this % of the followers when an inquisitor clears the city-state's religion
 	int GetCSUAInquisitorRetentionPercent() const;
+	// Wittenberg CS UA: the ally's inquisitors may remove heresy in any city-state city
+	bool IsCSUAInquisitorCanUseOnCityState() const;
 	// Wittenberg CS UA: does this city-state's own UA grant the faith-belief-purchase ability?
 	bool HasCSUABeliefPurchaseUA() const;
 	// La Venta CS UA: +X% great-person rate per masterpiece/artifact the player owns

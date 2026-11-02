@@ -11609,7 +11609,19 @@ bool CvUnit::CanRemoveHeresy(const CvPlot* pPlot) const
 		{
 			return false;
 		}
-		else if(pCity->getOwner() != getOwner())
+	}
+
+	if(pCity->getOwner() != getOwner())
+	{
+		bool bCSUAAllowed = false;
+#if defined(MOD_SP_UNIQUE_CITYSTATE)
+		// Wittenberg CS UA: the ally's inquisitors may remove heresy in any city-state city
+		if (MOD_SP_UNIQUE_CITYSTATE && GET_PLAYER(pCity->getOwner()).isMinorCiv())
+		{
+			bCSUAAllowed = GET_PLAYER(getOwner()).IsCSUAInquisitorCanUseOnCityState();
+		}
+#endif
+		if (!bCSUAAllowed)
 		{
 			return false;
 		}

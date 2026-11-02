@@ -388,6 +388,7 @@ CvCityStateUAEffectEntry::CvCityStateUAEffectEntry(void)
 	, m_iFaithInfluencePurchasePerTurnLimit(0)
 	, m_bFaithBeliefPurchase(false)
 	, m_iInquisitorRetentionPercent(0)
+	, m_bInquisitorCanUseOnCityState(false)
 	, m_bFaithPantheonPurchase(false)
 	, m_iGreatPersonRateModifierPerGreatWork(0)
 	, m_iFaithRefundPerDonationPercent(0)
@@ -637,6 +638,7 @@ bool CvCityStateUAEffectEntry::CacheResults(Database::Results& kResults, CvDatab
 	m_iFaithInfluencePurchasePerTurnLimit = kResults.GetInt("FaithInfluencePurchasePerTurnLimit");
 	m_bFaithBeliefPurchase = kResults.GetBool("FaithBeliefPurchase");
 	m_iInquisitorRetentionPercent = kResults.GetInt("InquisitorRetentionPercent");
+	m_bInquisitorCanUseOnCityState = kResults.GetBool("InquisitorCanUseOnCityState");
 	m_bFaithPantheonPurchase = kResults.GetBool("FaithPantheonPurchase");
 	m_iGreatPersonRateModifierPerGreatWork = kResults.GetInt("GreatPersonRateModifierPerGreatWork");
 	m_iFaithRefundPerDonationPercent = kResults.GetInt("FaithRefundPerDonationPercent");
@@ -1515,6 +1517,7 @@ int CvCityStateUAEffectEntry::GetFaithInfluencePurchaseCostDivisor() const { ret
 int CvCityStateUAEffectEntry::GetFaithInfluencePurchasePerTurnLimit() const { return m_iFaithInfluencePurchasePerTurnLimit; }
 bool CvCityStateUAEffectEntry::GetFaithBeliefPurchase() const { return m_bFaithBeliefPurchase; }
 int CvCityStateUAEffectEntry::GetInquisitorRetentionPercent() const { return m_iInquisitorRetentionPercent; }
+bool CvCityStateUAEffectEntry::GetInquisitorCanUseOnCityState() const { return m_bInquisitorCanUseOnCityState; }
 bool CvCityStateUAEffectEntry::GetFaithPantheonPurchase() const { return m_bFaithPantheonPurchase; }
 int CvCityStateUAEffectEntry::GetGreatPersonRateModifierPerGreatWork() const { return m_iGreatPersonRateModifierPerGreatWork; }
 int CvCityStateUAEffectEntry::GetGreatPersonRateModifierPerNationalWonder() const { return m_iGreatPersonRateModifierPerNationalWonder; }
@@ -1842,6 +1845,7 @@ CvPlayerCityStateUA::CvPlayerCityStateUA()
 	, m_iFaithInfluencePurchasePerTurnLimit(0)
 	, m_iFaithBeliefPurchaseCount(0)
 	, m_iInquisitorRetentionPercent(0)
+	, m_iInquisitorCanUseOnCityStateCount(0)
 	, m_iFaithPantheonPurchaseCount(0)
 	, m_iGreatPersonRateModifierPerGreatWork(0)
 	, m_iFaithRefundPerDonationPercent(0)
@@ -1980,6 +1984,7 @@ void CvPlayerCityStateUA::Reset()
 	m_iFaithInfluencePurchasePerTurnLimit = 0;
 	m_iFaithBeliefPurchaseCount = 0;
 	m_iInquisitorRetentionPercent = 0;
+	m_iInquisitorCanUseOnCityStateCount = 0;
 	m_iFaithPantheonPurchaseCount = 0;
 	m_iGreatPersonRateModifierPerGreatWork = 0;
 	m_iFaithRefundPerDonationPercent = 0;
@@ -2360,6 +2365,7 @@ void CvPlayerCityStateUA::ApplyEffect(int iEffectID, int iChange)
 	m_iFaithInfluencePurchasePerTurnLimit += pEffect->GetFaithInfluencePurchasePerTurnLimit() * iChange;
 	m_iFaithBeliefPurchaseCount += (pEffect->GetFaithBeliefPurchase() ? iChange : 0);
 	m_iInquisitorRetentionPercent += pEffect->GetInquisitorRetentionPercent() * iChange;
+	m_iInquisitorCanUseOnCityStateCount += (pEffect->GetInquisitorCanUseOnCityState() ? iChange : 0);
 	m_iFaithPantheonPurchaseCount += (pEffect->GetFaithPantheonPurchase() ? iChange : 0);
 	m_iGreatPersonRateModifierPerGreatWork += pEffect->GetGreatPersonRateModifierPerGreatWork() * iChange;
 	m_iFaithRefundPerDonationPercent += pEffect->GetFaithRefundPerDonationPercent() * iChange;
@@ -2950,6 +2956,7 @@ int CvPlayerCityStateUA::GetFaithInfluencePurchaseCostDivisor() const { return m
 int CvPlayerCityStateUA::GetFaithInfluencePurchasePerTurnLimit() const { return m_iFaithInfluencePurchasePerTurnLimit; }
 bool CvPlayerCityStateUA::HasFaithInfluencePurchase() const { return m_iFaithInfluencePurchaseCostDivisor > 0; }
 bool CvPlayerCityStateUA::AnyFaithBeliefPurchase() const { return m_iFaithBeliefPurchaseCount > 0; }
+bool CvPlayerCityStateUA::IsInquisitorCanUseOnCityState() const { return m_iInquisitorCanUseOnCityStateCount > 0; }
 bool CvPlayerCityStateUA::AnyFaithPantheonPurchase() const { return m_iFaithPantheonPurchaseCount > 0; }
 int CvPlayerCityStateUA::GetGreatPersonRateModifierPerGreatWork() const { return m_iGreatPersonRateModifierPerGreatWork; }
 int CvPlayerCityStateUA::GetFaithRefundPerDonationPercent() const { return m_iFaithRefundPerDonationPercent; }

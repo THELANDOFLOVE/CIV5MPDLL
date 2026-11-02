@@ -33692,6 +33692,13 @@ int CvPlayer::GetCSUACapitalYieldModifierPerFollowingCity(YieldTypes eYield) con
 		return m_pCityStateUA ? m_pCityStateUA->GetInquisitorRetentionPercent() : 0;
 	}
 
+	//	------------------------------------------------------------------------
+	// Wittenberg CS UA: the ally's inquisitors may remove heresy in any city-state city
+	bool CvPlayer::IsCSUAInquisitorCanUseOnCityState() const
+	{
+		return m_pCityStateUA ? m_pCityStateUA->IsInquisitorCanUseOnCityState() : false;
+	}
+
 	// Wittenberg CS UA: does this city-state's own UA grant the faith-belief-purchase ability?
 	bool CvPlayer::HasCSUABeliefPurchaseUA() const
 	{

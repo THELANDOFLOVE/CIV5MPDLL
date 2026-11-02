@@ -1070,6 +1070,7 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(GetTurnsSincePlayerBulliedProtectedMinor);
 	Method(IsHasPlayerBulliedProtectedMinor);
 	Method(IsDenouncedPlayer);
+	Method(IsDenounceImmunity);
 	Method(GetDenouncedPlayerCounter);
 	Method(IsDenouncingPlayer);
 	Method(IsPlayerRecklessExpander);
@@ -10140,6 +10141,14 @@ int CvLuaPlayer::lIsDenouncedPlayer(lua_State* L)
 	const bool bValue = pkPlayer->GetDiplomacyAI()->IsDenouncedPlayer(eOtherPlayer);
 
 	lua_pushboolean(L, bValue);
+	return 1;
+}
+//------------------------------------------------------------------------------
+int CvLuaPlayer::lIsDenounceImmunity(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+
+	lua_pushboolean(L, pkPlayer->IsDenounceImmunity());
 	return 1;
 }
 //------------------------------------------------------------------------------

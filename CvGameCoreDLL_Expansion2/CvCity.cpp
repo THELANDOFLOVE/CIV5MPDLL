@@ -13678,6 +13678,9 @@ int CvCity::getBaseYieldRateModifier(YieldTypes eIndex, int iExtra, CvString* to
 #if defined(MOD_SP_UNIQUE_CITYSTATE)
 	if (pCityStateUA && pCityStateUA->HasImprovementYieldModifiers())
 	{
+		// Aggregate all worked improvements into a single modifier so the tooltip shows one
+		// "City Modifier" line instead of one line per improvement.
+		int iImprovementMod = 0;
 		for (int iPlot = 0; iPlot < GetNumWorkablePlots(); iPlot++)
 		{
 			CvPlot* pPlot = GetCityCitizens()->GetCityPlotFromIndex(iPlot);
@@ -13688,11 +13691,13 @@ int CvCity::getBaseYieldRateModifier(YieldTypes eIndex, int iExtra, CvString* to
 				continue;
 			iTempMod = pCityStateUA->GetImprovementYieldModifier(eImp, eIndex);
 			if (iTempMod != 0)
-			{
-				iModifier += iTempMod;
-				if (toolTipSink)
-					GC.getGame().BuildProdModHelpText(toolTipSink, "TXT_KEY_PRODMOD_YIELD", iTempMod);
-			}
+				iImprovementMod += iTempMod;
+		}
+		if (iImprovementMod != 0)
+		{
+			iModifier += iImprovementMod;
+			if (toolTipSink)
+				GC.getGame().BuildProdModHelpText(toolTipSink, "TXT_KEY_PRODMOD_YIELD", iImprovementMod);
 		}
 	}
 #endif

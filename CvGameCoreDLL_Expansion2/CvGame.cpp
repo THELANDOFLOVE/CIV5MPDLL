@@ -8993,6 +8993,31 @@ void CvGame::updateMoves()
 	// CvPlayer::setTurnActive() checks it to drop the "turn complete" state the engine wrongly restored from
 	// the save; without that, updateMoves() ends the turn again immediately and the AI plays twice.
 	m_firstActivationOfPlayersAfterLoad = activatePlayers && m_lastTurnAICivsProcessed == -1;
+	// Plot visibility counters store a number per team without recording which source contributed it, and
+	// territory sight is only ever added when a plot changes owner, so a one-sided loss (an external tool
+	// clearing the counters, a whole-map reveal, a unit leaving a stack) never repairs itself and leaves
+	// owned plots permanently fogged. Rebuild all sight once on the first activation after a load: subtract
+	// every source and add it back, which restores what was lost and leaves consistent plots unchanged.
+	if(m_firstActivationOfPlayersAfterLoad)
+	{
+		GC.getMap().updateSight(false);
+		GC.getMap().updateSight(true);
+		GC.getMap().updateDeferredFog();
+
+		// CS ally/friend counts and the CS UA effects they drive are deliberately not serialized, so the
+		// turn a save was made in keeps running on whatever the previous doTurn() left behind. CvPlayer::doTurn()
+		// rebuilds them, but only for the next turn; rebuild them here for the loaded turn as well. This used
+		// to be done by a mod Lua script on LoadScreenClose, which silently never ran in distributions that
+		// fold the mod into DLC (no .modinfo means no mod Lua is loaded), so it belongs in the DLL.
+		for(int iPlayerLoop = 0; iPlayerLoop < MAX_MAJOR_CIVS; iPlayerLoop++)
+		{
+			CvPlayer& kLoopPlayer = GET_PLAYER((PlayerTypes)iPlayerLoop);
+			if(kLoopPlayer.isAlive())
+			{
+				kLoopPlayer.RefreshCSAlliesFriends();
+			}
+		}
+	}
 	// If no AI with an active turn, check humans.
 	if(playersToProcess.empty())
 	{

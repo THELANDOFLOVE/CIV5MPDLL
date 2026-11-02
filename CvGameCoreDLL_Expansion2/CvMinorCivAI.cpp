@@ -5590,6 +5590,13 @@ bool CvMinorCivAI::IsValidQuestForPlayer(PlayerTypes ePlayer, MinorCivQuestTypes
 		if(eMostRecentBully == NO_PLAYER)
 			return false;
 
+#if defined(MOD_SP_UNIQUE_CITYSTATE)
+		// Jerusalem CS UA: the bully cannot be denounced by anyone, so this quest would be
+		// impossible to complete - don't offer it.
+		if(MOD_SP_UNIQUE_CITYSTATE && GET_PLAYER(eMostRecentBully).IsDenounceImmunity())
+			return false;
+#endif
+
 		// This player must not be the most recent bully
 		if(eMostRecentBully == ePlayer)
 			return false;

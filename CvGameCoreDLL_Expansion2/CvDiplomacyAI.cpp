@@ -11402,7 +11402,9 @@ void CvDiplomacyAI::DoSendStatementToPlayer(PlayerTypes ePlayer, DiploStatementT
 		LogDenounce(ePlayer);
 
 		// Send message to human
-		if(bShouldShowLeaderScene)
+		// Jerusalem CS UA: DoDenouncePlayer dropped this denouncement, so there is nothing to announce.
+		// Showing the scene anyway is exactly what makes the AI look like it denounces every turn.
+		if(bShouldShowLeaderScene && !(MOD_SP_UNIQUE_CITYSTATE && GET_PLAYER(ePlayer).IsDenounceImmunity()))
 		{
 #if defined(MOD_DIPLOMACY_STFU)
 			SendAILeaderMessage(GetPlayer()->GetID(), ePlayer, DIPLO_UI_STATE_BLANK_DISCUSSION_MEAN_AI, DIPLO_MESSAGE_WORK_AGAINST_SOMEONE, ePlayer, LEADERHEAD_ANIM_HATE_NEGATIVE);
@@ -11424,7 +11426,8 @@ void CvDiplomacyAI::DoSendStatementToPlayer(PlayerTypes ePlayer, DiploStatementT
 		LogDenounce(ePlayer, /*bBackstab*/ true);
 
 		// Send message to human
-		if(bShouldShowLeaderScene)
+		// Jerusalem CS UA: the backstab was dropped above (the friendship survives), so don't announce it.
+		if(bShouldShowLeaderScene && !(MOD_SP_UNIQUE_CITYSTATE && GET_PLAYER(ePlayer).IsDenounceImmunity()))
 		{
 #if defined(MOD_DIPLOMACY_STFU)
 			SendAILeaderMessage(GetPlayer()->GetID(), ePlayer, DIPLO_UI_STATE_BLANK_DISCUSSION, DIPLO_MESSAGE_AI_DOF_BACKSTAB, ePlayer, LEADERHEAD_ANIM_HATE_NEGATIVE);
@@ -22006,6 +22009,12 @@ int CvDiplomacyAI::GetNumDoF()
 bool CvDiplomacyAI::IsDenounceFriendAcceptable(PlayerTypes ePlayer)
 {
 	CvAssertMsg(IsDoFAccepted(ePlayer), "Diplomacy AI: Testing whether we should Denounce a Friend, but we aren't right now. Please send Jon this with your last 5 autosaves and what changelist # you're playing.");
+#if defined(MOD_SP_UNIQUE_CITYSTATE)
+	// Jerusalem CS UA: a denounce-immune player cannot be backstabbed either. Returning false here
+	// keeps the friendship intact instead of re-sending the failed backstab statement every turn.
+	if (MOD_SP_UNIQUE_CITYSTATE && GET_PLAYER(ePlayer).IsDenounceImmunity())
+		return false;
+#endif
 
 	// Changed our approach towards ePlayer
 	MajorCivApproachTypes eTrueApproach = GetMajorCivApproach(ePlayer, /*bHideTrueFeelings*/ false);
@@ -22246,6 +22255,14 @@ bool CvDiplomacyAI::IsDenounceAcceptable(PlayerTypes ePlayer, bool bBias)
 	{
 		return false;
 	}
+#if defined(MOD_SP_UNIQUE_CITYSTATE)
+	// Jerusalem CS UA: the ally of a DenounceImmunity city-state cannot be denounced. DoDenouncePlayer
+	// drops the denouncement itself, but the decision layer must agree as well - otherwise the AI
+	// keeps picking the denounce statement that then silently fails (a friend backstab gets
+	// re-sent every single turn, because the failed denounce never breaks the friendship).
+	if (MOD_SP_UNIQUE_CITYSTATE && GET_PLAYER(ePlayer).IsDenounceImmunity())
+		return false;
+#endif
 
 	// If we've already denounced, it's no good
 	if(IsDenouncedPlayer(ePlayer))
@@ -22473,6 +22490,12 @@ PlayerTypes CvDiplomacyAI::GetRequestFriendToDenounce(PlayerTypes ePlayer, bool&
 		// Don't pick someone they've already denounced
 		if(pTheirAI->IsDenouncedPlayer(eLoopPlayer))
 			continue;
+#if defined(MOD_SP_UNIQUE_CITYSTATE)
+		// Jerusalem CS UA: nobody can denounce this player, so asking a friend to do it would only
+		// earn a refusal (and the refusal penalty attached to it).
+		if (MOD_SP_UNIQUE_CITYSTATE && GET_PLAYER(eLoopPlayer).IsDenounceImmunity())
+			continue;
+#endif
 
 		// Only look at players we've denounced, or at war with
 		if(!IsAtWar(eLoopPlayer) && !IsDenouncedPlayer(eLoopPlayer))
@@ -25760,6 +25783,8 @@ void CvDiplomacyAI::DoCityStateQuestAI()
 				&& eTarget >= 0 && eTarget < MAX_MAJOR_CIVS
 				&& !IsCityStateQuestTargetExempt(eTarget)
 				&& !IsDenouncedPlayer(eTarget)
+				// Jerusalem CS UA: the denouncement is impossible, retrying it every turn is pointless
+				&& !(MOD_SP_UNIQUE_CITYSTATE && GET_PLAYER(eTarget).IsDenounceImmunity())
 				&& IsPreparingAttackOnPlayer(eTarget))
 			{
 				DoDenouncePlayer(eTarget);

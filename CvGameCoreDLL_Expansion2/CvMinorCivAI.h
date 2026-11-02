@@ -208,6 +208,9 @@ enum EconomicAidTerminationReason
 	ECON_AID_TERM_ALLY_PACT,     // city-state joined via ally pact: terminate without penalty, can rejoin this round after peace
 };
 
+// Number of cities a city-state spread-building quest asks the player to build the building in
+#define MINOR_CIV_QUEST_SPREAD_BUILDING_CITIES 3
+
 class CvMinorCivAI
 {
 public:
@@ -380,7 +383,7 @@ public:
 	UnitTypes GetBestGreatPersonForQuest(PlayerTypes ePlayer);
 	TechTypes GetBestTechForQuest(PlayerTypes ePlayer);
 	BuildingTypes GetBestNationalWonderForQuest(PlayerTypes ePlayer);
-	BuildingTypes GetBestBuildingForQuest(PlayerTypes ePlayer, int iTargetCities = 3);
+	BuildingTypes GetBestBuildingForQuest(PlayerTypes ePlayer, int iTargetCities = MINOR_CIV_QUEST_SPREAD_BUILDING_CITIES);
 	PlayerTypes GetBestCityStateToFind(PlayerTypes ePlayer);
 	PlayerTypes GetBestTradeRouteTargetForQuest(PlayerTypes ePlayer);
 	PlayerTypes GetBestWarTargetForQuest(PlayerTypes ePlayer);

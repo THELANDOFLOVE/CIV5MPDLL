@@ -1713,7 +1713,7 @@ void CvMinorCivQuest::DoStartQuest(int iStartTurn, PlayerTypes eForcedTarget)
 	else if(m_eType == MINOR_CIV_QUEST_SPREAD_BUILDING)
 	{
 		BuildingTypes eBuilding = pMinor->GetMinorCivAI()->GetBestBuildingForQuest(m_eAssignedPlayer);
-		int iTargetCities = 3;
+		int iTargetCities = MINOR_CIV_QUEST_SPREAD_BUILDING_CITIES;
 
 		FAssertMsg(eBuilding != NO_BUILDING, "MINOR CIV AI: For some reason we got NO_BUILDING when starting a quest for a major to spread a Building.");
 
@@ -6630,6 +6630,11 @@ void CvMinorCivAI::CancelBannedBuildingQuests()
 
 		if (bCancelSpreadBuilding)
 			CancelQuestForPlayer(ePlayer, MINOR_CIV_QUEST_SPREAD_BUILDING);
+
+		// Both are personal quests: reseed the countdown like the normal cleanup path does, so the
+		// city-state does not hand out a replacement quest to the same player in the same turn.
+		if (bCancelNationalWonder || bCancelSpreadBuilding)
+			DoTestSeedQuestCountdownForPlayer(ePlayer);
 	}
 }
 
@@ -7335,43 +7340,6 @@ TechTypes CvMinorCivAI::GetBestTechForQuest(PlayerTypes ePlayer)
 	return eBestTech;
 }
 
-/// SP: does this city satisfy the building's city-level requirements? CvPlayer::canConstruct only
-/// checks player-level requirements, so city prerequisites (Building_ClassesNeededInCity, e.g. the
-/// city-size gate on the specialist foundations) have to be tested per city.
-static bool DoesCityMeetBuildingPrereqs(const CvCity* pCity, CvBuildingEntry* pkBuildingInfo)
-{
-	if (pCity == NULL || pkBuildingInfo == NULL)
-		return false;
-
-	const CvPlayer& kOwner = GET_PLAYER(pCity->getOwner());
-
-	for (auto iBuildingClass : pkBuildingInfo->GetBuildingClassesNeededInCity())
-	{
-		if (pCity->GetNumBuildingClass((BuildingClassTypes)iBuildingClass) <= 0)
-			return false;
-	}
-
-	for (auto iBuildingClass : pkBuildingInfo->GetBuildingClassesNeededGlobal())
-	{
-		if (kOwner.getBuildingClassCount((BuildingClassTypes)iBuildingClass) <= 0)
-			return false;
-	}
-
-	for (auto iBuilding : pkBuildingInfo->GetBuildingsNeededInCity())
-	{
-		if (pCity->GetCityBuildings()->GetNumBuilding((BuildingTypes)iBuilding) <= 0)
-			return false;
-	}
-
-	for (auto iBuilding : pkBuildingInfo->GetBuildingsNeededGlobal())
-	{
-		if (kOwner.countNumBuildings((BuildingTypes)iBuilding) <= 0)
-			return false;
-	}
-
-	return true;
-}
-
 /// Best national wonder for a Quest given to ePlayer?
 BuildingTypes CvMinorCivAI::GetBestNationalWonderForQuest(PlayerTypes ePlayer)
 {
@@ -7398,9 +7366,10 @@ BuildingTypes CvMinorCivAI::GetBestNationalWonderForQuest(PlayerTypes ePlayer)
 		if (MOD_SP_UNIQUE_CITYSTATE && pkBuildingInfo->IsBannedCityStateQuest())
 			continue;
 
-		// SP: a city-level prerequisite (city size, per-city building) is invisible to the player-level
-		// check above, so only offer the quest when a city can actually satisfy it right now - otherwise
-		// the quest can be impossible (the level-3 specialist foundations need an 80-population city).
+		// SP: CvPlayer::canConstruct only checks player-level requirements, so a city-level one (city size,
+		// per-city prerequisites, coastal/mountain location, local resources, ...) can make the quest
+		// impossible - the level-3 specialist foundations need an 80-population city, for instance.
+		// Only offer the quest when one of the player's cities can construct the building right now.
 		if (MOD_SP_UNIQUE_CITYSTATE)
 		{
 			CvPlayer& kQuestPlayer = GET_PLAYER(ePlayer);
@@ -7409,7 +7378,7 @@ BuildingTypes CvMinorCivAI::GetBestNationalWonderForQuest(PlayerTypes ePlayer)
 
 			for (CvCity* pLoopCity = kQuestPlayer.firstCity(&iCityLoop); pLoopCity != NULL; pLoopCity = kQuestPlayer.nextCity(&iCityLoop))
 			{
-				if (DoesCityMeetBuildingPrereqs(pLoopCity, pkBuildingInfo))
+				if (pLoopCity->canConstruct(eBuilding))
 				{
 					bSomeCityCanBuild = true;
 					break;
@@ -7469,23 +7438,33 @@ BuildingTypes CvMinorCivAI::GetBestBuildingForQuest(PlayerTypes ePlayer, int iTa
 		if (MOD_SP_UNIQUE_CITYSTATE && pkBuildingInfo->IsBannedCityStateQuest())
 			continue;
 
-		// SP: the quest asks us to spread this building to iTargetCities cities, so require that many
-		// cities that already have it or can satisfy its city-level prerequisites; otherwise the quest
-		// can be impossible within its time limit.
+		// SP: the quest asks us to spread this building to iTargetCities cities. Require that many cities
+		// that already have it or can construct it right now - CvPlayer::canConstruct alone would accept
+		// targets the player cannot build in enough cities (city-level requirements are invisible to it).
 		if (MOD_SP_UNIQUE_CITYSTATE)
 		{
 			CvPlayer& kQuestPlayer = GET_PLAYER(ePlayer);
+			int iExistingCities = 0;
 			int iPotentialCities = 0;
 			int iCityLoop;
 
 			for (CvCity* pLoopCity = kQuestPlayer.firstCity(&iCityLoop); pLoopCity != NULL; pLoopCity = kQuestPlayer.nextCity(&iCityLoop))
 			{
-				if (pLoopCity->GetCityBuildings()->GetNumRealBuilding(eBuilding) > 0
-					|| DoesCityMeetBuildingPrereqs(pLoopCity, pkBuildingInfo))
+				if (pLoopCity->GetCityBuildings()->GetNumRealBuilding(eBuilding) > 0)
+				{
+					iExistingCities++;
+					iPotentialCities++;
+				}
+				else if (pLoopCity->canConstruct(eBuilding))
 				{
 					iPotentialCities++;
 				}
 			}
+
+			// Already spread far enough? The quest would complete on the next turn and just hand out
+			// free influence, so don't offer it.
+			if (iExistingCities >= iTargetCities)
+				continue;
 
 			if (iPotentialCities < iTargetCities)
 				continue;

@@ -398,6 +398,7 @@ public:
 	bool IsMapCentering() const;
 	bool IsNeverCapture() const;
 	bool IsNukeImmune() const;
+	bool IsBannedCityStateQuest() const;
 	bool IsExtraAttackOnKill() const;
 	bool IsForbiddenForeignSpy() const;
 	bool IsForbiddenForeignSpyGlobal() const;
@@ -902,6 +903,7 @@ private:
 	bool m_bMapCentering;
 	bool m_bNeverCapture;
 	bool m_bNukeImmune;
+	bool m_bBannedCityStateQuest;
 	bool m_bExtraAttackOnKill;
 	bool m_bIsForbiddenForeignSpy;
 	bool m_bIsForbiddenForeignSpyGlobal;

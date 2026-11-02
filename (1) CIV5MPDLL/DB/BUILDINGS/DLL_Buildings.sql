@@ -492,3 +492,7 @@ create table Building_AdjacentImprovementYieldChangesGlobal (
 );
 alter table Buildings add column FollowerCountDamageModifier integer default 0;
 alter table Buildings add column FollowingCityCountDamageModifier integer default 0;
+
+-- City-state quests: a building marked here is never picked as a quest target (e.g. a national wonder
+-- destroyed on construction, which can never satisfy the "player owns it" completion test)
+alter table Buildings add column BannedCityStateQuest boolean default 0;

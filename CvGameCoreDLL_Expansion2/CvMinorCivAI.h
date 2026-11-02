@@ -342,6 +342,7 @@ public:
 
 	// SP extended quests: drop a single active quest of the given type from the player's list
 	void CancelQuestForPlayer(PlayerTypes ePlayer, MinorCivQuestTypes eType);
+	void CancelBannedBuildingQuests();
 
 	int GetNumDisplayedQuestsForPlayer(PlayerTypes ePlayer);
 	bool IsDisplayedQuestForPlayer(PlayerTypes ePlayer, MinorCivQuestTypes eType);
@@ -379,7 +380,7 @@ public:
 	UnitTypes GetBestGreatPersonForQuest(PlayerTypes ePlayer);
 	TechTypes GetBestTechForQuest(PlayerTypes ePlayer);
 	BuildingTypes GetBestNationalWonderForQuest(PlayerTypes ePlayer);
-	BuildingTypes GetBestBuildingForQuest(PlayerTypes ePlayer);
+	BuildingTypes GetBestBuildingForQuest(PlayerTypes ePlayer, int iTargetCities = 3);
 	PlayerTypes GetBestCityStateToFind(PlayerTypes ePlayer);
 	PlayerTypes GetBestTradeRouteTargetForQuest(PlayerTypes ePlayer);
 	PlayerTypes GetBestWarTargetForQuest(PlayerTypes ePlayer);

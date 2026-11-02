@@ -4611,6 +4611,10 @@ void CvMinorCivAI::DoTurnQuests()
 	// ********************
 	// Check Current Quests
 	// ********************
+#if defined(MOD_SP_UNIQUE_CITYSTATE)
+	// SP: drop building quests whose target can never be completed (legacy saves and banned targets)
+	CancelBannedBuildingQuests();
+#endif
 	DoTestActiveQuests(/*bTestComplete*/ true, /*bTestObsolete*/ true);
 	DoQuestsCleanup();
 
@@ -6589,6 +6593,46 @@ void CvMinorCivAI::EndAllActiveQuestsForPlayer(PlayerTypes ePlayer)
 		m_QuestsGiven[ePlayer].clear();
 }
 
+// SP: silently drop building quests whose target is banned as a quest target (e.g. a national wonder
+// destroyed on construction). Such a quest can never be completed, and older saves may still hold one.
+void CvMinorCivAI::CancelBannedBuildingQuests()
+{
+	if (!MOD_SP_UNIQUE_CITYSTATE)
+		return;
+
+	for (int iPlayerLoop = 0; iPlayerLoop < MAX_MAJOR_CIVS; iPlayerLoop++)
+	{
+		PlayerTypes ePlayer = (PlayerTypes)iPlayerLoop;
+
+		bool bCancelNationalWonder = false;
+		bool bCancelSpreadBuilding = false;
+
+		for (uint iQuestLoop = 0; iQuestLoop < m_QuestsGiven[ePlayer].size(); iQuestLoop++)
+		{
+			const CvMinorCivQuest& kQuest = m_QuestsGiven[ePlayer][iQuestLoop];
+
+			MinorCivQuestTypes eQuest = kQuest.GetType();
+			if (eQuest != MINOR_CIV_QUEST_CONSTRUCT_NATIONAL_WONDER && eQuest != MINOR_CIV_QUEST_SPREAD_BUILDING)
+				continue;
+
+			CvBuildingEntry* pkBuildingInfo = GC.getBuildingInfo((BuildingTypes)kQuest.GetPrimaryData());
+			if (pkBuildingInfo == NULL || !pkBuildingInfo->IsBannedCityStateQuest())
+				continue;
+
+			if (eQuest == MINOR_CIV_QUEST_CONSTRUCT_NATIONAL_WONDER)
+				bCancelNationalWonder = true;
+			else
+				bCancelSpreadBuilding = true;
+		}
+
+		if (bCancelNationalWonder)
+			CancelQuestForPlayer(ePlayer, MINOR_CIV_QUEST_CONSTRUCT_NATIONAL_WONDER);
+
+		if (bCancelSpreadBuilding)
+			CancelQuestForPlayer(ePlayer, MINOR_CIV_QUEST_SPREAD_BUILDING);
+	}
+}
+
 // SP extended quests: silently drop a single active quest of the given type (no notification, no reward)
 void CvMinorCivAI::CancelQuestForPlayer(PlayerTypes ePlayer, MinorCivQuestTypes eType)
 {
@@ -7291,6 +7335,43 @@ TechTypes CvMinorCivAI::GetBestTechForQuest(PlayerTypes ePlayer)
 	return eBestTech;
 }
 
+/// SP: does this city satisfy the building's city-level requirements? CvPlayer::canConstruct only
+/// checks player-level requirements, so city prerequisites (Building_ClassesNeededInCity, e.g. the
+/// city-size gate on the specialist foundations) have to be tested per city.
+static bool DoesCityMeetBuildingPrereqs(const CvCity* pCity, CvBuildingEntry* pkBuildingInfo)
+{
+	if (pCity == NULL || pkBuildingInfo == NULL)
+		return false;
+
+	const CvPlayer& kOwner = GET_PLAYER(pCity->getOwner());
+
+	for (auto iBuildingClass : pkBuildingInfo->GetBuildingClassesNeededInCity())
+	{
+		if (pCity->GetNumBuildingClass((BuildingClassTypes)iBuildingClass) <= 0)
+			return false;
+	}
+
+	for (auto iBuildingClass : pkBuildingInfo->GetBuildingClassesNeededGlobal())
+	{
+		if (kOwner.getBuildingClassCount((BuildingClassTypes)iBuildingClass) <= 0)
+			return false;
+	}
+
+	for (auto iBuilding : pkBuildingInfo->GetBuildingsNeededInCity())
+	{
+		if (pCity->GetCityBuildings()->GetNumBuilding((BuildingTypes)iBuilding) <= 0)
+			return false;
+	}
+
+	for (auto iBuilding : pkBuildingInfo->GetBuildingsNeededGlobal())
+	{
+		if (kOwner.countNumBuildings((BuildingTypes)iBuilding) <= 0)
+			return false;
+	}
+
+	return true;
+}
+
 /// Best national wonder for a Quest given to ePlayer?
 BuildingTypes CvMinorCivAI::GetBestNationalWonderForQuest(PlayerTypes ePlayer)
 {
@@ -7312,6 +7393,34 @@ BuildingTypes CvMinorCivAI::GetBestNationalWonderForQuest(PlayerTypes ePlayer)
 		if(!GET_PLAYER(ePlayer).canConstruct(eBuilding))
 			continue;
 
+#if defined(MOD_SP_UNIQUE_CITYSTATE)
+		// SP: never hand out a quest for a building that is banned as a quest target.
+		if (MOD_SP_UNIQUE_CITYSTATE && pkBuildingInfo->IsBannedCityStateQuest())
+			continue;
+
+		// SP: a city-level prerequisite (city size, per-city building) is invisible to the player-level
+		// check above, so only offer the quest when a city can actually satisfy it right now - otherwise
+		// the quest can be impossible (the level-3 specialist foundations need an 80-population city).
+		if (MOD_SP_UNIQUE_CITYSTATE)
+		{
+			CvPlayer& kQuestPlayer = GET_PLAYER(ePlayer);
+			bool bSomeCityCanBuild = false;
+			int iCityLoop;
+
+			for (CvCity* pLoopCity = kQuestPlayer.firstCity(&iCityLoop); pLoopCity != NULL; pLoopCity = kQuestPlayer.nextCity(&iCityLoop))
+			{
+				if (DoesCityMeetBuildingPrereqs(pLoopCity, pkBuildingInfo))
+				{
+					bSomeCityCanBuild = true;
+					break;
+				}
+			}
+
+			if (!bSomeCityCanBuild)
+				continue;
+		}
+#endif
+
 		veValidBuildings.push_back(eBuilding);
 	}
 
@@ -7323,7 +7432,7 @@ BuildingTypes CvMinorCivAI::GetBestNationalWonderForQuest(PlayerTypes ePlayer)
 }
 
 /// Best ordinary building for a Quest given to ePlayer (one that any city could construct)?
-BuildingTypes CvMinorCivAI::GetBestBuildingForQuest(PlayerTypes ePlayer)
+BuildingTypes CvMinorCivAI::GetBestBuildingForQuest(PlayerTypes ePlayer, int iTargetCities)
 {
 	FStaticVector<BuildingTypes, 100, true, c_eCiv5GameplayDLL, 0> veValidBuildings;
 
@@ -7354,6 +7463,34 @@ BuildingTypes CvMinorCivAI::GetBestBuildingForQuest(PlayerTypes ePlayer)
 		// Must be able to build it
 		if(!GET_PLAYER(ePlayer).canConstruct(eBuilding))
 			continue;
+
+#if defined(MOD_SP_UNIQUE_CITYSTATE)
+		// SP: skip buildings marked as banned quest targets.
+		if (MOD_SP_UNIQUE_CITYSTATE && pkBuildingInfo->IsBannedCityStateQuest())
+			continue;
+
+		// SP: the quest asks us to spread this building to iTargetCities cities, so require that many
+		// cities that already have it or can satisfy its city-level prerequisites; otherwise the quest
+		// can be impossible within its time limit.
+		if (MOD_SP_UNIQUE_CITYSTATE)
+		{
+			CvPlayer& kQuestPlayer = GET_PLAYER(ePlayer);
+			int iPotentialCities = 0;
+			int iCityLoop;
+
+			for (CvCity* pLoopCity = kQuestPlayer.firstCity(&iCityLoop); pLoopCity != NULL; pLoopCity = kQuestPlayer.nextCity(&iCityLoop))
+			{
+				if (pLoopCity->GetCityBuildings()->GetNumRealBuilding(eBuilding) > 0
+					|| DoesCityMeetBuildingPrereqs(pLoopCity, pkBuildingInfo))
+				{
+					iPotentialCities++;
+				}
+			}
+
+			if (iPotentialCities < iTargetCities)
+				continue;
+		}
+#endif
 
 		veValidBuildings.push_back(eBuilding);
 	}

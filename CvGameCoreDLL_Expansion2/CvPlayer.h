@@ -2232,6 +2232,10 @@ public:
 	void DoConcubineAdviceTurn();
 	// A palace performance: senior consorts bring culture to the capital.
 	void DoConcubinePerformTurn();
+	// A small keepsake, worth gold, culture or mandate depending on her origins.
+	void DoConcubineCraftTurn();
+	// Consorts from the same background draw each other's favour upward.
+	void DoConcubineBondTurn();
 	// Template field from SQL: 0 name key, 1 origin index, 2 temperament,
 	// 3 portrait path, 4 story key.
 	CvString GetConcubineTemplateField(int iTemplate, int iField) const;

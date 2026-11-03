@@ -5623,6 +5623,8 @@ void CvPlayer::doTurn()
 		DoConcubineAdviceTurn();
 		DoConcubineWishTurn();
 		DoConcubinePerformTurn();
+		DoConcubineCraftTurn();
+		DoConcubineBondTurn();
 		DoVassalLoyaltyDecay();
 		DoVassalRevoltCheck();
 		DoVassalOverlordVictoryCheck();
@@ -44949,14 +44951,30 @@ bool CvPlayer::FavorConcubine(int iIndex)
 	if (!MOD_GLOBAL_SUZERAIN) return false;
 	if (iIndex < 0 || iIndex >= GetConcubineCount()) return false;
 
-	int iBase = iIndex * 4;
+	int iOldRank = GetConcubineRank(iIndex);
 	int iTurn = GC.getGame().getGameTurn();
 
-	int iStride = 5;
-	iBase = iIndex * iStride;
+	int iBase = iIndex * 5;
 	m_aiConcubines.setAt((size_t)(iBase + 2), m_aiConcubines[iBase + 2] + 1);
 	m_aiConcubines.setAt((size_t)(iBase + 3), iTurn);
 	ChangeConcubineFavor(iIndex, SuzerainDefineInt("SUZERAIN_CONCUBINE_FAVOR_FAVOUR"));
+
+	// Reaching the top rank earns a title, granted once at the crossing.
+	if (iOldRank < 4 && GetConcubineRank(iIndex) >= 4)
+	{
+		ChangeMandate(SuzerainDefineInt("SUZERAIN_CONCUBINE_TITLE_MANDATE"));
+		if (isHuman() && GetNotifications())
+		{
+			int iTitle = ((GetConcubineField(iIndex, 0) - 1) % 8) + 1;
+			CvString szTitleKey = CvString::format("TXT_KEY_TIANDAO_CONCUBINE_TITLE_%d", iTitle);
+			CvString szName = GetConcubineTemplateField(GetConcubineField(iIndex, 0), 0);
+			Localization::String sMsg = Localization::Lookup("TXT_KEY_NOTIFICATION_CONCUBINE_TITLE");
+			sMsg << szName.c_str();
+			sMsg << szTitleKey.c_str();
+			Localization::String sSum = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_CONCUBINE_TITLE");
+			GetNotifications()->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), -1, -1, -1);
+		}
+	}
 
 	// Only the first favour of a turn earns loyalty for the source vassal.
 	if (m_iFavourBonusTurn != iTurn)
@@ -45029,9 +45047,13 @@ void CvPlayer::DoConcubineTurn()
 		int iEmpress = GetEmpress();
 		int iEmpMult = SuzerainDefineInt("SUZERAIN_CONCUBINE_EMPRESS_MULTIPLIER");
 		if (iEmpMult <= 0) iEmpMult = 2;
+		int iTitlePer = SuzerainDefineInt("SUZERAIN_CONCUBINE_TITLE_MANDATE_TURN");
 		int iTotal = 0;
 		for (int i = 0; i < iCount; i++)
+		{
 			iTotal += (i == iEmpress) ? iPer * iEmpMult : iPer;
+			if (GetConcubineRank(i) >= 4) iTotal += iTitlePer;
+		}
 		if (iTotal > 0) ChangeMandate(iTotal);
 	}
 
@@ -45481,6 +45503,126 @@ void CvPlayer::DoConcubinePerformTurn()
 		sMsg << iTotal;
 		Localization::String sSum = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_CONCUBINE_PERFORM");
 		GetNotifications()->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), pCapital->getX(), pCapital->getY(), -1);
+	}
+}
+
+//--------------------------------------------------------------------------------
+// A keepsake from the palace. What the concubine can make depends on where she
+// came from: merchant and commoner origins turn into gold, noble and artistic
+// ones into culture, and the rest into mandate. Rank multiplies the value.
+void CvPlayer::DoConcubineCraftTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (!IsSuzerainCiv()) return;
+
+	int iCount = GetConcubineCount();
+	if (iCount <= 0) return;
+
+	int iEvery = SuzerainDefineInt("SUZERAIN_CONCUBINE_CRAFT_INTERVAL");
+	if (iEvery <= 0) iEvery = 30;
+	if ((GC.getGame().getGameTurn() % iEvery) != 0) return;
+
+	int iPick = GC.getGame().getJonRandNum(iCount, "Concubine craft");
+	int iOrigin = atoi(GetConcubineTemplateField(GetConcubineField(iPick, 0), 1).c_str());
+	int iMult = GetConcubineRank(iPick) + 1;
+	CvString szName = GetConcubineTemplateField(GetConcubineField(iPick, 0), 0);
+
+	// 1 gold, 2 culture, 3 mandate.
+	int iKind = 3;
+	if (iOrigin == 4 || iOrigin == 5 || iOrigin == 6) iKind = 1;
+	else if (iOrigin == 1 || iOrigin == 2 || iOrigin == 10) iKind = 2;
+
+	if (iKind == 1)
+	{
+		int iGold = SuzerainDefineInt("SUZERAIN_CONCUBINE_CRAFT_GOLD") * iMult;
+		GetTreasury()->ChangeGold(iGold);
+		if (isHuman() && GetNotifications())
+		{
+			Localization::String sMsg = Localization::Lookup("TXT_KEY_NOTIFICATION_CONCUBINE_CRAFT_GOLD");
+			sMsg << szName.c_str();
+			sMsg << iGold;
+			Localization::String sSum = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_CONCUBINE_CRAFT");
+			GetNotifications()->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), -1, -1, -1);
+		}
+	}
+	else if (iKind == 2)
+	{
+		CvCity* pCapital = getCapitalCity();
+		if (pCapital == NULL) return;
+		int iCulture = SuzerainDefineInt("SUZERAIN_CONCUBINE_CRAFT_CULTURE") * iMult;
+		pCapital->ChangeJONSCultureStored(iCulture);
+		if (isHuman() && GetNotifications())
+		{
+			Localization::String sMsg = Localization::Lookup("TXT_KEY_NOTIFICATION_CONCUBINE_CRAFT_CULTURE");
+			sMsg << szName.c_str();
+			sMsg << pCapital->getNameKey();
+			sMsg << iCulture;
+			Localization::String sSum = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_CONCUBINE_CRAFT");
+			GetNotifications()->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), pCapital->getX(), pCapital->getY(), -1);
+		}
+	}
+	else
+	{
+		int iMandate = SuzerainDefineInt("SUZERAIN_CONCUBINE_CRAFT_MANDATE") * iMult;
+		ChangeMandate(iMandate);
+		if (isHuman() && GetNotifications())
+		{
+			Localization::String sMsg = Localization::Lookup("TXT_KEY_NOTIFICATION_CONCUBINE_CRAFT_MANDATE");
+			sMsg << szName.c_str();
+			sMsg << iMandate;
+			Localization::String sSum = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_CONCUBINE_CRAFT");
+			GetNotifications()->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), -1, -1, -1);
+		}
+	}
+
+	ChangeConcubineFavor(iPick, SuzerainDefineInt("SUZERAIN_CONCUBINE_CRAFT_FAVOR"));
+}
+
+//--------------------------------------------------------------------------------
+// Consorts from the same background keep company. Every few turns the most
+// favoured woman of each origin draws the others up a little, up to her own
+// level. This makes a wide palace easier to keep content, but only once one of
+// each background is already well treated.
+void CvPlayer::DoConcubineBondTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (!IsSuzerainCiv()) return;
+
+	int iCount = GetConcubineCount();
+	if (iCount <= 1) return;
+
+	int iEvery = SuzerainDefineInt("SUZERAIN_CONCUBINE_BOND_INTERVAL");
+	if (iEvery <= 0) iEvery = 10;
+	if ((GC.getGame().getGameTurn() % iEvery) != 0) return;
+
+	int iPull = SuzerainDefineInt("SUZERAIN_CONCUBINE_BOND_PULL");
+	int iMinFavor = SuzerainDefineInt("SUZERAIN_CONCUBINE_BOND_MIN_FAVOR");
+	if (iPull <= 0) return;
+
+	std::vector<int> vOrigin;
+	for (int i = 0; i < iCount; i++)
+		vOrigin.push_back(atoi(GetConcubineTemplateField(GetConcubineField(i, 0), 1).c_str()));
+
+	for (int origin = 1; origin <= 10; origin++)
+	{
+		int iBest = -1;
+		for (int i = 0; i < iCount; i++)
+		{
+			if (vOrigin[i] != origin) continue;
+			if (iBest < 0 || GetConcubineFavor(i) > GetConcubineFavor(iBest)) iBest = i;
+		}
+		if (iBest < 0) continue;
+
+		int iTop = GetConcubineFavor(iBest);
+		if (iTop < iMinFavor) continue;
+
+		for (int i = 0; i < iCount; i++)
+		{
+			if (i == iBest || vOrigin[i] != origin) continue;
+			int iGain = iTop - GetConcubineFavor(i);
+			if (iGain <= 0) continue;
+			ChangeConcubineFavor(i, iGain < iPull ? iGain : iPull);
+		}
 	}
 }
 

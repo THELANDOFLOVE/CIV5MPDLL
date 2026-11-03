@@ -45323,7 +45323,20 @@ void CvPlayer::DoConcubineTurn()
 			if (eV != NO_PLAYER && IsLiveVassal(eV)) continue;
 			ChangeConcubineFavor(i, iHostageDecay);
 			if (GetConcubineFavor(i) <= 0)
+			{
+				if (isHuman() && GetNotifications())
+				{
+					CvString szName = GetConcubineTemplateField(GetConcubineField(i, 0), 0);
+					bool bWasEmpress = (GetEmpress() == i);
+					Localization::String sMsg = Localization::Lookup(bWasEmpress
+						? "TXT_KEY_NOTIFICATION_CONCUBINE_GONE_EMPRESS"
+						: "TXT_KEY_NOTIFICATION_CONCUBINE_GONE");
+					sMsg << szName.c_str();
+					Localization::String sSum = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_CONCUBINE_GONE");
+					GetNotifications()->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), -1, -1, -1);
+				}
 				RemoveConcubine(i);
+			}
 		}
 		iCount = GetConcubineCount();
 		if (iCount <= 0) return;

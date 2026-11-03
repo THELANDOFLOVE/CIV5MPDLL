@@ -2230,6 +2230,8 @@ public:
 	void DoConcubineWishTurn();
 	// Periodic counsel from a random concubine.
 	void DoConcubineAdviceTurn();
+	// A palace performance: senior consorts bring culture to the capital.
+	void DoConcubinePerformTurn();
 	// Template field from SQL: 0 name key, 1 origin index, 2 temperament,
 	// 3 portrait path, 4 story key.
 	CvString GetConcubineTemplateField(int iTemplate, int iField) const;

@@ -5622,6 +5622,7 @@ void CvPlayer::doTurn()
 		DoOfferConcubineTurn();
 		DoConcubineAdviceTurn();
 		DoConcubineWishTurn();
+		DoConcubinePerformTurn();
 		DoVassalLoyaltyDecay();
 		DoVassalRevoltCheck();
 		DoVassalOverlordVictoryCheck();
@@ -35720,6 +35721,30 @@ void CvPlayer::DoVassalBreachTurn()
 			ChangeVassalBreachCount(eVassal, bAgainstVassal ? iVassalAttackBreach : iUnauthorizedBreach);
 			if (iLoyaltyPenalty != 0)
 				ChangeVassalLoyalty(eVassal, iLoyaltyPenalty);
+
+			// A well-placed daughter learns of the private war and tells us whom
+			// her homeland is fighting, like a spy's report.
+			int iWarnFavor = SuzerainDefineInt("SUZERAIN_CONCUBINE_WARN_FAVOR");
+			if (iWarnFavor <= 0) iWarnFavor = 80;
+			for (int c = 0; c < GetConcubineCount(); c++)
+			{
+				if (GetConcubineField(c, 1) != (int)eVassal) continue;
+				if (GetConcubineFavor(c) < iWarnFavor) continue;
+
+				if (isHuman() && GetNotifications())
+				{
+					CvString szName = GetConcubineTemplateField(GetConcubineField(c, 0), 0);
+					Localization::String sMsg = Localization::Lookup(
+						bAgainstVassal ? "TXT_KEY_NOTIFICATION_CONCUBINE_WARN_FELLOW_VASSAL"
+						: "TXT_KEY_NOTIFICATION_CONCUBINE_WARN_PRIVATE_WAR");
+					sMsg << szName.c_str();
+					sMsg << GET_PLAYER(eVassal).getCivilizationShortDescriptionKey();
+					sMsg << GET_PLAYER(GET_TEAM(eEnemy).getLeaderID()).getCivilizationShortDescriptionKey();
+					Localization::String sSum = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_CONCUBINE_WARN_WAR");
+					GetNotifications()->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), -1, -1, eVassal);
+				}
+				break;
+			}
 		}
 
 		if (iThreshold > 0
@@ -35998,6 +36023,9 @@ void CvPlayer::DoVassalRevoltCheck()
 					Localization::String sMsg = Localization::Lookup("TXT_KEY_NOTIFICATION_CONCUBINE_WARN");
 					sMsg << szName.c_str();
 					sMsg << GET_PLAYER(eVassal).getCivilizationShortDescriptionKey();
+					sMsg << GetVassalLoyalty(eVassal);
+					sMsg << iScore;
+					sMsg << (iThreshold - iScore);
 					Localization::String sSum = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_CONCUBINE_WARN");
 					GetNotifications()->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), -1, -1, eVassal);
 				}
@@ -45416,6 +45444,43 @@ void CvPlayer::DoConcubineWishTurn()
 		if (iRoll < 40) iWish = GC.getGame().getJonRandNum(3, "Concubine wish type") + 1;
 		else if (iRoll < 70) iWish = 10;
 		if (iWish > 0) SetConcubineWish(i, iWish);
+	}
+}
+
+//--------------------------------------------------------------------------------
+// A palace performance: the consorts put on a show and the capital's culture
+// grows. Senior consorts contribute more, and the show recurs on a fixed cycle.
+void CvPlayer::DoConcubinePerformTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (!IsSuzerainCiv()) return;
+
+	int iCount = GetConcubineCount();
+	if (iCount <= 0) return;
+
+	int iEvery = SuzerainDefineInt("SUZERAIN_CONCUBINE_PERFORM_INTERVAL");
+	if (iEvery <= 0) iEvery = 20;
+	if ((GC.getGame().getGameTurn() % iEvery) != 0) return;
+
+	int iPer = SuzerainDefineInt("SUZERAIN_CONCUBINE_PERFORM_CULTURE");
+	if (iPer <= 0) return;
+
+	int iTotal = 0;
+	for (int i = 0; i < iCount; i++)
+		iTotal += iPer * (GetConcubineRank(i) + 1);
+	if (iTotal <= 0) return;
+
+	CvCity* pCapital = getCapitalCity();
+	if (pCapital == NULL) return;
+	pCapital->ChangeJONSCultureStored(iTotal);
+
+	if (isHuman() && GetNotifications())
+	{
+		Localization::String sMsg = Localization::Lookup("TXT_KEY_NOTIFICATION_CONCUBINE_PERFORM");
+		sMsg << pCapital->getNameKey();
+		sMsg << iTotal;
+		Localization::String sSum = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_CONCUBINE_PERFORM");
+		GetNotifications()->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), pCapital->getX(), pCapital->getY(), -1);
 	}
 }
 

@@ -35971,6 +35971,39 @@ void CvPlayer::DoVassalRevoltCheck()
 	{
 		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i - 1];
 
+		// A well-loved concubine hears of trouble at home long before the court
+		// does, and whispers it to her overlord.
+		int iConcubineWarnEvery = SuzerainDefineInt("SUZERAIN_CONCUBINE_WARN_INTERVAL");
+		if (iConcubineWarnEvery <= 0) iConcubineWarnEvery = 10;
+		if (iThreshold > 0 && (GC.getGame().getGameTurn() % iConcubineWarnEvery) == 0)
+		{
+			int iFavorMin = SuzerainDefineInt("SUZERAIN_CONCUBINE_WARN_FAVOR");
+			if (iFavorMin <= 0) iFavorMin = 80;
+			int iConcubineMargin = SuzerainDefineInt("SUZERAIN_CONCUBINE_WARN_MARGIN");
+			if (iConcubineMargin <= 0) iConcubineMargin = 30;
+			int iScore = GetVassalRevoltScore(eVassal);
+			// The ordinary warning covers the last stretch; this one starts earlier.
+			if (iScore >= iThreshold - iConcubineMargin && iScore < iThreshold - iMargin)
+			{
+				int iBest = -1;
+				for (int c = 0; c < GetConcubineCount(); c++)
+				{
+					if (GetConcubineField(c, 1) != (int)eVassal) continue;
+					if (GetConcubineFavor(c) < iFavorMin) continue;
+					if (iBest < 0 || GetConcubineFavor(c) > GetConcubineFavor(iBest)) iBest = c;
+				}
+				if (iBest >= 0 && isHuman() && GetNotifications())
+				{
+					CvString szName = GetConcubineTemplateField(GetConcubineField(iBest, 0), 0);
+					Localization::String sMsg = Localization::Lookup("TXT_KEY_NOTIFICATION_CONCUBINE_WARN");
+					sMsg << szName.c_str();
+					sMsg << GET_PLAYER(eVassal).getCivilizationShortDescriptionKey();
+					Localization::String sSum = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_CONCUBINE_WARN");
+					GetNotifications()->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), -1, -1, eVassal);
+				}
+			}
+		}
+
 		// A bond that is about to snap should not do so without warning. Every
 		// few turns, tell a human vassal or overlord that revolt is close.
 		int iWarnEvery = SuzerainDefineInt("SUZERAIN_REVOLT_WARN_INTERVAL");

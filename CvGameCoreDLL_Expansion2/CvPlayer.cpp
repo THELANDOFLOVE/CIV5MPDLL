@@ -36286,6 +36286,23 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 	if (bApprove && bOk)
 		ChangeDaoPoints(SuzerainDefineInt("SUZERAIN_DAO_POINT_MEMORIAL"));
 
+	// A favoured concubine from this vassal quietly pleads its case.
+	if (bApprove && bOk)
+	{
+		int iDoorFavor = SuzerainDefineInt("SUZERAIN_CONCUBINE_DOOR_FAVOR");
+		int iDoorLoyalty = SuzerainDefineInt("SUZERAIN_CONCUBINE_DOOR_LOYALTY");
+		if (iDoorFavor > 0 && iDoorLoyalty > 0)
+		{
+			for (int i = 0; i < GetConcubineCount(); i++)
+			{
+				if (GetConcubineField(i, 1) != (int)eVassal) continue;
+				if (GetConcubineFavor(i) < iDoorFavor) continue;
+				ChangeVassalLoyalty(eVassal, iDoorLoyalty);
+				break;
+			}
+		}
+	}
+
 	m_aiVassalMemorials.setAt(iStateOffset, (bApprove && bOk) ? 1 : 2);
 	return bOk;
 }

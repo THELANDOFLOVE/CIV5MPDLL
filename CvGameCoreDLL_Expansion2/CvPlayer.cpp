@@ -45255,6 +45255,69 @@ bool CvPlayer::RemoveConcubine(int iIndex)
 }
 
 //--------------------------------------------------------------------------------
+// A concubine whose homeland is dead may beg the overlord to raise it again in a
+// city he holds that was once hers. This follows the base-game liberation rule,
+// so a people we conquered or killed ourselves cannot come back this way.
+bool CvPlayer::CanRestoreConcubineHomeland(int iIndex)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (iIndex < 0 || iIndex >= GetConcubineCount()) return false;
+
+	PlayerTypes eVassal = (PlayerTypes)GetConcubineField(iIndex, 1);
+	if (eVassal == NO_PLAYER || eVassal == GetID()) return false;
+	if (GET_PLAYER(eVassal).isAlive()) return false;
+
+	int iFavorMin = SuzerainDefineInt("SUZERAIN_CONCUBINE_RESTORE_FAVOR");
+	if (iFavorMin <= 0) iFavorMin = 80;
+	if (GetConcubineFavor(iIndex) < iFavorMin) return false;
+
+	if (!CanLiberatePlayer(eVassal)) return false;
+
+	int iLoop = 0;
+	for (CvCity* pCity = firstCity(&iLoop); pCity != NULL; pCity = nextCity(&iLoop))
+	{
+		if (pCity->getOriginalOwner() == eVassal) return true;
+	}
+	return false;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::RestoreConcubineHomeland(int iIndex)
+{
+	if (!CanRestoreConcubineHomeland(iIndex)) return false;
+
+	PlayerTypes eVassal = (PlayerTypes)GetConcubineField(iIndex, 1);
+
+	int iCityID = -1;
+	int iLoop = 0;
+	for (CvCity* pCity = firstCity(&iLoop); pCity != NULL; pCity = nextCity(&iLoop))
+	{
+		if (pCity->getOriginalOwner() == eVassal)
+		{
+			iCityID = pCity->GetID();
+			break;
+		}
+	}
+	if (iCityID < 0) return false;
+
+	int iMandate = SuzerainDefineInt("SUZERAIN_CONCUBINE_RESTORE_MANDATE");
+	if (iMandate > 0)
+	{
+		if (GetMandate() < iMandate) return false;
+		ChangeMandate(-iMandate);
+	}
+
+	DoLiberatePlayer(eVassal, iCityID);
+	if (!GET_PLAYER(eVassal).isAlive()) return false;
+
+	AddVassal(eVassal);
+	GET_PLAYER(eVassal).SetOverlord(GetID());
+	ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_CONCUBINE_RESTORE_LOYALTY"));
+	ChangeConcubineFavor(iIndex, SuzerainDefineInt("SUZERAIN_CONCUBINE_RESTORE_FAVOR_GAIN"));
+	return true;
+}
+
+//--------------------------------------------------------------------------------
 bool CvPlayer::DethroneEmpress()
 {
 	if (!MOD_GLOBAL_SUZERAIN) return false;

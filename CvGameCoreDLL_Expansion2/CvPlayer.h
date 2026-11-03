@@ -2219,6 +2219,10 @@ public:
 	void ChangeConcubineFavor(int iIndex, int iDelta);
 	// Drop one concubine from the palace (she leaves or dies) and fix the empress index.
 	bool RemoveConcubine(int iIndex);
+	// A fond concubine may ask the overlord to resurrect her fallen homeland in
+	// one of our cities that was originally hers.
+	bool CanRestoreConcubineHomeland(int iIndex);
+	bool RestoreConcubineHomeland(int iIndex);
 	bool DethroneEmpress();
 	int GetConcubineWish(int iIndex) const;
 	void SetConcubineWish(int iIndex, int iWish);

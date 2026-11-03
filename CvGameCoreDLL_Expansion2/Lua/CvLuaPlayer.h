@@ -1433,6 +1433,8 @@ protected:
 	LUAAPIEXTN(DethroneEmpress, bool);
 	LUAAPIEXTN(GetConcubineWish, int, iIndex);
 	LUAAPIEXTN(SatisfyConcubineWish, bool, iIndex);
+	LUAAPIEXTN(CanRestoreConcubineHomeland, bool, iIndex);
+	LUAAPIEXTN(RestoreConcubineHomeland, bool, iIndex);
 	static int lGetConcubineTemplateField(lua_State* L);
 	LUAAPIEXTN(TryReleaseVassal, int, eVassal);
 	LUAAPIEXTN(ForceReleaseVassal, bool, eVassal);

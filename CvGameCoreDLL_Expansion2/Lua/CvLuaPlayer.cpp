@@ -164,6 +164,8 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDethroneEmpress);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetConcubineWish);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSatisfyConcubineWish);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lCanRestoreConcubineHomeland);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lRestoreConcubineHomeland);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetConcubineTemplateField);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lTryReleaseVassal);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lForceReleaseVassal);
@@ -1607,6 +1609,8 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(DethroneEmpress);
 	Method(GetConcubineWish);
 	Method(SatisfyConcubineWish);
+	Method(CanRestoreConcubineHomeland);
+	Method(RestoreConcubineHomeland);
 	Method(GetConcubineTemplateField);
 	Method(TryReleaseVassal);
 	Method(ForceReleaseVassal);
@@ -15653,6 +15657,22 @@ int CvLuaPlayer::lSatisfyConcubineWish(lua_State* L)
 	CvPlayer* pkPlayer = GetInstance(L);
 	const int iIndex = lua_tointeger(L, 2);
 	lua_pushboolean(L, pkPlayer->SatisfyConcubineWish(iIndex));
+	return 1;
+}
+//bool CanRestoreConcubineHomeland(int iIndex);
+int CvLuaPlayer::lCanRestoreConcubineHomeland(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const int iIndex = lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->CanRestoreConcubineHomeland(iIndex));
+	return 1;
+}
+//bool RestoreConcubineHomeland(int iIndex);
+int CvLuaPlayer::lRestoreConcubineHomeland(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const int iIndex = lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->RestoreConcubineHomeland(iIndex));
 	return 1;
 }
 //int TryReleaseVassal(PlayerTypes eVassal);

@@ -36131,23 +36131,37 @@ void CvPlayer::WarnConcubineRevoltPrep(PlayerTypes eVassal, int iPrepTurns)
 	CvCity* pTheirCapital = kVassal.getCapitalCity();
 	if (pTheirCapital == NULL) return;
 
-	// The city of ours nearest their capital is what they would strike first.
-	CvCity* pTargetCity = NULL;
-	int iBestDist = 0;
-	int iLoop = 0;
-	for (CvCity* pCity = firstCity(&iLoop); pCity != NULL; pCity = nextCity(&iLoop))
+	// Ask the vassal's own military AI which of our cities it would attack and
+	// where it would muster. This is the same routine that picks the real target
+	// once the revolt fires, so the report matches what the army will actually do.
+	CvMilitaryTarget kTarget;
+	if (kVassal.GetMilitaryAI() != NULL)
+		kTarget = kVassal.GetMilitaryAI()->FindBestAttackTarget(AI_OPERATION_BASIC_CITY_ATTACK, GetID());
+
+	CvCity* pTargetCity = kTarget.m_pTargetCity;
+	CvCity* pFromCity = kTarget.m_pMusterCity;
+
+	if (pTargetCity == NULL)
 	{
-		int iDist = plotDistance(pCity->getX(), pCity->getY(), pTheirCapital->getX(), pTheirCapital->getY());
-		if (pTargetCity == NULL || iDist < iBestDist)
+		// No AI pick: fall back to our city nearest their capital.
+		int iBestDist = 0;
+		int iLoop = 0;
+		for (CvCity* pCity = firstCity(&iLoop); pCity != NULL; pCity = nextCity(&iLoop))
 		{
-			pTargetCity = pCity;
-			iBestDist = iDist;
+			int iDist = plotDistance(pCity->getX(), pCity->getY(), pTheirCapital->getX(), pTheirCapital->getY());
+			if (pTargetCity == NULL || iDist < iBestDist)
+			{
+				pTargetCity = pCity;
+				iBestDist = iDist;
+			}
 		}
 	}
 	if (pTargetCity == NULL) return;
 
-	// Every combat unit, with its distance to the likely target. The leading
-	// group is what arrives first, so that is the column the report describes.
+	// The column is measured from the muster city the AI picked. Every combat
+	// unit is sorted by distance to it; by default the report covers all of them,
+	// and SUZERAIN_CONCUBINE_INTEL_UNITS can cap how many are counted.
+	CvCity* pMusterBase = (pFromCity != NULL) ? pFromCity : pTargetCity;
 	std::vector<CvUnit*> vUnits;
 	std::vector<int> vDists;
 	int iUnitLoop = 0;
@@ -36155,7 +36169,7 @@ void CvPlayer::WarnConcubineRevoltPrep(PlayerTypes eVassal, int iPrepTurns)
 	{
 		if (!pUnit->IsCombatUnit()) continue;
 		vUnits.push_back(pUnit);
-		vDists.push_back(plotDistance(pUnit->getX(), pUnit->getY(), pTargetCity->getX(), pTargetCity->getY()));
+		vDists.push_back(plotDistance(pUnit->getX(), pUnit->getY(), pMusterBase->getX(), pMusterBase->getY()));
 	}
 	if (vUnits.empty()) return;
 
@@ -36176,6 +36190,9 @@ void CvPlayer::WarnConcubineRevoltPrep(PlayerTypes eVassal, int iPrepTurns)
 
 	int iLeadCount = SuzerainDefineInt("SUZERAIN_CONCUBINE_INTEL_UNITS");
 	if (iLeadCount <= 0 || iLeadCount > (int)vUnits.size()) iLeadCount = (int)vUnits.size();
+
+	// The van's real distance to the target city.
+	int iLeadDist = plotDistance(vUnits[0]->getX(), vUnits[0]->getY(), pTargetCity->getX(), pTargetCity->getY());
 
 	// Composition of the leading group, with every kind represented.
 	std::vector<int> vTypes;
@@ -36198,23 +36215,23 @@ void CvPlayer::WarnConcubineRevoltPrep(PlayerTypes eVassal, int iPrepTurns)
 		}
 	}
 
-	// The vassal city nearest the van is the muster point.
-	CvCity* pFromCity = NULL;
-	int iBestFrom = 0;
-	int iFromLoop = 0;
-	for (CvCity* pCity = kVassal.firstCity(&iFromLoop); pCity != NULL; pCity = kVassal.nextCity(&iFromLoop))
+	// If the AI did not name a muster city, use the vassal city nearest the van.
+	if (pFromCity == NULL)
 	{
-		int iDist = plotDistance(pCity->getX(), pCity->getY(), vUnits[0]->getX(), vUnits[0]->getY());
-		if (pFromCity == NULL || iDist < iBestFrom)
+		int iBestFrom = 0;
+		int iFromLoop = 0;
+		for (CvCity* pCity = kVassal.firstCity(&iFromLoop); pCity != NULL; pCity = kVassal.nextCity(&iFromLoop))
 		{
-			pFromCity = pCity;
-			iBestFrom = iDist;
+			int iDist = plotDistance(pCity->getX(), pCity->getY(), vUnits[0]->getX(), vUnits[0]->getY());
+			if (pFromCity == NULL || iDist < iBestFrom)
+			{
+				pFromCity = pCity;
+				iBestFrom = iDist;
+			}
 		}
 	}
 	if (pFromCity == NULL) pFromCity = pTheirCapital;
 	if (pFromCity == NULL) return;
-
-	int iLeadDist = vDists[0];
 
 	// Most numerous kinds first.
 	for (size_t a = 0; a + 1 < vTypes.size(); a++)

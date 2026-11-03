@@ -45659,6 +45659,19 @@ void CvPlayer::ChangeConcubineFavor(int iIndex, int iDelta)
 }
 
 //--------------------------------------------------------------------------------
+// A concubine whose homeland is dead or has renounced us is a hostage of the
+// palace rather than a daughter of a living vassal.
+bool CvPlayer::IsConcubineHostage(int iIndex) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (iIndex < 0 || iIndex >= GetConcubineCount()) return false;
+	PlayerTypes eHome = (PlayerTypes)GetConcubineField(iIndex, 1);
+	if (eHome == NO_PLAYER) return false;
+	if (!GET_PLAYER(eHome).isAlive()) return true;
+	return !IsLiveVassal(eHome);
+}
+
+//--------------------------------------------------------------------------------
 // A concubine leaves the palace when her homeland renounces us or falls. Erasing
 // her also keeps the empress index pointing at the same woman.
 bool CvPlayer::RemoveConcubine(int iIndex)

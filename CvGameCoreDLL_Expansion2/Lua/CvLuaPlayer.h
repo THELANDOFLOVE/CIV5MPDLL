@@ -1430,6 +1430,7 @@ protected:
 	LUAAPIEXTN(FavorConcubine, bool, iIndex);
 	LUAAPIEXTN(GiftConcubine, bool, iIndex);
 	LUAAPIEXTN(GetConcubineFavor, int, iIndex);
+	LUAAPIEXTN(IsConcubineHostage, bool, iIndex);
 	LUAAPIEXTN(DethroneEmpress, bool);
 	LUAAPIEXTN(GetConcubineWish, int, iIndex);
 	LUAAPIEXTN(SatisfyConcubineWish, bool, iIndex);

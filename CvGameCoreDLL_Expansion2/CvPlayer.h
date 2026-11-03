@@ -2222,6 +2222,8 @@ public:
 	bool GiftConcubine(int iIndex);
 	int GetConcubineFavor(int iIndex) const;
 	void ChangeConcubineFavor(int iIndex, int iDelta);
+	// True when her homeland is dead or no longer our vassal: she is a hostage.
+	bool IsConcubineHostage(int iIndex) const;
 	// Drop one concubine from the palace (she leaves or dies) and fix the empress index.
 	bool RemoveConcubine(int iIndex);
 	// A fond concubine may ask the overlord to resurrect her fallen homeland in

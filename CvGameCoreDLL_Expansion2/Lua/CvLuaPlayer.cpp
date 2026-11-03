@@ -161,6 +161,7 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lFavorConcubine);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGiftConcubine);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetConcubineFavor);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lIsConcubineHostage);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDethroneEmpress);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetConcubineWish);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSatisfyConcubineWish);
@@ -1606,6 +1607,7 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(FavorConcubine);
 	Method(GiftConcubine);
 	Method(GetConcubineFavor);
+	Method(IsConcubineHostage);
 	Method(DethroneEmpress);
 	Method(GetConcubineWish);
 	Method(SatisfyConcubineWish);
@@ -15634,6 +15636,14 @@ int CvLuaPlayer::lGetConcubineFavor(lua_State* L)
 	CvPlayer* pkPlayer = GetInstance(L);
 	const int iIndex = lua_tointeger(L, 2);
 	lua_pushinteger(L, pkPlayer->GetConcubineFavor(iIndex));
+	return 1;
+}
+//bool IsConcubineHostage(int iIndex);
+int CvLuaPlayer::lIsConcubineHostage(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const int iIndex = lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->IsConcubineHostage(iIndex));
 	return 1;
 }
 //bool DethroneEmpress();

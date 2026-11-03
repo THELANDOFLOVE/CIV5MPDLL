@@ -36146,15 +36146,43 @@ void CvPlayer::WarnConcubineRevoltPrep(PlayerTypes eVassal, int iPrepTurns)
 	}
 	if (pTargetCity == NULL) return;
 
-	std::vector<int> vTypes;
-	std::vector<int> vCounts;
-	int iSize = 0;
+	// Every combat unit, with its distance to the likely target. The leading
+	// group is what arrives first, so that is the column the report describes.
+	std::vector<CvUnit*> vUnits;
+	std::vector<int> vDists;
 	int iUnitLoop = 0;
 	for (CvUnit* pUnit = kVassal.firstUnit(&iUnitLoop); pUnit != NULL; pUnit = kVassal.nextUnit(&iUnitLoop))
 	{
 		if (!pUnit->IsCombatUnit()) continue;
-		iSize++;
-		int iType = pUnit->getUnitType();
+		vUnits.push_back(pUnit);
+		vDists.push_back(plotDistance(pUnit->getX(), pUnit->getY(), pTargetCity->getX(), pTargetCity->getY()));
+	}
+	if (vUnits.empty()) return;
+
+	// Nearest first.
+	for (size_t a = 0; a + 1 < vDists.size(); a++)
+	{
+		size_t iMin = a;
+		for (size_t b = a + 1; b < vDists.size(); b++)
+		{
+			if (vDists[b] < vDists[iMin]) iMin = b;
+		}
+		if (iMin != a)
+		{
+			CvUnit* pSwapUnit = vUnits[a]; vUnits[a] = vUnits[iMin]; vUnits[iMin] = pSwapUnit;
+			int iSwapDist = vDists[a]; vDists[a] = vDists[iMin]; vDists[iMin] = iSwapDist;
+		}
+	}
+
+	int iLeadCount = SuzerainDefineInt("SUZERAIN_CONCUBINE_INTEL_UNITS");
+	if (iLeadCount <= 0 || iLeadCount > (int)vUnits.size()) iLeadCount = (int)vUnits.size();
+
+	// Composition of the leading group, with every kind represented.
+	std::vector<int> vTypes;
+	std::vector<int> vCounts;
+	for (int u = 0; u < iLeadCount; u++)
+	{
+		int iType = vUnits[u]->getUnitType();
 		bool bFound = false;
 		for (size_t t = 0; t < vTypes.size(); t++)
 		{
@@ -36169,7 +36197,24 @@ void CvPlayer::WarnConcubineRevoltPrep(PlayerTypes eVassal, int iPrepTurns)
 			vCounts.push_back(1);
 		}
 	}
-	if (iSize <= 0) return;
+
+	// The vassal city nearest the van is the muster point.
+	CvCity* pFromCity = NULL;
+	int iBestFrom = 0;
+	int iFromLoop = 0;
+	for (CvCity* pCity = kVassal.firstCity(&iFromLoop); pCity != NULL; pCity = kVassal.nextCity(&iFromLoop))
+	{
+		int iDist = plotDistance(pCity->getX(), pCity->getY(), vUnits[0]->getX(), vUnits[0]->getY());
+		if (pFromCity == NULL || iDist < iBestFrom)
+		{
+			pFromCity = pCity;
+			iBestFrom = iDist;
+		}
+	}
+	if (pFromCity == NULL) pFromCity = pTheirCapital;
+	if (pFromCity == NULL) return;
+
+	int iLeadDist = vDists[0];
 
 	// Most numerous kinds first.
 	for (size_t a = 0; a + 1 < vTypes.size(); a++)
@@ -36187,7 +36232,7 @@ void CvPlayer::WarnConcubineRevoltPrep(PlayerTypes eVassal, int iPrepTurns)
 	}
 
 	int iShow = SuzerainDefineInt("SUZERAIN_CONCUBINE_INTEL_TYPES");
-	if (iShow <= 0) iShow = 3;
+	if (iShow <= 0 || iShow > (int)vTypes.size()) iShow = (int)vTypes.size();
 	CvString sComp;
 	for (int t = 0; t < iShow && t < (int)vTypes.size(); t++)
 	{
@@ -36204,10 +36249,11 @@ void CvPlayer::WarnConcubineRevoltPrep(PlayerTypes eVassal, int iPrepTurns)
 	Localization::String sMsg = Localization::Lookup("TXT_KEY_NOTIFICATION_CONCUBINE_REVOLT_PREP");
 	sMsg << szName.c_str();
 	sMsg << kVassal.getCivilizationShortDescriptionKey();
-	sMsg << pTheirCapital->getNameKey();
-	sMsg << iSize;
+	sMsg << pFromCity->getNameKey();
+	sMsg << iLeadCount;
 	sMsg << sComp.c_str();
 	sMsg << pTargetCity->getNameKey();
+	sMsg << iLeadDist;
 	sMsg << iPrepTurns;
 	Localization::String sSum = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_CONCUBINE_REVOLT_PREP");
 	GetNotifications()->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), pTargetCity->getX(), pTargetCity->getY(), eVassal);
@@ -45861,7 +45907,7 @@ void CvPlayer::DoConcubineIntelTurn()
 		}
 
 		int iShow = SuzerainDefineInt("SUZERAIN_CONCUBINE_INTEL_TYPES");
-		if (iShow <= 0) iShow = 3;
+		if (iShow <= 0 || iShow > (int)vTypes.size()) iShow = (int)vTypes.size();
 
 		CvString sComp;
 		for (int t = 0; t < iShow && t < (int)vTypes.size(); t++)

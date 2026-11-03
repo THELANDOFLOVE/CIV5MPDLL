@@ -45431,6 +45431,46 @@ void CvPlayer::DoConcubineTurn()
 		if (iCount <= 0) return;
 	}
 
+	// An AI overlord tends the palace like any other asset: favour the least
+	// contented consort on a cycle, pay for a gift when the treasury is rich,
+	// and crown a devoted one when the seat is empty.
+	if (!isHuman())
+	{
+		int iAiEvery = SuzerainDefineInt("SUZERAIN_CONCUBINE_AI_FAVOR_INTERVAL");
+		if (iAiEvery <= 0) iAiEvery = 5;
+		if ((iTurn % iAiEvery) == 0 && iCount > 0)
+		{
+			int iLow = -1;
+			for (int i = 0; i < iCount; i++)
+			{
+				if (iLow < 0 || GetConcubineFavor(i) < GetConcubineFavor(iLow)) iLow = i;
+			}
+			if (iLow >= 0)
+			{
+				FavorConcubine(iLow);
+
+				int iGiftMin = SuzerainDefineInt("SUZERAIN_CONCUBINE_AI_GIFT_MIN_GOLD");
+				if (iGiftMin <= 0) iGiftMin = 500;
+				int iGiftGold = SuzerainDefineInt("SUZERAIN_CONCUBINE_GIFT_GOLD");
+				if (GetTreasury()->GetGold() >= iGiftMin && GetTreasury()->GetGold() >= iGiftGold)
+					GiftConcubine(iLow);
+			}
+		}
+
+		int iEmpressMin = SuzerainDefineInt("SUZERAIN_CONCUBINE_EMPRESS_MIN_FAVOR");
+		if (iEmpressMin <= 0) iEmpressMin = 80;
+		if (GetEmpress() < 0 && iCount > 0)
+		{
+			int iBest = -1;
+			for (int i = 0; i < iCount; i++)
+			{
+				if (GetConcubineFavor(i) < iEmpressMin) continue;
+				if (iBest < 0 || GetConcubineFavor(i) > GetConcubineFavor(iBest)) iBest = i;
+			}
+			if (iBest >= 0) SetEmpress(iBest);
+		}
+	}
+
 	int iNeglectTurns = SuzerainDefineInt("SUZERAIN_CONCUBINE_NEGLECT_TURNS");
 	int iNeglectEvery = SuzerainDefineInt("SUZERAIN_CONCUBINE_NEGLECT_CHECK");
 	if (iNeglectTurns <= 0) iNeglectTurns = 20;

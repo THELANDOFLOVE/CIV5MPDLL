@@ -35719,8 +35719,6 @@ void CvPlayer::DoVassalBreachTurn()
 	int iLoyaltyPenalty = SuzerainDefineInt("SUZERAIN_BREACH_LOYALTY_PENALTY");
 	int iThreshold = SuzerainDefineInt("SUZERAIN_PUNISH_THRESHOLD");
 	int iRightTurns = SuzerainDefineInt("SUZERAIN_PUNISH_TURNS");
-	if (iUnauthorizedBreach <= 0) iUnauthorizedBreach = 1;
-	if (iVassalAttackBreach <= 0) iVassalAttackBreach = 2;
 
 	std::vector<int> vSeenNow;
 
@@ -35774,7 +35772,6 @@ void CvPlayer::DoVassalBreachTurn()
 			// A well-placed daughter learns of the private war and tells us whom
 			// her homeland is fighting, like a spy's report.
 			int iWarnFavor = SuzerainDefineInt("SUZERAIN_CONCUBINE_WARN_FAVOR");
-			if (iWarnFavor <= 0) iWarnFavor = 80;
 			for (int c = 0; c < GetConcubineCount(); c++)
 			{
 				if (GetConcubineField(c, 1) != (int)eVassal) continue;
@@ -35822,7 +35819,6 @@ void CvPlayer::GrantVassalPunishRight(PlayerTypes eVassal, int iTurns)
 {
 	if (!MOD_GLOBAL_SUZERAIN) return;
 	if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) return;
-	if (iTurns <= 0) iTurns = 1;
 	if (m_aiVassalPunishRight.size() != MAX_MAJOR_CIVS)
 		m_aiVassalPunishRight.resize(MAX_MAJOR_CIVS, 0);
 
@@ -35836,7 +35832,6 @@ void CvPlayer::GrantVassalPunishRight(PlayerTypes eVassal, int iTurns)
 	if (iPenalty < 0 && iMercyReduce > 0)
 	{
 		int iMercyFavor = SuzerainDefineInt("SUZERAIN_CONCUBINE_MERCY_FAVOR");
-		if (iMercyFavor <= 0) iMercyFavor = 70;
 		for (int i = 0; i < GetConcubineCount(); i++)
 		{
 			if (GetConcubineField(i, 1) != (int)eVassal) continue;
@@ -35935,7 +35930,6 @@ int CvPlayer::GetVassalRevoltScore(PlayerTypes eVassal) const
 	if (iHostageSuppress > 0)
 	{
 		int iStayFavor = SuzerainDefineInt("SUZERAIN_CONCUBINE_HOSTAGE_STAY_FAVOR");
-		if (iStayFavor <= 0) iStayFavor = 60;
 		int iHostages = 0;
 		for (int i = 0; i < GetConcubineCount(); i++)
 		{
@@ -35981,7 +35975,6 @@ bool CvPlayer::DoVassalRevolt(PlayerTypes eVassal)
 	// a hostage and pleads for it; one with little fondness goes home with it.
 	// While at least one stays to plead, the court lets the vassal go in peace.
 	int iStayFavor = SuzerainDefineInt("SUZERAIN_CONCUBINE_HOSTAGE_STAY_FAVOR");
-	if (iStayFavor <= 0) iStayFavor = 60;
 
 	bool bPlea = false;
 	for (int i = GetConcubineCount() - 1; i >= 0; i--)
@@ -36039,7 +36032,6 @@ void CvPlayer::DoVassalRevoltCheck()
 
 	int iThreshold = SuzerainDefineInt("SUZERAIN_REVOLT_THRESHOLD");
 	int iMargin = SuzerainDefineInt("SUZERAIN_REVOLT_WARN_MARGIN");
-	if (iMargin <= 0) iMargin = 10;
 
 	if (m_aiVassalRevoltPrep.size() != MAX_MAJOR_CIVS)
 		m_aiVassalRevoltPrep.resize(MAX_MAJOR_CIVS, 0);
@@ -36051,13 +36043,10 @@ void CvPlayer::DoVassalRevoltCheck()
 		// A well-loved concubine hears of trouble at home long before the court
 		// does, and whispers it to her overlord.
 		int iConcubineWarnEvery = SuzerainDefineInt("SUZERAIN_CONCUBINE_WARN_INTERVAL");
-		if (iConcubineWarnEvery <= 0) iConcubineWarnEvery = 10;
-		if (iThreshold > 0 && (GC.getGame().getGameTurn() % iConcubineWarnEvery) == 0)
+		if (iThreshold > 0 && iConcubineWarnEvery > 0 && (GC.getGame().getGameTurn() % iConcubineWarnEvery) == 0)
 		{
 			int iFavorMin = SuzerainDefineInt("SUZERAIN_CONCUBINE_WARN_FAVOR");
-			if (iFavorMin <= 0) iFavorMin = 80;
 			int iConcubineMargin = SuzerainDefineInt("SUZERAIN_CONCUBINE_WARN_MARGIN");
-			if (iConcubineMargin <= 0) iConcubineMargin = 30;
 			int iScore = GetVassalRevoltScore(eVassal);
 			// The ordinary warning covers the last stretch; this one starts earlier.
 			if (iScore >= iThreshold - iConcubineMargin && iScore < iThreshold - iMargin)
@@ -36087,8 +36076,7 @@ void CvPlayer::DoVassalRevoltCheck()
 		// A bond that is about to snap should not do so without warning. Every
 		// few turns, tell a human vassal or overlord that revolt is close.
 		int iWarnEvery = SuzerainDefineInt("SUZERAIN_REVOLT_WARN_INTERVAL");
-		if (iWarnEvery <= 0) iWarnEvery = 5;
-		if (iThreshold > 0 && (GC.getGame().getGameTurn() % iWarnEvery) == 0)
+		if (iThreshold > 0 && iWarnEvery > 0 && (GC.getGame().getGameTurn() % iWarnEvery) == 0)
 		{
 			int iScore = GetVassalRevoltScore(eVassal);
 			if (iScore >= iThreshold - iMargin && iScore < iThreshold)
@@ -36110,7 +36098,6 @@ void CvPlayer::DoVassalRevoltCheck()
 		if (iPrepEnd <= 0)
 		{
 			int iPrepTurns = SuzerainDefineInt("SUZERAIN_REVOLT_PREP_TURNS");
-			if (iPrepTurns <= 0) iPrepTurns = 5;
 			if (m_aiVassalRevoltPrep.size() != MAX_MAJOR_CIVS)
 				m_aiVassalRevoltPrep.resize(MAX_MAJOR_CIVS, 0);
 			m_aiVassalRevoltPrep[eVassal] = iTurn + iPrepTurns;
@@ -36159,7 +36146,6 @@ void CvPlayer::WarnConcubineRevoltPrep(PlayerTypes eVassal, int iPrepTurns)
 	if (!isHuman() || !GetNotifications()) return;
 
 	int iFavorMin = SuzerainDefineInt("SUZERAIN_CONCUBINE_INTEL_FAVOR");
-	if (iFavorMin <= 0) iFavorMin = 80;
 	int iBest = -1;
 	for (int c = 0; c < GetConcubineCount(); c++)
 	{
@@ -36500,7 +36486,6 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 		if (bApprove)
 		{
 			int iTurns = SuzerainDefineInt("SUZERAIN_TRIBUTE_RELIEF_TURNS");
-			if (iTurns <= 0) iTurns = 10;
 			SetTributeRelief(eVassal, iTurns);
 			ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_MEMORIAL_RELIEF_LOYALTY"));
 		}
@@ -36516,7 +36501,6 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 			int iLoan = SuzerainDefineInt("SUZERAIN_LOAN_GOLD");
 			int iRepay = SuzerainDefineInt("SUZERAIN_LOAN_REPAY");
 			int iTurns = SuzerainDefineInt("SUZERAIN_LOAN_TURNS");
-			if (iTurns <= 0) iTurns = 15;
 			if (iLoan > 0 && GetTreasury()->GetGold() >= iLoan)
 			{
 				TransferGoldTo(eVassal, iLoan);
@@ -36818,7 +36802,6 @@ void CvPlayer::DoVassalMemorialTurn()
 	if (IsVassalCourtTurn())
 	{
 		int iWarDeadline = SuzerainDefineInt("SUZERAIN_MEMORIAL_NORMAL_TURNS");
-		if (iWarDeadline <= 0) iWarDeadline = 10;
 		for (size_t a = 0; a < m_vecVassals.size(); a++)
 		{
 			PlayerTypes eA = (PlayerTypes)m_vecVassals[a];
@@ -36849,7 +36832,6 @@ void CvPlayer::DoVassalMemorialTurn()
 	if (IsVassalCourtTurn())
 	{
 		int iNormalTurns = SuzerainDefineInt("SUZERAIN_MEMORIAL_NORMAL_TURNS");
-		if (iNormalTurns <= 0) iNormalTurns = 10;
 		int iGiftMinLoyalty = SuzerainDefineInt("SUZERAIN_MEMORIAL_GIFT_MIN_LOYALTY");
 
 		for (size_t i = 0; i < m_vecVassals.size(); i++)
@@ -36969,7 +36951,6 @@ void CvPlayer::DoVassalMemorialTurn()
 			// Rites ministry: a vassal offers a woman to the palace.
 			{
 				int iPool = SuzerainDefineInt("SUZERAIN_CONCUBINE_COUNT");
-				if (iPool <= 0) iPool = 100;
 				int iFree = 0;
 				for (int t = 1; t <= iPool; t++)
 				{
@@ -37024,8 +37005,6 @@ void CvPlayer::DoVassalMemorialTurn()
 			// stay even if they could win.
 			int iIndepMin = SuzerainDefineInt("SUZERAIN_INDEPENDENCE_MIN_LOYALTY");
 			int iIndepMax = SuzerainDefineInt("SUZERAIN_INDEPENDENCE_MAX_LOYALTY");
-			if (iIndepMin <= 0) iIndepMin = 30;
-			if (iIndepMax <= 0) iIndepMax = 60;
 			int iLoyalty = GetVassalLoyalty(eVassal);
 			if (iLoyalty >= iIndepMin && iLoyalty < iIndepMax
 				&& GetMilitaryMight() * 100 < kVassal.GetMilitaryMight() * 150
@@ -37071,7 +37050,6 @@ void CvPlayer::DoVassalMemorialTurn()
 		}
 		if (bPending) continue;
 		int iDays = SuzerainDefineInt("SUZERAIN_MEMORIAL_NORMAL_TURNS");
-		if (iDays <= 0) iDays = 10;
 		AddVassalMemorial(12, 0, 1, eTarget, NO_PLAYER, iDays);
 	}
 
@@ -37273,7 +37251,6 @@ int CvPlayer::GetCourtPolicyPercent() const
 	if (iBase <= 0) return 0;
 
 	int iOverlordMult = SuzerainDefineInt("SUZERAIN_COURT_POLICY_OVERLORD_MULTIPLIER");
-	if (iOverlordMult <= 0) iOverlordMult = 2;
 
 	int iPercent = 0;
 	if (GetOverlord() != NO_PLAYER) iPercent = iBase;
@@ -37286,7 +37263,6 @@ int CvPlayer::GetCourtPolicyPercent() const
 	if (iEmpress >= 0)
 		iPercent += SuzerainDefineInt("SUZERAIN_CONCUBINE_COURT_EMPRESS");
 	int iCourtRank = SuzerainDefineInt("SUZERAIN_CONCUBINE_COURT_RANK");
-	if (iCourtRank <= 0) iCourtRank = 4;
 	for (int i = 0; i < GetConcubineCount(); i++)
 	{
 		if (i == iEmpress) continue;
@@ -37437,7 +37413,6 @@ void CvPlayer::ChangeDaoPoints(int iChange)
 	if (iChange == 0) return;
 
 	int iMax = SuzerainDefineInt("SUZERAIN_DAO_POINT_MAX");
-	if (iMax <= 0) iMax = 100;
 
 	int iValue = m_iDaoPoints + iChange;
 	if (iValue < 0) iValue = 0;
@@ -37523,12 +37498,10 @@ bool CvPlayer::DoDaoGrace(int iGrace)
 	if (!CanSpendDaoPoints(iCost)) return false;
 
 	int iTurns = SuzerainDefineInt("SUZERAIN_DAO_GRACE_TURNS");
-	if (iTurns <= 0) iTurns = 30;
 	if (iGrace == 0)
 	{
 		// Abundance: permanent flat yields in every city.
 		int iAmount = SuzerainDefineInt("SUZERAIN_DAO_BLESSING_AMOUNT");
-		if (iAmount <= 0) iAmount = 3;
 		int iLoop = 0;
 		for (CvCity* pCity = firstCity(&iLoop); pCity != NULL; pCity = nextCity(&iLoop))
 		{
@@ -38318,7 +38291,6 @@ void CvPlayer::SetWonderRequestCondition(PlayerTypes eVassal, int iType, int iVa
 	if (iType < 0 || iType > 5) return;
 
 	int iTurns = SuzerainDefineInt("SUZERAIN_WONDER_CONDITION_TURNS");
-	if (iTurns <= 0) iTurns = 10;
 
 	kVassal.m_iWonderConditionType = iType;
 	kVassal.m_iWonderConditionValue = (iValue > 0) ? iValue : 0;
@@ -38634,7 +38606,6 @@ int CvPlayer::RequestVassalSubmission(PlayerTypes eProtector)
 	long long iOurMight = GetMilitaryMight();
 	long long iTheirMight = kProtector.GetMilitaryMight();
 	int iAcceptPercent = SuzerainDefineInt("SUZERAIN_SEEK_ACCEPT_PERCENT");
-	if (iAcceptPercent <= 0) iAcceptPercent = 100;
 	if (iTheirMight * 100 < iOurMight * iAcceptPercent) return 2;
 
 	MajorCivApproachTypes eApproach = kProtector.GetDiplomacyAI()->GetMajorCivApproach(GetID(), false);
@@ -39575,7 +39546,6 @@ void CvPlayer::UpdateVassalTaxation()
 	// Vassals that joined outside the World Congress have no resolution of their own.
 	// They still pay the baseline tithe, so every path into vassalage yields revenue.
 	int iBaseline = SuzerainDefineInt("SUZERAIN_TRIBUTE_BASELINE");
-	if (iBaseline <= 0) iBaseline = 10;
 	for (size_t iV = 0; iV < m_vecVassals.size(); iV++)
 	{
 		PlayerTypes e = (PlayerTypes)m_vecVassals[iV];
@@ -44473,10 +44443,8 @@ int CvPlayer::SubmitVassalMemorial(int iType, int iTarget)
 
 	int iMinistry = -1;
 	int iDeadline = SuzerainDefineInt("SUZERAIN_MEMORIAL_NORMAL_TURNS");
-	if (iDeadline <= 0) iDeadline = 10;
 
 	int iUrgent = SuzerainDefineInt("SUZERAIN_MEMORIAL_URGENT_TURNS");
-	if (iUrgent <= 0) iUrgent = 3;
 
 	switch (iType)
 	{
@@ -44710,7 +44678,6 @@ bool CvPlayer::ResolveDecree(int iIndex, bool bAccept)
 		{
 			int iCap = kOverlord.GetVassalLoyaltyCap(GetID());
 			int iGoodPct = SuzerainDefineInt("SUZERAIN_DECREE_INSPECT_GOOD_PERCENT");
-			if (iGoodPct <= 0) iGoodPct = 70;
 			int iGood = iCap * iGoodPct / 100;
 			int iGoodGain = SuzerainDefineInt("SUZERAIN_DECREE_INSPECT_GOOD");
 			int iBadGain = SuzerainDefineInt("SUZERAIN_DECREE_INSPECT_BAD");
@@ -44756,7 +44723,6 @@ bool CvPlayer::ResolveDecree(int iIndex, bool bAccept)
 		{
 			int iCap = kOverlord.GetVassalLoyaltyCap(GetID());
 			int iArguePct = SuzerainDefineInt("SUZERAIN_DECREE_QUESTION_ARGUE_PERCENT");
-			if (iArguePct <= 0) iArguePct = 50;
 			if (kOverlord.GetVassalLoyalty(GetID()) < iCap * iArguePct / 100)
 				kOverlord.ChangeVassalLoyalty(GetID(), SuzerainDefineInt("SUZERAIN_DECREE_QUESTION_ARGUE_FAIL"));
 		}
@@ -44796,7 +44762,6 @@ bool CvPlayer::ResolveDecree(int iIndex, bool bAccept)
 		if (bAccept)
 		{
 			int iTurns = SuzerainDefineInt("SUZERAIN_TRIBUTE_RELIEF_TURNS");
-			if (iTurns <= 0) iTurns = 10;
 			kOverlord.SetTributeRelief(GetID(), iTurns);
 			kOverlord.ChangeVassalLoyalty(GetID(), SuzerainDefineInt("SUZERAIN_DECREE_REMISSION_LOYALTY"));
 		}
@@ -44871,7 +44836,6 @@ bool CvPlayer::CanIssueDecree(int iType, PlayerTypes eVassal, int iTarget) const
 		// A vassal may be re-titled; the old title returns to the pool.
 	{
 		int iTitleMin = SuzerainDefineInt("SUZERAIN_DECREE_TITLE_MIN_LOYALTY");
-		if (iTitleMin <= 0) iTitleMin = 50;
 		return GetVassalLoyalty(eVassal) >= iTitleMin && PickFreeTitle() > 0;
 	}
 	case 2:
@@ -44920,7 +44884,6 @@ bool CvPlayer::IssueDecree(int iType, PlayerTypes eVassal, int iTarget)
 	v.push_back(iType);
 	v.push_back(iTargetValue);
 	int iDecreeTurns = SuzerainDefineInt("SUZERAIN_DECREE_TURNS");
-	if (iDecreeTurns <= 0) iDecreeTurns = 5;
 	v.push_back(GC.getGame().getGameTurn() + iDecreeTurns);
 	v.push_back(GetID());
 	kVassal.m_aiPendingDecrees = v;
@@ -44976,7 +44939,6 @@ int CvPlayer::PickFreeTitle() const
 	if (!MOD_GLOBAL_SUZERAIN) return 0;
 
 	int iMax = SuzerainDefineInt("SUZERAIN_VASSAL_TITLE_COUNT");
-	if (iMax <= 0) iMax = 20;
 
 	for (int iTitle = 1; iTitle <= iMax; iTitle++)
 	{
@@ -45055,7 +45017,6 @@ void CvPlayer::DoVassalFinanceTurn()
 	int iTurn = GC.getGame().getGameTurn();
 	int iLateFee = SuzerainDefineInt("SUZERAIN_LOAN_LATE_FEE");
 	int iLateEvery = SuzerainDefineInt("SUZERAIN_LOAN_LATE_TURNS");
-	if (iLateEvery <= 0) iLateEvery = 5;
 
 	for (size_t i = 0; i < m_vecVassals.size(); i++)
 	{
@@ -45094,7 +45055,7 @@ void CvPlayer::DoVassalFinanceTurn()
 			// Default: the debt keeps growing and the overlord gains the right
 			// to punish. Loyalty is untouched: low loyalty would only help the
 			// debtor walk away.
-			if (iLateFee > 0 && (iTurn % iLateEvery) == 0)
+			if (iLateFee > 0 && iLateEvery > 0 && (iTurn % iLateEvery) == 0)
 				iOwed += iLateFee;
 			SetLoan(eVassal, iTurn + 1, iOwed);
 
@@ -45151,7 +45112,6 @@ bool CvPlayer::ReceiveConcubine(PlayerTypes eVassal, int iTemplate, bool bDowry)
 	if (iTemplate <= 0 || eVassal == NO_PLAYER) return false;
 
 	int iCount = SuzerainDefineInt("SUZERAIN_CONCUBINE_COUNT");
-	if (iCount <= 0) iCount = 100;
 	if (iTemplate > iCount) return false;
 
 	CvString szName = CvString::format("SUZERAIN_CONCUBINE_%d", iTemplate);
@@ -45173,7 +45133,6 @@ bool CvPlayer::ReceiveConcubine(PlayerTypes eVassal, int iTemplate, bool bDowry)
 	m_aiConcubines = v;
 
 	int iStartFavor = SuzerainDefineInt("SUZERAIN_CONCUBINE_FAVOR_START");
-	if (iStartFavor <= 0) iStartFavor = 50;
 	std::vector<int> vf = m_aiConcubineFavor;
 	vf.push_back(iStartFavor);
 	m_aiConcubineFavor = vf;
@@ -45208,7 +45167,6 @@ int CvPlayer::PickFreeConcubineTemplate()
 	if (!MOD_GLOBAL_SUZERAIN) return 0;
 
 	int iCount = SuzerainDefineInt("SUZERAIN_CONCUBINE_COUNT");
-	if (iCount <= 0) iCount = 100;
 
 	int iFree = 0;
 	for (int t = 1; t <= iCount; t++)
@@ -45257,22 +45215,23 @@ bool CvPlayer::FavorConcubine(int iIndex)
 
 	// Reaching the top rank earns a title, granted once at the crossing.
 	int iTitleRank = SuzerainDefineInt("SUZERAIN_CONCUBINE_TITLE_RANK");
-	if (iTitleRank <= 0) iTitleRank = 4;
 	if (iOldRank < iTitleRank && GetConcubineRank(iIndex) >= iTitleRank)
 	{
 		ChangeMandate(SuzerainDefineInt("SUZERAIN_CONCUBINE_TITLE_MANDATE"));
 		if (isHuman() && GetNotifications())
 		{
 			int iTitleCount = SuzerainDefineInt("SUZERAIN_CONCUBINE_TITLE_COUNT");
-			if (iTitleCount <= 0) iTitleCount = 8;
-			int iTitle = ((GetConcubineField(iIndex, 0) - 1) % iTitleCount) + 1;
-			CvString szTitleKey = CvString::format("TXT_KEY_TIANDAO_CONCUBINE_TITLE_%d", iTitle);
-			CvString szName = GetConcubineTemplateField(GetConcubineField(iIndex, 0), 0);
-			Localization::String sMsg = Localization::Lookup("TXT_KEY_NOTIFICATION_CONCUBINE_TITLE");
-			sMsg << szName.c_str();
-			sMsg << szTitleKey.c_str();
-			Localization::String sSum = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_CONCUBINE_TITLE");
-			GetNotifications()->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), -1, -1, -1);
+			if (iTitleCount > 0)
+			{
+				int iTitle = ((GetConcubineField(iIndex, 0) - 1) % iTitleCount) + 1;
+				CvString szTitleKey = CvString::format("TXT_KEY_TIANDAO_CONCUBINE_TITLE_%d", iTitle);
+				CvString szName = GetConcubineTemplateField(GetConcubineField(iIndex, 0), 0);
+				Localization::String sMsg = Localization::Lookup("TXT_KEY_NOTIFICATION_CONCUBINE_TITLE");
+				sMsg << szName.c_str();
+				sMsg << szTitleKey.c_str();
+				Localization::String sSum = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_CONCUBINE_TITLE");
+				GetNotifications()->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), -1, -1, -1);
+			}
 		}
 	}
 
@@ -45346,10 +45305,8 @@ void CvPlayer::DoConcubineTurn()
 	{
 		int iEmpress = GetEmpress();
 		int iEmpMult = SuzerainDefineInt("SUZERAIN_CONCUBINE_EMPRESS_MULTIPLIER");
-		if (iEmpMult <= 0) iEmpMult = 2;
 		int iTitlePer = SuzerainDefineInt("SUZERAIN_CONCUBINE_TITLE_MANDATE_TURN");
 		int iTitleRank = SuzerainDefineInt("SUZERAIN_CONCUBINE_TITLE_RANK");
-		if (iTitleRank <= 0) iTitleRank = 4;
 		int iTotal = 0;
 		for (int i = 0; i < iCount; i++)
 		{
@@ -45378,7 +45335,6 @@ void CvPlayer::DoConcubineTurn()
 	if (iBlessEvery > 0 && (iTurn % iBlessEvery) == 0)
 	{
 		int iBlessRank = SuzerainDefineInt("SUZERAIN_CONCUBINE_BLESS_RANK");
-		if (iBlessRank <= 0) iBlessRank = 2;
 		int iBless = 0;
 		for (int i = 0; i < iCount; i++)
 		{
@@ -45437,8 +45393,7 @@ void CvPlayer::DoConcubineTurn()
 	if (!isHuman())
 	{
 		int iAiEvery = SuzerainDefineInt("SUZERAIN_CONCUBINE_AI_FAVOR_INTERVAL");
-		if (iAiEvery <= 0) iAiEvery = 5;
-		if ((iTurn % iAiEvery) == 0 && iCount > 0)
+		if (iAiEvery > 0 && (iTurn % iAiEvery) == 0 && iCount > 0)
 		{
 			int iLow = -1;
 			for (int i = 0; i < iCount; i++)
@@ -45450,7 +45405,6 @@ void CvPlayer::DoConcubineTurn()
 				FavorConcubine(iLow);
 
 				int iGiftMin = SuzerainDefineInt("SUZERAIN_CONCUBINE_AI_GIFT_MIN_GOLD");
-				if (iGiftMin <= 0) iGiftMin = 500;
 				int iGiftGold = SuzerainDefineInt("SUZERAIN_CONCUBINE_GIFT_GOLD");
 				if (GetTreasury()->GetGold() >= iGiftMin && GetTreasury()->GetGold() >= iGiftGold)
 					GiftConcubine(iLow);
@@ -45458,7 +45412,6 @@ void CvPlayer::DoConcubineTurn()
 		}
 
 		int iEmpressMin = SuzerainDefineInt("SUZERAIN_CONCUBINE_EMPRESS_MIN_FAVOR");
-		if (iEmpressMin <= 0) iEmpressMin = 80;
 		if (GetEmpress() < 0 && iCount > 0)
 		{
 			int iBest = -1;
@@ -45469,13 +45422,28 @@ void CvPlayer::DoConcubineTurn()
 			}
 			if (iBest >= 0) SetEmpress(iBest);
 		}
+
+		// A fond daughter whose homeland is gone is worth a restoration, and an
+		// AI can afford the mandate better than it can afford the resentment.
+		int iRestoreEvery = SuzerainDefineInt("SUZERAIN_CONCUBINE_AI_RESTORE_INTERVAL");
+		if (iRestoreEvery > 0 && (iTurn % iRestoreEvery) == 0)
+		{
+			int iRestoreFavor = SuzerainDefineInt("SUZERAIN_CONCUBINE_RESTORE_FAVOR");
+			for (int i = 0; i < iCount; i++)
+			{
+				PlayerTypes eHome = (PlayerTypes)GetConcubineField(i, 1);
+				if (eHome == NO_PLAYER || GET_PLAYER(eHome).isAlive()) continue;
+				if (GetConcubineFavor(i) < iRestoreFavor) continue;
+				if (!CanRestoreConcubineHomeland(i)) continue;
+				RestoreConcubineHomeland(i);
+				break;
+			}
+		}
 	}
 
 	int iNeglectTurns = SuzerainDefineInt("SUZERAIN_CONCUBINE_NEGLECT_TURNS");
 	int iNeglectEvery = SuzerainDefineInt("SUZERAIN_CONCUBINE_NEGLECT_CHECK");
-	if (iNeglectTurns <= 0) iNeglectTurns = 20;
-	if (iNeglectEvery <= 0) iNeglectEvery = 10;
-	if ((iTurn % iNeglectEvery) != 0) return;
+	if (iNeglectEvery <= 0 || (iTurn % iNeglectEvery) != 0) return;
 
 	int iLoss = SuzerainDefineInt("SUZERAIN_CONCUBINE_NEGLECT_LOYALTY");
 	if (iLoss == 0) iLoss = -5;
@@ -45531,17 +45499,14 @@ void CvPlayer::DoOfferConcubineTurn()
 	PlayerTypes eOverlord = GetOverlord();
 	if (eOverlord == NO_PLAYER) return;
 	int iOfferEvery = SuzerainDefineInt("SUZERAIN_CONCUBINE_OFFER_INTERVAL");
-	if (iOfferEvery <= 0) iOfferEvery = 20;
-	if ((GC.getGame().getGameTurn() % iOfferEvery) != 0) return;
+	if (iOfferEvery <= 0 || (GC.getGame().getGameTurn() % iOfferEvery) != 0) return;
 
 	CvPlayer& kOverlord = GET_PLAYER(eOverlord);
 	if (!kOverlord.isAlive()) return;
 	int iOfferMin = SuzerainDefineInt("SUZERAIN_CONCUBINE_OFFER_MIN_LOYALTY");
-	if (iOfferMin <= 0) iOfferMin = 40;
 	if (kOverlord.GetVassalLoyalty(GetID()) < iOfferMin) return;
 
 	int iCount = SuzerainDefineInt("SUZERAIN_CONCUBINE_COUNT");
-	if (iCount <= 0) iCount = 100;
 
 	int iFree = 0;
 	for (int t = 1; t <= iCount; t++)
@@ -45594,9 +45559,7 @@ bool CvPlayer::GiftConcubine(int iIndex)
 	// the gift falls back to the best one it can pay for.
 	int iFavor = GetConcubineFavor(iIndex);
 	int iJewelMin = SuzerainDefineInt("SUZERAIN_CONCUBINE_GIFT_JEWEL_MIN_FAVOR");
-	if (iJewelMin <= 0) iJewelMin = 80;
 	int iGardenMin = SuzerainDefineInt("SUZERAIN_CONCUBINE_GIFT_GARDEN_MIN_FAVOR");
-	if (iGardenMin <= 0) iGardenMin = 95;
 
 	int iPlainGold = SuzerainDefineInt("SUZERAIN_CONCUBINE_GIFT_GOLD");
 	int iJewelGold = SuzerainDefineInt("SUZERAIN_CONCUBINE_GIFT_JEWEL_GOLD");
@@ -45658,8 +45621,7 @@ void CvPlayer::DoConcubineAdviceTurn()
 	if (iCount <= 0) return;
 
 	int iEvery = SuzerainDefineInt("SUZERAIN_CONCUBINE_ADVICE_INTERVAL");
-	if (iEvery <= 0) iEvery = 10;
-	if ((GC.getGame().getGameTurn() % iEvery) != 0) return;
+	if (iEvery <= 0 || (GC.getGame().getGameTurn() % iEvery) != 0) return;
 
 	int iPick = GC.getGame().getJonRandNum(iCount, "Concubine advice");
 	PlayerTypes eVassal = (PlayerTypes)GetConcubineField(iPick, 1);
@@ -45734,7 +45696,6 @@ bool CvPlayer::CanRestoreConcubineHomeland(int iIndex)
 	if (GET_PLAYER(eVassal).isAlive()) return false;
 
 	int iFavorMin = SuzerainDefineInt("SUZERAIN_CONCUBINE_RESTORE_FAVOR");
-	if (iFavorMin <= 0) iFavorMin = 80;
 	if (GetConcubineFavor(iIndex) < iFavorMin) return false;
 
 	if (!CanLiberatePlayer(eVassal)) return false;
@@ -45851,8 +45812,7 @@ void CvPlayer::DoConcubineWishTurn()
 	if (iCount <= 0) return;
 
 	int iEvery = SuzerainDefineInt("SUZERAIN_CONCUBINE_WISH_INTERVAL");
-	if (iEvery <= 0) iEvery = 15;
-	if ((GC.getGame().getGameTurn() % iEvery) != 0) return;
+	if (iEvery <= 0 || (GC.getGame().getGameTurn() % iEvery) != 0) return;
 
 	int iDenyFavor = SuzerainDefineInt("SUZERAIN_CONCUBINE_WISH_DENY_FAVOR");
 	for (int i = 0; i < iCount; i++)
@@ -45866,12 +45826,9 @@ void CvPlayer::DoConcubineWishTurn()
 		int iRoll = GC.getGame().getJonRandNum(100, "Concubine wish");
 		int iWish = 0;
 		int iGoldPct = SuzerainDefineInt("SUZERAIN_CONCUBINE_WISH_GOLD_PERCENT");
-		if (iGoldPct <= 0) iGoldPct = 40;
 		int iLetterPct = SuzerainDefineInt("SUZERAIN_CONCUBINE_WISH_LETTER_PERCENT");
-		if (iLetterPct <= 0) iLetterPct = 30;
 		int iWishTypes = SuzerainDefineInt("SUZERAIN_CONCUBINE_WISH_TYPE_COUNT");
-		if (iWishTypes <= 0) iWishTypes = 3;
-		if (iRoll < iGoldPct) iWish = GC.getGame().getJonRandNum(iWishTypes, "Concubine wish type") + 1;
+		if (iWishTypes > 0 && iRoll < iGoldPct) iWish = GC.getGame().getJonRandNum(iWishTypes, "Concubine wish type") + 1;
 		else if (iRoll < iGoldPct + iLetterPct) iWish = 10;
 		if (iWish > 0) SetConcubineWish(i, iWish);
 	}
@@ -45889,8 +45846,7 @@ void CvPlayer::DoConcubinePerformTurn()
 	if (iCount <= 0) return;
 
 	int iEvery = SuzerainDefineInt("SUZERAIN_CONCUBINE_PERFORM_INTERVAL");
-	if (iEvery <= 0) iEvery = 20;
-	if ((GC.getGame().getGameTurn() % iEvery) != 0) return;
+	if (iEvery <= 0 || (GC.getGame().getGameTurn() % iEvery) != 0) return;
 
 	int iPer = SuzerainDefineInt("SUZERAIN_CONCUBINE_PERFORM_CULTURE");
 	if (iPer <= 0) return;
@@ -45927,8 +45883,7 @@ void CvPlayer::DoConcubineCraftTurn()
 	if (iCount <= 0) return;
 
 	int iEvery = SuzerainDefineInt("SUZERAIN_CONCUBINE_CRAFT_INTERVAL");
-	if (iEvery <= 0) iEvery = 30;
-	if ((GC.getGame().getGameTurn() % iEvery) != 0) return;
+	if (iEvery <= 0 || (GC.getGame().getGameTurn() % iEvery) != 0) return;
 
 	int iPick = GC.getGame().getJonRandNum(iCount, "Concubine craft");
 	int iOrigin = atoi(GetConcubineTemplateField(GetConcubineField(iPick, 0), 1).c_str());
@@ -46020,8 +45975,7 @@ void CvPlayer::DoConcubineBondTurn()
 	if (iCount <= 1) return;
 
 	int iEvery = SuzerainDefineInt("SUZERAIN_CONCUBINE_BOND_INTERVAL");
-	if (iEvery <= 0) iEvery = 10;
-	if ((GC.getGame().getGameTurn() % iEvery) != 0) return;
+	if (iEvery <= 0 || (GC.getGame().getGameTurn() % iEvery) != 0) return;
 
 	int iPull = SuzerainDefineInt("SUZERAIN_CONCUBINE_BOND_PULL");
 	int iMinFavor = SuzerainDefineInt("SUZERAIN_CONCUBINE_BOND_MIN_FAVOR");
@@ -46032,7 +45986,6 @@ void CvPlayer::DoConcubineBondTurn()
 		vOrigin.push_back(atoi(GetConcubineTemplateField(GetConcubineField(i, 0), 1).c_str()));
 
 	int iOriginCount = SuzerainDefineInt("SUZERAIN_CONCUBINE_ORIGIN_COUNT");
-	if (iOriginCount <= 0) iOriginCount = 10;
 	for (int origin = 1; origin <= iOriginCount; origin++)
 	{
 		int iBest = -1;
@@ -46070,13 +46023,11 @@ void CvPlayer::DoConcubineIntelTurn()
 	if (iCount <= 0) return;
 
 	int iEvery = SuzerainDefineInt("SUZERAIN_CONCUBINE_INTEL_INTERVAL");
-	if (iEvery <= 0) iEvery = 8;
 	int iWarEvery = SuzerainDefineInt("SUZERAIN_CONCUBINE_INTEL_WAR_INTERVAL");
-	if (iWarEvery <= 0) iWarEvery = 5;
 
 	int iTurn = GC.getGame().getGameTurn();
-	bool bWarTurn = ((iTurn % iWarEvery) == 0);
-	if (!bWarTurn && (iTurn % iEvery) != 0) return;
+	bool bWarTurn = (iWarEvery > 0 && (iTurn % iWarEvery) == 0);
+	if (!bWarTurn && (iEvery <= 0 || (iTurn % iEvery) != 0)) return;
 
 	// A hostage whose homeland has broken away and is at war with us still
 	// talks. Report the operation the AI has actually committed: its size, its
@@ -46178,10 +46129,9 @@ void CvPlayer::DoConcubineIntelTurn()
 		}
 	}
 
-	if ((iTurn % iEvery) != 0) return;
+	if (iEvery <= 0 || (iTurn % iEvery) != 0) return;
 
 	int iFavorMin = SuzerainDefineInt("SUZERAIN_CONCUBINE_INTEL_FAVOR");
-	if (iFavorMin <= 0) iFavorMin = 80;
 
 	for (int c = 0; c < iCount; c++)
 	{

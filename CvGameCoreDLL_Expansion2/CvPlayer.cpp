@@ -5621,6 +5621,7 @@ void CvPlayer::doTurn()
 		DoConcubineTurn();
 		DoOfferConcubineTurn();
 		DoConcubineAdviceTurn();
+		DoConcubineWishTurn();
 		DoVassalLoyaltyDecay();
 		DoVassalRevoltCheck();
 		DoVassalOverlordVictoryCheck();
@@ -44716,7 +44717,7 @@ bool CvPlayer::DoVassalTradeRoute(PlayerTypes eVassal)
 int CvPlayer::GetConcubineCount() const
 {
 	if (!MOD_GLOBAL_SUZERAIN) return 0;
-	return (int)m_aiConcubines.size() / 4;
+	return (int)m_aiConcubines.size() / 5;
 }
 
 //--------------------------------------------------------------------------------
@@ -44724,8 +44725,8 @@ int CvPlayer::GetConcubineField(int iIndex, int iField) const
 {
 	if (!MOD_GLOBAL_SUZERAIN) return 0;
 	if (iIndex < 0 || iIndex >= GetConcubineCount()) return 0;
-	if (iField < 0 || iField > 3) return 0;
-	return m_aiConcubines[iIndex * 4 + iField];
+	if (iField < 0 || iField > 4) return 0;
+	return m_aiConcubines[iIndex * 5 + iField];
 }
 
 //--------------------------------------------------------------------------------
@@ -44753,6 +44754,7 @@ bool CvPlayer::ReceiveConcubine(PlayerTypes eVassal, int iTemplate)
 	v.push_back(eVassal);
 	v.push_back(0);
 	v.push_back(GC.getGame().getGameTurn());
+	v.push_back(0);
 	m_aiConcubines = v;
 
 	int iStartFavor = SuzerainDefineInt("SUZERAIN_CONCUBINE_FAVOR_START");
@@ -44781,6 +44783,8 @@ bool CvPlayer::FavorConcubine(int iIndex)
 	int iBase = iIndex * 4;
 	int iTurn = GC.getGame().getGameTurn();
 
+	int iStride = 5;
+	iBase = iIndex * iStride;
 	m_aiConcubines.setAt((size_t)(iBase + 2), m_aiConcubines[iBase + 2] + 1);
 	m_aiConcubines.setAt((size_t)(iBase + 3), iTurn);
 	ChangeConcubineFavor(iIndex, SuzerainDefineInt("SUZERAIN_CONCUBINE_FAVOR_FAVOUR"));
@@ -45064,6 +45068,78 @@ bool CvPlayer::DethroneEmpress()
 	ChangeMandate(SuzerainDefineInt("SUZERAIN_CONCUBINE_DETHRONE_MANDATE"));
 	m_iEmpress = -1;
 	return true;
+}
+
+int CvPlayer::GetConcubineWish(int iIndex) const
+{
+	return GetConcubineField(iIndex, 4);
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::SetConcubineWish(int iIndex, int iWish)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (iIndex < 0 || iIndex >= GetConcubineCount()) return;
+	int iBase = iIndex * 5 + 4;
+	if ((size_t)iBase >= m_aiConcubines.size()) return;
+	m_aiConcubines.setAt((size_t)iBase, iWish < 0 ? 0 : iWish);
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::SatisfyConcubineWish(int iIndex)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	int iWish = GetConcubineWish(iIndex);
+	if (iWish <= 0) return false;
+
+	int iFree = SuzerainDefineInt("SUZERAIN_CONCUBINE_WISH_FAVOR");
+	int iLoyalty = SuzerainDefineInt("SUZERAIN_CONCUBINE_WISH_LOYALTY");
+	int iCost = 0;
+	if (iWish == 1) iCost = SuzerainDefineInt("SUZERAIN_CONCUBINE_WISH_GOLD");
+	else if (iWish == 3) iCost = SuzerainDefineInt("SUZERAIN_CONCUBINE_WISH_GARDEN_GOLD");
+	else if (iWish == 10) { iFree = SuzerainDefineInt("SUZERAIN_CONCUBINE_LETTER_FAVOR"); iLoyalty = SuzerainDefineInt("SUZERAIN_CONCUBINE_LETTER_LOYALTY"); }
+
+	if (iCost > 0)
+	{
+		if (GetTreasury()->GetGold() < iCost) return false;
+		GetTreasury()->ChangeGold(-iCost);
+	}
+
+	ChangeConcubineFavor(iIndex, iFree);
+	PlayerTypes eVassal = (PlayerTypes)GetConcubineField(iIndex, 1);
+	if (eVassal != NO_PLAYER && IsLiveVassal(eVassal))
+		ChangeVassalLoyalty(eVassal, iLoyalty);
+	SetConcubineWish(iIndex, 0);
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::DoConcubineWishTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (!IsSuzerainCiv()) return;
+	int iCount = GetConcubineCount();
+	if (iCount <= 0) return;
+
+	int iEvery = SuzerainDefineInt("SUZERAIN_CONCUBINE_WISH_INTERVAL");
+	if (iEvery <= 0) iEvery = 15;
+	if ((GC.getGame().getGameTurn() % iEvery) != 0) return;
+
+	int iDenyFavor = SuzerainDefineInt("SUZERAIN_CONCUBINE_WISH_DENY_FAVOR");
+	for (int i = 0; i < iCount; i++)
+	{
+		if (GetConcubineWish(i) > 0)
+		{
+			ChangeConcubineFavor(i, iDenyFavor);
+			SetConcubineWish(i, 0);
+			continue;
+		}
+		int iRoll = GC.getGame().getJonRandNum(100, "Concubine wish");
+		int iWish = 0;
+		if (iRoll < 40) iWish = GC.getGame().getJonRandNum(3, "Concubine wish type") + 1;
+		else if (iRoll < 70) iWish = 10;
+		if (iWish > 0) SetConcubineWish(i, iWish);
+	}
 }
 
 //--------------------------------------------------------------------------------

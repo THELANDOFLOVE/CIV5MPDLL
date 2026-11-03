@@ -2218,6 +2218,10 @@ public:
 	int GetConcubineFavor(int iIndex) const;
 	void ChangeConcubineFavor(int iIndex, int iDelta);
 	bool DethroneEmpress();
+	int GetConcubineWish(int iIndex) const;
+	void SetConcubineWish(int iIndex, int iWish);
+	bool SatisfyConcubineWish(int iIndex);
+	void DoConcubineWishTurn();
 	// Periodic counsel from a random concubine.
 	void DoConcubineAdviceTurn();
 	// Template field from SQL: 0 name key, 1 origin index, 2 temperament,

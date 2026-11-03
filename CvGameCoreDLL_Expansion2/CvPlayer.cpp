@@ -36998,9 +36998,23 @@ int CvPlayer::GetCourtPolicyPercent() const
 	int iBase = SuzerainDefineInt("SUZERAIN_COURT_POLICY_PERCENT");
 	if (iBase <= 0) return 0;
 
-	if (GetOverlord() != NO_PLAYER) return iBase;
-	if (HasAnyVassal()) return iBase * 2;
-	return 0;
+	int iPercent = 0;
+	if (GetOverlord() != NO_PLAYER) iPercent = iBase;
+	else if (HasAnyVassal()) iPercent = iBase * 2;
+	else return 0;
+
+	// The empress and the senior consorts attend court in person, so the policy
+	// it produces carries further.
+	int iEmpress = GetEmpress();
+	if (iEmpress >= 0)
+		iPercent += SuzerainDefineInt("SUZERAIN_CONCUBINE_COURT_EMPRESS");
+	for (int i = 0; i < GetConcubineCount(); i++)
+	{
+		if (i == iEmpress) continue;
+		if (GetConcubineRank(i) < 4) continue;
+		iPercent += SuzerainDefineInt("SUZERAIN_CONCUBINE_COURT_TOP");
+	}
+	return iPercent;
 }
 
 //--------------------------------------------------------------------------------

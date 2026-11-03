@@ -12766,40 +12766,77 @@ int CvCity::GetLocalHappiness() const
 	iLocalHappiness += kPlayer.getPolicyModifiers(POLICYMOD_HAPPINESS_PER_RELIGION_IN_CITY) * GetCityReligions()->GetNumReligionsWithFollowers();
 
 	// Policy Building Mods
+	// The original loop visited every building class in the game for every owned policy.
+	// A class contributes only when the city owns that class's civilization building, so
+	// collect the buildings this city owns once and visit those instead: the same products
+	// are added for the same (policy, class) pairs, in a different order but the same sum.
+	// (Same idea as Community Patch PR #13523.)
 	int iSpecialPolicyBuildingHappiness = 0;
-	int iBuildingClassLoop;
-	BuildingClassTypes eBuildingClass;
-	for(int iPolicyLoop = 0; iPolicyLoop < GC.getNumPolicyInfos(); iPolicyLoop++)
+	typedef std::pair<BuildingTypes, int> OwnedBuilding;
+	std::vector<OwnedBuilding> aBuildingsHere;
+	aBuildingsHere.reserve(64);
+	const int iNumBuildings = GC.getNumBuildingInfos();
+	CvCityBuildings* pkCityBuildings = GetCityBuildings();
+	for(int iBuildingLoop = 0; iBuildingLoop < iNumBuildings; iBuildingLoop++)
 	{
-		PolicyTypes ePolicy = (PolicyTypes)iPolicyLoop;
-		CvPolicyEntry* pkPolicyInfo = GC.getPolicyInfo(ePolicy);
-		if(pkPolicyInfo)
+		BuildingTypes eBuilding = (BuildingTypes)iBuildingLoop;
+		const int iNumHere = pkCityBuildings->GetNumBuilding(eBuilding);
+		if(iNumHere > 0)
 		{
-			if(kPlayer.GetPlayerPolicies()->HasPolicy(ePolicy) && !kPlayer.GetPlayerPolicies()->IsPolicyBlocked(ePolicy))
+			aBuildingsHere.push_back(std::make_pair(eBuilding, iNumHere));
+		}
+	}
+
+	if(!aBuildingsHere.empty())
+	{
+		CvCivilizationInfo& playerCivilizationInfo = kPlayer.getCivilizationInfo();
+		for(int iPolicyLoop = 0; iPolicyLoop < GC.getNumPolicyInfos(); iPolicyLoop++)
+		{
+			PolicyTypes ePolicy = (PolicyTypes)iPolicyLoop;
+			CvPolicyEntry* pkPolicyInfo = GC.getPolicyInfo(ePolicy);
+			if(!pkPolicyInfo)
 			{
-				for(iBuildingClassLoop = 0; iBuildingClassLoop < GC.getNumBuildingClassInfos(); iBuildingClassLoop++)
+				continue;
+			}
+
+			if(!kPlayer.GetPlayerPolicies()->HasPolicy(ePolicy) || kPlayer.GetPlayerPolicies()->IsPolicyBlocked(ePolicy))
+			{
+				continue;
+			}
+
+			for(size_t iBuildingHere = 0; iBuildingHere < aBuildingsHere.size(); iBuildingHere++)
+			{
+				BuildingTypes eBuilding = aBuildingsHere[iBuildingHere].first;
+				CvBuildingEntry* pkBuildingInfo = GC.getBuildingInfo(eBuilding);
+				if(!pkBuildingInfo)
 				{
-					eBuildingClass = (BuildingClassTypes) iBuildingClassLoop;
-
-					CvBuildingClassInfo* pkBuildingClassInfo = GC.getBuildingClassInfo(eBuildingClass);
-					if(!pkBuildingClassInfo)
-					{
-						continue;
-					}
-
-					BuildingTypes eBuilding = (BuildingTypes)kPlayer.getCivilizationInfo().getCivilizationBuildings(eBuildingClass);
-					if(eBuilding != NO_BUILDING && GetCityBuildings()->GetNumBuilding(eBuilding) > 0) // slewis - added the NO_BUILDING check for the ConquestDLX scenario which has civ specific wonders
-					{
-						if(pkPolicyInfo->GetBuildingClassHappiness(eBuildingClass) != 0)
-						{
-#if defined(MOD_BUGFIX_MINOR)
-							iSpecialPolicyBuildingHappiness += pkPolicyInfo->GetBuildingClassHappiness(eBuildingClass) * GetCityBuildings()->GetNumBuilding(eBuilding);
-#else
-							iSpecialPolicyBuildingHappiness += pkPolicyInfo->GetBuildingClassHappiness(eBuildingClass);
-#endif
-						}
-					}
+					continue;
 				}
+
+				BuildingClassTypes eBuildingClass = (BuildingClassTypes)pkBuildingInfo->GetBuildingClassType();
+				if(!GC.getBuildingClassInfo(eBuildingClass))
+				{
+					continue;
+				}
+
+				// Only the civilization's building for the class counts (the ConquestDLX scenario
+				// has civ specific wonders whose class building is different or missing)
+				if((BuildingTypes)playerCivilizationInfo.getCivilizationBuildings(eBuildingClass) != eBuilding)
+				{
+					continue;
+				}
+
+				int iHappiness = pkPolicyInfo->GetBuildingClassHappiness(eBuildingClass);
+				if(iHappiness == 0)
+				{
+					continue;
+				}
+
+#if defined(MOD_BUGFIX_MINOR)
+				iSpecialPolicyBuildingHappiness += iHappiness * aBuildingsHere[iBuildingHere].second;
+#else
+				iSpecialPolicyBuildingHappiness += iHappiness;
+#endif
 			}
 		}
 	}
@@ -22566,6 +22603,12 @@ bool CvCity::canRangeStrikeAt(int iX, int iY) const
 	const CvPlot* pTargetPlot = GC.getMap().plot(iX, iY);
 
 	if(NULL == pTargetPlot)
+		return false;
+
+	// A plot without units has no defender, so it cannot be a ranged strike target.
+	// Answer before the line-of-sight and distance tests, which most scanned plots would fail anyway;
+	// canRangedStrikeTarget() below would reach the same answer via getBestDefender(), which walks this list.
+	if(pTargetPlot->headUnitNode() == NULL)
 		return false;
 
 	if(!pTargetPlot->isVisible(getTeam()))

@@ -2597,6 +2597,10 @@ CvCity* CvPlayer::initCity(int iX, int iY, bool bBumpUnits, bool bInitialFoundin
 }
 
 //	--------------------------------------------------------------------------------
+// Forward declaration: the helper is defined further down the file.
+static int SuzerainDefineInt(const char* szName);
+
+//	--------------------------------------------------------------------------------
 // NOTE: bGift set to true if the city is given as a gift, as in the case for trades and Austria UA of annexing city-states
 CvCity* CvPlayer::acquireCity(CvCity* pOldCity, bool bConquest, bool bGift, bool bKeepResources, bool bIsMajorCivBuyout, bool bNoKillPunishment)
 {
@@ -4000,6 +4004,20 @@ CvCity* CvPlayer::acquireCity(CvCity* pOldCity, bool bConquest, bool bGift, bool
 	if (bRefreshCSUAAfterConquest)
 		RefreshCSAllUAEffects();
 #endif
+
+	// A conquered major civ's woman may be taken into the palace as a spoil of
+	// the campaign: no dowry, and her homeland no longer exists to patronise.
+	if (bConquest && !bGift && MOD_GLOBAL_SUZERAIN && isHuman()
+		&& eOldOwner != NO_PLAYER && eOldOwner != GetID()
+		&& GET_PLAYER(eOldOwner).isMajorCiv())
+	{
+		int iPct = SuzerainDefineInt("SUZERAIN_CONCUBINE_CAPTURE_PERCENT");
+		if (iPct > 0 && GC.getGame().getJonRandNum(100, "Concubine capture chance") < iPct)
+		{
+			int iTpl = PickFreeConcubineTemplate();
+			if (iTpl > 0) ReceiveConcubine(eOldOwner, iTpl, false);
+		}
+	}
 
 #if defined(MOD_API_EXTENSIONS)
 		return pNewCity;
@@ -34815,10 +34833,34 @@ bool CvPlayer::DoVassalProtect(PlayerTypes eVassal, bool bProtect)
 		ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_LOYALTY_PROTECT"));
 		ChangeMandate(SuzerainDefineInt("SUZERAIN_MANDATE_PROTECT"));
 		ChangeDaoPoints(SuzerainDefineInt("SUZERAIN_DAO_POINT_PROTECT"));
+
+		// The daughter who begged for help is grateful.
+		int iFavorGain = SuzerainDefineInt("SUZERAIN_CONCUBINE_PROTECT_FAVOR_GAIN");
+		if (iFavorGain != 0)
+		{
+			for (int c = 0; c < GetConcubineCount(); c++)
+			{
+				if (GetConcubineField(c, 1) != (int)eVassal) continue;
+				ChangeConcubineFavor(c, iFavorGain);
+				break;
+			}
+		}
 	}
 	else
 	{
 		ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_LOYALTY_FAIL_PROTECT"));
+
+		// Abandoning her homeland costs the concubine's affection.
+		int iFavorLoss = SuzerainDefineInt("SUZERAIN_CONCUBINE_PROTECT_DENY_FAVOR");
+		if (iFavorLoss != 0)
+		{
+			for (int c = 0; c < GetConcubineCount(); c++)
+			{
+				if (GetConcubineField(c, 1) != (int)eVassal) continue;
+				ChangeConcubineFavor(c, iFavorLoss);
+				break;
+			}
+		}
 	}
 
 	m_aiVassalProtectHandled.setAt((size_t)eVassal, 1);
@@ -45103,7 +45145,7 @@ int CvPlayer::GetConcubineField(int iIndex, int iField) const
 }
 
 //--------------------------------------------------------------------------------
-bool CvPlayer::ReceiveConcubine(PlayerTypes eVassal, int iTemplate)
+bool CvPlayer::ReceiveConcubine(PlayerTypes eVassal, int iTemplate, bool bDowry)
 {
 	if (!MOD_GLOBAL_SUZERAIN) return false;
 	if (iTemplate <= 0 || eVassal == NO_PLAYER) return false;
@@ -45136,20 +45178,67 @@ bool CvPlayer::ReceiveConcubine(PlayerTypes eVassal, int iTemplate)
 	vf.push_back(iStartFavor);
 	m_aiConcubineFavor = vf;
 
-	int iOrigin = atoi(GetConcubineTemplateField(iTemplate, 1).c_str());
-	int iDowry = SuzerainDefineInt("SUZERAIN_CONCUBINE_DOWRY_GOLD");
-	if (iOrigin == 4)
-		iDowry = SuzerainDefineInt("SUZERAIN_CONCUBINE_DOWRY_MERCHANT");
-	if (iDowry > 0) GetTreasury()->ChangeGold(iDowry);
+	if (bDowry)
+	{
+		int iOrigin = atoi(GetConcubineTemplateField(iTemplate, 1).c_str());
+		int iDowry = SuzerainDefineInt("SUZERAIN_CONCUBINE_DOWRY_GOLD");
+		if (iOrigin == 4)
+			iDowry = SuzerainDefineInt("SUZERAIN_CONCUBINE_DOWRY_MERCHANT");
+		if (iDowry > 0) GetTreasury()->ChangeGold(iDowry);
+	}
+
 	if (isHuman() && GetNotifications())
 	{
-		Localization::String sMsg = Localization::Lookup("TXT_KEY_NOTIFICATION_CONCUBINE_RECEIVED");
+		Localization::String sMsg = Localization::Lookup(bDowry
+			? "TXT_KEY_NOTIFICATION_CONCUBINE_RECEIVED"
+			: "TXT_KEY_NOTIFICATION_CONCUBINE_CAPTURED");
 		sMsg << GET_PLAYER(eVassal).getCivilizationShortDescriptionKey();
-		Localization::String sSum = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_CONCUBINE_RECEIVED");
+		Localization::String sSum = Localization::Lookup(bDowry
+			? "TXT_KEY_NOTIFICATION_SUMMARY_CONCUBINE_RECEIVED"
+			: "TXT_KEY_NOTIFICATION_SUMMARY_CONCUBINE_CAPTURED");
 		sSum << GET_PLAYER(eVassal).getCivilizationShortDescriptionKey();
 		GetNotifications()->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), -1, -1, eVassal);
 	}
 	return true;
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::PickFreeConcubineTemplate()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+
+	int iCount = SuzerainDefineInt("SUZERAIN_CONCUBINE_COUNT");
+	if (iCount <= 0) iCount = 100;
+
+	int iFree = 0;
+	for (int t = 1; t <= iCount; t++)
+	{
+		CvString szName = CvString::format("SUZERAIN_CONCUBINE_%d", t);
+		if (GC.getDefineSTRING(szName.c_str(), false).empty()) continue;
+		bool bHeld = false;
+		for (int i = 0; i < GetConcubineCount(); i++)
+		{
+			if (GetConcubineField(i, 0) == t) { bHeld = true; break; }
+		}
+		if (!bHeld) iFree++;
+	}
+	if (iFree <= 0) return 0;
+
+	int iPick = GC.getGame().getJonRandNum(iFree, "Concubine capture") + 1;
+	for (int t = 1; t <= iCount; t++)
+	{
+		CvString szName = CvString::format("SUZERAIN_CONCUBINE_%d", t);
+		if (GC.getDefineSTRING(szName.c_str(), false).empty()) continue;
+		bool bHeld = false;
+		for (int i = 0; i < GetConcubineCount(); i++)
+		{
+			if (GetConcubineField(i, 0) == t) { bHeld = true; break; }
+		}
+		if (bHeld) continue;
+		iPick--;
+		if (iPick <= 0) return t;
+	}
+	return 0;
 }
 
 //--------------------------------------------------------------------------------
@@ -45460,17 +45549,62 @@ bool CvPlayer::GiftConcubine(int iIndex)
 	if (!MOD_GLOBAL_SUZERAIN) return false;
 	if (iIndex < 0 || iIndex >= GetConcubineCount()) return false;
 
-	int iGold = SuzerainDefineInt("SUZERAIN_CONCUBINE_GIFT_GOLD");
+	// The gift grows with her affection: gold first, then jewels, then a garden
+	// once she is truly devoted. If the treasury cannot cover the higher tier,
+	// the gift falls back to the best one it can pay for.
+	int iFavor = GetConcubineFavor(iIndex);
+	int iJewelMin = SuzerainDefineInt("SUZERAIN_CONCUBINE_GIFT_JEWEL_MIN_FAVOR");
+	if (iJewelMin <= 0) iJewelMin = 80;
+	int iGardenMin = SuzerainDefineInt("SUZERAIN_CONCUBINE_GIFT_GARDEN_MIN_FAVOR");
+	if (iGardenMin <= 0) iGardenMin = 95;
+
+	int iPlainGold = SuzerainDefineInt("SUZERAIN_CONCUBINE_GIFT_GOLD");
+	int iJewelGold = SuzerainDefineInt("SUZERAIN_CONCUBINE_GIFT_JEWEL_GOLD");
+	int iGardenGold = SuzerainDefineInt("SUZERAIN_CONCUBINE_GIFT_GARDEN_GOLD");
+
+	int iKind = 0;
+	if (iFavor >= iGardenMin && GetTreasury()->GetGold() >= iGardenGold) iKind = 2;
+	else if (iFavor >= iJewelMin && GetTreasury()->GetGold() >= iJewelGold) iKind = 1;
+
+	int iGold = 0;
+	int iFavorGain = 0;
+	int iLoyalty = 0;
+	int iCulture = 0;
+	if (iKind == 2)
+	{
+		iGold = iGardenGold;
+		iFavorGain = SuzerainDefineInt("SUZERAIN_CONCUBINE_GIFT_GARDEN_FAVOR");
+		iCulture = SuzerainDefineInt("SUZERAIN_CONCUBINE_GIFT_GARDEN_CULTURE");
+	}
+	else if (iKind == 1)
+	{
+		iGold = iJewelGold;
+		iFavorGain = SuzerainDefineInt("SUZERAIN_CONCUBINE_GIFT_JEWEL_FAVOR");
+		iLoyalty = SuzerainDefineInt("SUZERAIN_CONCUBINE_GIFT_JEWEL_LOYALTY");
+	}
+	else
+	{
+		iGold = iPlainGold;
+		iFavorGain = SuzerainDefineInt("SUZERAIN_CONCUBINE_FAVOR_GIFT");
+		iLoyalty = SuzerainDefineInt("SUZERAIN_CONCUBINE_GIFT_LOYALTY");
+	}
+
 	if (iGold > 0)
 	{
 		if (GetTreasury()->GetGold() < iGold) return false;
 		GetTreasury()->ChangeGold(-iGold);
 	}
 
+	if (iCulture > 0)
+	{
+		CvCity* pCapital = getCapitalCity();
+		if (pCapital != NULL) pCapital->ChangeJONSCultureStored(iCulture);
+	}
+
 	PlayerTypes eVassal = (PlayerTypes)GetConcubineField(iIndex, 1);
 	if (eVassal != NO_PLAYER && IsLiveVassal(eVassal))
-		ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_CONCUBINE_GIFT_LOYALTY"));
-	ChangeConcubineFavor(iIndex, SuzerainDefineInt("SUZERAIN_CONCUBINE_FAVOR_GIFT"));
+		ChangeVassalLoyalty(eVassal, iLoyalty);
+	ChangeConcubineFavor(iIndex, iFavorGain);
 	return true;
 }
 

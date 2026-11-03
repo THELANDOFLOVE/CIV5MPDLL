@@ -2207,7 +2207,10 @@ public:
 	int GetConcubineCount() const;
 	// iField: 0 template ID, 1 source vassal, 2 favour count, 3 last favour turn
 	int GetConcubineField(int iIndex, int iField) const;
-	bool ReceiveConcubine(PlayerTypes eVassal, int iTemplate);
+	// bDowry false means she was taken (a captive), so no dowry is paid.
+	bool ReceiveConcubine(PlayerTypes eVassal, int iTemplate, bool bDowry = true);
+	// Pick a template not yet in the palace; 0 when every one is held.
+	int PickFreeConcubineTemplate();
 	bool FavorConcubine(int iIndex);
 	int GetConcubineRank(int iIndex) const;
 	int GetEmpress() const;

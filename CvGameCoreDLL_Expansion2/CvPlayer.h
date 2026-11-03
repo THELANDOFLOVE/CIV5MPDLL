@@ -2217,6 +2217,8 @@ public:
 	bool GiftConcubine(int iIndex);
 	int GetConcubineFavor(int iIndex) const;
 	void ChangeConcubineFavor(int iIndex, int iDelta);
+	// Drop one concubine from the palace (she leaves or dies) and fix the empress index.
+	bool RemoveConcubine(int iIndex);
 	bool DethroneEmpress();
 	int GetConcubineWish(int iIndex) const;
 	void SetConcubineWish(int iIndex, int iWish);

@@ -35823,6 +35823,23 @@ int CvPlayer::GetVassalRevoltScore(PlayerTypes eVassal) const
 		if (iTotalMight > 0)
 			iScore += (iVassalMight * 100 / iTotalMight) * iMilitaryWeight;
 	}
+
+	// A concubine who loves the palace is a hostage of affection: her homeland
+	// thinks twice before walking out on her.
+	int iHostageSuppress = SuzerainDefineInt("SUZERAIN_CONCUBINE_HOSTAGE_SUPPRESS");
+	if (iHostageSuppress > 0)
+	{
+		int iStayFavor = SuzerainDefineInt("SUZERAIN_CONCUBINE_HOSTAGE_STAY_FAVOR");
+		if (iStayFavor <= 0) iStayFavor = 60;
+		int iHostages = 0;
+		for (int i = 0; i < GetConcubineCount(); i++)
+		{
+			if (GetConcubineField(i, 1) != (int)eVassal) continue;
+			if (GetConcubineFavor(i) >= iStayFavor) iHostages++;
+		}
+		iScore -= iHostages * iHostageSuppress;
+		if (iScore < 0) iScore = 0;
+	}
 	return iScore;
 }
 
@@ -35855,10 +35872,51 @@ bool CvPlayer::DoVassalRevolt(PlayerTypes eVassal)
 	TeamTypes eOverlordTeam = getTeam();
 	TeamTypes eVassalTeam = GET_PLAYER(eVassal).getTeam();
 
+	// Her homeland has walked out. A concubine fond of the palace stays behind as
+	// a hostage and pleads for it; one with little fondness goes home with it.
+	// While at least one stays to plead, the court lets the vassal go in peace.
+	int iStayFavor = SuzerainDefineInt("SUZERAIN_CONCUBINE_HOSTAGE_STAY_FAVOR");
+	if (iStayFavor <= 0) iStayFavor = 60;
+
+	bool bPlea = false;
+	for (int i = GetConcubineCount() - 1; i >= 0; i--)
+	{
+		if (GetConcubineField(i, 1) != (int)eVassal) continue;
+
+		CvString szName = GetConcubineTemplateField(GetConcubineField(i, 0), 0);
+		if (GetConcubineFavor(i) >= iStayFavor)
+		{
+			// One notice is enough; the rest are mentioned only in the panel.
+			if (!bPlea && isHuman() && GetNotifications())
+			{
+				Localization::String sMsg = Localization::Lookup("TXT_KEY_NOTIFICATION_CONCUBINE_HOSTAGE_STAY");
+				sMsg << szName.c_str();
+				sMsg << GET_PLAYER(eVassal).getCivilizationShortDescriptionKey();
+				Localization::String sSum = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_CONCUBINE_HOSTAGE_STAY");
+				sSum << szName.c_str();
+				GetNotifications()->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), -1, -1, eVassal);
+			}
+			bPlea = true;
+		}
+		else
+		{
+			if (isHuman() && GetNotifications())
+			{
+				Localization::String sMsg = Localization::Lookup("TXT_KEY_NOTIFICATION_CONCUBINE_HOSTAGE_LEAVE");
+				sMsg << szName.c_str();
+				sMsg << GET_PLAYER(eVassal).getCivilizationShortDescriptionKey();
+				Localization::String sSum = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_CONCUBINE_HOSTAGE_LEAVE");
+				sSum << szName.c_str();
+				GetNotifications()->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), -1, -1, eVassal);
+			}
+			RemoveConcubine(i);
+		}
+	}
+
 	RemoveVassal(eVassal);
 	GET_PLAYER(eVassal).SetOverlord(NO_PLAYER);
 
-	if (eVassalTeam != NO_TEAM && eVassalTeam != eOverlordTeam
+	if (!bPlea && eVassalTeam != NO_TEAM && eVassalTeam != eOverlordTeam
 		&& !GET_TEAM(eVassalTeam).isAtWar(eOverlordTeam)
 		&& GET_TEAM(eVassalTeam).canDeclareWar(eOverlordTeam, eVassal))
 	{
@@ -44911,6 +44969,23 @@ void CvPlayer::DoConcubineTurn()
 				ChangeVassalLoyalty(eV, iFeastLoyalty);
 		}
 	}
+	// A hostage whose homeland has renounced us or fallen has no patron left.
+	// She pines away, and when her fondness is gone she leaves the palace.
+	int iHostageDecay = SuzerainDefineInt("SUZERAIN_CONCUBINE_HOSTAGE_DECAY");
+	if (iHostageDecay != 0)
+	{
+		for (int i = iCount - 1; i >= 0; i--)
+		{
+			PlayerTypes eV = (PlayerTypes)GetConcubineField(i, 1);
+			if (eV != NO_PLAYER && IsLiveVassal(eV)) continue;
+			ChangeConcubineFavor(i, iHostageDecay);
+			if (GetConcubineFavor(i) <= 0)
+				RemoveConcubine(i);
+		}
+		iCount = GetConcubineCount();
+		if (iCount <= 0) return;
+	}
+
 	int iNeglectTurns = SuzerainDefineInt("SUZERAIN_CONCUBINE_NEGLECT_TURNS");
 	int iNeglectEvery = SuzerainDefineInt("SUZERAIN_CONCUBINE_NEGLECT_CHECK");
 	if (iNeglectTurns <= 0) iNeglectTurns = 20;
@@ -45089,6 +45164,30 @@ void CvPlayer::ChangeConcubineFavor(int iIndex, int iDelta)
 	if (iVal < 0) iVal = 0;
 	if (iVal > 100) iVal = 100;
 	m_aiConcubineFavor.setAt((size_t)iIndex, iVal);
+}
+
+//--------------------------------------------------------------------------------
+// A concubine leaves the palace when her homeland renounces us or falls. Erasing
+// her also keeps the empress index pointing at the same woman.
+bool CvPlayer::RemoveConcubine(int iIndex)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (iIndex < 0 || iIndex >= GetConcubineCount()) return false;
+
+	std::vector<int> v = m_aiConcubines;
+	v.erase(v.begin() + (size_t)(iIndex * 5), v.begin() + (size_t)(iIndex * 5) + 5);
+	m_aiConcubines = v;
+
+	if ((size_t)iIndex < m_aiConcubineFavor.size())
+	{
+		std::vector<int> vf = m_aiConcubineFavor;
+		vf.erase(vf.begin() + (size_t)iIndex);
+		m_aiConcubineFavor = vf;
+	}
+
+	if (m_iEmpress == iIndex) m_iEmpress = -1;
+	else if (m_iEmpress > iIndex) m_iEmpress = m_iEmpress - 1;
+	return true;
 }
 
 //--------------------------------------------------------------------------------

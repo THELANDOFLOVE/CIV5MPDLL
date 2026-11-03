@@ -37230,9 +37230,12 @@ int CvPlayer::GetCourtPolicyPercent() const
 	int iBase = SuzerainDefineInt("SUZERAIN_COURT_POLICY_PERCENT");
 	if (iBase <= 0) return 0;
 
+	int iOverlordMult = SuzerainDefineInt("SUZERAIN_COURT_POLICY_OVERLORD_MULTIPLIER");
+	if (iOverlordMult <= 0) iOverlordMult = 2;
+
 	int iPercent = 0;
 	if (GetOverlord() != NO_PLAYER) iPercent = iBase;
-	else if (HasAnyVassal()) iPercent = iBase * 2;
+	else if (HasAnyVassal()) iPercent = iBase * iOverlordMult;
 	else return 0;
 
 	// The empress and the senior consorts attend court in person, so the policy
@@ -45162,12 +45165,16 @@ bool CvPlayer::FavorConcubine(int iIndex)
 	ChangeConcubineFavor(iIndex, SuzerainDefineInt("SUZERAIN_CONCUBINE_FAVOR_FAVOUR"));
 
 	// Reaching the top rank earns a title, granted once at the crossing.
-	if (iOldRank < 4 && GetConcubineRank(iIndex) >= 4)
+	int iTitleRank = SuzerainDefineInt("SUZERAIN_CONCUBINE_TITLE_RANK");
+	if (iTitleRank <= 0) iTitleRank = 4;
+	if (iOldRank < iTitleRank && GetConcubineRank(iIndex) >= iTitleRank)
 	{
 		ChangeMandate(SuzerainDefineInt("SUZERAIN_CONCUBINE_TITLE_MANDATE"));
 		if (isHuman() && GetNotifications())
 		{
-			int iTitle = ((GetConcubineField(iIndex, 0) - 1) % 8) + 1;
+			int iTitleCount = SuzerainDefineInt("SUZERAIN_CONCUBINE_TITLE_COUNT");
+			if (iTitleCount <= 0) iTitleCount = 8;
+			int iTitle = ((GetConcubineField(iIndex, 0) - 1) % iTitleCount) + 1;
 			CvString szTitleKey = CvString::format("TXT_KEY_TIANDAO_CONCUBINE_TITLE_%d", iTitle);
 			CvString szName = GetConcubineTemplateField(GetConcubineField(iIndex, 0), 0);
 			Localization::String sMsg = Localization::Lookup("TXT_KEY_NOTIFICATION_CONCUBINE_TITLE");
@@ -45250,11 +45257,13 @@ void CvPlayer::DoConcubineTurn()
 		int iEmpMult = SuzerainDefineInt("SUZERAIN_CONCUBINE_EMPRESS_MULTIPLIER");
 		if (iEmpMult <= 0) iEmpMult = 2;
 		int iTitlePer = SuzerainDefineInt("SUZERAIN_CONCUBINE_TITLE_MANDATE_TURN");
+		int iTitleRank = SuzerainDefineInt("SUZERAIN_CONCUBINE_TITLE_RANK");
+		if (iTitleRank <= 0) iTitleRank = 4;
 		int iTotal = 0;
 		for (int i = 0; i < iCount; i++)
 		{
 			iTotal += (i == iEmpress) ? iPer * iEmpMult : iPer;
-			if (GetConcubineRank(i) >= 4) iTotal += iTitlePer;
+			if (GetConcubineRank(i) >= iTitleRank) iTotal += iTitlePer;
 		}
 		if (iTotal > 0) ChangeMandate(iTotal);
 	}
@@ -45277,10 +45286,12 @@ void CvPlayer::DoConcubineTurn()
 	int iBlessEvery = SuzerainDefineInt("SUZERAIN_CONCUBINE_BLESS_INTERVAL");
 	if (iBlessEvery > 0 && (iTurn % iBlessEvery) == 0)
 	{
+		int iBlessRank = SuzerainDefineInt("SUZERAIN_CONCUBINE_BLESS_RANK");
+		if (iBlessRank <= 0) iBlessRank = 2;
 		int iBless = 0;
 		for (int i = 0; i < iCount; i++)
 		{
-			if (GetConcubineRank(i) >= 2) iBless++;
+			if (GetConcubineRank(i) >= iBlessRank) iBless++;
 		}
 		if (iBless > 0)
 			ChangeMandate(iBless * SuzerainDefineInt("SUZERAIN_CONCUBINE_BLESS_MANDATE"));
@@ -45665,8 +45676,12 @@ void CvPlayer::DoConcubineWishTurn()
 		}
 		int iRoll = GC.getGame().getJonRandNum(100, "Concubine wish");
 		int iWish = 0;
-		if (iRoll < 40) iWish = GC.getGame().getJonRandNum(3, "Concubine wish type") + 1;
-		else if (iRoll < 70) iWish = 10;
+		int iGoldPct = SuzerainDefineInt("SUZERAIN_CONCUBINE_WISH_GOLD_PERCENT");
+		if (iGoldPct <= 0) iGoldPct = 40;
+		int iLetterPct = SuzerainDefineInt("SUZERAIN_CONCUBINE_WISH_LETTER_PERCENT");
+		if (iLetterPct <= 0) iLetterPct = 30;
+		if (iRoll < iGoldPct) iWish = GC.getGame().getJonRandNum(3, "Concubine wish type") + 1;
+		else if (iRoll < iGoldPct + iLetterPct) iWish = 10;
 		if (iWish > 0) SetConcubineWish(i, iWish);
 	}
 }
@@ -45805,7 +45820,9 @@ void CvPlayer::DoConcubineBondTurn()
 	for (int i = 0; i < iCount; i++)
 		vOrigin.push_back(atoi(GetConcubineTemplateField(GetConcubineField(i, 0), 1).c_str()));
 
-	for (int origin = 1; origin <= 10; origin++)
+	int iOriginCount = SuzerainDefineInt("SUZERAIN_CONCUBINE_ORIGIN_COUNT");
+	if (iOriginCount <= 0) iOriginCount = 10;
+	for (int origin = 1; origin <= iOriginCount; origin++)
 	{
 		int iBest = -1;
 		for (int i = 0; i < iCount; i++)

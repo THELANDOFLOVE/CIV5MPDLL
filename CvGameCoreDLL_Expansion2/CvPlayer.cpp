@@ -45748,10 +45748,30 @@ void CvPlayer::DoConcubineCraftTurn()
 	int iMult = GetConcubineRank(iPick) + 1;
 	CvString szName = GetConcubineTemplateField(GetConcubineField(iPick, 0), 0);
 
-	// 1 gold, 2 culture, 3 mandate.
+	// Which origins turn their keepsake into gold, culture or mandate is a pair
+	// of comma separated lists in SQL; anything not listed yields mandate.
 	int iKind = 3;
-	if (iOrigin == 4 || iOrigin == 5 || iOrigin == 6) iKind = 1;
-	else if (iOrigin == 1 || iOrigin == 2 || iOrigin == 10) iKind = 2;
+	int iGoldOrigins = SuzerainDefineListCount("SUZERAIN_CONCUBINE_CRAFT_GOLD_ORIGINS");
+	for (int t = 0; t < iGoldOrigins; t++)
+	{
+		if (SuzerainDefineListInt("SUZERAIN_CONCUBINE_CRAFT_GOLD_ORIGINS", t, -1) == iOrigin)
+		{
+			iKind = 1;
+			break;
+		}
+	}
+	if (iKind != 1)
+	{
+		int iCultureOrigins = SuzerainDefineListCount("SUZERAIN_CONCUBINE_CRAFT_CULTURE_ORIGINS");
+		for (int t = 0; t < iCultureOrigins; t++)
+		{
+			if (SuzerainDefineListInt("SUZERAIN_CONCUBINE_CRAFT_CULTURE_ORIGINS", t, -1) == iOrigin)
+			{
+				iKind = 2;
+				break;
+			}
+		}
+	}
 
 	if (iKind == 1)
 	{

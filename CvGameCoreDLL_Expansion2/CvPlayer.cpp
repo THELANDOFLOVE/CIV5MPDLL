@@ -37243,10 +37243,12 @@ int CvPlayer::GetCourtPolicyPercent() const
 	int iEmpress = GetEmpress();
 	if (iEmpress >= 0)
 		iPercent += SuzerainDefineInt("SUZERAIN_CONCUBINE_COURT_EMPRESS");
+	int iCourtRank = SuzerainDefineInt("SUZERAIN_CONCUBINE_COURT_RANK");
+	if (iCourtRank <= 0) iCourtRank = 4;
 	for (int i = 0; i < GetConcubineCount(); i++)
 	{
 		if (i == iEmpress) continue;
-		if (GetConcubineRank(i) < 4) continue;
+		if (GetConcubineRank(i) < iCourtRank) continue;
 		iPercent += SuzerainDefineInt("SUZERAIN_CONCUBINE_COURT_TOP");
 	}
 	return iPercent;
@@ -45680,7 +45682,9 @@ void CvPlayer::DoConcubineWishTurn()
 		if (iGoldPct <= 0) iGoldPct = 40;
 		int iLetterPct = SuzerainDefineInt("SUZERAIN_CONCUBINE_WISH_LETTER_PERCENT");
 		if (iLetterPct <= 0) iLetterPct = 30;
-		if (iRoll < iGoldPct) iWish = GC.getGame().getJonRandNum(3, "Concubine wish type") + 1;
+		int iWishTypes = SuzerainDefineInt("SUZERAIN_CONCUBINE_WISH_TYPE_COUNT");
+		if (iWishTypes <= 0) iWishTypes = 3;
+		if (iRoll < iGoldPct) iWish = GC.getGame().getJonRandNum(iWishTypes, "Concubine wish type") + 1;
 		else if (iRoll < iGoldPct + iLetterPct) iWish = 10;
 		if (iWish > 0) SetConcubineWish(i, iWish);
 	}

@@ -10142,6 +10142,9 @@ bool CvMinorCivAI::DoCityStateFaithBeliefPurchase(PlayerTypes eMajor, BeliefType
 	kMajor.ChangeFaith(-iCost);
 	SetFaithBeliefPurchasedByMajor(eMajor, true);
 
+	// Let Lua handle belief-granted effects (free units, policies, random beliefs, etc.).
+	GAMEEVENTINVOKE_HOOK(GAMEEVENT_CityStateFaithBeliefPurchased, eMajor, GetPlayer()->GetID(), eBelief, eReligion);
+
 	// Notification (reformation-belief icon) so the ally knows the belief was added.
 	CvString szBeliefName = "";
 	CvBeliefEntry* pBelief = GC.GetGameBeliefs()->GetEntry(eBelief);
@@ -10314,6 +10317,9 @@ bool CvMinorCivAI::DoCityStateFaithPantheonPurchase(PlayerTypes eMajor, BeliefTy
 
 	kMajor.ChangeFaith(-iCost);
 	ChangeFaithPantheonPurchaseCount(eMajor, 1);
+
+	// Let Lua handle belief-granted effects (free units, policies, random beliefs, etc.).
+	GAMEEVENTINVOKE_HOOK(GAMEEVENT_CityStateFaithBeliefPurchased, eMajor, GetPlayer()->GetID(), eBelief, eReligion);
 
 	// Influence reward: after each purchase, the ally gains (excess happiness / 2) influence
 	// with every city-state it has met (including this one). No influence when happiness is negative.

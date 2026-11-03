@@ -1197,6 +1197,9 @@ enum BattleTypeTypes
 #define GAMEEVENT_CityCreated					"CityCreated",					"iiibb"
 #define GAMEEVENT_CityPrepared					"CityPrepared",					"iiibb"
 #define GAMEEVENT_CitySoldBuilding				"CitySoldBuilding",				"iii"
+// Event sent when a city-state ability adds a belief to a religion the purchasing major leads.
+//   GameEvents.CityStateFaithBeliefPurchased.Add(function(iPlayer, iMinor, iBelief, iReligion) end)
+#define GAMEEVENT_CityStateFaithBeliefPurchased	"CityStateFaithBeliefPurchased",	"iiii"
 #define GAMEEVENT_CityTrained					"CityTrained",					"iiibb"
 #define GAMEEVENT_CityProjectComplete			"CityProjectComplete",			"iii"
 #define GAMEEVENT_CustomMissionCompleted		"CustomMissionCompleted",		"iiiiiii"

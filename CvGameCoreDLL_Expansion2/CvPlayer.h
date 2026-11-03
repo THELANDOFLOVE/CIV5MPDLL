@@ -2215,6 +2215,9 @@ public:
 	void DoOfferConcubineTurn();
 	// Bestow a gift on one concubine: costs gold, lifts the home vassal's loyalty.
 	bool GiftConcubine(int iIndex);
+	int GetConcubineFavor(int iIndex) const;
+	void ChangeConcubineFavor(int iIndex, int iDelta);
+	bool DethroneEmpress();
 	// Periodic counsel from a random concubine.
 	void DoConcubineAdviceTurn();
 	// Template field from SQL: 0 name key, 1 origin index, 2 temperament,
@@ -3333,6 +3336,7 @@ protected:
 	// vassal, favour count, turn of the last favour.
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiConcubines;
 	// Index of the empress in m_aiConcubines (-1 = none)
+	FAutoVariable<std::vector<int>, CvPlayer> m_aiConcubineFavor;
 	FAutoVariable<int, CvPlayer> m_iEmpress;
 	// Turn on which the once-per-turn loyalty bonus was last granted
 	FAutoVariable<int, CvPlayer> m_iFavourBonusTurn;

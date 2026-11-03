@@ -438,6 +438,7 @@ CvPlayer::CvPlayer() :
 	, m_aiLoanDueTurn("CvPlayer::m_aiLoanDueTurn", m_syncArchive)
 	, m_aiLoanAmount("CvPlayer::m_aiLoanAmount", m_syncArchive)
 	, m_aiConcubines("CvPlayer::m_aiConcubines", m_syncArchive)
+	, m_aiConcubineFavor("CvPlayer::m_aiConcubineFavor", m_syncArchive)
 	, m_iEmpress("CvPlayer::m_iEmpress", m_syncArchive)
 	, m_iFavourBonusTurn("CvPlayer::m_iFavourBonusTurn", m_syncArchive)
 	, m_aiVassalBreachCount("CvPlayer::m_aiVassalBreachCount", m_syncArchive)
@@ -1362,6 +1363,7 @@ void CvPlayer::uninit()
 	m_aiLoanAmount.clear();
 	m_aiLoanAmount.resize(MAX_MAJOR_CIVS, 0);
 	m_aiConcubines.clear();
+	m_aiConcubineFavor.clear();
 	m_iEmpress = -1;
 	m_iFavourBonusTurn = 0;
 	m_aiVassalGiftCount.clear();
@@ -31446,6 +31448,7 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiLoanDueTurn, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiLoanAmount, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiConcubines, 0, 0);
+		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiConcubineFavor, 0, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iEmpress, -1);
 		MOD_SERIALIZE_READ(165, kStream, m_iFavourBonusTurn, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalBreachCount, MAX_MAJOR_CIVS, 0);
@@ -32437,6 +32440,7 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiLoanDueTurn);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiLoanAmount);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiConcubines);
+	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiConcubineFavor);
 	MOD_SERIALIZE_WRITE(kStream, m_iEmpress);
 	MOD_SERIALIZE_WRITE(kStream, m_iFavourBonusTurn);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalBreachCount);
@@ -44734,6 +44738,12 @@ bool CvPlayer::ReceiveConcubine(PlayerTypes eVassal, int iTemplate)
 	v.push_back(GC.getGame().getGameTurn());
 	m_aiConcubines = v;
 
+	int iStartFavor = SuzerainDefineInt("SUZERAIN_CONCUBINE_FAVOR_START");
+	if (iStartFavor <= 0) iStartFavor = 50;
+	std::vector<int> vf = m_aiConcubineFavor;
+	vf.push_back(iStartFavor);
+	m_aiConcubineFavor = vf;
+
 	if (isHuman() && GetNotifications())
 	{
 		Localization::String sMsg = Localization::Lookup("TXT_KEY_NOTIFICATION_CONCUBINE_RECEIVED");
@@ -44756,6 +44766,7 @@ bool CvPlayer::FavorConcubine(int iIndex)
 
 	m_aiConcubines.setAt((size_t)(iBase + 2), m_aiConcubines[iBase + 2] + 1);
 	m_aiConcubines.setAt((size_t)(iBase + 3), iTurn);
+	ChangeConcubineFavor(iIndex, SuzerainDefineInt("SUZERAIN_CONCUBINE_FAVOR_FAVOUR"));
 
 	// Only the first favour of a turn earns loyalty for the source vassal.
 	if (m_iFavourBonusTurn != iTurn)
@@ -44797,6 +44808,7 @@ bool CvPlayer::SetEmpress(int iIndex)
 {
 	if (!MOD_GLOBAL_SUZERAIN) return false;
 	if (iIndex < -1 || iIndex >= GetConcubineCount()) return false;
+	ChangeConcubineFavor(iIndex, SuzerainDefineInt("SUZERAIN_CONCUBINE_FAVOR_EMPRESS"));
 	m_iEmpress = iIndex;
 	return true;
 }
@@ -44826,6 +44838,21 @@ void CvPlayer::DoConcubineTurn()
 		if (iTotal > 0) ChangeMandate(iTotal);
 	}
 
+	// Patronage: each concubine quietly funds her home vassal.
+	int iPatronage = SuzerainDefineInt("SUZERAIN_CONCUBINE_PATRONAGE_GOLD");
+	if (iPatronage > 0)
+	{
+		for (int i = 0; i < iCount; i++)
+		{
+			PlayerTypes eV = (PlayerTypes)GetConcubineField(i, 1);
+			if (eV == NO_PLAYER || !IsLiveVassal(eV)) continue;
+			int iGold = iPatronage * (GetConcubineRank(i) + 1);
+			if (GetTreasury()->GetGold() < iGold) break;
+			GetTreasury()->ChangeGold(-iGold);
+			GET_PLAYER(eV).GetTreasury()->ChangeGold(iGold);
+		}
+	}
+
 	int iNeglectTurns = SuzerainDefineInt("SUZERAIN_CONCUBINE_NEGLECT_TURNS");
 	int iNeglectEvery = SuzerainDefineInt("SUZERAIN_CONCUBINE_NEGLECT_CHECK");
 	if (iNeglectTurns <= 0) iNeglectTurns = 20;
@@ -44842,6 +44869,7 @@ void CvPlayer::DoConcubineTurn()
 		PlayerTypes eVassal = (PlayerTypes)GetConcubineField(i, 1);
 		if (eVassal == NO_PLAYER || !IsLiveVassal(eVassal)) continue;
 		ChangeVassalLoyalty(eVassal, iLoss);
+		ChangeConcubineFavor(i, SuzerainDefineInt("SUZERAIN_CONCUBINE_FAVOR_NEGLECT"));
 	}
 }
 
@@ -44953,6 +44981,7 @@ bool CvPlayer::GiftConcubine(int iIndex)
 	PlayerTypes eVassal = (PlayerTypes)GetConcubineField(iIndex, 1);
 	if (eVassal != NO_PLAYER && IsLiveVassal(eVassal))
 		ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_CONCUBINE_GIFT_LOYALTY"));
+	ChangeConcubineFavor(iIndex, SuzerainDefineInt("SUZERAIN_CONCUBINE_FAVOR_GIFT"));
 	return true;
 }
 
@@ -44981,6 +45010,43 @@ void CvPlayer::DoConcubineAdviceTurn()
 		Localization::String sSum = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_CONCUBINE_ADVICE");
 		GetNotifications()->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), -1, -1, eVassal);
 	}
+}
+
+int CvPlayer::GetConcubineFavor(int iIndex) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	if (iIndex < 0 || iIndex >= GetConcubineCount()) return 0;
+	if ((size_t)iIndex >= m_aiConcubineFavor.size()) return 0;
+	return m_aiConcubineFavor[iIndex];
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::ChangeConcubineFavor(int iIndex, int iDelta)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (iIndex < 0 || iIndex >= GetConcubineCount()) return;
+	if ((size_t)iIndex >= m_aiConcubineFavor.size())
+		m_aiConcubineFavor.resize((size_t)GetConcubineCount(), 0);
+	int iVal = m_aiConcubineFavor[iIndex] + iDelta;
+	if (iVal < 0) iVal = 0;
+	if (iVal > 100) iVal = 100;
+	m_aiConcubineFavor.setAt((size_t)iIndex, iVal);
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::DethroneEmpress()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	int iEmp = GetEmpress();
+	if (iEmp < 0) return false;
+
+	ChangeConcubineFavor(iEmp, SuzerainDefineInt("SUZERAIN_CONCUBINE_FAVOR_DETHRONE"));
+	PlayerTypes eVassal = (PlayerTypes)GetConcubineField(iEmp, 1);
+	if (eVassal != NO_PLAYER && IsLiveVassal(eVassal))
+		ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_CONCUBINE_DETHRONE_LOYALTY"));
+	ChangeMandate(SuzerainDefineInt("SUZERAIN_CONCUBINE_DETHRONE_MANDATE"));
+	m_iEmpress = -1;
+	return true;
 }
 
 //--------------------------------------------------------------------------------

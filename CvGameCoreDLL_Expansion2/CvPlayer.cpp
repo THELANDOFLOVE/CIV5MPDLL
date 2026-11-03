@@ -45843,7 +45843,114 @@ void CvPlayer::DoConcubineIntelTurn()
 
 	int iEvery = SuzerainDefineInt("SUZERAIN_CONCUBINE_INTEL_INTERVAL");
 	if (iEvery <= 0) iEvery = 8;
-	if ((GC.getGame().getGameTurn() % iEvery) != 0) return;
+	int iWarEvery = SuzerainDefineInt("SUZERAIN_CONCUBINE_INTEL_WAR_INTERVAL");
+	if (iWarEvery <= 0) iWarEvery = 5;
+
+	int iTurn = GC.getGame().getGameTurn();
+	bool bWarTurn = ((iTurn % iWarEvery) == 0);
+	if (!bWarTurn && (iTurn % iEvery) != 0) return;
+
+	// A hostage whose homeland has broken away and is at war with us still
+	// talks. Report the operation the AI has actually committed: its size, its
+	// kinds, where it set out, and how far it has got.
+	if (bWarTurn)
+	{
+		for (int c = 0; c < iCount; c++)
+		{
+			PlayerTypes eHome = (PlayerTypes)GetConcubineField(c, 1);
+			if (eHome == NO_PLAYER || eHome == GetID()) continue;
+			if (!GET_PLAYER(eHome).isAlive() || GET_PLAYER(eHome).isHuman()) continue;
+			if (IsLiveVassal(eHome)) continue;
+			if (!GET_TEAM(GET_PLAYER(eHome).getTeam()).isAtWar(getTeam())) continue;
+
+			CvMilitaryAI* pWarAI = GET_PLAYER(eHome).GetMilitaryAI();
+			if (pWarAI == NULL) continue;
+			CvAIOperation* pWarOp = pWarAI->GetBasicAttackOperation(GetID());
+			if (pWarOp == NULL) pWarOp = pWarAI->GetSneakAttackOperation(GetID());
+			if (pWarOp == NULL) continue;
+
+			CvPlot* pWarTargetPlot = pWarOp->GetTargetPlot();
+			CvCity* pWarTargetCity = (pWarTargetPlot != NULL) ? pWarTargetPlot->getPlotCity() : NULL;
+			if (pWarTargetCity == NULL) continue;
+
+			CvCity* pWarFromCity = pWarOp->GetOperationStartCity();
+			if (pWarFromCity == NULL) continue;
+
+			CvArmyAI* pWarArmy = GET_PLAYER(eHome).getArmyAI(pWarOp->GetFirstArmyID());
+			if (pWarArmy == NULL) continue;
+
+			std::vector<int> vWarTypes;
+			std::vector<int> vWarCounts;
+			int iWarSize = 0;
+			for (UnitHandle pUnit = pWarArmy->GetFirstUnit(); pUnit; pUnit = pWarArmy->GetNextUnit())
+			{
+				iWarSize++;
+				int iType = pUnit->getUnitType();
+				bool bFound = false;
+				for (size_t t = 0; t < vWarTypes.size(); t++)
+				{
+					if (vWarTypes[t] != iType) continue;
+					vWarCounts[t]++;
+					bFound = true;
+					break;
+				}
+				if (!bFound)
+				{
+					vWarTypes.push_back(iType);
+					vWarCounts.push_back(1);
+				}
+			}
+			if (iWarSize <= 0) continue;
+
+			// Most numerous kinds first.
+			for (size_t a = 0; a + 1 < vWarTypes.size(); a++)
+			{
+				size_t iMax = a;
+				for (size_t b = a + 1; b < vWarTypes.size(); b++)
+				{
+					if (vWarCounts[b] > vWarCounts[iMax]) iMax = b;
+				}
+				if (iMax != a)
+				{
+					int iSwap = vWarTypes[a]; vWarTypes[a] = vWarTypes[iMax]; vWarTypes[iMax] = iSwap;
+					iSwap = vWarCounts[a]; vWarCounts[a] = vWarCounts[iMax]; vWarCounts[iMax] = iSwap;
+				}
+			}
+
+			int iWarShow = SuzerainDefineInt("SUZERAIN_CONCUBINE_INTEL_TYPES");
+			if (iWarShow <= 0 || iWarShow > (int)vWarTypes.size()) iWarShow = (int)vWarTypes.size();
+			CvString sWarComp;
+			for (int t = 0; t < iWarShow; t++)
+			{
+				CvUnitEntry* pEntry = GC.getUnitInfo((UnitTypes)vWarTypes[t]);
+				if (pEntry == NULL) continue;
+				if (!sWarComp.empty()) sWarComp += ", ";
+				sWarComp += Localization::Lookup(pEntry->GetDescription()).toUTF8();
+				sWarComp += " x";
+				sWarComp += CvString::format("%d", vWarCounts[t]);
+			}
+			if (sWarComp.empty()) continue;
+
+			CvPlot* pWarPos = pWarArmy->GetCenterOfMass(DOMAIN_LAND);
+			if (pWarPos == NULL) continue;
+			int iWarRemaining = plotDistance(pWarPos->getX(), pWarPos->getY(), pWarTargetCity->getX(), pWarTargetCity->getY());
+
+			CvString szName = GetConcubineTemplateField(GetConcubineField(c, 0), 0);
+			Localization::String sMsg = Localization::Lookup("TXT_KEY_NOTIFICATION_CONCUBINE_INTEL_WAR");
+			sMsg << szName.c_str();
+			sMsg << GET_PLAYER(eHome).getCivilizationShortDescriptionKey();
+			sMsg << iWarSize;
+			sMsg << sWarComp.c_str();
+			sMsg << pWarFromCity->getNameKey();
+			sMsg << pWarTargetCity->getNameKey();
+			sMsg << iWarRemaining;
+			Localization::String sSum = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_CONCUBINE_INTEL_WAR");
+			GetNotifications()->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), pWarTargetCity->getX(), pWarTargetCity->getY(), eHome);
+			return;
+		}
+	}
+
+	if ((iTurn % iEvery) != 0) return;
 
 	int iFavorMin = SuzerainDefineInt("SUZERAIN_CONCUBINE_INTEL_FAVOR");
 	if (iFavorMin <= 0) iFavorMin = 80;

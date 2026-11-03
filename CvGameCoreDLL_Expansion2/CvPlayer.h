@@ -2213,6 +2213,10 @@ public:
 	void DoConcubineTurn();
 	// An AI vassal periodically offers a concubine to its overlord.
 	void DoOfferConcubineTurn();
+	// Bestow a gift on one concubine: costs gold, lifts the home vassal's loyalty.
+	bool GiftConcubine(int iIndex);
+	// Periodic counsel from a random concubine.
+	void DoConcubineAdviceTurn();
 	// Template field from SQL: 0 name key, 1 origin index, 2 temperament,
 	// 3 portrait path, 4 story key.
 	CvString GetConcubineTemplateField(int iTemplate, int iField) const;

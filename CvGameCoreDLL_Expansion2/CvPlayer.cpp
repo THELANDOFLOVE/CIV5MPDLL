@@ -5618,6 +5618,7 @@ void CvPlayer::doTurn()
 		DoVassalRankMandateTurn();
 		DoConcubineTurn();
 		DoOfferConcubineTurn();
+		DoConcubineAdviceTurn();
 		DoVassalLoyaltyDecay();
 		DoVassalRevoltCheck();
 		DoVassalOverlordVictoryCheck();
@@ -36184,6 +36185,22 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 			bOk = true;
 		}
 		break;
+	case 23: // rites ministry: a vassal offers a woman to the palace
+		if (bApprove)
+		{
+			int iTemplate = GetVassalMemorialField(iIndex, SUZERAIN_MEMORIAL_TARGET);
+			if (iTemplate > 0 && ReceiveConcubine(eVassal, iTemplate))
+			{
+				ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_MEMORIAL_CONCUBINE_LOYALTY"));
+				bOk = true;
+			}
+		}
+		else
+		{
+			ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_MEMORIAL_CONCUBINE_DENY"));
+			bOk = true;
+		}
+		break;
 	case 1: // material aid while losing a war
 	case 2: // request for a reward
 	case 3: // report of hardship
@@ -36529,6 +36546,44 @@ void CvPlayer::DoVassalMemorialTurn()
 				}
 				if (bFamine && !HasPendingMemorial(eVassal, 22))
 					AddVassalMemorial(22, 1, 1, eVassal, NO_PLAYER, iNormalTurns);
+			}
+
+			// Rites ministry: a vassal offers a woman to the palace.
+			{
+				int iPool = SuzerainDefineInt("SUZERAIN_CONCUBINE_COUNT");
+				if (iPool <= 0) iPool = 100;
+				int iFree = 0;
+				for (int t = 1; t <= iPool; t++)
+				{
+					CvString szName = CvString::format("SUZERAIN_CONCUBINE_%d", t);
+					if (GC.getDefineSTRING(szName.c_str(), false).empty()) continue;
+					bool bHeld = false;
+					for (int i = 0; i < GetConcubineCount(); i++)
+					{
+						if (GetConcubineField(i, 0) == t) { bHeld = true; break; }
+					}
+					if (!bHeld) iFree++;
+				}
+				if (iFree > 0 && !HasPendingMemorial(eVassal, 23))
+				{
+					int iWant = GC.getGame().getJonRandNum(iFree, "Concubine offer memorial") + 1;
+					int iTemplate = 0;
+					for (int t = 1; t <= iPool && iTemplate == 0; t++)
+					{
+						CvString szName = CvString::format("SUZERAIN_CONCUBINE_%d", t);
+						if (GC.getDefineSTRING(szName.c_str(), false).empty()) continue;
+						bool bHeld = false;
+						for (int i = 0; i < GetConcubineCount(); i++)
+						{
+							if (GetConcubineField(i, 0) == t) { bHeld = true; break; }
+						}
+						if (bHeld) continue;
+						iWant--;
+						if (iWant <= 0) iTemplate = t;
+					}
+					if (iTemplate > 0)
+						AddVassalMemorial(23, 1, 2, eVassal, (PlayerTypes)iTemplate, iNormalTurns);
+				}
 			}
 
 			// Rites ministry: a content vassal asks for a gift in return.
@@ -43813,6 +43868,10 @@ void CvPlayer::DoVassalAIMemorialTurn()
 			// Trade and offered gold are always welcome.
 			ResolveVassalMemorial(m, true);
 		}
+		else if (iType == 23)
+		{
+			ResolveVassalMemorial(m, GetVassalLoyalty(eVassal) >= 40);
+		}
 		else if (iType == 12)
 		{
 			// Diplomacy: demand moderate terms, then take the counter if refused.
@@ -44000,6 +44059,9 @@ int CvPlayer::SubmitVassalMemorial(int iType, int iTarget)
 		iDeadline = iUrgent;
 		break;
 	case 13: // rites ministry: ask to be released from vassalage
+		iMinistry = 2;
+		break;
+	case 23: // rites ministry: offer a woman to the palace
 		iMinistry = 2;
 		break;
 	case 18: // revenue ministry: relief, loan, trade, offering, famine
@@ -44671,6 +44733,15 @@ bool CvPlayer::ReceiveConcubine(PlayerTypes eVassal, int iTemplate)
 	v.push_back(0);
 	v.push_back(GC.getGame().getGameTurn());
 	m_aiConcubines = v;
+
+	if (isHuman() && GetNotifications())
+	{
+		Localization::String sMsg = Localization::Lookup("TXT_KEY_NOTIFICATION_CONCUBINE_RECEIVED");
+		sMsg << GET_PLAYER(eVassal).getCivilizationShortDescriptionKey();
+		Localization::String sSum = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_CONCUBINE_RECEIVED");
+		sSum << GET_PLAYER(eVassal).getCivilizationShortDescriptionKey();
+		GetNotifications()->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), -1, -1, eVassal);
+	}
 	return true;
 }
 
@@ -44863,6 +44934,52 @@ void CvPlayer::DoOfferConcubineTurn()
 			}
 			return;
 		}
+	}
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::GiftConcubine(int iIndex)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (iIndex < 0 || iIndex >= GetConcubineCount()) return false;
+
+	int iGold = SuzerainDefineInt("SUZERAIN_CONCUBINE_GIFT_GOLD");
+	if (iGold > 0)
+	{
+		if (GetTreasury()->GetGold() < iGold) return false;
+		GetTreasury()->ChangeGold(-iGold);
+	}
+
+	PlayerTypes eVassal = (PlayerTypes)GetConcubineField(iIndex, 1);
+	if (eVassal != NO_PLAYER && IsLiveVassal(eVassal))
+		ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_CONCUBINE_GIFT_LOYALTY"));
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::DoConcubineAdviceTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (!IsSuzerainCiv()) return;
+
+	int iCount = GetConcubineCount();
+	if (iCount <= 0) return;
+
+	int iEvery = SuzerainDefineInt("SUZERAIN_CONCUBINE_ADVICE_INTERVAL");
+	if (iEvery <= 0) iEvery = 10;
+	if ((GC.getGame().getGameTurn() % iEvery) != 0) return;
+
+	int iPick = GC.getGame().getJonRandNum(iCount, "Concubine advice");
+	PlayerTypes eVassal = (PlayerTypes)GetConcubineField(iPick, 1);
+	if (eVassal != NO_PLAYER && IsLiveVassal(eVassal))
+		ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_CONCUBINE_ADVICE_LOYALTY"));
+	ChangeMandate(SuzerainDefineInt("SUZERAIN_CONCUBINE_ADVICE_MANDATE"));
+
+	if (isHuman() && GetNotifications())
+	{
+		Localization::String sMsg = Localization::Lookup("TXT_KEY_NOTIFICATION_CONCUBINE_ADVICE");
+		Localization::String sSum = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_CONCUBINE_ADVICE");
+		GetNotifications()->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), -1, -1, eVassal);
 	}
 }
 

@@ -5625,6 +5625,7 @@ void CvPlayer::doTurn()
 		DoConcubinePerformTurn();
 		DoConcubineCraftTurn();
 		DoConcubineBondTurn();
+		DoConcubineIntelTurn();
 		DoVassalLoyaltyDecay();
 		DoVassalRevoltCheck();
 		DoVassalOverlordVictoryCheck();
@@ -45623,6 +45624,130 @@ void CvPlayer::DoConcubineBondTurn()
 			if (iGain <= 0) continue;
 			ChangeConcubineFavor(i, iGain < iPull ? iGain : iPull);
 		}
+	}
+}
+
+//--------------------------------------------------------------------------------
+// Military intelligence from the palace. A fond concubine reports an army her
+// homeland is actually marching: the city it left, how many soldiers and of what
+// kinds, and the city it is heading for. Only AI vassals have operations to read.
+void CvPlayer::DoConcubineIntelTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (!IsSuzerainCiv()) return;
+	if (!isHuman() || !GetNotifications()) return;
+
+	int iCount = GetConcubineCount();
+	if (iCount <= 0) return;
+
+	int iEvery = SuzerainDefineInt("SUZERAIN_CONCUBINE_INTEL_INTERVAL");
+	if (iEvery <= 0) iEvery = 8;
+	if ((GC.getGame().getGameTurn() % iEvery) != 0) return;
+
+	int iFavorMin = SuzerainDefineInt("SUZERAIN_CONCUBINE_INTEL_FAVOR");
+	if (iFavorMin <= 0) iFavorMin = 80;
+
+	for (int c = 0; c < iCount; c++)
+	{
+		PlayerTypes eVassal = (PlayerTypes)GetConcubineField(c, 1);
+		if (eVassal == NO_PLAYER || !IsLiveVassal(eVassal)) continue;
+		if (GetConcubineFavor(c) < iFavorMin) continue;
+		if (GET_PLAYER(eVassal).isHuman()) continue;
+
+		CvMilitaryAI* pAI = GET_PLAYER(eVassal).GetMilitaryAI();
+		if (pAI == NULL) continue;
+
+		// Find an attack in progress against someone other than us.
+		CvAIOperation* pOp = NULL;
+		for (int e = 0; e < MAX_MAJOR_CIVS; e++)
+		{
+			PlayerTypes eEnemy = (PlayerTypes)e;
+			if (eEnemy == eVassal || eEnemy == GetID()) continue;
+			if (!GET_PLAYER(eEnemy).isAlive() || !GET_PLAYER(eEnemy).isMajorCiv()) continue;
+
+			pOp = pAI->GetBasicAttackOperation(eEnemy);
+			if (pOp == NULL) pOp = pAI->GetSneakAttackOperation(eEnemy);
+			if (pOp != NULL) break;
+		}
+		if (pOp == NULL) continue;
+
+		CvPlot* pTargetPlot = pOp->GetTargetPlot();
+		CvCity* pTargetCity = (pTargetPlot != NULL) ? pTargetPlot->getPlotCity() : NULL;
+		if (pTargetCity == NULL) continue;
+
+		CvCity* pFromCity = pOp->GetOperationStartCity();
+		if (pFromCity == NULL) pFromCity = GET_PLAYER(eVassal).getCapitalCity();
+		if (pFromCity == NULL) continue;
+
+		CvArmyAI* pArmy = GET_PLAYER(eVassal).getArmyAI(pOp->GetFirstArmyID());
+		if (pArmy == NULL) continue;
+
+		std::vector<int> vTypes;
+		std::vector<int> vCounts;
+		int iSize = 0;
+		UnitHandle pUnit = pArmy->GetFirstUnit();
+		while (pUnit)
+		{
+			iSize++;
+			int iType = pUnit->getUnitType();
+			bool bFound = false;
+			for (size_t t = 0; t < vTypes.size(); t++)
+			{
+				if (vTypes[t] != iType) continue;
+				vCounts[t]++;
+				bFound = true;
+				break;
+			}
+			if (!bFound)
+			{
+				vTypes.push_back(iType);
+				vCounts.push_back(1);
+			}
+			pUnit = pArmy->GetNextUnit();
+		}
+		if (iSize <= 0) continue;
+
+		// Most numerous kinds first; only the top few fit in one line.
+		for (size_t a = 0; a + 1 < vTypes.size(); a++)
+		{
+			size_t iMax = a;
+			for (size_t b = a + 1; b < vTypes.size(); b++)
+			{
+				if (vCounts[b] > vCounts[iMax]) iMax = b;
+			}
+			if (iMax != a)
+			{
+				int iSwap = vTypes[a]; vTypes[a] = vTypes[iMax]; vTypes[iMax] = iSwap;
+				iSwap = vCounts[a]; vCounts[a] = vCounts[iMax]; vCounts[iMax] = iSwap;
+			}
+		}
+
+		int iShow = SuzerainDefineInt("SUZERAIN_CONCUBINE_INTEL_TYPES");
+		if (iShow <= 0) iShow = 3;
+
+		CvString sComp;
+		for (int t = 0; t < iShow && t < (int)vTypes.size(); t++)
+		{
+			CvUnitEntry* pEntry = GC.getUnitInfo((UnitTypes)vTypes[t]);
+			if (pEntry == NULL) continue;
+			if (t > 0) sComp += ", ";
+			sComp += Localization::Lookup(pEntry->GetDescription()).toUTF8();
+			sComp += " x";
+			sComp += CvString::format("%d", vCounts[t]);
+		}
+		if (sComp.empty()) continue;
+
+		CvString szName = GetConcubineTemplateField(GetConcubineField(c, 0), 0);
+		Localization::String sMsg = Localization::Lookup("TXT_KEY_NOTIFICATION_CONCUBINE_INTEL_ARMY");
+		sMsg << szName.c_str();
+		sMsg << GET_PLAYER(eVassal).getCivilizationShortDescriptionKey();
+		sMsg << pFromCity->getNameKey();
+		sMsg << iSize;
+		sMsg << sComp.c_str();
+		sMsg << pTargetCity->getNameKey();
+		Localization::String sSum = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_CONCUBINE_INTEL_ARMY");
+		GetNotifications()->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), pTargetCity->getX(), pTargetCity->getY(), eVassal);
+		return;
 	}
 }
 

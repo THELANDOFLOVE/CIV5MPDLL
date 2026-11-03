@@ -153,6 +153,13 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lIssueDecree);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lCanIssueDecree);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetVassalTitle);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetConcubineCount);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetConcubineField);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetConcubineRank);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetEmpress);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSetEmpress);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lFavorConcubine);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetConcubineTemplateField);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lTryReleaseVassal);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lForceReleaseVassal);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lKeepVassal);
@@ -1584,6 +1591,13 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(IssueDecree);
 	Method(CanIssueDecree);
 	Method(GetVassalTitle);
+	Method(GetConcubineCount);
+	Method(GetConcubineField);
+	Method(GetConcubineRank);
+	Method(GetEmpress);
+	Method(SetEmpress);
+	Method(FavorConcubine);
+	Method(GetConcubineTemplateField);
 	Method(TryReleaseVassal);
 	Method(ForceReleaseVassal);
 	Method(KeepVassal);
@@ -15533,6 +15547,63 @@ int CvLuaPlayer::lGetVassalTitle(lua_State* L)
 	CvPlayer* pkPlayer = GetInstance(L);
 	const PlayerTypes eVassal = (PlayerTypes)lua_tointeger(L, 2);
 	lua_pushinteger(L, pkPlayer->GetVassalTitle(eVassal));
+	return 1;
+}
+//int GetConcubineTemplateField(int iTemplate, int iField);
+int CvLuaPlayer::lGetConcubineTemplateField(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const int iTemplate = lua_tointeger(L, 2);
+	const int iField = lua_tointeger(L, 3);
+	CvString sVal = pkPlayer->GetConcubineTemplateField(iTemplate, iField);
+	lua_pushstring(L, sVal.c_str());
+	return 1;
+}
+//int GetConcubineCount();
+int CvLuaPlayer::lGetConcubineCount(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->GetConcubineCount());
+	return 1;
+}
+//int GetConcubineField(int iIndex, int iField);
+int CvLuaPlayer::lGetConcubineField(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const int iIndex = lua_tointeger(L, 2);
+	const int iField = lua_tointeger(L, 3);
+	lua_pushinteger(L, pkPlayer->GetConcubineField(iIndex, iField));
+	return 1;
+}
+//int GetConcubineRank(int iIndex);
+int CvLuaPlayer::lGetConcubineRank(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const int iIndex = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetConcubineRank(iIndex));
+	return 1;
+}
+//int GetEmpress();
+int CvLuaPlayer::lGetEmpress(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->GetEmpress());
+	return 1;
+}
+//bool SetEmpress(int iIndex);
+int CvLuaPlayer::lSetEmpress(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const int iIndex = lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->SetEmpress(iIndex));
+	return 1;
+}
+//bool FavorConcubine(int iIndex);
+int CvLuaPlayer::lFavorConcubine(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const int iIndex = lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->FavorConcubine(iIndex));
 	return 1;
 }
 //int TryReleaseVassal(PlayerTypes eVassal);

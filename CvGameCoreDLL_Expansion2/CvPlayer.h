@@ -2199,6 +2199,23 @@ public:
 	// Have a vassal trade unit open a route to one of our cities; false when
 	// the vassal has no trade unit available.
 	bool DoVassalTradeRoute(PlayerTypes eVassal);
+
+	// Concubines: template data lives in SQL (SUZERAIN_CONCUBINE_<n>), the
+	// DLL only stores runtime state.
+	int GetConcubineCount() const;
+	// iField: 0 template ID, 1 source vassal, 2 favour count, 3 last favour turn
+	int GetConcubineField(int iIndex, int iField) const;
+	bool ReceiveConcubine(PlayerTypes eVassal, int iTemplate);
+	bool FavorConcubine(int iIndex);
+	int GetConcubineRank(int iIndex) const;
+	int GetEmpress() const;
+	bool SetEmpress(int iIndex);
+	void DoConcubineTurn();
+	// An AI vassal periodically offers a concubine to its overlord.
+	void DoOfferConcubineTurn();
+	// Template field from SQL: 0 name key, 1 origin index, 2 temperament,
+	// 3 portrait path, 4 story key.
+	CvString GetConcubineTemplateField(int iTemplate, int iField) const;
 	// A human vassal petitions its overlord directly. 0 = accepted, 1 = not a
 	// vassal, 2 = type cannot be raised manually, 3 = already pending,
 	// 4 = invalid target.
@@ -3308,6 +3325,13 @@ protected:
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalTitle;
 	// Turns of full tribute relief remaining per vassal (0 = none)
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiTributeRelief;
+	// Concubines in the overlord's palace. Stride 4: template ID, source
+	// vassal, favour count, turn of the last favour.
+	FAutoVariable<std::vector<int>, CvPlayer> m_aiConcubines;
+	// Index of the empress in m_aiConcubines (-1 = none)
+	FAutoVariable<int, CvPlayer> m_iEmpress;
+	// Turn on which the once-per-turn loyalty bonus was last granted
+	FAutoVariable<int, CvPlayer> m_iFavourBonusTurn;
 	// Loan due turn and amount owed per vassal
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiLoanDueTurn;
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiLoanAmount;

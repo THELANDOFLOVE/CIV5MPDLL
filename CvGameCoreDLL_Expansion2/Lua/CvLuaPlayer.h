@@ -1422,6 +1422,13 @@ protected:
 	LUAAPIEXTN(IssueDecree, bool, iType, eVassal, iTarget);
 	LUAAPIEXTN(CanIssueDecree, bool, iType, eVassal, iTarget);
 	LUAAPIEXTN(GetVassalTitle, int, eVassal);
+	LUAAPIEXTN(GetConcubineCount, int);
+	LUAAPIEXTN(GetConcubineField, int, iIndex, iField);
+	LUAAPIEXTN(GetConcubineRank, int, iIndex);
+	LUAAPIEXTN(GetEmpress, int);
+	LUAAPIEXTN(SetEmpress, bool, iIndex);
+	LUAAPIEXTN(FavorConcubine, bool, iIndex);
+	static int lGetConcubineTemplateField(lua_State* L);
 	LUAAPIEXTN(TryReleaseVassal, int, eVassal);
 	LUAAPIEXTN(ForceReleaseVassal, bool, eVassal);
 	LUAAPIEXTN(KeepVassal, bool, eVassal);

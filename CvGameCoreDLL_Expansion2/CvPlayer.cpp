@@ -437,6 +437,9 @@ CvPlayer::CvPlayer() :
 	, m_aiTributeRelief("CvPlayer::m_aiTributeRelief", m_syncArchive)
 	, m_aiLoanDueTurn("CvPlayer::m_aiLoanDueTurn", m_syncArchive)
 	, m_aiLoanAmount("CvPlayer::m_aiLoanAmount", m_syncArchive)
+	, m_aiConcubines("CvPlayer::m_aiConcubines", m_syncArchive)
+	, m_iEmpress("CvPlayer::m_iEmpress", m_syncArchive)
+	, m_iFavourBonusTurn("CvPlayer::m_iFavourBonusTurn", m_syncArchive)
 	, m_aiVassalBreachCount("CvPlayer::m_aiVassalBreachCount", m_syncArchive)
 	, m_aiVassalBreachTurn("CvPlayer::m_aiVassalBreachTurn", m_syncArchive)
 	, m_iMandate("CvPlayer::m_iMandate", m_syncArchive)
@@ -1358,6 +1361,9 @@ void CvPlayer::uninit()
 	m_aiLoanDueTurn.resize(MAX_MAJOR_CIVS, 0);
 	m_aiLoanAmount.clear();
 	m_aiLoanAmount.resize(MAX_MAJOR_CIVS, 0);
+	m_aiConcubines.clear();
+	m_iEmpress = -1;
+	m_iFavourBonusTurn = 0;
 	m_aiVassalGiftCount.clear();
 	m_aiVassalGiftCount.resize(MAX_MAJOR_CIVS, 0);
 	m_aiVassalProtectHandled.clear();
@@ -5610,6 +5616,8 @@ void CvPlayer::doTurn()
 		DoVassalDecreeTurn();
 		DoVassalFinanceTurn();
 		DoVassalRankMandateTurn();
+		DoConcubineTurn();
+		DoOfferConcubineTurn();
 		DoVassalLoyaltyDecay();
 		DoVassalRevoltCheck();
 		DoVassalOverlordVictoryCheck();
@@ -31436,6 +31444,9 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiTributeRelief, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiLoanDueTurn, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiLoanAmount, MAX_MAJOR_CIVS, 0);
+		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiConcubines, 0, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iEmpress, -1);
+		MOD_SERIALIZE_READ(165, kStream, m_iFavourBonusTurn, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalBreachCount, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalPunishRight, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiMemorialDefault, 7, 0);
@@ -32424,6 +32435,9 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiTributeRelief);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiLoanDueTurn);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiLoanAmount);
+	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiConcubines);
+	MOD_SERIALIZE_WRITE(kStream, m_iEmpress);
+	MOD_SERIALIZE_WRITE(kStream, m_iFavourBonusTurn);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalBreachCount);
 	MOD_SERIALIZE_WRITE(kStream, m_aiVassalPunishRight);
 	MOD_SERIALIZE_WRITE(kStream, m_aiMemorialDefault);
@@ -44597,6 +44611,233 @@ bool CvPlayer::DoVassalTradeRoute(PlayerTypes eVassal)
 			return true;
 	}
 	return false;
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetConcubineCount() const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	return (int)m_aiConcubines.size() / 4;
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetConcubineField(int iIndex, int iField) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	if (iIndex < 0 || iIndex >= GetConcubineCount()) return 0;
+	if (iField < 0 || iField > 3) return 0;
+	return m_aiConcubines[iIndex * 4 + iField];
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::ReceiveConcubine(PlayerTypes eVassal, int iTemplate)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (iTemplate <= 0 || eVassal == NO_PLAYER) return false;
+
+	int iCount = SuzerainDefineInt("SUZERAIN_CONCUBINE_COUNT");
+	if (iCount <= 0) iCount = 100;
+	if (iTemplate > iCount) return false;
+
+	CvString szName = CvString::format("SUZERAIN_CONCUBINE_%d", iTemplate);
+	CvString sVal = GC.getDefineSTRING(szName.c_str(), false);
+	if (sVal.empty()) return false;
+
+	// One copy of each template only.
+	for (int i = 0; i < GetConcubineCount(); i++)
+	{
+		if (GetConcubineField(i, 0) == iTemplate) return false;
+	}
+
+	std::vector<int> v = m_aiConcubines;
+	v.push_back(iTemplate);
+	v.push_back(eVassal);
+	v.push_back(0);
+	v.push_back(GC.getGame().getGameTurn());
+	m_aiConcubines = v;
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::FavorConcubine(int iIndex)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (iIndex < 0 || iIndex >= GetConcubineCount()) return false;
+
+	int iBase = iIndex * 4;
+	int iTurn = GC.getGame().getGameTurn();
+
+	m_aiConcubines.setAt((size_t)(iBase + 2), m_aiConcubines[iBase + 2] + 1);
+	m_aiConcubines.setAt((size_t)(iBase + 3), iTurn);
+
+	// Only the first favour of a turn earns loyalty for the source vassal.
+	if (m_iFavourBonusTurn != iTurn)
+	{
+		PlayerTypes eVassal = (PlayerTypes)GetConcubineField(iIndex, 1);
+		if (eVassal != NO_PLAYER && IsLiveVassal(eVassal))
+		{
+			int iGain = SuzerainDefineInt("SUZERAIN_CONCUBINE_FAVOUR_LOYALTY");
+			if (iGain != 0) ChangeVassalLoyalty(eVassal, iGain);
+		}
+		m_iFavourBonusTurn = iTurn;
+	}
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetConcubineRank(int iIndex) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	int iFavours = GetConcubineField(iIndex, 2);
+
+	if (iFavours >= SuzerainDefineInt("SUZERAIN_CONCUBINE_RANK4")) return 4;
+	if (iFavours >= SuzerainDefineInt("SUZERAIN_CONCUBINE_RANK3")) return 3;
+	if (iFavours >= SuzerainDefineInt("SUZERAIN_CONCUBINE_RANK2")) return 2;
+	if (iFavours >= SuzerainDefineInt("SUZERAIN_CONCUBINE_RANK1")) return 1;
+	return 0;
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetEmpress() const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return -1;
+	if (m_iEmpress < -1 || m_iEmpress >= GetConcubineCount()) return -1;
+	return m_iEmpress;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::SetEmpress(int iIndex)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (iIndex < -1 || iIndex >= GetConcubineCount()) return false;
+	m_iEmpress = iIndex;
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+// Palace upkeep: mandate from every concubine, and neglected concubines sour
+// their home vassal. Neglect is checked periodically, not every turn.
+void CvPlayer::DoConcubineTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (!IsSuzerainCiv()) return;
+
+	int iCount = GetConcubineCount();
+	if (iCount <= 0) return;
+
+	int iTurn = GC.getGame().getGameTurn();
+
+	int iPer = SuzerainDefineInt("SUZERAIN_CONCUBINE_MANDATE");
+	if (iPer > 0)
+	{
+		int iEmpress = GetEmpress();
+		int iTotal = 0;
+		for (int i = 0; i < iCount; i++)
+			iTotal += (i == iEmpress) ? iPer * 2 : iPer;
+		if (iTotal > 0) ChangeMandate(iTotal);
+	}
+
+	int iNeglectTurns = SuzerainDefineInt("SUZERAIN_CONCUBINE_NEGLECT_TURNS");
+	int iNeglectEvery = SuzerainDefineInt("SUZERAIN_CONCUBINE_NEGLECT_CHECK");
+	if (iNeglectTurns <= 0) iNeglectTurns = 20;
+	if (iNeglectEvery <= 0) iNeglectEvery = 10;
+	if ((iTurn % iNeglectEvery) != 0) return;
+
+	int iLoss = SuzerainDefineInt("SUZERAIN_CONCUBINE_NEGLECT_LOYALTY");
+	if (iLoss == 0) iLoss = -5;
+
+	for (int i = 0; i < iCount; i++)
+	{
+		int iLast = GetConcubineField(i, 3);
+		if (iTurn - iLast <= iNeglectTurns) continue;
+		PlayerTypes eVassal = (PlayerTypes)GetConcubineField(i, 1);
+		if (eVassal == NO_PLAYER || !IsLiveVassal(eVassal)) continue;
+		ChangeVassalLoyalty(eVassal, iLoss);
+	}
+}
+
+//--------------------------------------------------------------------------------
+CvString CvPlayer::GetConcubineTemplateField(int iTemplate, int iField) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return "";
+	if (iTemplate <= 0 || iField < 0) return "";
+
+	CvString szName = CvString::format("SUZERAIN_CONCUBINE_%d", iTemplate);
+	CvString sVal = GC.getDefineSTRING(szName.c_str(), false);
+	if (sVal.empty()) return "";
+
+	const char* p = sVal.c_str();
+	const char* pStart = p;
+	int iCur = 0;
+	while (true)
+	{
+		if (*p == '|' || *p == '\0')
+		{
+			if (iCur == iField)
+			{
+				std::string sPart(pStart, (size_t)(p - pStart));
+				return CvString(sPart.c_str());
+			}
+			if (*p == '\0') break;
+			iCur++;
+			pStart = p + 1;
+		}
+		p++;
+	}
+	return "";
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::DoOfferConcubineTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (isHuman()) return;
+
+	PlayerTypes eOverlord = GetOverlord();
+	if (eOverlord == NO_PLAYER) return;
+	if ((GC.getGame().getGameTurn() % 20) != 0) return;
+
+	CvPlayer& kOverlord = GET_PLAYER(eOverlord);
+	if (!kOverlord.isAlive()) return;
+	if (kOverlord.GetVassalLoyalty(GetID()) < 40) return;
+
+	int iCount = SuzerainDefineInt("SUZERAIN_CONCUBINE_COUNT");
+	if (iCount <= 0) iCount = 100;
+
+	int iFree = 0;
+	for (int t = 1; t <= iCount; t++)
+	{
+		CvString szName = CvString::format("SUZERAIN_CONCUBINE_%d", t);
+		if (GC.getDefineSTRING(szName.c_str(), false).empty()) continue;
+		bool bHeld = false;
+		for (int i = 0; i < kOverlord.GetConcubineCount(); i++)
+		{
+			if (kOverlord.GetConcubineField(i, 0) == t) { bHeld = true; break; }
+		}
+		if (!bHeld) iFree++;
+	}
+	if (iFree <= 0) return;
+
+	int iPick = GC.getGame().getJonRandNum(iFree, "Concubine offer") + 1;
+	for (int t = 1; t <= iCount; t++)
+	{
+		CvString szName = CvString::format("SUZERAIN_CONCUBINE_%d", t);
+		if (GC.getDefineSTRING(szName.c_str(), false).empty()) continue;
+		bool bHeld = false;
+		for (int i = 0; i < kOverlord.GetConcubineCount(); i++)
+		{
+			if (kOverlord.GetConcubineField(i, 0) == t) { bHeld = true; break; }
+		}
+		if (bHeld) continue;
+
+		iPick--;
+		if (iPick <= 0)
+		{
+			if (kOverlord.ReceiveConcubine(GetID(), t))
+				kOverlord.ChangeVassalLoyalty(GetID(), 8);
+			return;
+		}
+	}
 }
 
 //--------------------------------------------------------------------------------

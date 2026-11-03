@@ -1375,6 +1375,8 @@ void CvPlayer::uninit()
 	m_aiVassalBreachCount.resize(MAX_MAJOR_CIVS, 0);
 	m_aiVassalPunishRight.clear();
 	m_aiVassalPunishRight.resize(MAX_MAJOR_CIVS, 0);
+	m_aiVassalRevoltPrep.clear();
+	m_aiVassalRevoltPrep.resize(MAX_MAJOR_CIVS, 0);
 	m_aiVassalWarSeen.clear();
 	m_aiVassalBreachTurn.clear();
 	m_aiVassalBreachTurn.resize(MAX_MAJOR_CIVS, 0);
@@ -31458,6 +31460,7 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ(165, kStream, m_iFavourBonusTurn, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalBreachCount, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalPunishRight, MAX_MAJOR_CIVS, 0);
+		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalRevoltPrep, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiMemorialDefault, 7, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalBreachTurn, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iMandate, 0);
@@ -32450,6 +32453,7 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE(kStream, m_iFavourBonusTurn);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalBreachCount);
 	MOD_SERIALIZE_WRITE(kStream, m_aiVassalPunishRight);
+	MOD_SERIALIZE_WRITE(kStream, m_aiVassalRevoltPrep);
 	MOD_SERIALIZE_WRITE(kStream, m_aiMemorialDefault);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalBreachTurn);
 	MOD_SERIALIZE_WRITE(kStream, m_iMandate);
@@ -35995,6 +35999,9 @@ void CvPlayer::DoVassalRevoltCheck()
 	int iMargin = SuzerainDefineInt("SUZERAIN_REVOLT_WARN_MARGIN");
 	if (iMargin <= 0) iMargin = 10;
 
+	if (m_aiVassalRevoltPrep.size() != MAX_MAJOR_CIVS)
+		m_aiVassalRevoltPrep.resize(MAX_MAJOR_CIVS, 0);
+
 	for (size_t i = m_vecVassals.size(); i > 0; i--)
 	{
 		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i - 1];
@@ -36046,8 +36053,33 @@ void CvPlayer::DoVassalRevoltCheck()
 				WarnVassalRevolt(eVassal);
 		}
 
-		if (CanVassalRevolt(eVassal))
-			DoVassalRevolt(eVassal);
+		// A vassal that has decided to rise musters first: the court gets a few
+		// turns to mend the bond or prepare, and a fond concubine reports the
+		// muster in detail. If loyalty recovers, the preparation is abandoned.
+		if (!CanVassalRevolt(eVassal))
+		{
+			if ((size_t)eVassal < m_aiVassalRevoltPrep.size())
+				m_aiVassalRevoltPrep[eVassal] = 0;
+			continue;
+		}
+
+		int iTurn = GC.getGame().getGameTurn();
+		int iPrepEnd = ((size_t)eVassal < m_aiVassalRevoltPrep.size()) ? m_aiVassalRevoltPrep[eVassal] : 0;
+		if (iPrepEnd <= 0)
+		{
+			int iPrepTurns = SuzerainDefineInt("SUZERAIN_REVOLT_PREP_TURNS");
+			if (iPrepTurns <= 0) iPrepTurns = 5;
+			if (m_aiVassalRevoltPrep.size() != MAX_MAJOR_CIVS)
+				m_aiVassalRevoltPrep.resize(MAX_MAJOR_CIVS, 0);
+			m_aiVassalRevoltPrep[eVassal] = iTurn + iPrepTurns;
+			WarnConcubineRevoltPrep(eVassal, iPrepTurns);
+			continue;
+		}
+
+		if (iTurn < iPrepEnd) continue;
+
+		m_aiVassalRevoltPrep[eVassal] = 0;
+		DoVassalRevolt(eVassal);
 	}
 }
 
@@ -36073,6 +36105,112 @@ void CvPlayer::WarnVassalRevolt(PlayerTypes eVassal)
 		sSum << kVassal.getCivilizationShortDescriptionKey();
 		GetNotifications()->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), -1, -1, eVassal);
 	}
+}
+
+//--------------------------------------------------------------------------------
+// The muster behind a coming revolt. A beloved concubine names the city the army
+// gathers in, its size and composition, the city it means to strike, and how
+// many turns the court has left to act.
+void CvPlayer::WarnConcubineRevoltPrep(PlayerTypes eVassal, int iPrepTurns)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (!isHuman() || !GetNotifications()) return;
+
+	int iFavorMin = SuzerainDefineInt("SUZERAIN_CONCUBINE_INTEL_FAVOR");
+	if (iFavorMin <= 0) iFavorMin = 80;
+	int iBest = -1;
+	for (int c = 0; c < GetConcubineCount(); c++)
+	{
+		if (GetConcubineField(c, 1) != (int)eVassal) continue;
+		if (GetConcubineFavor(c) < iFavorMin) continue;
+		if (iBest < 0 || GetConcubineFavor(c) > GetConcubineFavor(iBest)) iBest = c;
+	}
+	if (iBest < 0) return;
+
+	CvPlayer& kVassal = GET_PLAYER(eVassal);
+	CvCity* pTheirCapital = kVassal.getCapitalCity();
+	if (pTheirCapital == NULL) return;
+
+	// The city of ours nearest their capital is what they would strike first.
+	CvCity* pTargetCity = NULL;
+	int iBestDist = 0;
+	int iLoop = 0;
+	for (CvCity* pCity = firstCity(&iLoop); pCity != NULL; pCity = nextCity(&iLoop))
+	{
+		int iDist = plotDistance(pCity->getX(), pCity->getY(), pTheirCapital->getX(), pTheirCapital->getY());
+		if (pTargetCity == NULL || iDist < iBestDist)
+		{
+			pTargetCity = pCity;
+			iBestDist = iDist;
+		}
+	}
+	if (pTargetCity == NULL) return;
+
+	std::vector<int> vTypes;
+	std::vector<int> vCounts;
+	int iSize = 0;
+	int iUnitLoop = 0;
+	for (CvUnit* pUnit = kVassal.firstUnit(&iUnitLoop); pUnit != NULL; pUnit = kVassal.nextUnit(&iUnitLoop))
+	{
+		if (!pUnit->IsCombatUnit()) continue;
+		iSize++;
+		int iType = pUnit->getUnitType();
+		bool bFound = false;
+		for (size_t t = 0; t < vTypes.size(); t++)
+		{
+			if (vTypes[t] != iType) continue;
+			vCounts[t]++;
+			bFound = true;
+			break;
+		}
+		if (!bFound)
+		{
+			vTypes.push_back(iType);
+			vCounts.push_back(1);
+		}
+	}
+	if (iSize <= 0) return;
+
+	// Most numerous kinds first.
+	for (size_t a = 0; a + 1 < vTypes.size(); a++)
+	{
+		size_t iMax = a;
+		for (size_t b = a + 1; b < vTypes.size(); b++)
+		{
+			if (vCounts[b] > vCounts[iMax]) iMax = b;
+		}
+		if (iMax != a)
+		{
+			int iSwap = vTypes[a]; vTypes[a] = vTypes[iMax]; vTypes[iMax] = iSwap;
+			iSwap = vCounts[a]; vCounts[a] = vCounts[iMax]; vCounts[iMax] = iSwap;
+		}
+	}
+
+	int iShow = SuzerainDefineInt("SUZERAIN_CONCUBINE_INTEL_TYPES");
+	if (iShow <= 0) iShow = 3;
+	CvString sComp;
+	for (int t = 0; t < iShow && t < (int)vTypes.size(); t++)
+	{
+		CvUnitEntry* pEntry = GC.getUnitInfo((UnitTypes)vTypes[t]);
+		if (pEntry == NULL) continue;
+		if (t > 0) sComp += ", ";
+		sComp += Localization::Lookup(pEntry->GetDescription()).toUTF8();
+		sComp += " x";
+		sComp += CvString::format("%d", vCounts[t]);
+	}
+	if (sComp.empty()) return;
+
+	CvString szName = GetConcubineTemplateField(GetConcubineField(iBest, 0), 0);
+	Localization::String sMsg = Localization::Lookup("TXT_KEY_NOTIFICATION_CONCUBINE_REVOLT_PREP");
+	sMsg << szName.c_str();
+	sMsg << kVassal.getCivilizationShortDescriptionKey();
+	sMsg << pTheirCapital->getNameKey();
+	sMsg << iSize;
+	sMsg << sComp.c_str();
+	sMsg << pTargetCity->getNameKey();
+	sMsg << iPrepTurns;
+	Localization::String sSum = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_CONCUBINE_REVOLT_PREP");
+	GetNotifications()->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), pTargetCity->getX(), pTargetCity->getY(), eVassal);
 }
 
 //--------------------------------------------------------------------------------

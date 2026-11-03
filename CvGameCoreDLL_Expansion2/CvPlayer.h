@@ -2175,6 +2175,8 @@ public:
 	bool ResolveWarOrder(bool bObey);
 	void DoPendingWarOrderTurn();
 	void WarnVassalRevolt(PlayerTypes eVassal);
+	// A fond concubine reports the muster behind a coming revolt.
+	void WarnConcubineRevoltPrep(PlayerTypes eVassal, int iPrepTurns);
 	// Decrees the overlord issues; the vassal answers each with bAccept meaning
 	// "comply" (receive/cooperate/confess/accept). Several may be pending.
 	int GetPendingDecreeCount() const;
@@ -3366,6 +3368,8 @@ protected:
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalBreachCount;
 	// Punish right expiry turn per vassal (serialized)
 	std::vector<int> m_aiVassalPunishRight;
+	// Revolt preparation: the turn an already-rebellious vassal actually rises
+	std::vector<int> m_aiVassalRevoltPrep;
 	// Wars already counted as breaches (derived, rebuilt each turn; not serialized)
 	std::vector<int> m_aiVassalWarSeen;
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalBreachTurn;

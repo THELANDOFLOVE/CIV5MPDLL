@@ -35755,6 +35755,37 @@ void CvPlayer::GrantVassalPunishRight(PlayerTypes eVassal, int iTurns)
 	m_aiVassalPunishRight[eVassal] = GC.getGame().getGameTurn() + iTurns;
 
 	int iPenalty = SuzerainDefineInt("SUZERAIN_PUNISH_LOYALTY");
+
+	// A beloved concubine from this vassal pleads for it, and the court relents:
+	// part of the loyalty penalty is waived.
+	int iMercyReduce = SuzerainDefineInt("SUZERAIN_CONCUBINE_MERCY_REDUCE");
+	if (iPenalty < 0 && iMercyReduce > 0)
+	{
+		int iMercyFavor = SuzerainDefineInt("SUZERAIN_CONCUBINE_MERCY_FAVOR");
+		if (iMercyFavor <= 0) iMercyFavor = 70;
+		for (int i = 0; i < GetConcubineCount(); i++)
+		{
+			if (GetConcubineField(i, 1) != (int)eVassal) continue;
+			if (GetConcubineFavor(i) < iMercyFavor) continue;
+
+			int iCut = iMercyReduce;
+			if (iCut > -iPenalty) iCut = -iPenalty;
+			iPenalty += iCut;
+			ChangeConcubineFavor(i, SuzerainDefineInt("SUZERAIN_CONCUBINE_MERCY_GAIN"));
+
+			if (isHuman() && GetNotifications())
+			{
+				CvString szName = GetConcubineTemplateField(GetConcubineField(i, 0), 0);
+				Localization::String sMsg = Localization::Lookup("TXT_KEY_NOTIFICATION_CONCUBINE_MERCY");
+				sMsg << szName.c_str();
+				sMsg << GET_PLAYER(eVassal).getCivilizationShortDescriptionKey();
+				Localization::String sSum = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_CONCUBINE_MERCY");
+				GetNotifications()->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), -1, -1, eVassal);
+			}
+			break;
+		}
+	}
+
 	if (iPenalty != 0)
 		ChangeVassalLoyalty(eVassal, iPenalty);
 }

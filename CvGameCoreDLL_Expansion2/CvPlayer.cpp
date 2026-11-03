@@ -35878,7 +35878,9 @@ void CvPlayer::DoVassalRevoltCheck()
 
 		// A bond that is about to snap should not do so without warning. Every
 		// few turns, tell a human vassal or overlord that revolt is close.
-		if (iThreshold > 0 && (GC.getGame().getGameTurn() % 5) == 0)
+		int iWarnEvery = SuzerainDefineInt("SUZERAIN_REVOLT_WARN_INTERVAL");
+		if (iWarnEvery <= 0) iWarnEvery = 5;
+		if (iThreshold > 0 && (GC.getGame().getGameTurn() % iWarnEvery) == 0)
 		{
 			int iScore = GetVassalRevoltScore(eVassal);
 			if (iScore >= iThreshold - iMargin && iScore < iThreshold)
@@ -36033,18 +36035,20 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 			if (iTitle > 0)
 			{
 				SetVassalTitle(eVassal, iTitle);
-				ChangeVassalLoyalty(eVassal, 6);
+				ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_MEMORIAL_TITLE_LOYALTY"));
 				bOk = true;
 			}
 		}
 		else
 		{
-			ChangeVassalLoyalty(eVassal, -4);
+			ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_MEMORIAL_TITLE_DENY"));
 			bOk = true;
 		}
 		break;
 	case 15: // personnel ministry: request for an appraisal
-		ChangeVassalLoyalty(eVassal, bApprove ? 5 : -3);
+		ChangeVassalLoyalty(eVassal, bApprove
+			? SuzerainDefineInt("SUZERAIN_MEMORIAL_APPRAISAL_LOYALTY")
+			: SuzerainDefineInt("SUZERAIN_MEMORIAL_APPRAISAL_DENY"));
 		bOk = true;
 		break;
 	case 16: // personnel ministry: offering a great person
@@ -36062,14 +36066,14 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 			if (pGreat != NULL)
 			{
 				pGreat->kill(false);
-				ChangeMandate(10);
+				ChangeMandate(SuzerainDefineInt("SUZERAIN_MEMORIAL_RECOMMEND_MANDATE"));
 			}
-			ChangeVassalLoyalty(eVassal, 8);
+			ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_MEMORIAL_RECOMMEND_LOYALTY"));
 			bOk = true;
 		}
 		else
 		{
-			ChangeVassalLoyalty(eVassal, -4);
+			ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_MEMORIAL_RECOMMEND_DENY"));
 			bOk = true;
 		}
 		break;
@@ -36080,13 +36084,13 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 			if (iCity >= 0)
 			{
 				DoReturnCityToVassalByID(iCity);
-				ChangeVassalLoyalty(eVassal, 10);
+				ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_MEMORIAL_FIEF_LOYALTY"));
 				bOk = true;
 			}
 		}
 		else
 		{
-			ChangeVassalLoyalty(eVassal, -6);
+			ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_MEMORIAL_FIEF_DENY"));
 			bOk = true;
 		}
 		break;
@@ -36096,11 +36100,11 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 			int iTurns = SuzerainDefineInt("SUZERAIN_TRIBUTE_RELIEF_TURNS");
 			if (iTurns <= 0) iTurns = 10;
 			SetTributeRelief(eVassal, iTurns);
-			ChangeVassalLoyalty(eVassal, 5);
+			ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_MEMORIAL_RELIEF_LOYALTY"));
 		}
 		else
 		{
-			ChangeVassalLoyalty(eVassal, -5);
+			ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_MEMORIAL_RELIEF_DENY"));
 		}
 		bOk = true;
 		break;
@@ -36115,13 +36119,13 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 			{
 				TransferGoldTo(eVassal, iLoan);
 				SetLoan(eVassal, GC.getGame().getGameTurn() + iTurns, iRepay);
-				ChangeVassalLoyalty(eVassal, 3);
+				ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_MEMORIAL_LOAN_LOYALTY"));
 				bOk = true;
 			}
 		}
 		else
 		{
-			ChangeVassalLoyalty(eVassal, -3);
+			ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_MEMORIAL_LOAN_DENY"));
 			bOk = true;
 		}
 		break;
@@ -36135,12 +36139,12 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 				int iPay = std::min(iGold, (int)GetTreasury()->GetGold());
 				if (iPay > 0) TransferGoldTo(eVassal, iPay);
 			}
-			ChangeVassalLoyalty(eVassal, 4);
+			ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_MEMORIAL_TRADE_LOYALTY"));
 			bOk = true;
 		}
 		else
 		{
-			ChangeVassalLoyalty(eVassal, -3);
+			ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_MEMORIAL_TRADE_DENY"));
 			bOk = true;
 		}
 		break;
@@ -36155,13 +36159,13 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 				kV.GetTreasury()->ChangeGold(-iPay);
 				GetTreasury()->ChangeGold(iPay);
 			}
-			ChangeVassalLoyalty(eVassal, 3);
+			ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_MEMORIAL_OFFER_LOYALTY"));
 			bOk = true;
 		}
 		else
 		{
 			// Declining a gift is gracious, not insulting.
-			ChangeVassalLoyalty(eVassal, 5);
+			ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_MEMORIAL_OFFER_DECLINE"));
 			bOk = true;
 		}
 		break;
@@ -36171,12 +36175,12 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 			int iGold = SuzerainDefineInt("SUZERAIN_DISASTER_AID_GOLD");
 			int iPay = std::min(iGold, (int)GetTreasury()->GetGold());
 			if (iPay > 0) TransferGoldTo(eVassal, iPay);
-			ChangeVassalLoyalty(eVassal, 6);
+			ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_MEMORIAL_FAMINE_LOYALTY"));
 			bOk = true;
 		}
 		else
 		{
-			ChangeVassalLoyalty(eVassal, -4);
+			ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_MEMORIAL_FAMINE_DENY"));
 			bOk = true;
 		}
 		break;
@@ -44194,11 +44198,11 @@ bool CvPlayer::ResolveDecree(int iIndex, bool bAccept)
 			int iTitle = iTarget;
 			if (iTitle <= 0) iTitle = kOverlord.PickFreeTitle();
 			kOverlord.SetVassalTitle(GetID(), iTitle);
-			kOverlord.ChangeVassalLoyalty(GetID(), 6);
+			kOverlord.ChangeVassalLoyalty(GetID(), SuzerainDefineInt("SUZERAIN_DECREE_TITLE_LOYALTY"));
 		}
 		else
 		{
-			kOverlord.ChangeMandate(3);
+			kOverlord.ChangeMandate(SuzerainDefineInt("SUZERAIN_DECREE_TITLE_DECLINE_MANDATE"));
 		}
 		break;
 
@@ -44206,12 +44210,16 @@ bool CvPlayer::ResolveDecree(int iIndex, bool bAccept)
 		if (bAccept)
 		{
 			int iCap = kOverlord.GetVassalLoyaltyCap(GetID());
-			int iGood = iCap * 70 / 100;
-			kOverlord.ChangeVassalLoyalty(GetID(), kOverlord.GetVassalLoyalty(GetID()) >= iGood ? 4 : -4);
+			int iGoodPct = SuzerainDefineInt("SUZERAIN_DECREE_INSPECT_GOOD_PERCENT");
+			if (iGoodPct <= 0) iGoodPct = 70;
+			int iGood = iCap * iGoodPct / 100;
+			int iGoodGain = SuzerainDefineInt("SUZERAIN_DECREE_INSPECT_GOOD");
+			int iBadGain = SuzerainDefineInt("SUZERAIN_DECREE_INSPECT_BAD");
+			kOverlord.ChangeVassalLoyalty(GetID(), kOverlord.GetVassalLoyalty(GetID()) >= iGood ? iGoodGain : iBadGain);
 		}
 		else
 		{
-			kOverlord.ChangeVassalLoyalty(GetID(), -10);
+			kOverlord.ChangeVassalLoyalty(GetID(), SuzerainDefineInt("SUZERAIN_DECREE_INSPECT_STONE"));
 		}
 		break;
 
@@ -44229,27 +44237,29 @@ bool CvPlayer::ResolveDecree(int iIndex, bool bAccept)
 			if (pGreat != NULL)
 			{
 				pGreat->kill(false);
-				kOverlord.ChangeMandate(10);
+				kOverlord.ChangeMandate(SuzerainDefineInt("SUZERAIN_DECREE_SUMMON_MANDATE"));
 			}
-			kOverlord.ChangeVassalLoyalty(GetID(), 8);
+			kOverlord.ChangeVassalLoyalty(GetID(), SuzerainDefineInt("SUZERAIN_DECREE_SUMMON_LOYALTY"));
 		}
 		else
 		{
-			kOverlord.ChangeVassalLoyalty(GetID(), -6);
+			kOverlord.ChangeVassalLoyalty(GetID(), SuzerainDefineInt("SUZERAIN_DECREE_SUMMON_REFUSE"));
 		}
 		break;
 
 	case 4: // questioning: confess or argue
 		if (bAccept)
 		{
-			kOverlord.ChangeVassalLoyalty(GetID(), -5);
+			kOverlord.ChangeVassalLoyalty(GetID(), SuzerainDefineInt("SUZERAIN_DECREE_QUESTION_CONFESS"));
 			kOverlord.ClearVassalPunishRight(GetID());
 		}
 		else
 		{
 			int iCap = kOverlord.GetVassalLoyaltyCap(GetID());
-			if (kOverlord.GetVassalLoyalty(GetID()) < iCap * 50 / 100)
-				kOverlord.ChangeVassalLoyalty(GetID(), -10);
+			int iArguePct = SuzerainDefineInt("SUZERAIN_DECREE_QUESTION_ARGUE_PERCENT");
+			if (iArguePct <= 0) iArguePct = 50;
+			if (kOverlord.GetVassalLoyalty(GetID()) < iCap * iArguePct / 100)
+				kOverlord.ChangeVassalLoyalty(GetID(), SuzerainDefineInt("SUZERAIN_DECREE_QUESTION_ARGUE_FAIL"));
 		}
 		break;
 
@@ -44257,11 +44267,11 @@ bool CvPlayer::ResolveDecree(int iIndex, bool bAccept)
 		if (bAccept)
 		{
 			if (iTarget >= 0) kOverlord.DoReturnCityToVassalByID(iTarget);
-			kOverlord.ChangeVassalLoyalty(GetID(), 10);
+			kOverlord.ChangeVassalLoyalty(GetID(), SuzerainDefineInt("SUZERAIN_DECREE_FIEF_LOYALTY"));
 		}
 		else
 		{
-			kOverlord.ChangeVassalLoyalty(GetID(), -15);
+			kOverlord.ChangeVassalLoyalty(GetID(), SuzerainDefineInt("SUZERAIN_DECREE_FIEF_DEFY"));
 		}
 		break;
 
@@ -44275,11 +44285,11 @@ bool CvPlayer::ResolveDecree(int iIndex, bool bAccept)
 				GetTreasury()->ChangeGold(-iPay);
 				kOverlord.GetTreasury()->ChangeGold(iPay);
 			}
-			kOverlord.ChangeVassalLoyalty(GetID(), -5);
+			kOverlord.ChangeVassalLoyalty(GetID(), SuzerainDefineInt("SUZERAIN_DECREE_LEVY_LOYALTY"));
 		}
 		else
 		{
-			kOverlord.ChangeVassalLoyalty(GetID(), -15);
+			kOverlord.ChangeVassalLoyalty(GetID(), SuzerainDefineInt("SUZERAIN_DECREE_LEVY_DEFY"));
 		}
 		break;
 
@@ -44289,11 +44299,11 @@ bool CvPlayer::ResolveDecree(int iIndex, bool bAccept)
 			int iTurns = SuzerainDefineInt("SUZERAIN_TRIBUTE_RELIEF_TURNS");
 			if (iTurns <= 0) iTurns = 10;
 			kOverlord.SetTributeRelief(GetID(), iTurns);
-			kOverlord.ChangeVassalLoyalty(GetID(), 6);
+			kOverlord.ChangeVassalLoyalty(GetID(), SuzerainDefineInt("SUZERAIN_DECREE_REMISSION_LOYALTY"));
 		}
 		else
 		{
-			kOverlord.ChangeMandate(3);
+			kOverlord.ChangeMandate(SuzerainDefineInt("SUZERAIN_DECREE_REMISSION_DECLINE_MANDATE"));
 		}
 		break;
 
@@ -44307,12 +44317,12 @@ bool CvPlayer::ResolveDecree(int iIndex, bool bAccept)
 				GetTreasury()->ChangeGold(-iPay);
 				kOverlord.GetTreasury()->ChangeGold(iPay);
 			}
-			kOverlord.ChangeMandate(5);
-			kOverlord.ChangeVassalLoyalty(GetID(), -4);
+			kOverlord.ChangeMandate(SuzerainDefineInt("SUZERAIN_DECREE_OFFERING_MANDATE"));
+			kOverlord.ChangeVassalLoyalty(GetID(), SuzerainDefineInt("SUZERAIN_DECREE_OFFERING_LOYALTY"));
 		}
 		else
 		{
-			kOverlord.ChangeVassalLoyalty(GetID(), -15);
+			kOverlord.ChangeVassalLoyalty(GetID(), SuzerainDefineInt("SUZERAIN_DECREE_OFFERING_DEFY"));
 		}
 		break;
 
@@ -44325,11 +44335,11 @@ bool CvPlayer::ResolveDecree(int iIndex, bool bAccept)
 				int iPay = std::min(iGold, (int)kOverlord.GetTreasury()->GetGold());
 				if (iPay > 0) kOverlord.TransferGoldTo(GetID(), iPay);
 			}
-			kOverlord.ChangeVassalLoyalty(GetID(), 5);
+			kOverlord.ChangeVassalLoyalty(GetID(), SuzerainDefineInt("SUZERAIN_DECREE_MARKET_LOYALTY"));
 		}
 		else
 		{
-			kOverlord.ChangeVassalLoyalty(GetID(), -5);
+			kOverlord.ChangeVassalLoyalty(GetID(), SuzerainDefineInt("SUZERAIN_DECREE_MARKET_DEFY"));
 		}
 		break;
 
@@ -44360,7 +44370,11 @@ bool CvPlayer::CanIssueDecree(int iType, PlayerTypes eVassal, int iTarget) const
 	{
 	case 1:
 		// A vassal may be re-titled; the old title returns to the pool.
-		return GetVassalLoyalty(eVassal) >= 50 && PickFreeTitle() > 0;
+	{
+		int iTitleMin = SuzerainDefineInt("SUZERAIN_DECREE_TITLE_MIN_LOYALTY");
+		if (iTitleMin <= 0) iTitleMin = 50;
+		return GetVassalLoyalty(eVassal) >= iTitleMin && PickFreeTitle() > 0;
+	}
 	case 2:
 		return true;
 	case 3:
@@ -44406,7 +44420,9 @@ bool CvPlayer::IssueDecree(int iType, PlayerTypes eVassal, int iTarget)
 	std::vector<int> v = kVassal.m_aiPendingDecrees;
 	v.push_back(iType);
 	v.push_back(iTargetValue);
-	v.push_back(GC.getGame().getGameTurn() + 5);
+	int iDecreeTurns = SuzerainDefineInt("SUZERAIN_DECREE_TURNS");
+	if (iDecreeTurns <= 0) iDecreeTurns = 5;
+	v.push_back(GC.getGame().getGameTurn() + iDecreeTurns);
 	v.push_back(GetID());
 	kVassal.m_aiPendingDecrees = v;
 	return true;
@@ -44731,9 +44747,11 @@ void CvPlayer::DoConcubineTurn()
 	if (iPer > 0)
 	{
 		int iEmpress = GetEmpress();
+		int iEmpMult = SuzerainDefineInt("SUZERAIN_CONCUBINE_EMPRESS_MULTIPLIER");
+		if (iEmpMult <= 0) iEmpMult = 2;
 		int iTotal = 0;
 		for (int i = 0; i < iCount; i++)
-			iTotal += (i == iEmpress) ? iPer * 2 : iPer;
+			iTotal += (i == iEmpress) ? iPer * iEmpMult : iPer;
 		if (iTotal > 0) ChangeMandate(iTotal);
 	}
 
@@ -44795,11 +44813,15 @@ void CvPlayer::DoOfferConcubineTurn()
 
 	PlayerTypes eOverlord = GetOverlord();
 	if (eOverlord == NO_PLAYER) return;
-	if ((GC.getGame().getGameTurn() % 20) != 0) return;
+	int iOfferEvery = SuzerainDefineInt("SUZERAIN_CONCUBINE_OFFER_INTERVAL");
+	if (iOfferEvery <= 0) iOfferEvery = 20;
+	if ((GC.getGame().getGameTurn() % iOfferEvery) != 0) return;
 
 	CvPlayer& kOverlord = GET_PLAYER(eOverlord);
 	if (!kOverlord.isAlive()) return;
-	if (kOverlord.GetVassalLoyalty(GetID()) < 40) return;
+	int iOfferMin = SuzerainDefineInt("SUZERAIN_CONCUBINE_OFFER_MIN_LOYALTY");
+	if (iOfferMin <= 0) iOfferMin = 40;
+	if (kOverlord.GetVassalLoyalty(GetID()) < iOfferMin) return;
 
 	int iCount = SuzerainDefineInt("SUZERAIN_CONCUBINE_COUNT");
 	if (iCount <= 0) iCount = 100;
@@ -44834,7 +44856,11 @@ void CvPlayer::DoOfferConcubineTurn()
 		if (iPick <= 0)
 		{
 			if (kOverlord.ReceiveConcubine(GetID(), t))
-				kOverlord.ChangeVassalLoyalty(GetID(), 8);
+			{
+				int iOfferGain = SuzerainDefineInt("SUZERAIN_CONCUBINE_OFFER_LOYALTY");
+				if (iOfferGain == 0) iOfferGain = 8;
+				kOverlord.ChangeVassalLoyalty(GetID(), iOfferGain);
+			}
 			return;
 		}
 	}

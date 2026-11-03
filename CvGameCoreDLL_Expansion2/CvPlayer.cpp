@@ -44763,6 +44763,11 @@ bool CvPlayer::ReceiveConcubine(PlayerTypes eVassal, int iTemplate)
 	vf.push_back(iStartFavor);
 	m_aiConcubineFavor = vf;
 
+	int iOrigin = atoi(GetConcubineTemplateField(iTemplate, 1).c_str());
+	int iDowry = SuzerainDefineInt("SUZERAIN_CONCUBINE_DOWRY_GOLD");
+	if (iOrigin == 4)
+		iDowry = SuzerainDefineInt("SUZERAIN_CONCUBINE_DOWRY_MERCHANT");
+	if (iDowry > 0) GetTreasury()->ChangeGold(iDowry);
 	if (isHuman() && GetNotifications())
 	{
 		Localization::String sMsg = Localization::Lookup("TXT_KEY_NOTIFICATION_CONCUBINE_RECEIVED");
@@ -44830,6 +44835,13 @@ bool CvPlayer::SetEmpress(int iIndex)
 	if (!MOD_GLOBAL_SUZERAIN) return false;
 	if (iIndex < -1 || iIndex >= GetConcubineCount()) return false;
 	ChangeConcubineFavor(iIndex, SuzerainDefineInt("SUZERAIN_CONCUBINE_FAVOR_EMPRESS"));
+	ChangeMandate(SuzerainDefineInt("SUZERAIN_CONCUBINE_CORONATION_MANDATE"));
+	int iCorFavor = SuzerainDefineInt("SUZERAIN_CONCUBINE_CORONATION_FAVOR");
+	if (iCorFavor > 0)
+	{
+		for (int i = 0; i < GetConcubineCount(); i++)
+			ChangeConcubineFavor(i, iCorFavor);
+	}
 	m_iEmpress = iIndex;
 	return true;
 }
@@ -44874,6 +44886,31 @@ void CvPlayer::DoConcubineTurn()
 		}
 	}
 
+	int iBlessEvery = SuzerainDefineInt("SUZERAIN_CONCUBINE_BLESS_INTERVAL");
+	if (iBlessEvery > 0 && (iTurn % iBlessEvery) == 0)
+	{
+		int iBless = 0;
+		for (int i = 0; i < iCount; i++)
+		{
+			if (GetConcubineRank(i) >= 2) iBless++;
+		}
+		if (iBless > 0)
+			ChangeMandate(iBless * SuzerainDefineInt("SUZERAIN_CONCUBINE_BLESS_MANDATE"));
+	}
+
+	int iFeastEvery = SuzerainDefineInt("SUZERAIN_CONCUBINE_FEAST_INTERVAL");
+	if (iFeastEvery > 0 && (iTurn % iFeastEvery) == 0)
+	{
+		int iFeastFavor = SuzerainDefineInt("SUZERAIN_CONCUBINE_FEAST_FAVOR");
+		int iFeastLoyalty = SuzerainDefineInt("SUZERAIN_CONCUBINE_FEAST_LOYALTY");
+		for (int i = 0; i < iCount; i++)
+		{
+			ChangeConcubineFavor(i, iFeastFavor);
+			PlayerTypes eV = (PlayerTypes)GetConcubineField(i, 1);
+			if (eV != NO_PLAYER && IsLiveVassal(eV))
+				ChangeVassalLoyalty(eV, iFeastLoyalty);
+		}
+	}
 	int iNeglectTurns = SuzerainDefineInt("SUZERAIN_CONCUBINE_NEGLECT_TURNS");
 	int iNeglectEvery = SuzerainDefineInt("SUZERAIN_CONCUBINE_NEGLECT_CHECK");
 	if (iNeglectTurns <= 0) iNeglectTurns = 20;

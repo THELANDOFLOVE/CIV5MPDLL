@@ -44962,6 +44962,34 @@ bool CvPlayer::ResolveDecree(int iIndex, bool bAccept)
 		}
 		break;
 
+	case 10: // fine: hand over a share of the treasury, or refuse
+		if (bAccept)
+		{
+			int iPct = SuzerainDefineInt("SUZERAIN_DECREE_FINE_PERCENT");
+			int iGold = (int)GetTreasury()->GetGold() * iPct / 100;
+			if (iGold > 0)
+			{
+				GetTreasury()->ChangeGold(-iGold);
+				kOverlord.GetTreasury()->ChangeGold(iGold);
+			}
+			kOverlord.ChangeVassalLoyalty(GetID(), SuzerainDefineInt("SUZERAIN_DECREE_FINE_LOYALTY"));
+		}
+		else
+		{
+			kOverlord.ChangeVassalLoyalty(GetID(), SuzerainDefineInt("SUZERAIN_DECREE_FINE_DEFY"));
+		}
+		break;
+
+	case 11: // pardon: the record is wiped and the punish right withdrawn
+		if (bAccept)
+		{
+			kOverlord.ClearVassalPunishRight(GetID());
+			int iBreach = kOverlord.GetVassalBreachCount(GetID());
+			if (iBreach > 0) kOverlord.ChangeVassalBreachCount(GetID(), -iBreach);
+			kOverlord.ChangeVassalLoyalty(GetID(), SuzerainDefineInt("SUZERAIN_DECREE_PARDON_LOYALTY"));
+		}
+		break;
+
 	default:
 		return false;
 	}
@@ -45016,6 +45044,9 @@ bool CvPlayer::CanIssueDecree(int iType, PlayerTypes eVassal, int iTarget) const
 	case 8: // offering
 	case 9: // open market
 		return true;
+	case 10: // fine
+	case 11: // pardon
+		return GetVassalBreachCount(eVassal) > 0 || HasVassalPunishRight(eVassal);
 	default:
 		return false;
 	}

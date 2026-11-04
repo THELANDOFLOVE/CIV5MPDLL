@@ -37777,6 +37777,16 @@ void CvPlayer::DoVassalMemorialTurn()
 int CvPlayer::GetVassalCourtInterval() const
 {
 	if (!MOD_GLOBAL_SUZERAIN) return 0;
+
+	// A game-speed table keeps the court at roughly the same amount of game
+	// progress on Quick and Marathon as it is on Standard.
+	int iSpeed = (int)GC.getGame().getGameSpeedType();
+	int iCount = SuzerainDefineListCount("SUZERAIN_COURT_INTERVAL_BY_SPEED");
+	if (iSpeed >= 0 && iSpeed < iCount)
+	{
+		int iValue = SuzerainDefineListInt("SUZERAIN_COURT_INTERVAL_BY_SPEED", iSpeed, 0);
+		if (iValue > 0) return iValue;
+	}
 	return SuzerainDefineInt("SUZERAIN_COURT_INTERVAL");
 }
 

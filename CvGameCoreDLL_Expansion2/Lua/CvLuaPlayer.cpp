@@ -160,11 +160,13 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSetEmpress);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lFavorConcubine);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGiftConcubine);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetConcubineGiftGold);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetConcubineFavor);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lIsConcubineHostage);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDethroneEmpress);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetConcubineWish);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSatisfyConcubineWish);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lCanSatisfyConcubineWish);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lCanRestoreConcubineHomeland);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lRestoreConcubineHomeland);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetConcubineTemplateField);
@@ -1606,11 +1608,13 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(SetEmpress);
 	Method(FavorConcubine);
 	Method(GiftConcubine);
+	Method(GetConcubineGiftGold);
 	Method(GetConcubineFavor);
 	Method(IsConcubineHostage);
 	Method(DethroneEmpress);
 	Method(GetConcubineWish);
 	Method(SatisfyConcubineWish);
+	Method(CanSatisfyConcubineWish);
 	Method(CanRestoreConcubineHomeland);
 	Method(RestoreConcubineHomeland);
 	Method(GetConcubineTemplateField);
@@ -15630,6 +15634,14 @@ int CvLuaPlayer::lGiftConcubine(lua_State* L)
 	lua_pushboolean(L, pkPlayer->GiftConcubine(iIndex));
 	return 1;
 }
+//int GetConcubineGiftGold(int iIndex);
+int CvLuaPlayer::lGetConcubineGiftGold(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const int iIndex = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetConcubineGiftGold(iIndex));
+	return 1;
+}
 //int GetConcubineFavor(int iIndex);
 int CvLuaPlayer::lGetConcubineFavor(lua_State* L)
 {
@@ -15667,6 +15679,14 @@ int CvLuaPlayer::lSatisfyConcubineWish(lua_State* L)
 	CvPlayer* pkPlayer = GetInstance(L);
 	const int iIndex = lua_tointeger(L, 2);
 	lua_pushboolean(L, pkPlayer->SatisfyConcubineWish(iIndex));
+	return 1;
+}
+//bool CanSatisfyConcubineWish(int iIndex);
+int CvLuaPlayer::lCanSatisfyConcubineWish(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const int iIndex = lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->CanSatisfyConcubineWish(iIndex));
 	return 1;
 }
 //bool CanRestoreConcubineHomeland(int iIndex);

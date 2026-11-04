@@ -2220,6 +2220,8 @@ public:
 	void DoOfferConcubineTurn();
 	// Bestow a gift on one concubine: costs gold, lifts the home vassal's loyalty.
 	bool GiftConcubine(int iIndex);
+	// What the next gift would cost, so the UI can check before sending.
+	int GetConcubineGiftGold(int iIndex);
 	int GetConcubineFavor(int iIndex) const;
 	void ChangeConcubineFavor(int iIndex, int iDelta);
 	// True when her homeland is dead or no longer our vassal: she is a hostage.
@@ -2234,6 +2236,8 @@ public:
 	int GetConcubineWish(int iIndex) const;
 	void SetConcubineWish(int iIndex, int iWish);
 	bool SatisfyConcubineWish(int iIndex);
+	// Whether her current wish can be granted right now (gold check).
+	bool CanSatisfyConcubineWish(int iIndex);
 	void DoConcubineWishTurn();
 	// Periodic counsel from a random concubine.
 	void DoConcubineAdviceTurn();

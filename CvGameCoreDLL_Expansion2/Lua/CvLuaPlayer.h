@@ -1429,11 +1429,13 @@ protected:
 	LUAAPIEXTN(SetEmpress, bool, iIndex);
 	LUAAPIEXTN(FavorConcubine, bool, iIndex);
 	LUAAPIEXTN(GiftConcubine, bool, iIndex);
+	LUAAPIEXTN(GetConcubineGiftGold, int, iIndex);
 	LUAAPIEXTN(GetConcubineFavor, int, iIndex);
 	LUAAPIEXTN(IsConcubineHostage, bool, iIndex);
 	LUAAPIEXTN(DethroneEmpress, bool);
 	LUAAPIEXTN(GetConcubineWish, int, iIndex);
 	LUAAPIEXTN(SatisfyConcubineWish, bool, iIndex);
+	LUAAPIEXTN(CanSatisfyConcubineWish, bool, iIndex);
 	LUAAPIEXTN(CanRestoreConcubineHomeland, bool, iIndex);
 	LUAAPIEXTN(RestoreConcubineHomeland, bool, iIndex);
 	static int lGetConcubineTemplateField(lua_State* L);

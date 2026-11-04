@@ -45612,6 +45612,26 @@ bool CvPlayer::GiftConcubine(int iIndex)
 }
 
 //--------------------------------------------------------------------------------
+// The tier the next gift would use. Shared by the gift itself and the UI's
+// pre-check, so multiplayer can tell whether the treasury can pay before sending.
+int CvPlayer::GetConcubineGiftGold(int iIndex)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	if (iIndex < 0 || iIndex >= GetConcubineCount()) return 0;
+
+	int iFavor = GetConcubineFavor(iIndex);
+	int iJewelMin = SuzerainDefineInt("SUZERAIN_CONCUBINE_GIFT_JEWEL_MIN_FAVOR");
+	int iGardenMin = SuzerainDefineInt("SUZERAIN_CONCUBINE_GIFT_GARDEN_MIN_FAVOR");
+	int iPlainGold = SuzerainDefineInt("SUZERAIN_CONCUBINE_GIFT_GOLD");
+	int iJewelGold = SuzerainDefineInt("SUZERAIN_CONCUBINE_GIFT_JEWEL_GOLD");
+	int iGardenGold = SuzerainDefineInt("SUZERAIN_CONCUBINE_GIFT_GARDEN_GOLD");
+
+	if (iFavor >= iGardenMin && GetTreasury()->GetGold() >= iGardenGold) return iGardenGold;
+	if (iFavor >= iJewelMin && GetTreasury()->GetGold() >= iJewelGold) return iJewelGold;
+	return iPlainGold;
+}
+
+//--------------------------------------------------------------------------------
 void CvPlayer::DoConcubineAdviceTurn()
 {
 	if (!MOD_GLOBAL_SUZERAIN) return;
@@ -45786,6 +45806,19 @@ void CvPlayer::SetConcubineWish(int iIndex, int iWish)
 	int iBase = iIndex * 5 + 4;
 	if ((size_t)iBase >= m_aiConcubines.size()) return;
 	m_aiConcubines.setAt((size_t)iBase, iWish < 0 ? 0 : iWish);
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::CanSatisfyConcubineWish(int iIndex)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	int iWish = GetConcubineWish(iIndex);
+	if (iWish <= 0) return false;
+
+	int iCost = 0;
+	if (iWish == 1) iCost = SuzerainDefineInt("SUZERAIN_CONCUBINE_WISH_GOLD");
+	else if (iWish == 3) iCost = SuzerainDefineInt("SUZERAIN_CONCUBINE_WISH_GARDEN_GOLD");
+	return GetTreasury()->GetGold() >= iCost;
 }
 
 //--------------------------------------------------------------------------------

@@ -44990,6 +44990,78 @@ bool CvPlayer::ResolveDecree(int iIndex, bool bAccept)
 		}
 		break;
 
+	case 12: // stop private war: make peace with the named enemy
+		if (bAccept)
+		{
+			if (iTarget >= 0 && iTarget < MAX_MAJOR_CIVS && GET_PLAYER((PlayerTypes)iTarget).isAlive())
+			{
+				TeamTypes eEnemyTeam = GET_PLAYER((PlayerTypes)iTarget).getTeam();
+				if (eEnemyTeam != getTeam() && GET_TEAM(getTeam()).isAtWar(eEnemyTeam))
+					GET_TEAM(getTeam()).makePeace(eEnemyTeam, true, false, GetID());
+			}
+			kOverlord.ChangeVassalLoyalty(GetID(), SuzerainDefineInt("SUZERAIN_DECREE_STOPWAR_LOYALTY"));
+		}
+		else
+		{
+			kOverlord.ChangeVassalLoyalty(GetID(), SuzerainDefineInt("SUZERAIN_DECREE_STOPWAR_DEFY"));
+		}
+		break;
+
+	case 13: // troops: send the strongest combat unit to the overlord
+		if (bAccept)
+		{
+			CvUnit* pBest = NULL;
+			int iBestPower = -1;
+			int iLoop = 0;
+			for (CvUnit* pUnit = firstUnit(&iLoop); pUnit != NULL; pUnit = nextUnit(&iLoop))
+			{
+				if (!pUnit->IsCombatUnit()) continue;
+				if (pUnit->GetPower() > iBestPower)
+				{
+					iBestPower = pUnit->GetPower();
+					pBest = pUnit;
+				}
+			}
+			CvCity* pOverlordCapital = kOverlord.getCapitalCity();
+			if (pBest != NULL && pOverlordCapital != NULL)
+			{
+				UnitTypes eType = pBest->getUnitType();
+#if defined(MOD_UNITS_XP_TIMES_100)
+				int iXP100 = pBest->getExperienceTimes100();
+#else
+				int iXP = pBest->getExperience();
+#endif
+				CvUnit* pNew = kOverlord.initUnit(eType, pOverlordCapital->getX(), pOverlordCapital->getY());
+				if (pNew != NULL)
+				{
+#if defined(MOD_UNITS_XP_TIMES_100)
+					pNew->setExperienceTimes100(iXP100);
+#else
+					pNew->setExperience(iXP);
+#endif
+					pBest->kill(false);
+				}
+			}
+			kOverlord.ChangeVassalLoyalty(GetID(), SuzerainDefineInt("SUZERAIN_DECREE_TROOPS_LOYALTY"));
+		}
+		else
+		{
+			kOverlord.ChangeVassalLoyalty(GetID(), SuzerainDefineInt("SUZERAIN_DECREE_TROOPS_DEFY"));
+		}
+		break;
+
+	case 14: // feast: attend the overlord's banquet
+		if (bAccept)
+		{
+			kOverlord.ChangeMandate(SuzerainDefineInt("SUZERAIN_DECREE_FEAST_MANDATE"));
+			kOverlord.ChangeVassalLoyalty(GetID(), SuzerainDefineInt("SUZERAIN_DECREE_FEAST_LOYALTY"));
+		}
+		else
+		{
+			kOverlord.ChangeVassalLoyalty(GetID(), SuzerainDefineInt("SUZERAIN_DECREE_FEAST_DEFY"));
+		}
+		break;
+
 	default:
 		return false;
 	}
@@ -45047,6 +45119,33 @@ bool CvPlayer::CanIssueDecree(int iType, PlayerTypes eVassal, int iTarget) const
 	case 10: // fine
 	case 11: // pardon
 		return GetVassalBreachCount(eVassal) > 0 || HasVassalPunishRight(eVassal);
+	case 12: // stop private war: there must be a private war to stop
+	{
+		for (int e = 0; e < MAX_MAJOR_CIVS; e++)
+		{
+			PlayerTypes eEnemy = (PlayerTypes)e;
+			if (eEnemy == eVassal || eEnemy == GetID()) continue;
+			if (!GET_PLAYER(eEnemy).isAlive()) continue;
+			TeamTypes eEnemyTeam = GET_PLAYER(eEnemy).getTeam();
+			if (eEnemyTeam == getTeam()) continue;
+			// A war we share is authorized, so it is not a private war.
+			if (GET_TEAM(getTeam()).isAtWar(eEnemyTeam)) continue;
+			if (GET_TEAM(GET_PLAYER(eVassal).getTeam()).isAtWar(eEnemyTeam)) return true;
+		}
+		return false;
+	}
+	case 13: // troops: there must be a combat unit to send
+	{
+		CvPlayer& kV = GET_PLAYER(eVassal);
+		int iLoop = 0;
+		for (CvUnit* pUnit = kV.firstUnit(&iLoop); pUnit != NULL; pUnit = kV.nextUnit(&iLoop))
+		{
+			if (pUnit->IsCombatUnit()) return true;
+		}
+		return false;
+	}
+	case 14: // feast
+		return true;
 	default:
 		return false;
 	}
@@ -45063,6 +45162,25 @@ bool CvPlayer::IssueDecree(int iType, PlayerTypes eVassal, int iTarget)
 		// A title decree always names a specific free title.
 		if (iTargetValue <= 0) iTargetValue = PickFreeTitle();
 		if (iTargetValue <= 0) return false;
+	}
+	else if (iType == 12 && iTargetValue < 0)
+	{
+		// Naming no enemy means "stop the first private war you are in".
+		for (int e = 0; e < MAX_MAJOR_CIVS; e++)
+		{
+			PlayerTypes eEnemy = (PlayerTypes)e;
+			if (eEnemy == eVassal || eEnemy == GetID()) continue;
+			if (!GET_PLAYER(eEnemy).isAlive()) continue;
+			TeamTypes eEnemyTeam = GET_PLAYER(eEnemy).getTeam();
+			if (eEnemyTeam == getTeam()) continue;
+			if (GET_TEAM(getTeam()).isAtWar(eEnemyTeam)) continue;
+			if (GET_TEAM(GET_PLAYER(eVassal).getTeam()).isAtWar(eEnemyTeam))
+			{
+				iTargetValue = eEnemy;
+				break;
+			}
+		}
+		if (iTargetValue < 0) return false;
 	}
 
 	CvPlayer& kVassal = GET_PLAYER(eVassal);

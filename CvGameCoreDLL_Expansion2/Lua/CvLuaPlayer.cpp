@@ -196,6 +196,8 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoReturnCityToVassal);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoReturnCityToVassalByID);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lResolveVassalMemorial);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetMemorialDefault);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSetMemorialDefault);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoVassalAid);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSetVassalCourtPolicy);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoVassalPunish);

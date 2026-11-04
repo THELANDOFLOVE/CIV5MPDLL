@@ -1379,6 +1379,8 @@ void CvPlayer::uninit()
 	m_aiVassalPunishRight.resize(MAX_MAJOR_CIVS, 0);
 	m_aiVassalRevoltPrep.clear();
 	m_aiVassalRevoltPrep.resize(MAX_MAJOR_CIVS, 0);
+	m_aiWorksOrder.clear();
+	m_aiWorksOrder.resize(MAX_MAJOR_CIVS * 2, 0);
 	m_aiVassalWarSeen.clear();
 	m_aiVassalBreachTurn.clear();
 	m_aiVassalBreachTurn.resize(MAX_MAJOR_CIVS, 0);
@@ -5650,6 +5652,7 @@ void CvPlayer::doTurn()
 		DoConcubineIntelTurn();
 		DoVassalLoyaltyDecay();
 		DoVassalRevoltCheck();
+		DoVassalWorksCheck();
 		DoVassalOverlordVictoryCheck();
 	}
 #endif
@@ -31482,6 +31485,7 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalBreachCount, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalPunishRight, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalRevoltPrep, MAX_MAJOR_CIVS, 0);
+		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiWorksOrder, MAX_MAJOR_CIVS * 2, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiMemorialDefault, 7, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalBreachTurn, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iMandate, 0);
@@ -32476,6 +32480,7 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalBreachCount);
 	MOD_SERIALIZE_WRITE(kStream, m_aiVassalPunishRight);
 	MOD_SERIALIZE_WRITE(kStream, m_aiVassalRevoltPrep);
+	MOD_SERIALIZE_WRITE(kStream, m_aiWorksOrder);
 	MOD_SERIALIZE_WRITE(kStream, m_aiMemorialDefault);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalBreachTurn);
 	MOD_SERIALIZE_WRITE(kStream, m_iMandate);
@@ -36101,6 +36106,46 @@ void CvPlayer::DoVassalRevoltCheck()
 
 		m_aiVassalRevoltPrep[eVassal] = 0;
 		DoVassalRevolt(eVassal);
+	}
+}
+
+//--------------------------------------------------------------------------------
+// Public works orders come due: a vassal that built the named building gains
+// loyalty, one that never got around to it loses it.
+void CvPlayer::DoVassalWorksCheck()
+{
+	if (!MOD_GLOBAL_SUZERAIN || !IsSuzerainCiv()) return;
+	if (m_aiWorksOrder.size() < (size_t)(MAX_MAJOR_CIVS * 2))
+		m_aiWorksOrder.resize((size_t)(MAX_MAJOR_CIVS * 2), 0);
+
+	int iTurn = GC.getGame().getGameTurn();
+	for (size_t i = 0; i < m_vecVassals.size(); i++)
+	{
+		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
+		if (eVassal < 0 || eVassal >= MAX_MAJOR_CIVS) continue;
+		int iBuilding = m_aiWorksOrder[eVassal * 2];
+		int iDue = m_aiWorksOrder[eVassal * 2 + 1];
+		if (iBuilding <= 0 || iDue <= 0 || iTurn < iDue) continue;
+
+		if (IsLiveVassal(eVassal))
+		{
+			bool bDone = false;
+			CvPlayer& kV = GET_PLAYER(eVassal);
+			int iLoop = 0;
+			for (CvCity* pCity = kV.firstCity(&iLoop); pCity != NULL; pCity = kV.nextCity(&iLoop))
+			{
+				if (pCity->HasBuilding((BuildingTypes)iBuilding))
+				{
+					bDone = true;
+					break;
+				}
+			}
+			ChangeVassalLoyalty(eVassal, bDone
+				? SuzerainDefineInt("SUZERAIN_DECREE_WORKS_SUCCESS")
+				: SuzerainDefineInt("SUZERAIN_DECREE_WORKS_FAIL"));
+		}
+		m_aiWorksOrder[eVassal * 2] = 0;
+		m_aiWorksOrder[eVassal * 2 + 1] = 0;
 	}
 }
 
@@ -45062,6 +45107,29 @@ bool CvPlayer::ResolveDecree(int iIndex, bool bAccept)
 		}
 		break;
 
+	case 15: // public works: promise to build the named building
+		if (bAccept)
+		{
+			if (iTarget >= 0 && iTarget < GC.getNumBuildingInfos())
+			{
+				if (kOverlord.m_aiWorksOrder.size() < (size_t)(MAX_MAJOR_CIVS * 2))
+					kOverlord.m_aiWorksOrder.resize((size_t)(MAX_MAJOR_CIVS * 2), 0);
+				int iTurns = SuzerainDefineInt("SUZERAIN_DECREE_WORKS_TURNS");
+				kOverlord.m_aiWorksOrder[GetID() * 2] = iTarget;
+				kOverlord.m_aiWorksOrder[GetID() * 2 + 1] = GC.getGame().getGameTurn() + iTurns;
+
+				int iGold = SuzerainDefineInt("SUZERAIN_DECREE_WORKS_GOLD");
+				int iPay = std::min(iGold, (int)kOverlord.GetTreasury()->GetGold());
+				if (iPay > 0) kOverlord.TransferGoldTo(GetID(), iPay);
+			}
+			kOverlord.ChangeVassalLoyalty(GetID(), SuzerainDefineInt("SUZERAIN_DECREE_WORKS_LOYALTY"));
+		}
+		else
+		{
+			kOverlord.ChangeVassalLoyalty(GetID(), SuzerainDefineInt("SUZERAIN_DECREE_WORKS_DEFY"));
+		}
+		break;
+
 	default:
 		return false;
 	}
@@ -45146,6 +45214,16 @@ bool CvPlayer::CanIssueDecree(int iType, PlayerTypes eVassal, int iTarget) const
 	}
 	case 14: // feast
 		return true;
+	case 15: // public works: the capital must have something it can build
+	{
+		CvCity* pCapital = GET_PLAYER(eVassal).getCapitalCity();
+		if (pCapital == NULL) return false;
+		for (int b = 0; b < GC.getNumBuildingInfos(); b++)
+		{
+			if (pCapital->canConstruct((BuildingTypes)b)) return true;
+		}
+		return false;
+	}
 	default:
 		return false;
 	}
@@ -45177,6 +45255,21 @@ bool CvPlayer::IssueDecree(int iType, PlayerTypes eVassal, int iTarget)
 			if (GET_TEAM(GET_PLAYER(eVassal).getTeam()).isAtWar(eEnemyTeam))
 			{
 				iTargetValue = eEnemy;
+				break;
+			}
+		}
+		if (iTargetValue < 0) return false;
+	}
+	else if (iType == 15 && iTargetValue < 0)
+	{
+		// Naming no building means "the first thing the capital can build".
+		CvCity* pCapital = GET_PLAYER(eVassal).getCapitalCity();
+		if (pCapital == NULL) return false;
+		for (int b = 0; b < GC.getNumBuildingInfos(); b++)
+		{
+			if (pCapital->canConstruct((BuildingTypes)b))
+			{
+				iTargetValue = b;
 				break;
 			}
 		}

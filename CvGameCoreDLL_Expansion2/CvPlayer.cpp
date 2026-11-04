@@ -441,6 +441,10 @@ CvPlayer::CvPlayer() :
 	, m_aiConcubineFavor("CvPlayer::m_aiConcubineFavor", m_syncArchive)
 	, m_iEmpress("CvPlayer::m_iEmpress", m_syncArchive)
 	, m_aiConcubineKind("CvPlayer::m_aiConcubineKind", m_syncArchive)
+	, m_aiOfficials("CvPlayer::m_aiOfficials", m_syncArchive)
+	, m_aiOfficialCandidates("CvPlayer::m_aiOfficialCandidates", m_syncArchive)
+	, m_iOfficialAdvicePost("CvPlayer::m_iOfficialAdvicePost", m_syncArchive)
+	, m_iOfficialAdviceTurn("CvPlayer::m_iOfficialAdviceTurn", m_syncArchive)
 	, m_iFavourBonusTurn("CvPlayer::m_iFavourBonusTurn", m_syncArchive)
 	, m_aiVassalBreachCount("CvPlayer::m_aiVassalBreachCount", m_syncArchive)
 	, m_aiVassalBreachTurn("CvPlayer::m_aiVassalBreachTurn", m_syncArchive)
@@ -1366,6 +1370,11 @@ void CvPlayer::uninit()
 	m_aiConcubines.clear();
 	m_aiConcubineFavor.clear();
 	m_aiConcubineKind.clear();
+	m_aiOfficials.clear();
+	m_aiOfficials.resize(OFFICIAL_POSTS * 5, 0);
+	m_aiOfficialCandidates.clear();
+	m_iOfficialAdvicePost = -1;
+	m_iOfficialAdviceTurn = 0;
 	m_iEmpress = -1;
 	m_iFavourBonusTurn = 0;
 	m_aiVassalGiftCount.clear();
@@ -5675,6 +5684,8 @@ void CvPlayer::doTurn()
 		DoVassalLoyaltyDecay();
 		DoVassalRevoltCheck();
 		DoVassalWorksCheck();
+		DoOfficialTurn();
+		DoOfficialAITurn();
 		DoVassalOverlordVictoryCheck();
 	}
 #endif
@@ -31571,6 +31582,10 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiConcubineFavor, 0, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iEmpress, -1);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiConcubineKind, 0, 0);
+		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiOfficials, OFFICIAL_POSTS * 5, 0);
+		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiOfficialCandidates, 0, 0);
+		MOD_SERIALIZE_READ(165, kStream, m_iOfficialAdvicePost, -1);
+		MOD_SERIALIZE_READ(165, kStream, m_iOfficialAdviceTurn, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iFavourBonusTurn, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalBreachCount, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalPunishRight, MAX_MAJOR_CIVS, 0);
@@ -32570,6 +32585,10 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiConcubineFavor);
 	MOD_SERIALIZE_WRITE(kStream, m_iEmpress);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiConcubineKind);
+	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiOfficials);
+	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiOfficialCandidates);
+	MOD_SERIALIZE_WRITE(kStream, m_iOfficialAdvicePost);
+	MOD_SERIALIZE_WRITE(kStream, m_iOfficialAdviceTurn);
 	MOD_SERIALIZE_WRITE(kStream, m_iFavourBonusTurn);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalBreachCount);
 	MOD_SERIALIZE_WRITE(kStream, m_aiVassalPunishRight);
@@ -36035,6 +36054,16 @@ int CvPlayer::GetVassalRevoltScore(PlayerTypes eVassal) const
 		iScore -= iHostages * iHostageSuppress;
 		if (iScore < 0) iScore = 0;
 	}
+
+	// A capable justice minister cools tempers before they boil over.
+	if (GetOfficialField(5, 0) > 0)
+	{
+		int iPercent = GetOfficialEffectPercent(5);
+		int iReduce = GetOfficialField(5, 1) * iPercent / 100
+			* SuzerainDefineInt("SUZERAIN_OFFICIAL_JUSTICE_REVOLT_REDUCE");
+		iScore -= iReduce;
+		if (iScore < 0) iScore = 0;
+	}
 	return iScore;
 }
 
@@ -36246,6 +36275,332 @@ void CvPlayer::DoVassalWorksCheck()
 		m_aiWorksOrder[eVassal * 2] = 0;
 		m_aiWorksOrder[eVassal * 2 + 1] = 0;
 	}
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetOfficialField(int iPost, int iField) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	if (iPost < 0 || iPost >= OFFICIAL_POSTS) return 0;
+	if (iField < 0 || iField > 4) return 0;
+	if (m_aiOfficials.size() < (size_t)(OFFICIAL_POSTS * 5)) return 0;
+	return m_aiOfficials[iPost * 5 + iField];
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetOfficialCandidateCount() const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	return (int)m_aiOfficialCandidates.size() / 4;
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetOfficialCandidateField(int iIndex, int iField) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	if (iIndex < 0 || iIndex >= GetOfficialCandidateCount()) return 0;
+	if (iField < 0 || iField > 3) return 0;
+	return m_aiOfficialCandidates[iIndex * 4 + iField];
+}
+
+//--------------------------------------------------------------------------------
+// The official's ability adjusted for satisfaction and leaning. Satisfaction
+// below the threshold halves the effect; a leaning that matches the post's
+// preference adds a bonus.
+int CvPlayer::GetOfficialEffectPercent(int iPost) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	if (iPost < 0 || iPost >= OFFICIAL_POSTS) return 0;
+	if (GetOfficialField(iPost, 0) <= 0) return 0;
+
+	int iPercent = 100;
+	int iSat = GetOfficialField(iPost, 4);
+	int iLow = SuzerainDefineInt("SUZERAIN_OFFICIAL_LOW_SATISFACTION");
+	if (iLow > 0 && iSat < iLow) iPercent = 50;
+
+	int iPreferred = SuzerainDefineListInt("SUZERAIN_OFFICIAL_PREFERRED_LEAN", iPost, 0);
+	int iLean = GetOfficialField(iPost, 3);
+	if (iPreferred > 0 && iLean == iPreferred)
+		iPercent = iPercent + SuzerainDefineInt("SUZERAIN_OFFICIAL_LEAN_MATCH_BONUS");
+	return iPercent;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::AppointOfficial(int iPost, int iCandidate)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (iPost < 0 || iPost >= OFFICIAL_POSTS) return false;
+	if (iCandidate < 0 || iCandidate >= GetOfficialCandidateCount()) return false;
+	if (m_aiOfficials.size() < (size_t)(OFFICIAL_POSTS * 5))
+		m_aiOfficials.resize((size_t)(OFFICIAL_POSTS * 5), 0);
+
+	int iBase = iPost * 5;
+	m_aiOfficials.setAt((size_t)(iBase + 0), GetOfficialCandidateField(iCandidate, 0));
+	m_aiOfficials.setAt((size_t)(iBase + 1), GetOfficialCandidateField(iCandidate, 1));
+	m_aiOfficials.setAt((size_t)(iBase + 2), GetOfficialCandidateField(iCandidate, 2));
+	m_aiOfficials.setAt((size_t)(iBase + 3), GetOfficialCandidateField(iCandidate, 3));
+	m_aiOfficials.setAt((size_t)(iBase + 4), SuzerainDefineInt("SUZERAIN_OFFICIAL_START_SATISFACTION"));
+
+	std::vector<int> v;
+	int iCount = GetOfficialCandidateCount();
+	for (int i = 0; i < iCount; i++)
+	{
+		if (i == iCandidate) continue;
+		for (int f = 0; f < 4; f++)
+			v.push_back(GetOfficialCandidateField(i, f));
+	}
+	m_aiOfficialCandidates = v;
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::DismissOfficial(int iPost)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (iPost < 0 || iPost >= OFFICIAL_POSTS) return false;
+	if (m_aiOfficials.size() < (size_t)(OFFICIAL_POSTS * 5)) return false;
+
+	for (int f = 0; f < 5; f++)
+		m_aiOfficials.setAt((size_t)(iPost * 5 + f), 0);
+	if (m_iOfficialAdvicePost == iPost)
+	{
+		m_iOfficialAdvicePost = -1;
+		m_iOfficialAdviceTurn = 0;
+	}
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetOfficialAdvicePost() const
+{
+	return m_iOfficialAdvicePost;
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetOfficialAdviceTurn() const
+{
+	return m_iOfficialAdviceTurn;
+}
+
+//--------------------------------------------------------------------------------
+// Hear the advice: adopting costs a little satisfaction repair and grants a
+// one-off benefit by ministry; declining simply costs satisfaction.
+bool CvPlayer::ResolveOfficialAdvice(bool bAdopt)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	int iPost = m_iOfficialAdvicePost;
+	if (iPost < 0 || iPost >= OFFICIAL_POSTS) return false;
+	if (GetOfficialField(iPost, 0) <= 0)
+	{
+		m_iOfficialAdvicePost = -1;
+		m_iOfficialAdviceTurn = 0;
+		return false;
+	}
+
+	int iBase = iPost * 5;
+	int iSat = GetOfficialField(iPost, 4)
+		+ SuzerainDefineInt(bAdopt ? "SUZERAIN_OFFICIAL_ADVICE_ADOPT" : "SUZERAIN_OFFICIAL_ADVICE_DECLINE");
+	if (iSat < 0) iSat = 0;
+	if (iSat > 100) iSat = 100;
+	m_aiOfficials.setAt((size_t)(iBase + 4), iSat);
+
+	if (bAdopt)
+	{
+		CvCity* pCapital = getCapitalCity();
+		switch (iPost)
+		{
+		case 0: ChangeMandate(SuzerainDefineInt("SUZERAIN_OFFICIAL_ADVICE_CHANCELLOR_MANDATE")); break;
+		case 1:
+			for (size_t i = 0; i < m_vecVassals.size(); i++)
+			{
+				PlayerTypes eV = (PlayerTypes)m_vecVassals[i];
+				if (IsLiveVassal(eV)) ChangeVassalLoyalty(eV, SuzerainDefineInt("SUZERAIN_OFFICIAL_ADVICE_PERSONNEL_LOYALTY"));
+			}
+			break;
+		case 2: GetTreasury()->ChangeGold(SuzerainDefineInt("SUZERAIN_OFFICIAL_ADVICE_REVENUE_GOLD")); break;
+		case 3:
+			if (pCapital != NULL) pCapital->ChangeJONSCultureStored(SuzerainDefineInt("SUZERAIN_OFFICIAL_ADVICE_RITES_CULTURE"));
+			break;
+		case 4: GetTreasury()->ChangeGold(SuzerainDefineInt("SUZERAIN_OFFICIAL_ADVICE_MILITARY_GOLD")); break;
+		case 5:
+			for (size_t i = 0; i < m_vecVassals.size(); i++)
+			{
+				PlayerTypes eV = (PlayerTypes)m_vecVassals[i];
+				if (IsLiveVassal(eV) && GetVassalBreachCount(eV) > 0)
+				{
+					ChangeVassalBreachCount(eV, -1);
+					break;
+				}
+			}
+			break;
+		case 6:
+			if (pCapital != NULL) pCapital->ChangeJONSCultureStored(SuzerainDefineInt("SUZERAIN_OFFICIAL_ADVICE_WORKS_CULTURE"));
+			break;
+		}
+	}
+
+	m_iOfficialAdvicePost = -1;
+	m_iOfficialAdviceTurn = 0;
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+// Palace officials: a candidate pool, per-post effects, satisfaction decay and
+// one pending petition. Post order: 0 chancellor, 1 personnel, 2 revenue,
+// 3 rites, 4 military, 5 justice, 6 works.
+void CvPlayer::DoOfficialTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN || !IsSuzerainCiv()) return;
+	if (m_aiOfficials.size() < (size_t)(OFFICIAL_POSTS * 5))
+		m_aiOfficials.resize((size_t)(OFFICIAL_POSTS * 5), 0);
+
+	int iTurn = GC.getGame().getGameTurn();
+
+	// Candidates from the pool.
+	int iCandEvery = SuzerainDefineInt("SUZERAIN_OFFICIAL_CANDIDATE_INTERVAL");
+	int iCandMax = SuzerainDefineInt("SUZERAIN_OFFICIAL_CANDIDATE_MAX");
+	if (iCandEvery > 0 && (iTurn % iCandEvery) == 0 && GetOfficialCandidateCount() < iCandMax)
+	{
+		int iNames = SuzerainDefineInt("SUZERAIN_OFFICIAL_NAME_COUNT");
+		int iAbilityMax = SuzerainDefineInt("SUZERAIN_OFFICIAL_ABILITY_MAX");
+		int iCharMax = SuzerainDefineInt("SUZERAIN_OFFICIAL_CHARACTER_MAX");
+		int iLeanMax = SuzerainDefineInt("SUZERAIN_OFFICIAL_LEAN_MAX");
+		if (iNames > 0 && iAbilityMax > 0 && iCharMax > 0 && iLeanMax > 0)
+		{
+			std::vector<int> v = m_aiOfficialCandidates;
+			v.push_back(GC.getGame().getJonRandNum(iNames, "Official name") + 1);
+			v.push_back(GC.getGame().getJonRandNum(iAbilityMax, "Official ability") + 1);
+			v.push_back(GC.getGame().getJonRandNum(iCharMax, "Official character") + 1);
+			v.push_back(GC.getGame().getJonRandNum(iLeanMax, "Official leaning") + 1);
+			m_aiOfficialCandidates = v;
+		}
+	}
+
+	// Per-post effects.
+	int iPersonnelEvery = SuzerainDefineInt("SUZERAIN_OFFICIAL_PERSONNEL_INTERVAL");
+	int iJusticeScore = SuzerainDefineInt("SUZERAIN_OFFICIAL_JUSTICE_REVOLT_REDUCE");
+	int iSatDecayEvery = SuzerainDefineInt("SUZERAIN_OFFICIAL_SATISFACTION_INTERVAL");
+	int iSatDecay = SuzerainDefineInt("SUZERAIN_OFFICIAL_SATISFACTION_DECAY");
+
+	for (int p = 0; p < OFFICIAL_POSTS; p++)
+	{
+		if (GetOfficialField(p, 0) <= 0) continue;
+		int iAbility = GetOfficialField(p, 1);
+		int iPercent = GetOfficialEffectPercent(p);
+		int iPower = iAbility * iPercent / 100;
+		if (iPower < 0) iPower = 0;
+
+		CvCity* pCapital = getCapitalCity();
+		switch (p)
+		{
+		case 0: // chancellor
+			ChangeMandate(iPower * SuzerainDefineInt("SUZERAIN_OFFICIAL_CHANCELLOR_MANDATE"));
+			break;
+		case 1: // personnel
+			if (iPersonnelEvery > 0 && (iTurn % iPersonnelEvery) == 0)
+			{
+				for (size_t i = 0; i < m_vecVassals.size(); i++)
+				{
+					PlayerTypes eV = (PlayerTypes)m_vecVassals[i];
+					if (IsLiveVassal(eV)) ChangeVassalLoyalty(eV, SuzerainDefineInt("SUZERAIN_OFFICIAL_PERSONNEL_LOYALTY"));
+				}
+			}
+			break;
+		case 2: // revenue
+			GetTreasury()->ChangeGold(iPower * SuzerainDefineInt("SUZERAIN_OFFICIAL_REVENUE_GOLD"));
+			break;
+		case 3: // rites
+			if (pCapital != NULL)
+				pCapital->ChangeJONSCultureStored(iPower * SuzerainDefineInt("SUZERAIN_OFFICIAL_RITES_CULTURE"));
+			break;
+		case 4: // military
+			GetTreasury()->ChangeGold(iPower * SuzerainDefineInt("SUZERAIN_OFFICIAL_MILITARY_GOLD"));
+			break;
+		case 5: // justice: the reduction is applied in GetVassalRevoltScore
+			break;
+		case 6: // works
+			if (pCapital != NULL)
+				pCapital->ChangeJONSCultureStored(iPower * SuzerainDefineInt("SUZERAIN_OFFICIAL_WORKS_CULTURE"));
+			break;
+		}
+
+		// Leaning: 1 farmer, 2 merchant, 3 war, 4 peace.
+		int iLean = GetOfficialField(p, 3);
+		switch (iLean)
+		{
+		case 1:
+			if (pCapital != NULL)
+				pCapital->ChangeJONSCultureStored(iPower * SuzerainDefineInt("SUZERAIN_OFFICIAL_LEAN_FARMER_CULTURE"));
+			break;
+		case 2:
+			GetTreasury()->ChangeGold(iPower * SuzerainDefineInt("SUZERAIN_OFFICIAL_LEAN_MERCHANT_GOLD"));
+			break;
+		case 3:
+			GetTreasury()->ChangeGold(iPower * SuzerainDefineInt("SUZERAIN_OFFICIAL_LEAN_WAR_GOLD"));
+			break;
+		case 4:
+			ChangeMandate(iPower * SuzerainDefineInt("SUZERAIN_OFFICIAL_LEAN_PEACE_MANDATE"));
+			break;
+		}
+
+		// Satisfaction decays; an official with none left resigns.
+		if (iSatDecayEvery > 0 && (iTurn % iSatDecayEvery) == 0)
+		{
+			int iSat = GetOfficialField(p, 4) - iSatDecay;
+			if (iSat < 0) iSat = 0;
+			m_aiOfficials.setAt((size_t)(p * 5 + 4), iSat);
+			if (iSat <= 0) DismissOfficial(p);
+		}
+	}
+
+	// One petition at a time, from the least contented official.
+	int iAdviceEvery = SuzerainDefineInt("SUZERAIN_OFFICIAL_ADVICE_INTERVAL");
+	if (iAdviceEvery > 0 && (iTurn % iAdviceEvery) == 0 && m_iOfficialAdvicePost < 0)
+	{
+		int iPick = -1;
+		int iWorst = 101;
+		for (int p = 0; p < OFFICIAL_POSTS; p++)
+		{
+			if (GetOfficialField(p, 0) <= 0) continue;
+			int iSat = GetOfficialField(p, 4);
+			if (iSat < iWorst)
+			{
+				iWorst = iSat;
+				iPick = p;
+			}
+		}
+		if (iPick >= 0)
+		{
+			m_iOfficialAdvicePost = iPick;
+			m_iOfficialAdviceTurn = iTurn;
+		}
+	}
+}
+
+//--------------------------------------------------------------------------------
+// AI overlords fill vacancies with the ablest candidate and accept advice.
+void CvPlayer::DoOfficialAITurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN || !IsSuzerainCiv() || isHuman()) return;
+
+	if (GetOfficialCandidateCount() > 0)
+	{
+		int iBest = 0;
+		for (int c = 1; c < GetOfficialCandidateCount(); c++)
+		{
+			if (GetOfficialCandidateField(c, 1) > GetOfficialCandidateField(iBest, 1))
+				iBest = c;
+		}
+		for (int p = 0; p < OFFICIAL_POSTS; p++)
+		{
+			if (GetOfficialField(p, 0) > 0) continue;
+			AppointOfficial(p, iBest);
+			break;
+		}
+	}
+
+	if (m_iOfficialAdvicePost >= 0)
+		ResolveOfficialAdvice(true);
 }
 
 //--------------------------------------------------------------------------------

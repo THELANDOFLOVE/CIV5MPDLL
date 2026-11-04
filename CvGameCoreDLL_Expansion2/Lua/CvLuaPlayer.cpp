@@ -169,6 +169,15 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lCanSatisfyConcubineWish);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lCanRestoreConcubineHomeland);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lRestoreConcubineHomeland);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetOfficialField);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetOfficialCandidateCount);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetOfficialCandidateField);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lAppointOfficial);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDismissOfficial);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetOfficialAdvicePost);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetOfficialAdviceTurn);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lResolveOfficialAdvice);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetOfficialEffectPercent);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetConcubineTemplateField);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lTryReleaseVassal);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lForceReleaseVassal);
@@ -1618,6 +1627,15 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(CanSatisfyConcubineWish);
 	Method(CanRestoreConcubineHomeland);
 	Method(RestoreConcubineHomeland);
+	Method(GetOfficialField);
+	Method(GetOfficialCandidateCount);
+	Method(GetOfficialCandidateField);
+	Method(AppointOfficial);
+	Method(DismissOfficial);
+	Method(GetOfficialAdvicePost);
+	Method(GetOfficialAdviceTurn);
+	Method(ResolveOfficialAdvice);
+	Method(GetOfficialEffectPercent);
 	Method(GetConcubineTemplateField);
 	Method(TryReleaseVassal);
 	Method(ForceReleaseVassal);
@@ -15712,6 +15730,78 @@ int CvLuaPlayer::lRestoreConcubineHomeland(lua_State* L)
 	CvPlayer* pkPlayer = GetInstance(L);
 	const int iIndex = lua_tointeger(L, 2);
 	lua_pushboolean(L, pkPlayer->RestoreConcubineHomeland(iIndex));
+	return 1;
+}
+//int GetOfficialField(int iPost, int iField);
+int CvLuaPlayer::lGetOfficialField(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const int iPost = lua_tointeger(L, 2);
+	const int iField = lua_tointeger(L, 3);
+	lua_pushinteger(L, pkPlayer->GetOfficialField(iPost, iField));
+	return 1;
+}
+//int GetOfficialCandidateCount();
+int CvLuaPlayer::lGetOfficialCandidateCount(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->GetOfficialCandidateCount());
+	return 1;
+}
+//int GetOfficialCandidateField(int iIndex, int iField);
+int CvLuaPlayer::lGetOfficialCandidateField(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const int iIndex = lua_tointeger(L, 2);
+	const int iField = lua_tointeger(L, 3);
+	lua_pushinteger(L, pkPlayer->GetOfficialCandidateField(iIndex, iField));
+	return 1;
+}
+//bool AppointOfficial(int iPost, int iCandidate);
+int CvLuaPlayer::lAppointOfficial(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const int iPost = lua_tointeger(L, 2);
+	const int iCandidate = lua_tointeger(L, 3);
+	lua_pushboolean(L, pkPlayer->AppointOfficial(iPost, iCandidate));
+	return 1;
+}
+//bool DismissOfficial(int iPost);
+int CvLuaPlayer::lDismissOfficial(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const int iPost = lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->DismissOfficial(iPost));
+	return 1;
+}
+//int GetOfficialAdvicePost();
+int CvLuaPlayer::lGetOfficialAdvicePost(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->GetOfficialAdvicePost());
+	return 1;
+}
+//int GetOfficialAdviceTurn();
+int CvLuaPlayer::lGetOfficialAdviceTurn(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->GetOfficialAdviceTurn());
+	return 1;
+}
+//bool ResolveOfficialAdvice(bool bAdopt);
+int CvLuaPlayer::lResolveOfficialAdvice(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const bool bAdopt = lua_toboolean(L, 2) != 0;
+	lua_pushboolean(L, pkPlayer->ResolveOfficialAdvice(bAdopt));
+	return 1;
+}
+//int GetOfficialEffectPercent(int iPost);
+int CvLuaPlayer::lGetOfficialEffectPercent(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const int iPost = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetOfficialEffectPercent(iPost));
 	return 1;
 }
 //int TryReleaseVassal(PlayerTypes eVassal);

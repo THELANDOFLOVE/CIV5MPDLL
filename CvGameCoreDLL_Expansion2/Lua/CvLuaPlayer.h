@@ -1439,6 +1439,15 @@ protected:
 	LUAAPIEXTN(CanSatisfyConcubineWish, bool, iIndex);
 	LUAAPIEXTN(CanRestoreConcubineHomeland, bool, iIndex);
 	LUAAPIEXTN(RestoreConcubineHomeland, bool, iIndex);
+	LUAAPIEXTN(GetOfficialField, int, iPost, iField);
+	LUAAPIEXTN(GetOfficialCandidateCount, int);
+	LUAAPIEXTN(GetOfficialCandidateField, int, iIndex, iField);
+	LUAAPIEXTN(AppointOfficial, bool, iPost, iCandidate);
+	LUAAPIEXTN(DismissOfficial, bool, iPost);
+	LUAAPIEXTN(GetOfficialAdvicePost, int);
+	LUAAPIEXTN(GetOfficialAdviceTurn, int);
+	LUAAPIEXTN(ResolveOfficialAdvice, bool, bAdopt);
+	LUAAPIEXTN(GetOfficialEffectPercent, int, iPost);
 	static int lGetConcubineTemplateField(lua_State* L);
 	LUAAPIEXTN(TryReleaseVassal, int, eVassal);
 	LUAAPIEXTN(ForceReleaseVassal, bool, eVassal);

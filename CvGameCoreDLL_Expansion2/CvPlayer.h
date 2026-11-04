@@ -2189,6 +2189,23 @@ public:
 	void WarnVassalRevolt(PlayerTypes eVassal);
 	// Checks public works orders that have come due.
 	void DoVassalWorksCheck();
+
+	// Officials: seven posts (chancellor, then the six ministries). Candidates
+	// come from a random pool; every official has ability, character, a leaning
+	// and satisfaction, and the court hears one piece of advice at a time.
+	static const int OFFICIAL_POSTS = 7;
+	int GetOfficialField(int iPost, int iField) const;
+	int GetOfficialCandidateCount() const;
+	int GetOfficialCandidateField(int iIndex, int iField) const;
+	bool AppointOfficial(int iPost, int iCandidate);
+	bool DismissOfficial(int iPost);
+	void DoOfficialTurn();
+	void DoOfficialAITurn();
+	int GetOfficialAdvicePost() const;
+	int GetOfficialAdviceTurn() const;
+	bool ResolveOfficialAdvice(bool bAdopt);
+	// Ability with satisfaction and leaning applied, as a percentage (50..125).
+	int GetOfficialEffectPercent(int iPost) const;
 	// A fond concubine reports the muster behind a coming revolt.
 	void WarnConcubineRevoltPrep(PlayerTypes eVassal, int iPrepTurns);
 	// Decrees the overlord issues; the vassal answers each with bAccept meaning
@@ -3403,6 +3420,14 @@ protected:
 	std::vector<int> m_aiVassalRevoltPrep;
 	// Public works order per vassal, stride 2: building ID and due turn
 	std::vector<int> m_aiWorksOrder;
+	// Palace officials: 7 posts, stride 5 (name index, ability, character,
+	// leaning, satisfaction). An empty post has name index 0.
+	FAutoVariable<std::vector<int>, CvPlayer> m_aiOfficials;
+	// Candidate pool, stride 4 (name index, ability, character, leaning)
+	FAutoVariable<std::vector<int>, CvPlayer> m_aiOfficialCandidates;
+	// Pending advice: post index and the turn it was raised
+	FAutoVariable<int, CvPlayer> m_iOfficialAdvicePost;
+	FAutoVariable<int, CvPlayer> m_iOfficialAdviceTurn;
 	// Wars already counted as breaches (derived, rebuilt each turn; not serialized)
 	std::vector<int> m_aiVassalWarSeen;
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalBreachTurn;

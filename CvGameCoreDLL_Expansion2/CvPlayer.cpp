@@ -440,6 +440,7 @@ CvPlayer::CvPlayer() :
 	, m_aiConcubines("CvPlayer::m_aiConcubines", m_syncArchive)
 	, m_aiConcubineFavor("CvPlayer::m_aiConcubineFavor", m_syncArchive)
 	, m_iEmpress("CvPlayer::m_iEmpress", m_syncArchive)
+	, m_aiConcubineKind("CvPlayer::m_aiConcubineKind", m_syncArchive)
 	, m_iFavourBonusTurn("CvPlayer::m_iFavourBonusTurn", m_syncArchive)
 	, m_aiVassalBreachCount("CvPlayer::m_aiVassalBreachCount", m_syncArchive)
 	, m_aiVassalBreachTurn("CvPlayer::m_aiVassalBreachTurn", m_syncArchive)
@@ -1364,6 +1365,7 @@ void CvPlayer::uninit()
 	m_aiLoanAmount.resize(MAX_MAJOR_CIVS, 0);
 	m_aiConcubines.clear();
 	m_aiConcubineFavor.clear();
+	m_aiConcubineKind.clear();
 	m_iEmpress = -1;
 	m_iFavourBonusTurn = 0;
 	m_aiVassalGiftCount.clear();
@@ -4015,7 +4017,7 @@ CvCity* CvPlayer::acquireCity(CvCity* pOldCity, bool bConquest, bool bGift, bool
 		if (iPct > 0 && GC.getGame().getJonRandNum(100, "Concubine capture chance") < iPct)
 		{
 			int iTpl = PickFreeConcubineTemplate();
-			if (iTpl > 0) ReceiveConcubine(eOldOwner, iTpl, false);
+			if (iTpl > 0) ReceiveConcubine(eOldOwner, iTpl, false, 1);
 		}
 	}
 
@@ -31475,6 +31477,7 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiConcubines, 0, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiConcubineFavor, 0, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iEmpress, -1);
+		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiConcubineKind, 0, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iFavourBonusTurn, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalBreachCount, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalPunishRight, MAX_MAJOR_CIVS, 0);
@@ -32468,6 +32471,7 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiConcubines);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiConcubineFavor);
 	MOD_SERIALIZE_WRITE(kStream, m_iEmpress);
+	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiConcubineKind);
 	MOD_SERIALIZE_WRITE(kStream, m_iFavourBonusTurn);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalBreachCount);
 	MOD_SERIALIZE_WRITE(kStream, m_aiVassalPunishRight);
@@ -45106,7 +45110,7 @@ int CvPlayer::GetConcubineField(int iIndex, int iField) const
 }
 
 //--------------------------------------------------------------------------------
-bool CvPlayer::ReceiveConcubine(PlayerTypes eVassal, int iTemplate, bool bDowry)
+bool CvPlayer::ReceiveConcubine(PlayerTypes eVassal, int iTemplate, bool bDowry, int iKind)
 {
 	if (!MOD_GLOBAL_SUZERAIN) return false;
 	if (iTemplate <= 0 || eVassal == NO_PLAYER) return false;
@@ -45137,6 +45141,10 @@ bool CvPlayer::ReceiveConcubine(PlayerTypes eVassal, int iTemplate, bool bDowry)
 	vf.push_back(iStartFavor);
 	m_aiConcubineFavor = vf;
 
+	std::vector<int> vk = m_aiConcubineKind;
+	vk.push_back(iKind);
+	m_aiConcubineKind = vk;
+
 	if (bDowry)
 	{
 		int iOrigin = atoi(GetConcubineTemplateField(iTemplate, 1).c_str());
@@ -45148,13 +45156,21 @@ bool CvPlayer::ReceiveConcubine(PlayerTypes eVassal, int iTemplate, bool bDowry)
 
 	if (isHuman() && GetNotifications())
 	{
-		Localization::String sMsg = Localization::Lookup(bDowry
-			? "TXT_KEY_NOTIFICATION_CONCUBINE_RECEIVED"
-			: "TXT_KEY_NOTIFICATION_CONCUBINE_CAPTURED");
+		const char* szMsgKey = "TXT_KEY_NOTIFICATION_CONCUBINE_RECEIVED";
+		const char* szSumKey = "TXT_KEY_NOTIFICATION_SUMMARY_CONCUBINE_RECEIVED";
+		if (iKind == 1)
+		{
+			szMsgKey = "TXT_KEY_NOTIFICATION_CONCUBINE_CAPTURED";
+			szSumKey = "TXT_KEY_NOTIFICATION_SUMMARY_CONCUBINE_CAPTURED";
+		}
+		else if (iKind == 2)
+		{
+			szMsgKey = "TXT_KEY_NOTIFICATION_CONCUBINE_PEACE_TRIBUTE";
+			szSumKey = "TXT_KEY_NOTIFICATION_SUMMARY_CONCUBINE_PEACE_TRIBUTE";
+		}
+		Localization::String sMsg = Localization::Lookup(szMsgKey);
 		sMsg << GET_PLAYER(eVassal).getCivilizationShortDescriptionKey();
-		Localization::String sSum = Localization::Lookup(bDowry
-			? "TXT_KEY_NOTIFICATION_SUMMARY_CONCUBINE_RECEIVED"
-			: "TXT_KEY_NOTIFICATION_SUMMARY_CONCUBINE_CAPTURED");
+		Localization::String sSum = Localization::Lookup(szSumKey);
 		sSum << GET_PLAYER(eVassal).getCivilizationShortDescriptionKey();
 		GetNotifications()->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), -1, -1, eVassal);
 	}
@@ -45364,6 +45380,8 @@ void CvPlayer::DoConcubineTurn()
 	{
 		for (int i = iCount - 1; i >= 0; i--)
 		{
+			// Captives and tributes have no patron to pine for.
+			if ((size_t)i < m_aiConcubineKind.size() && m_aiConcubineKind[i] != 0) continue;
 			PlayerTypes eV = (PlayerTypes)GetConcubineField(i, 1);
 			if (eV != NO_PLAYER && IsLiveVassal(eV)) continue;
 			ChangeConcubineFavor(i, iHostageDecay);
@@ -45685,6 +45703,8 @@ bool CvPlayer::IsConcubineHostage(int iIndex) const
 {
 	if (!MOD_GLOBAL_SUZERAIN) return false;
 	if (iIndex < 0 || iIndex >= GetConcubineCount()) return false;
+	// A captive or a peace tribute has no patron to lose.
+	if ((size_t)iIndex < m_aiConcubineKind.size() && m_aiConcubineKind[iIndex] != 0) return false;
 	PlayerTypes eHome = (PlayerTypes)GetConcubineField(iIndex, 1);
 	if (eHome == NO_PLAYER) return false;
 	if (!GET_PLAYER(eHome).isAlive()) return true;
@@ -45708,6 +45728,13 @@ bool CvPlayer::RemoveConcubine(int iIndex)
 		std::vector<int> vf = m_aiConcubineFavor;
 		vf.erase(vf.begin() + (size_t)iIndex);
 		m_aiConcubineFavor = vf;
+	}
+
+	if ((size_t)iIndex < m_aiConcubineKind.size())
+	{
+		std::vector<int> vk = m_aiConcubineKind;
+		vk.erase(vk.begin() + (size_t)iIndex);
+		m_aiConcubineKind = vk;
 	}
 
 	if (m_iEmpress == iIndex) m_iEmpress = -1;
@@ -46515,6 +46542,18 @@ int CvPlayer::ProposePeaceDemand(PlayerTypes eTarget, PlayerTypes eBeneficiary,
 		}
 		if (pWorst != NULL)
 			GET_PLAYER(eBeneficiary).acquireCity(pWorst, false, true);
+	}
+
+	// A beaten civ may sweeten the peace with a daughter of its court. This is a
+	// tribute, not a dowry, and she has no patron in the palace afterwards.
+	if (bCeaseFire && isHuman())
+	{
+		int iPct = SuzerainDefineInt("SUZERAIN_CONCUBINE_PEACE_TRIBUTE_PERCENT");
+		if (iPct > 0 && GC.getGame().getJonRandNum(100, "Concubine peace tribute") < iPct)
+		{
+			int iTpl = PickFreeConcubineTemplate();
+			if (iTpl > 0) ReceiveConcubine(eTarget, iTpl, false, 2);
+		}
 	}
 
 	ChangePressureOnCiv(eTarget, -iMax / 2);

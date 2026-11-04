@@ -2207,8 +2207,8 @@ public:
 	int GetConcubineCount() const;
 	// iField: 0 template ID, 1 source vassal, 2 favour count, 3 last favour turn
 	int GetConcubineField(int iIndex, int iField) const;
-	// bDowry false means she was taken (a captive), so no dowry is paid.
-	bool ReceiveConcubine(PlayerTypes eVassal, int iTemplate, bool bDowry = true);
+	// bDowry false means no dowry is paid. iKind: 0 offered, 1 taken, 2 tribute.
+	bool ReceiveConcubine(PlayerTypes eVassal, int iTemplate, bool bDowry = true, int iKind = 0);
 	// Pick a template not yet in the palace; 0 when every one is held.
 	int PickFreeConcubineTemplate();
 	bool FavorConcubine(int iIndex);
@@ -3368,6 +3368,10 @@ protected:
 	// Index of the empress in m_aiConcubines (-1 = none)
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiConcubineFavor;
 	FAutoVariable<int, CvPlayer> m_iEmpress;
+	// How each concubine entered the palace, same order as favour:
+	// 0 = offered by a vassal (she has a patron), 1 = taken, 2 = peace tribute.
+	// Only kind 0 has a homeland that can patronise her.
+	FAutoVariable<std::vector<int>, CvPlayer> m_aiConcubineKind;
 	// Turn on which the once-per-turn loyalty bonus was last granted
 	FAutoVariable<int, CvPlayer> m_iFavourBonusTurn;
 	// Loan due turn and amount owed per vassal

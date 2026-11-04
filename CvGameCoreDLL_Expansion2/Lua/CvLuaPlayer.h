@@ -958,6 +958,7 @@ protected:
 	static int lGetTurnsSincePlayerBulliedProtectedMinor(lua_State* L);
 	static int lIsHasPlayerBulliedProtectedMinor(lua_State* L);
 	static int lIsDenouncedPlayer(lua_State* L);
+	static int lIsDenounceImmunity(lua_State* L);
 	static int lGetDenouncedPlayerCounter(lua_State* L);
 	static int lIsDenouncingPlayer(lua_State* L);
 	static int lIsPlayerRecklessExpander(lua_State* L);

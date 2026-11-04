@@ -1159,6 +1159,7 @@ void CvGame::uninit()
 	m_bDebugModeCache = false;
 	m_bFOW = true;
 	m_bFinalInitialized = false;
+	m_bPolicyFreeBuildingsRebuilt = false;
 	m_eWaitDiploPlayer = NO_PLAYER;
 	m_bPbemTurnSent = false;
 	m_bHotPbemBetweenTurns = false;
@@ -6034,6 +6035,36 @@ void CvGame::setFinalInitialized(bool bNewValue)
 	{
 		m_bFinalInitialized = bNewValue;
 	}
+
+	// A loaded save already carries m_bFinalInitialized == true, so the value check
+	// above cannot be used as the "load finished" signal. Rebuild unconditionally;
+	// the flag inside makes the call idempotent.
+	if (bNewValue)
+	{
+		RebuildPolicyFreeBuildings();
+	}
+}
+
+void CvGame::RebuildPolicyFreeBuildings()
+{
+	if (m_bPolicyFreeBuildingsRebuilt)
+		return;
+
+	m_bPolicyFreeBuildingsRebuilt = true;
+
+	for (int iPlayer = 0; iPlayer < MAX_CIV_PLAYERS; iPlayer++)
+	{
+		CvPlayer& kPlayer = GET_PLAYER((PlayerTypes)iPlayer);
+		if (!kPlayer.isAlive())
+			continue;
+
+		CvCity* pLoopCity;
+		int iLoop;
+		for (pLoopCity = kPlayer.firstCity(&iLoop); pLoopCity != NULL; pLoopCity = kPlayer.nextCity(&iLoop))
+		{
+			pLoopCity->UpdatePolicyFreeBuildings();
+		}
+	}
 }
 
 
@@ -8033,6 +8064,9 @@ void CvGame::removeGreatPersonBornName(const CvString& szName)
 void CvGame::doTurn()
 {
 	AI_PERF_FORMAT("AI-perf.csv", ("CvGame::doTurn, Turn %03d", GC.getGame().getElapsedGameTurns()) );
+
+	// Safety net for load paths that never call setFinalInitialized(true).
+	RebuildPolicyFreeBuildings();
 #ifndef FINAL_RELEASE
 	char temp[256];
 	sprintf_s(temp, "Turn %i\n", getGameTurn());
@@ -8959,6 +8993,31 @@ void CvGame::updateMoves()
 	// CvPlayer::setTurnActive() checks it to drop the "turn complete" state the engine wrongly restored from
 	// the save; without that, updateMoves() ends the turn again immediately and the AI plays twice.
 	m_firstActivationOfPlayersAfterLoad = activatePlayers && m_lastTurnAICivsProcessed == -1;
+	// Plot visibility counters store a number per team without recording which source contributed it, and
+	// territory sight is only ever added when a plot changes owner, so a one-sided loss (an external tool
+	// clearing the counters, a whole-map reveal, a unit leaving a stack) never repairs itself and leaves
+	// owned plots permanently fogged. Rebuild all sight once on the first activation after a load: subtract
+	// every source and add it back, which restores what was lost and leaves consistent plots unchanged.
+	if(m_firstActivationOfPlayersAfterLoad)
+	{
+		GC.getMap().updateSight(false);
+		GC.getMap().updateSight(true);
+		GC.getMap().updateDeferredFog();
+
+		// CS ally/friend counts and the CS UA effects they drive are deliberately not serialized, so the
+		// turn a save was made in keeps running on whatever the previous doTurn() left behind. CvPlayer::doTurn()
+		// rebuilds them, but only for the next turn; rebuild them here for the loaded turn as well. This used
+		// to be done by a mod Lua script on LoadScreenClose, which silently never ran in distributions that
+		// fold the mod into DLC (no .modinfo means no mod Lua is loaded), so it belongs in the DLL.
+		for(int iPlayerLoop = 0; iPlayerLoop < MAX_MAJOR_CIVS; iPlayerLoop++)
+		{
+			CvPlayer& kLoopPlayer = GET_PLAYER((PlayerTypes)iPlayerLoop);
+			if(kLoopPlayer.isAlive())
+			{
+				kLoopPlayer.RefreshCSAlliesFriends();
+			}
+		}
+	}
 	// If no AI with an active turn, check humans.
 	if(playersToProcess.empty())
 	{
@@ -10361,6 +10420,7 @@ void CvGame::Read(FDataStream& kStream)
 	kStream >> m_bCircumnavigated;
 	// m_bDebugMode not saved
 	kStream >> m_bFinalInitialized;
+	m_bPolicyFreeBuildingsRebuilt = false;
 	// m_bPbemTurnSent not saved
 	kStream >> m_bHotPbemBetweenTurns;
 	// m_bPlayerOptionsSent not saved

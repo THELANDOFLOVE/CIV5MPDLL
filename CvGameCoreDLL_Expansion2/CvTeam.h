@@ -347,6 +347,11 @@ public:
 	int GetResearchAgreementStartTurn(TeamTypes eIndex) const;
 	void CancelResearchAgreement(TeamTypes eIndex);
 
+	// Non-Aggression Pact is a deal item, so these simply query the deal list
+	bool IsNonAggressionPact(TeamTypes eIndex) const;
+	int GetNonAggressionPactTurnsLeft(TeamTypes eIndex) const;
+	int GetNonAggressionPactCooldown(TeamTypes eIndex) const;
+
 	bool IsHasTradeAgreement(TeamTypes eIndex) const;
 	void SetHasTradeAgreement(TeamTypes eIndex, bool bNewValue);
 

@@ -1080,6 +1080,10 @@ public:
 
 	bool IsRangeBackWhenDefense() const;
 	void ChangeNumRangeBackWhenDefense(int iChange);
+	int GetMeleeAttackCityReduceDamage() const;
+	void ChangeMeleeAttackCityReduceDamage(int iChange);
+	int GetMeleeAttackUnitReduceDamage() const;
+	void ChangeMeleeAttackUnitReduceDamage(int iChange);
 
 	int GetHeavyChargeAddMoves() const;
 	int GetHeavyChargeExtraDamage() const;
@@ -2740,6 +2744,8 @@ protected:
 	int m_iFixReducePerPromotionTotal = 0;
 
 	int m_iNumRangeBackWhenDefense = 0;
+	int m_iMeleeAttackCityReduceDamage = 0;
+	int m_iMeleeAttackUnitReduceDamage = 0;
 
 	int m_iHeavyChargeAddMoves = 0;
 	int m_iHeavyChargeExtraDamage = 0;

@@ -326,6 +326,9 @@ bool CvDllDatabaseUtility::PrefetchGameData()
 	PrefetchCollection(GC.getHurryInfo(), "HurryInfos");
 	PrefetchCollection(GC.getMPOptionInfo(), "MultiplayerOptions");
 	PrefetchCollection(GC.getPlayerOptionInfo(), "PlayerOptions");
+	if (GC.GetGamePolicies() != NULL)
+		GC.GetGamePolicies()->ResetFreeBuildingClassCache();
+
 	PrefetchCollection(GC.getPolicyInfo(), "Policies");
 	PrefetchCollection(GC.getPolicyBranchInfo(), "PolicyBranchTypes");
 	PrefetchCollection(GC.getProcessInfo(), "Processes");

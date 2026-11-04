@@ -931,6 +931,8 @@ bool CvPromotionEntry::CacheResults(Database::Results& kResults, CvDatabaseUtili
 	m_iSiegeInflictDamageChangeMaxHPPercent = kResults.GetInt("SiegeInflictDamageChangeMaxHPPercent");
 
 	m_bRangeBackWhenDefense = kResults.GetBool("RangeBackWhenDefense");
+	m_iMeleeAttackCityReduceDamage = kResults.GetInt("MeleeAttackCityReduceDamage");
+	m_iMeleeAttackUnitReduceDamage = kResults.GetInt("MeleeAttackUnitReduceDamage");
 
 	m_iHeavyChargeAddMoves = kResults.GetInt("HeavyChargeAddMoves");
 	m_iHeavyChargeExtraDamage = kResults.GetInt("HeavyChargeExtraDamage");
@@ -4096,6 +4098,16 @@ int CvPromotionEntry::GetSiegeInflictDamageChangeMaxHPPercent() const
 bool CvPromotionEntry::IsRangeBackWhenDefense() const
 {
 	return m_bRangeBackWhenDefense;
+}
+
+int CvPromotionEntry::GetMeleeAttackCityReduceDamage() const
+{
+	return m_iMeleeAttackCityReduceDamage;
+}
+
+int CvPromotionEntry::GetMeleeAttackUnitReduceDamage() const
+{
+	return m_iMeleeAttackUnitReduceDamage;
 }
 
 int CvPromotionEntry::GetHeavyChargeAddMoves() const

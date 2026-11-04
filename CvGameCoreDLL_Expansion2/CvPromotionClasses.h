@@ -532,6 +532,8 @@ public:
 	int GetSiegeInflictDamageChangeMaxHPPercent() const;
 
 	bool IsRangeBackWhenDefense() const;
+	int GetMeleeAttackCityReduceDamage() const;
+	int GetMeleeAttackUnitReduceDamage() const;
 
 	int GetHeavyChargeAddMoves() const;
 	int GetHeavyChargeExtraDamage() const;
@@ -1012,6 +1014,8 @@ protected:
 	int m_iSiegeInflictDamageChangeMaxHPPercent = 0;
 
 	bool m_bRangeBackWhenDefense = 0;
+	int m_iMeleeAttackCityReduceDamage = 0;
+	int m_iMeleeAttackUnitReduceDamage = 0;
 
 	int m_iHeavyChargeAddMoves = 0;
 	int m_iHeavyChargeExtraDamage = 0;

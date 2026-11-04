@@ -12,6 +12,7 @@
 #include "CvGameCoreUtils.h"
 #include "CvInfosSerializationHelper.h"
 #include "CvMinorCivAI.h"
+#include "CvDiplomacyAI.h"
 #include "CvGrandStrategyAI.h"
 #include "CvEconomicAI.h"
 #include "CvTechAI.h"
@@ -10888,6 +10889,61 @@ int CvLeagueAI::ScoreVoteChoiceYesNo(CvProposal* pProposal, int iChoice, bool bE
 		}
 	}
 
+#if defined(MOD_SP_UNIQUE_CITYSTATE)
+	// City-state quest AI: vote for the trade sanction a focused quest asks for
+	if (MOD_SP_UNIQUE_CITYSTATE && eTargetPlayer != NO_PLAYER)
+	{
+		CvResolutionEntry* pkResolution = GC.getResolutionInfo(pProposal->GetType());
+		if (pkResolution != NULL && pkResolution->IsEmbargoPlayer())
+		{
+			PlayerTypes eMe = GetPlayer()->GetID();
+			int iTurn = GC.getGame().getGameTurn();
+
+			for (int iMinor = MAX_MAJOR_CIVS; iMinor < MAX_CIV_PLAYERS; iMinor++)
+			{
+				PlayerTypes eMinor = (PlayerTypes)iMinor;
+
+				if (!GET_PLAYER(eMinor).isAlive())
+					continue;
+
+				if (!GET_TEAM(GetPlayer()->getTeam()).isHasMet(GET_PLAYER(eMinor).getTeam()))
+					continue;
+
+				CvMinorCivAI* pMinorAI = GET_PLAYER(eMinor).GetMinorCivAI();
+				if (pMinorAI == NULL)
+					continue;
+
+				if (!pMinorAI->IsActiveQuestForPlayer(eMe, MINOR_CIV_QUEST_LEAGUE_SANCTION))
+					continue;
+
+				if (pMinorAI->IsQuestExpired(eMe, MINOR_CIV_QUEST_LEAGUE_SANCTION))
+					continue;
+
+				if (!GetPlayer()->GetDiplomacyAI()->IsCityStateInQuestFocus(eMinor, GetPlayer()->GetDiplomacyAI()->GetCityStateQuestFocusCount()))
+					continue;
+
+				if ((PlayerTypes)pMinorAI->GetQuestData1(eMe, MINOR_CIV_QUEST_LEAGUE_SANCTION) != eTargetPlayer)
+					continue;
+
+				// Sanctioning a player is a hostile act: only vote for it against someone we
+				// are already preparing to attack, and never against an exempt player.
+				if (GetPlayer()->GetDiplomacyAI()->IsCityStateQuestTargetExempt(eTargetPlayer))
+					continue;
+
+				if (!GetPlayer()->GetDiplomacyAI()->IsPreparingAttackOnPlayer(eTargetPlayer))
+					continue;
+
+				int iStart = pMinorAI->GetQuestStartTurn(eMe, MINOR_CIV_QUEST_LEAGUE_SANCTION);
+				if (iStart < 0 || iTurn - iStart < 5)
+					continue;
+
+				iScore += 500;
+				break;
+			}
+		}
+	}
+#endif
+
 	// == Post-Processing ==
 	if (iChoice == LeagueHelpers::CHOICE_NO)
 	{
@@ -11162,6 +11218,63 @@ int CvLeagueAI::ScoreProposal(CvLeague* pLeague, ResolutionTypes eResolution, in
 		}
 	}
 	CvAssert(bFoundYes);
+
+#if defined(MOD_SP_UNIQUE_CITYSTATE)
+	// City-state quest AI: actively push for a trade sanction against a focused quest target.
+	// There is no direct action for this quest - proposing (and voting for) it is the action.
+	if (MOD_SP_UNIQUE_CITYSTATE && iChoice >= 0 && iChoice < MAX_CIV_PLAYERS)
+	{
+		CvResolutionEntry* pkResolution = GC.getResolutionInfo(eResolution);
+		if (pkResolution != NULL && pkResolution->IsEmbargoPlayer())
+		{
+			PlayerTypes eMe = GetPlayer()->GetID();
+
+			for (int iMinor = MAX_MAJOR_CIVS; iMinor < MAX_CIV_PLAYERS; iMinor++)
+			{
+				PlayerTypes eMinor = (PlayerTypes)iMinor;
+
+				if (!GET_PLAYER(eMinor).isAlive())
+					continue;
+
+				if (!GET_TEAM(GetPlayer()->getTeam()).isHasMet(GET_PLAYER(eMinor).getTeam()))
+					continue;
+
+				CvMinorCivAI* pMinorAI = GET_PLAYER(eMinor).GetMinorCivAI();
+				if (pMinorAI == NULL)
+					continue;
+
+				if (!pMinorAI->IsActiveQuestForPlayer(eMe, MINOR_CIV_QUEST_LEAGUE_SANCTION))
+					continue;
+
+				if (!GetPlayer()->GetDiplomacyAI()->IsCityStateInQuestFocus(eMinor, GetPlayer()->GetDiplomacyAI()->GetCityStateQuestFocusCount()))
+					continue;
+
+				if ((PlayerTypes)pMinorAI->GetQuestData1(eMe, MINOR_CIV_QUEST_LEAGUE_SANCTION) != (PlayerTypes)iChoice)
+					continue;
+
+				int iQuestTurn = GC.getGame().getGameTurn();
+
+				if (pMinorAI->IsQuestExpired(eMe, MINOR_CIV_QUEST_LEAGUE_SANCTION))
+					continue;
+
+				// Sanctioning a player is a hostile act: only propose it against someone we
+				// are already preparing to attack, and never against an exempt player.
+				if (GetPlayer()->GetDiplomacyAI()->IsCityStateQuestTargetExempt((PlayerTypes)iChoice))
+					continue;
+
+				if (!GetPlayer()->GetDiplomacyAI()->IsPreparingAttackOnPlayer((PlayerTypes)iChoice))
+					continue;
+
+				int iStart = pMinorAI->GetQuestStartTurn(eMe, MINOR_CIV_QUEST_LEAGUE_SANCTION);
+				if (iStart < 0 || iQuestTurn - iStart < 5)
+					continue;
+
+				iYesScore += 500;
+				break;
+			}
+		}
+	}
+#endif
 
 	return iYesScore;
 }

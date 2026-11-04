@@ -336,6 +336,33 @@ int CvMinorCivQuest::GetContestValueForPlayer(PlayerTypes ePlayer)
 		int iEndTechs = GET_TEAM(GET_PLAYER(ePlayer).getTeam()).GetTeamTechs()->GetNumTechsKnown();
 		iValue = iEndTechs - iStartTechs;
 	}
+	else if(eType == MINOR_CIV_QUEST_CONTEST_WORLD_WONDERS)
+	{
+		int iStartWonders = pMinor->GetMinorCivAI()->GetQuestData1(ePlayer, eType);
+		iValue = GET_PLAYER(ePlayer).GetNumWorldWondersBuilt() - iStartWonders;
+	}
+	else if(eType == MINOR_CIV_QUEST_CONTEST_CONVERTS)
+	{
+		int iStartConverts = pMinor->GetMinorCivAI()->GetQuestData1(ePlayer, eType);
+		iValue = GET_PLAYER(ePlayer).GetNumFollowersConverted() - iStartConverts;
+	}
+	else if(eType == MINOR_CIV_QUEST_CONTEST_GREAT_PEOPLE)
+	{
+		int iStartGreatPeople = pMinor->GetMinorCivAI()->GetQuestData1(ePlayer, eType);
+		// Counts every class of great person (generals/admirals/writers/artists/musicians
+		// and prophets included); free great people count as well
+		iValue = GET_PLAYER(ePlayer).GetNumGreatPeopleBorn() - iStartGreatPeople;
+	}
+	else if(eType == MINOR_CIV_QUEST_CONTEST_CITIES_FOUNDED)
+	{
+		int iStartCities = pMinor->GetMinorCivAI()->GetQuestData1(ePlayer, eType);
+		iValue = GET_PLAYER(ePlayer).GetNumCitiesFounded() - iStartCities;
+	}
+	else if(eType == MINOR_CIV_QUEST_CONTEST_CITIES_CAPTURED)
+	{
+		int iStartCaptured = pMinor->GetMinorCivAI()->GetQuestData1(ePlayer, eType);
+		iValue = GET_PLAYER(ePlayer).GetNumCitiesCaptured() - iStartCaptured;
+	}
 #if defined(MOD_EVENTS_QUESTS)
 	}
 #endif
@@ -357,7 +384,12 @@ int CvMinorCivQuest::GetContestValueForLeader()
 #endif
 	if(eType == MINOR_CIV_QUEST_CONTEST_CULTURE ||
 	        eType == MINOR_CIV_QUEST_CONTEST_FAITH ||
-	        eType == MINOR_CIV_QUEST_CONTEST_TECHS)
+	        eType == MINOR_CIV_QUEST_CONTEST_TECHS ||
+	        eType == MINOR_CIV_QUEST_CONTEST_WORLD_WONDERS ||
+	        eType == MINOR_CIV_QUEST_CONTEST_CONVERTS ||
+	        eType == MINOR_CIV_QUEST_CONTEST_GREAT_PEOPLE ||
+	        eType == MINOR_CIV_QUEST_CONTEST_CITIES_FOUNDED ||
+	        eType == MINOR_CIV_QUEST_CONTEST_CITIES_CAPTURED)
 #if defined(MOD_EVENTS_QUESTS)
 		{
 			bFindHighest = true;
@@ -399,7 +431,12 @@ CivsList CvMinorCivQuest::GetContestLeaders()
 #endif
 	if(eType == MINOR_CIV_QUEST_CONTEST_CULTURE ||
 	        eType == MINOR_CIV_QUEST_CONTEST_FAITH ||
-	        eType == MINOR_CIV_QUEST_CONTEST_TECHS)
+	        eType == MINOR_CIV_QUEST_CONTEST_TECHS ||
+	        eType == MINOR_CIV_QUEST_CONTEST_WORLD_WONDERS ||
+	        eType == MINOR_CIV_QUEST_CONTEST_CONVERTS ||
+	        eType == MINOR_CIV_QUEST_CONTEST_GREAT_PEOPLE ||
+	        eType == MINOR_CIV_QUEST_CONTEST_CITIES_FOUNDED ||
+	        eType == MINOR_CIV_QUEST_CONTEST_CITIES_CAPTURED)
 #if defined(MOD_EVENTS_QUESTS)
 		{
 			bFindLeader = true;
@@ -448,7 +485,12 @@ bool CvMinorCivQuest::IsContestLeader(PlayerTypes ePlayer)
 #endif
 	if(eType == MINOR_CIV_QUEST_CONTEST_CULTURE ||
 	        eType == MINOR_CIV_QUEST_CONTEST_FAITH ||
-	        eType == MINOR_CIV_QUEST_CONTEST_TECHS)
+	        eType == MINOR_CIV_QUEST_CONTEST_TECHS ||
+	        eType == MINOR_CIV_QUEST_CONTEST_WORLD_WONDERS ||
+	        eType == MINOR_CIV_QUEST_CONTEST_CONVERTS ||
+	        eType == MINOR_CIV_QUEST_CONTEST_GREAT_PEOPLE ||
+	        eType == MINOR_CIV_QUEST_CONTEST_CITIES_FOUNDED ||
+	        eType == MINOR_CIV_QUEST_CONTEST_CITIES_CAPTURED)
 #if defined(MOD_EVENTS_QUESTS)
 		{
 			bTestLeader = true;
@@ -635,6 +677,18 @@ bool CvMinorCivQuest::IsComplete()
 		// Is it time to compare the score?
 		if(GetEndTurn() == GC.getGame().getGameTurn())
 			if(IsContestLeader(GetPlayerAssignedTo()))
+				return true;
+	}
+	else if(m_eType == MINOR_CIV_QUEST_CONTEST_WORLD_WONDERS ||
+	        m_eType == MINOR_CIV_QUEST_CONTEST_CONVERTS ||
+	        m_eType == MINOR_CIV_QUEST_CONTEST_GREAT_PEOPLE ||
+	        m_eType == MINOR_CIV_QUEST_CONTEST_CITIES_FOUNDED ||
+	        m_eType == MINOR_CIV_QUEST_CONTEST_CITIES_CAPTURED)
+	{
+		// Is it time to compare the score? A contest nobody scored in is not won by anyone,
+		// which matters for the counted contests (founded/captured cities can all be zero).
+		if(GetEndTurn() == GC.getGame().getGameTurn())
+			if(GetContestValueForLeader() > 0 && IsContestLeader(GetPlayerAssignedTo()))
 				return true;
 	}
 	else if(m_eType == MINOR_CIV_QUEST_INVEST)
@@ -1083,6 +1137,41 @@ bool CvMinorCivQuest::IsExpired()
 
 	// Contest Techs
 	else if(m_eType == MINOR_CIV_QUEST_CONTEST_TECHS)
+	{
+		if(GC.getGame().getGameTurn() == GetEndTurn() && !IsComplete())
+			return true;
+	}
+
+	// Contest World Wonders
+	else if(m_eType == MINOR_CIV_QUEST_CONTEST_WORLD_WONDERS)
+	{
+		if(GC.getGame().getGameTurn() == GetEndTurn() && !IsComplete())
+			return true;
+	}
+
+	// Contest Converts
+	else if(m_eType == MINOR_CIV_QUEST_CONTEST_CONVERTS)
+	{
+		if(GC.getGame().getGameTurn() == GetEndTurn() && !IsComplete())
+			return true;
+	}
+
+	// Contest Great People
+	else if(m_eType == MINOR_CIV_QUEST_CONTEST_GREAT_PEOPLE)
+	{
+		if(GC.getGame().getGameTurn() == GetEndTurn() && !IsComplete())
+			return true;
+	}
+
+	// Contest Cities Founded
+	else if(m_eType == MINOR_CIV_QUEST_CONTEST_CITIES_FOUNDED)
+	{
+		if(GC.getGame().getGameTurn() == GetEndTurn() && !IsComplete())
+			return true;
+	}
+
+	// Contest Cities Captured
+	else if(m_eType == MINOR_CIV_QUEST_CONTEST_CITIES_CAPTURED)
 	{
 		if(GC.getGame().getGameTurn() == GetEndTurn() && !IsComplete())
 			return true;
@@ -1624,7 +1713,7 @@ void CvMinorCivQuest::DoStartQuest(int iStartTurn, PlayerTypes eForcedTarget)
 	else if(m_eType == MINOR_CIV_QUEST_SPREAD_BUILDING)
 	{
 		BuildingTypes eBuilding = pMinor->GetMinorCivAI()->GetBestBuildingForQuest(m_eAssignedPlayer);
-		int iTargetCities = 3;
+		int iTargetCities = MINOR_CIV_QUEST_SPREAD_BUILDING_CITIES;
 
 		FAssertMsg(eBuilding != NO_BUILDING, "MINOR CIV AI: For some reason we got NO_BUILDING when starting a quest for a major to spread a Building.");
 
@@ -1793,6 +1882,71 @@ void CvMinorCivQuest::DoStartQuest(int iStartTurn, PlayerTypes eForcedTarget)
 		strSummary = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_QUEST_RESEARCH_AGREEMENT");
 		strSummary << strCivKey;
 	}
+	// Contest: most world wonders completed
+	else if(m_eType == MINOR_CIV_QUEST_CONTEST_WORLD_WONDERS)
+	{
+		m_iData1 = pAssignedPlayer->GetNumWorldWondersBuilt();
+
+		int iTurnsRemaining = GetEndTurn() - GC.getGame().getGameTurn();
+		int iTurnsDuration = GetEndTurn() - GetStartTurn();
+
+		strMessage = Localization::Lookup("TXT_KEY_NOTIFICATION_QUEST_CONTEST_WORLD_WONDERS");
+		strMessage << iTurnsRemaining;
+		strMessage << iTurnsDuration;
+		strSummary = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_QUEST_CONTEST_WORLD_WONDERS");
+	}
+	// Contest: most converts gained by missionaries/prophets
+	else if(m_eType == MINOR_CIV_QUEST_CONTEST_CONVERTS)
+	{
+		m_iData1 = pAssignedPlayer->GetNumFollowersConverted();
+
+		int iTurnsRemaining = GetEndTurn() - GC.getGame().getGameTurn();
+		int iTurnsDuration = GetEndTurn() - GetStartTurn();
+
+		strMessage = Localization::Lookup("TXT_KEY_NOTIFICATION_QUEST_CONTEST_CONVERTS");
+		strMessage << iTurnsRemaining;
+		strMessage << iTurnsDuration;
+		strSummary = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_QUEST_CONTEST_CONVERTS");
+	}
+	// Contest: most great people born
+	else if(m_eType == MINOR_CIV_QUEST_CONTEST_GREAT_PEOPLE)
+	{
+		m_iData1 = pAssignedPlayer->GetNumGreatPeopleBorn();
+
+		int iTurnsRemaining = GetEndTurn() - GC.getGame().getGameTurn();
+		int iTurnsDuration = GetEndTurn() - GetStartTurn();
+
+		strMessage = Localization::Lookup("TXT_KEY_NOTIFICATION_QUEST_CONTEST_GREAT_PEOPLE");
+		strMessage << iTurnsRemaining;
+		strMessage << iTurnsDuration;
+		strSummary = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_QUEST_CONTEST_GREAT_PEOPLE");
+	}
+	// Contest: most cities founded
+	else if(m_eType == MINOR_CIV_QUEST_CONTEST_CITIES_FOUNDED)
+	{
+		m_iData1 = pAssignedPlayer->GetNumCitiesFounded();
+
+		int iTurnsRemaining = GetEndTurn() - GC.getGame().getGameTurn();
+		int iTurnsDuration = GetEndTurn() - GetStartTurn();
+
+		strMessage = Localization::Lookup("TXT_KEY_NOTIFICATION_QUEST_CONTEST_CITIES_FOUNDED");
+		strMessage << iTurnsRemaining;
+		strMessage << iTurnsDuration;
+		strSummary = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_QUEST_CONTEST_CITIES_FOUNDED");
+	}
+	// Contest: most cities captured
+	else if(m_eType == MINOR_CIV_QUEST_CONTEST_CITIES_CAPTURED)
+	{
+		m_iData1 = pAssignedPlayer->GetNumCitiesCaptured();
+
+		int iTurnsRemaining = GetEndTurn() - GC.getGame().getGameTurn();
+		int iTurnsDuration = GetEndTurn() - GetStartTurn();
+
+		strMessage = Localization::Lookup("TXT_KEY_NOTIFICATION_QUEST_CONTEST_CITIES_CAPTURED");
+		strMessage << iTurnsRemaining;
+		strMessage << iTurnsDuration;
+		strSummary = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_QUEST_CONTEST_CITIES_CAPTURED");
+	}
 
 	strMessage << pMinor->getNameKey();
 	strSummary << pMinor->getNameKey();
@@ -1951,6 +2105,47 @@ bool CvMinorCivQuest::DoFinishQuest()
 		if (iRewardAidPoints > 0)
 		{
 			pMinor->GetMinorCivAI()->ChangeEconomicAidPoints(m_eAssignedPlayer, iRewardAidPoints);
+		}
+
+		// Faith scales with era and game speed, like gold and culture
+		int iRewardFaith = m_pQuestInfo->getRewardFaith();
+		if (iRewardFaith > 0)
+		{
+			iRewardFaith = iRewardFaith * iEraMult * iSpeedMult / 100;
+			pRewardPlayer->ChangeFaith(iRewardFaith);
+		}
+
+		// Free technologies are granted through the standard free-tech mechanism
+		int iRewardFreeTech = m_pQuestInfo->getRewardFreeTech();
+		if (iRewardFreeTech > 0)
+		{
+			pRewardPlayer->SetNumFreeTechs(pRewardPlayer->GetNumFreeTechs() + iRewardFreeTech);
+		}
+
+		// +N population in every owned city
+		int iRewardPopulation = m_pQuestInfo->getRewardPopulation();
+		if (iRewardPopulation > 0)
+		{
+			int iCityLoop;
+			for (CvCity* pLoopCity = pRewardPlayer->firstCity(&iCityLoop); pLoopCity != NULL; pLoopCity = pRewardPlayer->nextCity(&iCityLoop))
+			{
+				pLoopCity->changePopulation(iRewardPopulation);
+			}
+		}
+
+		// One-time experience for every existing military unit
+		int iRewardUnitXP = m_pQuestInfo->getRewardUnitXP();
+		if (iRewardUnitXP > 0)
+		{
+			int iUnitLoop;
+			for (CvUnit* pLoopUnit = pRewardPlayer->firstUnit(&iUnitLoop); pLoopUnit != NULL; pLoopUnit = pRewardPlayer->nextUnit(&iUnitLoop))
+			{
+				if (pLoopUnit->IsCombatUnit())
+				{
+					// Experience is stored as hundredths (MOD_UNITS_XP_TIMES_100)
+					pLoopUnit->changeExperienceTimes100(iRewardUnitXP * 100);
+				}
+			}
 		}
 
 		if (m_eType == MINOR_CIV_QUEST_CAPTURE_ORIGINAL_CAPITAL)
@@ -2373,6 +2568,46 @@ bool CvMinorCivQuest::DoFinishQuest()
 		strSummary = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_QUEST_COMPLETE_RESEARCH_AGREEMENT");
 		strSummary << strCivKey;
 	}
+
+	// Contest: most world wonders completed
+	else if(m_eType == MINOR_CIV_QUEST_CONTEST_WORLD_WONDERS)
+	{
+		strMessage = Localization::Lookup("TXT_KEY_NOTIFICATION_QUEST_COMPLETE_CONTEST_WORLD_WONDERS");
+		strSummary = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_QUEST_COMPLETE_CONTEST_WORLD_WONDERS");
+		veNamesToShow = GetContestLeaders();
+	}
+
+	// Contest: most converts gained by missionaries/prophets
+	else if(m_eType == MINOR_CIV_QUEST_CONTEST_CONVERTS)
+	{
+		strMessage = Localization::Lookup("TXT_KEY_NOTIFICATION_QUEST_COMPLETE_CONTEST_CONVERTS");
+		strSummary = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_QUEST_COMPLETE_CONTEST_CONVERTS");
+		veNamesToShow = GetContestLeaders();
+	}
+
+	// Contest: most great people born
+	else if(m_eType == MINOR_CIV_QUEST_CONTEST_GREAT_PEOPLE)
+	{
+		strMessage = Localization::Lookup("TXT_KEY_NOTIFICATION_QUEST_COMPLETE_CONTEST_GREAT_PEOPLE");
+		strSummary = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_QUEST_COMPLETE_CONTEST_GREAT_PEOPLE");
+		veNamesToShow = GetContestLeaders();
+	}
+
+	// Contest: most cities founded
+	else if(m_eType == MINOR_CIV_QUEST_CONTEST_CITIES_FOUNDED)
+	{
+		strMessage = Localization::Lookup("TXT_KEY_NOTIFICATION_QUEST_COMPLETE_CONTEST_CITIES_FOUNDED");
+		strSummary = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_QUEST_COMPLETE_CONTEST_CITIES_FOUNDED");
+		veNamesToShow = GetContestLeaders();
+	}
+
+	// Contest: most cities captured
+	else if(m_eType == MINOR_CIV_QUEST_CONTEST_CITIES_CAPTURED)
+	{
+		strMessage = Localization::Lookup("TXT_KEY_NOTIFICATION_QUEST_COMPLETE_CONTEST_CITIES_CAPTURED");
+		strSummary = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_QUEST_COMPLETE_CONTEST_CITIES_CAPTURED");
+		veNamesToShow = GetContestLeaders();
+	}
 #if defined(MOD_EVENTS_QUESTS)
 	}
 #endif
@@ -2516,6 +2751,86 @@ bool CvMinorCivQuest::DoCancelQuest()
 			veNamesToShow = GetContestLeaders();
 		}
 
+		// Contest World Wonders
+		else if(m_eType == MINOR_CIV_QUEST_CONTEST_WORLD_WONDERS)
+		{
+			if(GetContestValueForLeader() > 0)
+			{
+				strMessage = Localization::Lookup("TXT_KEY_NOTIFICATION_QUEST_ENDED_CONTEST_WORLD_WONDERS");
+				strSummary = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_QUEST_ENDED_CONTEST_WORLD_WONDERS");
+				veNamesToShow = GetContestLeaders();
+			}
+			else
+			{
+				strMessage = Localization::Lookup("TXT_KEY_NOTIFICATION_QUEST_ENDED_CONTEST_NO_WINNER");
+				strSummary = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_QUEST_ENDED_CONTEST_NO_WINNER");
+			}
+		}
+
+		// Contest Converts
+		else if(m_eType == MINOR_CIV_QUEST_CONTEST_CONVERTS)
+		{
+			if(GetContestValueForLeader() > 0)
+			{
+				strMessage = Localization::Lookup("TXT_KEY_NOTIFICATION_QUEST_ENDED_CONTEST_CONVERTS");
+				strSummary = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_QUEST_ENDED_CONTEST_CONVERTS");
+				veNamesToShow = GetContestLeaders();
+			}
+			else
+			{
+				strMessage = Localization::Lookup("TXT_KEY_NOTIFICATION_QUEST_ENDED_CONTEST_NO_WINNER");
+				strSummary = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_QUEST_ENDED_CONTEST_NO_WINNER");
+			}
+		}
+
+		// Contest Great People
+		else if(m_eType == MINOR_CIV_QUEST_CONTEST_GREAT_PEOPLE)
+		{
+			if(GetContestValueForLeader() > 0)
+			{
+				strMessage = Localization::Lookup("TXT_KEY_NOTIFICATION_QUEST_ENDED_CONTEST_GREAT_PEOPLE");
+				strSummary = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_QUEST_ENDED_CONTEST_GREAT_PEOPLE");
+				veNamesToShow = GetContestLeaders();
+			}
+			else
+			{
+				strMessage = Localization::Lookup("TXT_KEY_NOTIFICATION_QUEST_ENDED_CONTEST_NO_WINNER");
+				strSummary = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_QUEST_ENDED_CONTEST_NO_WINNER");
+			}
+		}
+
+		// Contest Cities Founded
+		else if(m_eType == MINOR_CIV_QUEST_CONTEST_CITIES_FOUNDED)
+		{
+			if(GetContestValueForLeader() > 0)
+			{
+				strMessage = Localization::Lookup("TXT_KEY_NOTIFICATION_QUEST_ENDED_CONTEST_CITIES_FOUNDED");
+				strSummary = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_QUEST_ENDED_CONTEST_CITIES_FOUNDED");
+				veNamesToShow = GetContestLeaders();
+			}
+			else
+			{
+				strMessage = Localization::Lookup("TXT_KEY_NOTIFICATION_QUEST_ENDED_CONTEST_NO_WINNER");
+				strSummary = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_QUEST_ENDED_CONTEST_NO_WINNER");
+			}
+		}
+
+		// Contest Cities Captured
+		else if(m_eType == MINOR_CIV_QUEST_CONTEST_CITIES_CAPTURED)
+		{
+			if(GetContestValueForLeader() > 0)
+			{
+				strMessage = Localization::Lookup("TXT_KEY_NOTIFICATION_QUEST_ENDED_CONTEST_CITIES_CAPTURED");
+				strSummary = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_QUEST_ENDED_CONTEST_CITIES_CAPTURED");
+				veNamesToShow = GetContestLeaders();
+			}
+			else
+			{
+				strMessage = Localization::Lookup("TXT_KEY_NOTIFICATION_QUEST_ENDED_CONTEST_NO_WINNER");
+				strSummary = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_QUEST_ENDED_CONTEST_NO_WINNER");
+			}
+		}
+
 		// General "Quest Expired" catch statement
 		else
 		{
@@ -2627,6 +2942,7 @@ void CvMinorCivAI::Reset()
 
 	m_iTurnsSinceThreatenedByBarbarians = -1;
 	m_iGlobalQuestCountdown = -1;
+	m_bHasGivenGlobalQuest = false;
 
 	m_eAlly = NO_PLAYER;
 	m_iTurnAllied = -1;
@@ -2735,6 +3051,7 @@ void CvMinorCivAI::Read(FDataStream& kStream)
 	kStream >> m_iTurnsSinceThreatenedByBarbarians;
 
 	kStream >> m_iGlobalQuestCountdown;
+	MOD_SERIALIZE_READ(166, kStream, m_bHasGivenGlobalQuest, false);
 
 	kStream >> m_eAlly;
 
@@ -2843,6 +3160,7 @@ void CvMinorCivAI::Write(FDataStream& kStream) const
 	kStream << m_iTurnsSinceThreatenedByBarbarians;
 
 	kStream << m_iGlobalQuestCountdown; // Version 11
+	MOD_SERIALIZE_WRITE(kStream, m_bHasGivenGlobalQuest);
 
 	kStream << m_eAlly;
 	kStream << m_iTurnAllied;
@@ -4291,6 +4609,10 @@ void CvMinorCivAI::DoTurnQuests()
 	// ********************
 	// Check Current Quests
 	// ********************
+#if defined(MOD_SP_UNIQUE_CITYSTATE)
+	// SP: drop building quests whose target can never be completed (legacy saves and banned targets)
+	CancelBannedBuildingQuests();
+#endif
 	DoTestActiveQuests(/*bTestComplete*/ true, /*bTestObsolete*/ true);
 	DoQuestsCleanup();
 
@@ -4394,7 +4716,7 @@ void CvMinorCivAI::DoTestStartGlobalQuest()
 #else
 	FStaticVector<MinorCivQuestTypes, NUM_MINOR_CIV_QUEST_TYPES, true, c_eCiv5GameplayDLL, 0> veValidQuests;
 #endif
-	MinorCivQuestTypes eQuest;
+	MinorCivQuestTypes eQuest = NO_MINOR_CIV_QUEST_TYPE;
 	PlayerTypes ePlayer;
 #if defined(MOD_EVENTS_QUESTS)
 	for(int iQuestLoop = 0; iQuestLoop < GC.getNumQuestInfos(); iQuestLoop++)
@@ -4434,11 +4756,14 @@ void CvMinorCivAI::DoTestStartGlobalQuest()
 		return;
 	}
 
-	// There are valid quests, so pick one at random
+	// There are valid quests, so pick one at random. The founding contest is an ordinary
+	// candidate here: IsValidQuestForPlayer only offers it to maritime city-states before
+	// their first global quest, so it may simply never be drawn in a given game.
 	int iRandIndex = GC.getGame().getJonRandNum(veValidQuests.size(), "Picking random global quest for Minor to give to players.");
 	eQuest = veValidQuests[iRandIndex];
 
 	// Give out the quest
+	bool bGaveQuest = false;
 	for(int iPlayerLoop = 0; iPlayerLoop < MAX_MAJOR_CIVS; iPlayerLoop++)
 	{
 		ePlayer = (PlayerTypes) iPlayerLoop;
@@ -4446,8 +4771,14 @@ void CvMinorCivAI::DoTestStartGlobalQuest()
 		{
 			// Since we are adding each instance of the quest separately, global quests should not rely on random choice of data
 			AddQuestForPlayer(ePlayer, eQuest, GC.getGame().getGameTurn());
+			bGaveQuest = true;
 		}
 	}
+
+	// Only consume the maritime city-state's first-quest slot once the quest was actually
+	// handed out; otherwise the next attempt is still eligible for the founding contest.
+	if(bGaveQuest)
+		m_bHasGivenGlobalQuest = true;
 
 	// Check if we need to seed the countdown timer to allow for another quest
 	DoTestSeedGlobalQuestCountdown();
@@ -5191,6 +5522,33 @@ bool CvMinorCivAI::IsValidQuestForPlayer(PlayerTypes ePlayer, MinorCivQuestTypes
 	else if(eQuest == MINOR_CIV_QUEST_CONTEST_TECHS)
 	{
 	}
+	// CONTEST WORLD WONDERS
+	else if(eQuest == MINOR_CIV_QUEST_CONTEST_WORLD_WONDERS)
+	{
+	}
+	// CONTEST CONVERTS
+	else if(eQuest == MINOR_CIV_QUEST_CONTEST_CONVERTS)
+	{
+	}
+	// CONTEST GREAT PEOPLE
+	else if(eQuest == MINOR_CIV_QUEST_CONTEST_GREAT_PEOPLE)
+	{
+	}
+	// CONTEST CITIES FOUNDED - maritime city-states only, and only before their first global quest
+	else if(eQuest == MINOR_CIV_QUEST_CONTEST_CITIES_FOUNDED)
+	{
+		if(GetTrait() != MINOR_CIV_TRAIT_MARITIME)
+			return false;
+
+		if(m_bHasGivenGlobalQuest)
+			return false;
+	}
+	// CONTEST CITIES CAPTURED - militaristic city-states only
+	else if(eQuest == MINOR_CIV_QUEST_CONTEST_CITIES_CAPTURED)
+	{
+		if(GetTrait() != MINOR_CIV_TRAIT_MILITARISTIC)
+			return false;
+	}
 	// Invest
 	else if(eQuest == MINOR_CIV_QUEST_INVEST)
 	{
@@ -5233,6 +5591,13 @@ bool CvMinorCivAI::IsValidQuestForPlayer(PlayerTypes ePlayer, MinorCivQuestTypes
 
 		if(eMostRecentBully == NO_PLAYER)
 			return false;
+
+#if defined(MOD_SP_UNIQUE_CITYSTATE)
+		// Jerusalem CS UA: the bully cannot be denounced by anyone, so this quest would be
+		// impossible to complete - don't offer it.
+		if(MOD_SP_UNIQUE_CITYSTATE && GET_PLAYER(eMostRecentBully).IsDenounceImmunity())
+			return false;
+#endif
 
 		// This player must not be the most recent bully
 		if(eMostRecentBully == ePlayer)
@@ -5602,6 +5967,26 @@ bool CvMinorCivAI::IsValidQuestCopyForPlayer(PlayerTypes ePlayer, CvMinorCivQues
 	else if(eQuestType == MINOR_CIV_QUEST_CONTEST_TECHS)
 	{
 	}
+	// CONTEST WORLD WONDERS
+	else if(eQuestType == MINOR_CIV_QUEST_CONTEST_WORLD_WONDERS)
+	{
+	}
+	// CONTEST CONVERTS
+	else if(eQuestType == MINOR_CIV_QUEST_CONTEST_CONVERTS)
+	{
+	}
+	// CONTEST GREAT PEOPLE
+	else if(eQuestType == MINOR_CIV_QUEST_CONTEST_GREAT_PEOPLE)
+	{
+	}
+	// CONTEST CITIES FOUNDED
+	else if(eQuestType == MINOR_CIV_QUEST_CONTEST_CITIES_FOUNDED)
+	{
+	}
+	// CONTEST CITIES CAPTURED
+	else if(eQuestType == MINOR_CIV_QUEST_CONTEST_CITIES_CAPTURED)
+	{
+	}
 	// Invest
 	else if(eQuestType == MINOR_CIV_QUEST_INVEST)
 	{
@@ -5669,6 +6054,22 @@ bool CvMinorCivAI::IsGlobalQuest(MinorCivQuestTypes eQuest) const
 		return true;
 
 	if(eQuest == MINOR_CIV_QUEST_LEAGUE_SANCTION)
+		return true;
+
+	// SP contest quests
+	if(eQuest == MINOR_CIV_QUEST_CONTEST_WORLD_WONDERS)
+		return true;
+
+	if(eQuest == MINOR_CIV_QUEST_CONTEST_CONVERTS)
+		return true;
+
+	if(eQuest == MINOR_CIV_QUEST_CONTEST_GREAT_PEOPLE)
+		return true;
+
+	if(eQuest == MINOR_CIV_QUEST_CONTEST_CITIES_FOUNDED)
+		return true;
+
+	if(eQuest == MINOR_CIV_QUEST_CONTEST_CITIES_CAPTURED)
 		return true;
 
 #if defined(MOD_EVENTS_QUESTS)
@@ -6160,6 +6561,24 @@ bool CvMinorCivAI::IsActiveQuestForPlayer(PlayerTypes ePlayer, MinorCivQuestType
 	return false;
 }
 
+/// Has this quest passed its end turn but not been cleaned up yet?
+bool CvMinorCivAI::IsQuestExpired(PlayerTypes ePlayer, MinorCivQuestTypes eType)
+{
+	CvAssertMsg(ePlayer >= 0, "ePlayer is expected to be non-negative (invalid Index)");
+	CvAssertMsg(ePlayer < MAX_MAJOR_CIVS, "ePlayer is expected to be within maximum bounds (invalid Index)");
+	if(ePlayer < 0 || ePlayer >= MAX_MAJOR_CIVS) return false;
+
+	for(uint iQuestLoop = 0; iQuestLoop < m_QuestsGiven[ePlayer].size(); iQuestLoop++)
+	{
+		if(m_QuestsGiven[ePlayer][iQuestLoop].GetType() == eType)
+		{
+			return m_QuestsGiven[ePlayer][iQuestLoop].IsExpired();
+		}
+	}
+
+	return false;
+}
+
 /// Get rid of all active quests
 void CvMinorCivAI::EndAllActiveQuestsForPlayer(PlayerTypes ePlayer)
 {
@@ -6170,6 +6589,51 @@ void CvMinorCivAI::EndAllActiveQuestsForPlayer(PlayerTypes ePlayer)
 	//antonjs: todo: instead, call for cancel quest (with flag for no notif)
 	if(GetNumActiveQuestsForPlayer(ePlayer) > 0)
 		m_QuestsGiven[ePlayer].clear();
+}
+
+// SP: silently drop building quests whose target is banned as a quest target (e.g. a national wonder
+// destroyed on construction). Such a quest can never be completed, and older saves may still hold one.
+void CvMinorCivAI::CancelBannedBuildingQuests()
+{
+	if (!MOD_SP_UNIQUE_CITYSTATE)
+		return;
+
+	for (int iPlayerLoop = 0; iPlayerLoop < MAX_MAJOR_CIVS; iPlayerLoop++)
+	{
+		PlayerTypes ePlayer = (PlayerTypes)iPlayerLoop;
+
+		bool bCancelNationalWonder = false;
+		bool bCancelSpreadBuilding = false;
+
+		for (uint iQuestLoop = 0; iQuestLoop < m_QuestsGiven[ePlayer].size(); iQuestLoop++)
+		{
+			const CvMinorCivQuest& kQuest = m_QuestsGiven[ePlayer][iQuestLoop];
+
+			MinorCivQuestTypes eQuest = kQuest.GetType();
+			if (eQuest != MINOR_CIV_QUEST_CONSTRUCT_NATIONAL_WONDER && eQuest != MINOR_CIV_QUEST_SPREAD_BUILDING)
+				continue;
+
+			CvBuildingEntry* pkBuildingInfo = GC.getBuildingInfo((BuildingTypes)kQuest.GetPrimaryData());
+			if (pkBuildingInfo == NULL || !pkBuildingInfo->IsBannedCityStateQuest())
+				continue;
+
+			if (eQuest == MINOR_CIV_QUEST_CONSTRUCT_NATIONAL_WONDER)
+				bCancelNationalWonder = true;
+			else
+				bCancelSpreadBuilding = true;
+		}
+
+		if (bCancelNationalWonder)
+			CancelQuestForPlayer(ePlayer, MINOR_CIV_QUEST_CONSTRUCT_NATIONAL_WONDER);
+
+		if (bCancelSpreadBuilding)
+			CancelQuestForPlayer(ePlayer, MINOR_CIV_QUEST_SPREAD_BUILDING);
+
+		// Both are personal quests: reseed the countdown like the normal cleanup path does, so the
+		// city-state does not hand out a replacement quest to the same player in the same turn.
+		if (bCancelNationalWonder || bCancelSpreadBuilding)
+			DoTestSeedQuestCountdownForPlayer(ePlayer);
+	}
 }
 
 // SP extended quests: silently drop a single active quest of the given type (no notification, no reward)
@@ -6445,7 +6909,7 @@ int CvMinorCivAI::GetQuestData1(PlayerTypes ePlayer, MinorCivQuestTypes eType) c
 {
 	CvAssertMsg(ePlayer >= 0, "ePlayer is expected to be non-negative (invalid Index)");
 	CvAssertMsg(ePlayer < MAX_MAJOR_CIVS, "ePlayer is expected to be within maximum bounds (invalid Index)");
-	if(ePlayer < 0 || ePlayer >= MAX_MAJOR_CIVS) CvMinorCivQuest::NO_QUEST_DATA;
+	if(ePlayer < 0 || ePlayer >= MAX_MAJOR_CIVS) return CvMinorCivQuest::NO_QUEST_DATA;
 
 	for(uint iQuestLoop = 0; iQuestLoop < m_QuestsGiven[ePlayer].size(); iQuestLoop++)
 	{
@@ -6474,6 +6938,24 @@ int CvMinorCivAI::GetQuestData2(PlayerTypes ePlayer, MinorCivQuestTypes eType) c
 	}
 
 	return CvMinorCivQuest::NO_QUEST_DATA;
+}
+
+/// Turn on which the player received this quest
+int CvMinorCivAI::GetQuestStartTurn(PlayerTypes ePlayer, MinorCivQuestTypes eType) const
+{
+	CvAssertMsg(ePlayer >= 0, "ePlayer is expected to be non-negative (invalid Index)");
+	CvAssertMsg(ePlayer < MAX_MAJOR_CIVS, "ePlayer is expected to be within maximum bounds (invalid Index)");
+	if(ePlayer < 0 || ePlayer >= MAX_MAJOR_CIVS) return CvMinorCivQuest::NO_TURN;
+
+	for(uint iQuestLoop = 0; iQuestLoop < m_QuestsGiven[ePlayer].size(); iQuestLoop++)
+	{
+		if(m_QuestsGiven[ePlayer][iQuestLoop].GetType() == eType)
+		{
+			return m_QuestsGiven[ePlayer][iQuestLoop].GetStartTurn();
+		}
+	}
+
+	return CvMinorCivQuest::NO_TURN;
 }
 
 int CvMinorCivAI::GetQuestTurnsRemaining(PlayerTypes ePlayer, MinorCivQuestTypes eType, int iGameTurn) const
@@ -6877,6 +7359,35 @@ BuildingTypes CvMinorCivAI::GetBestNationalWonderForQuest(PlayerTypes ePlayer)
 		if(!GET_PLAYER(ePlayer).canConstruct(eBuilding))
 			continue;
 
+#if defined(MOD_SP_UNIQUE_CITYSTATE)
+		// SP: never hand out a quest for a building that is banned as a quest target.
+		if (MOD_SP_UNIQUE_CITYSTATE && pkBuildingInfo->IsBannedCityStateQuest())
+			continue;
+
+		// SP: CvPlayer::canConstruct only checks player-level requirements, so a city-level one (city size,
+		// per-city prerequisites, coastal/mountain location, local resources, ...) can make the quest
+		// impossible - the level-3 specialist foundations need an 80-population city, for instance.
+		// Only offer the quest when one of the player's cities can construct the building right now.
+		if (MOD_SP_UNIQUE_CITYSTATE)
+		{
+			CvPlayer& kQuestPlayer = GET_PLAYER(ePlayer);
+			bool bSomeCityCanBuild = false;
+			int iCityLoop;
+
+			for (CvCity* pLoopCity = kQuestPlayer.firstCity(&iCityLoop); pLoopCity != NULL; pLoopCity = kQuestPlayer.nextCity(&iCityLoop))
+			{
+				if (pLoopCity->canConstruct(eBuilding))
+				{
+					bSomeCityCanBuild = true;
+					break;
+				}
+			}
+
+			if (!bSomeCityCanBuild)
+				continue;
+		}
+#endif
+
 		veValidBuildings.push_back(eBuilding);
 	}
 
@@ -6888,7 +7399,7 @@ BuildingTypes CvMinorCivAI::GetBestNationalWonderForQuest(PlayerTypes ePlayer)
 }
 
 /// Best ordinary building for a Quest given to ePlayer (one that any city could construct)?
-BuildingTypes CvMinorCivAI::GetBestBuildingForQuest(PlayerTypes ePlayer)
+BuildingTypes CvMinorCivAI::GetBestBuildingForQuest(PlayerTypes ePlayer, int iTargetCities)
 {
 	FStaticVector<BuildingTypes, 100, true, c_eCiv5GameplayDLL, 0> veValidBuildings;
 
@@ -6919,6 +7430,44 @@ BuildingTypes CvMinorCivAI::GetBestBuildingForQuest(PlayerTypes ePlayer)
 		// Must be able to build it
 		if(!GET_PLAYER(ePlayer).canConstruct(eBuilding))
 			continue;
+
+#if defined(MOD_SP_UNIQUE_CITYSTATE)
+		// SP: skip buildings marked as banned quest targets.
+		if (MOD_SP_UNIQUE_CITYSTATE && pkBuildingInfo->IsBannedCityStateQuest())
+			continue;
+
+		// SP: the quest asks us to spread this building to iTargetCities cities. Require that many cities
+		// that already have it or can construct it right now - CvPlayer::canConstruct alone would accept
+		// targets the player cannot build in enough cities (city-level requirements are invisible to it).
+		if (MOD_SP_UNIQUE_CITYSTATE)
+		{
+			CvPlayer& kQuestPlayer = GET_PLAYER(ePlayer);
+			int iExistingCities = 0;
+			int iPotentialCities = 0;
+			int iCityLoop;
+
+			for (CvCity* pLoopCity = kQuestPlayer.firstCity(&iCityLoop); pLoopCity != NULL; pLoopCity = kQuestPlayer.nextCity(&iCityLoop))
+			{
+				if (pLoopCity->GetCityBuildings()->GetNumRealBuilding(eBuilding) > 0)
+				{
+					iExistingCities++;
+					iPotentialCities++;
+				}
+				else if (pLoopCity->canConstruct(eBuilding))
+				{
+					iPotentialCities++;
+				}
+			}
+
+			// Already spread far enough? The quest would complete on the next turn and just hand out
+			// free influence, so don't offer it.
+			if (iExistingCities >= iTargetCities)
+				continue;
+
+			if (iPotentialCities < iTargetCities)
+				continue;
+		}
+#endif
 
 		veValidBuildings.push_back(eBuilding);
 	}
@@ -7581,15 +8130,33 @@ int CvMinorCivAI::GetFriendshipChangePerTurnTimes100(PlayerTypes ePlayer)
 	}
 	else if (iBaseFriendship > iFriendshipAnchor)
 	{
-		// Hostile Minors have Friendship decay quicker
+		// Decay rate as a percentage of current influence (Times100 basis).
+		// Hostile Minors have Friendship decay quicker, aggressors even quicker.
+		int iDecayRate = -GC.getMINOR_FRIENDSHIP_DROP_PER_TURN(); // 100 = 1%
 		if(GetPersonality() == MINOR_CIV_PERSONALITY_HOSTILE)
-			iChangeThisTurn += /*-150*/ GC.getMINOR_FRIENDSHIP_DROP_PER_TURN_HOSTILE();
-		// Aggressor!
+			iDecayRate = -GC.getMINOR_FRIENDSHIP_DROP_PER_TURN_HOSTILE();
 		else if(GET_TEAM(kPlayer.getTeam()).IsMinorCivAggressor())
-			iChangeThisTurn += /*-200*/ GC.getMINOR_FRIENDSHIP_DROP_PER_TURN_AGGRESSOR();
-		// Normal decay
+			iDecayRate = -GC.getMINOR_FRIENDSHIP_DROP_PER_TURN_AGGRESSOR();
+
+#if defined(MOD_SP_UNIQUE_CITYSTATE)
+		if (MOD_SP_UNIQUE_CITYSTATE)
+		{
+			// Super Power V11: decay scales with current influence (1% per turn, minimum 1 point),
+			// so a single per-turn influence source can no longer outpace decay at high influence.
+			int iBaseDecay = max(100, iBaseFriendship);
+			// Below the ally threshold the influence is doing no work, so decay is halved
+			// (0.5% per turn, minimum 1 point) to avoid a death spiral right under the threshold.
+			if (iBaseFriendship < GetAlliesThresholdForPlayer(ePlayer))
+			{
+				iBaseDecay = max(100, iBaseFriendship / 2);
+			}
+			iChangeThisTurn -= iBaseDecay * iDecayRate / 100;
+		}
 		else
-			iChangeThisTurn += /*-100*/ GC.getMINOR_FRIENDSHIP_DROP_PER_TURN();
+#endif
+		{
+			iChangeThisTurn -= iDecayRate;
+		}
 
 		// Decay modified (Trait, policies, shared religion, etc.)
 		int iDecayMod = 100;
@@ -9270,28 +9837,6 @@ bool CvMinorCivAI::DoRerollPersonalQuestsForPlayer(PlayerTypes eMajor)
 	if(!GetPlayer()->isAlive() || !IsHasMetPlayer(eMajor))
 		return false;
 
-	// Rerolling ignores the normal quest countdown
-	SetQuestCountdownForPlayer(eMajor, 0);
-
-	// Only reroll if at least one personal quest could be granted, so the caller does not charge
-	// aid points (and we do not drop the old quests) when nothing is available.
-	bool bAnyValid = false;
-#if defined(MOD_EVENTS_QUESTS)
-	for(int iQuestLoop = 0; iQuestLoop < GC.getNumQuestInfos(); iQuestLoop++)
-#else
-	for(int iQuestLoop = 0; iQuestLoop < NUM_MINOR_CIV_QUEST_TYPES; iQuestLoop++)
-#endif
-	{
-		MinorCivQuestTypes eQuest = (MinorCivQuestTypes) iQuestLoop;
-		if(IsValidQuestForPlayer(eMajor, eQuest) && IsPersonalQuest(eQuest))
-		{
-			bAnyValid = true;
-			break;
-		}
-	}
-	if(!bAnyValid)
-		return false;
-
 	// Drop existing personal quests, keep global quest copies. The dropped types become the
 	// exclusion set, so the reroll cannot hand back the quests the player just paid to replace.
 	std::vector<MinorCivQuestTypes> veExclude;
@@ -9303,6 +9848,49 @@ bool CvMinorCivAI::DoRerollPersonalQuestsForPlayer(PlayerTypes eMajor)
 		else
 			kKeep.push_back(m_QuestsGiven[eMajor][iQuestLoop]);
 	}
+
+	// Only reroll if at least one personal quest outside the exclusion set could be granted, so
+	// the caller does not charge aid points (and we do not drop the old quests) when nothing is
+	// available. This mirrors the exclusion DoTestStartPersonalQuest applies afterwards.
+	bool bAnyValid = false;
+#if defined(MOD_EVENTS_QUESTS)
+	for(int iQuestLoop = 0; iQuestLoop < GC.getNumQuestInfos(); iQuestLoop++)
+#else
+	for(int iQuestLoop = 0; iQuestLoop < NUM_MINOR_CIV_QUEST_TYPES; iQuestLoop++)
+#endif
+	{
+		MinorCivQuestTypes eQuest = (MinorCivQuestTypes) iQuestLoop;
+		if(!IsPersonalQuest(eQuest))
+			continue;
+		if(!IsValidQuestForPlayer(eMajor, eQuest))
+			continue;
+
+		bool bExcluded = false;
+		for(uint iExcludeLoop = 0; iExcludeLoop < veExclude.size(); iExcludeLoop++)
+		{
+			if(veExclude[iExcludeLoop] == eQuest)
+			{
+				bExcluded = true;
+				break;
+			}
+		}
+
+		// DoTestStartPersonalQuest also needs a non-zero personality bias to build its candidate
+		// list, so a zero-bias quest would pass this precheck and then drop the old quests for
+		// nothing.
+		if(!bExcluded && GetPersonalityQuestBias(eQuest) > 0)
+		{
+			bAnyValid = true;
+			break;
+		}
+	}
+	if(!bAnyValid)
+		return false;
+
+	// Rerolling ignores the normal quest countdown. Nothing has been modified before this point,
+	// so a failed attempt leaves both the quests and the countdown untouched.
+	SetQuestCountdownForPlayer(eMajor, 0);
+
 	m_QuestsGiven[eMajor].clear();
 	for(uint iKeepLoop = 0; iKeepLoop < kKeep.size(); iKeepLoop++)
 		m_QuestsGiven[eMajor].push_back(kKeep[iKeepLoop]);
@@ -9392,7 +9980,22 @@ bool CvMinorCivAI::DoMajorBullyGoldWithAidPoints(PlayerTypes eBully, int iGold)
 
 		// No reaction at all: the minor records nothing, loses no influence, revokes no quest and never
 		// locks us out. Other city-states' "bully a city-state" quest progress still counts.
-		NotifyOtherMinorsOfBully(eBully);
+
+		// The "bully a city-state" quest completion check reads GetTurnLastBulliedByMajor, but this
+		// path must not leave a "recently bullied" record behind. Publish the turn just long enough
+		// to settle the publisher's quest and every other city-state's copy of it, then restore.
+		// This replaces NotifyOtherMinorsOfBully, which has to run after the temporary write to see it.
+		int iOldBullyTurn = GetTurnLastBulliedByMajor(eBully);
+		SetTurnLastBulliedByMajor(eBully, GC.getGame().getGameTurn());
+
+		for(int iMinorLoop = MAX_MAJOR_CIVS; iMinorLoop < MAX_CIV_PLAYERS; iMinorLoop++)
+		{
+			CvMinorCivAI* pPublisherAI = GET_PLAYER((PlayerTypes) iMinorLoop).GetMinorCivAI();
+			if(pPublisherAI != NULL)
+				pPublisherAI->DoTestActiveQuestsForPlayer(eBully, /*bTestComplete*/ true, /*bTestObsolete*/ false, MINOR_CIV_QUEST_BULLY_CITY_STATE);
+		}
+
+		SetTurnLastBulliedByMajor(eBully, iOldBullyTurn);
 
 #if defined(MOD_EVENTS_MINORS_INTERACTION)
 		if (MOD_EVENTS_MINORS_INTERACTION) {
@@ -9536,6 +10139,9 @@ bool CvMinorCivAI::DoCityStateFaithBeliefPurchase(PlayerTypes eMajor, BeliefType
 
 	kMajor.ChangeFaith(-iCost);
 	SetFaithBeliefPurchasedByMajor(eMajor, true);
+
+	// Let Lua handle belief-granted effects (free units, policies, random beliefs, etc.).
+	GAMEEVENTINVOKE_HOOK(GAMEEVENT_CityStateFaithBeliefPurchased, eMajor, GetPlayer()->GetID(), eBelief, eReligion);
 
 	// Notification (reformation-belief icon) so the ally knows the belief was added.
 	CvString szBeliefName = "";
@@ -9709,6 +10315,9 @@ bool CvMinorCivAI::DoCityStateFaithPantheonPurchase(PlayerTypes eMajor, BeliefTy
 
 	kMajor.ChangeFaith(-iCost);
 	ChangeFaithPantheonPurchaseCount(eMajor, 1);
+
+	// Let Lua handle belief-granted effects (free units, policies, random beliefs, etc.).
+	GAMEEVENTINVOKE_HOOK(GAMEEVENT_CityStateFaithBeliefPurchased, eMajor, GetPlayer()->GetID(), eBelief, eReligion);
 
 	// Influence reward: after each purchase, the ally gains (excess happiness / 2) influence
 	// with every city-state it has met (including this one). No influence when happiness is negative.

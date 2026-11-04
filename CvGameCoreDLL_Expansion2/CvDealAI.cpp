@@ -995,6 +995,8 @@ int CvDealAI::GetTradeItemValue(TradeableItems eItem, bool bFromMe, PlayerTypes 
 		iItemValue = GetDefensivePactValue(bFromMe, eOtherPlayer, bUseEvenValue);
 	else if(eItem == TRADE_ITEM_RESEARCH_AGREEMENT)
 		iItemValue = GetResearchAgreementValue(bFromMe, eOtherPlayer, bUseEvenValue);
+	else if(eItem == TRADE_ITEM_NON_AGGRESSION_PACT)
+		iItemValue = GetNonAggressionPactValue(bFromMe, eOtherPlayer, bUseEvenValue);
 	else if(eItem == TRADE_ITEM_TRADE_AGREEMENT)
 		iItemValue = GetTradeAgreementValue(bFromMe, eOtherPlayer, bUseEvenValue);
 	else if(eItem == TRADE_ITEM_PEACE_TREATY)
@@ -2096,6 +2098,103 @@ int CvDealAI::GetResearchAgreementValue(bool bFromMe, PlayerTypes eOtherPlayer, 
 	if(bUseEvenValue)
 	{
 		iItemValue += GET_PLAYER(eOtherPlayer).GetDealAI()->GetResearchAgreementValue(!bFromMe, GetPlayer()->GetID(), /*bUseEvenValue*/ false);
+
+		iItemValue /= 2;
+	}
+
+	return iItemValue;
+}
+
+/// How much is a Non-Aggression Pact worth?
+int CvDealAI::GetNonAggressionPactValue(bool bFromMe, PlayerTypes eOtherPlayer, bool bUseEvenValue)
+{
+	CvAssertMsg(GetPlayer()->GetID() != eOtherPlayer, "DEAL_AI: Trying to check value of a Non-Aggression Pact with oneself.  Please send Jon this with your last 5 autosaves and what changelist # you're playing.");
+
+	int iItemValue = 100;
+
+	const bool bWeWantWar = GetPlayer()->GetDiplomacyAI()->GetWarGoal(eOtherPlayer) >= WAR_GOAL_DAMAGE;
+
+	// Signing the pact means giving up the option to attack them for its duration
+	if(bFromMe)
+	{
+		if(bWeWantWar)
+		{
+			iItemValue = 5000;
+		}
+		else
+		{
+			switch(GetPlayer()->GetDiplomacyAI()->GetMajorCivOpinion(eOtherPlayer))
+			{
+			case MAJOR_CIV_OPINION_ALLY:
+				iItemValue = 100;
+				break;
+			case MAJOR_CIV_OPINION_FRIEND:
+				iItemValue = 120;
+				break;
+			case MAJOR_CIV_OPINION_FAVORABLE:
+				iItemValue = 150;
+				break;
+			case MAJOR_CIV_OPINION_NEUTRAL:
+				iItemValue = 300;
+				break;
+			case MAJOR_CIV_OPINION_COMPETITOR:
+				iItemValue = 800;
+				break;
+			case MAJOR_CIV_OPINION_ENEMY:
+				iItemValue = 1500;
+				break;
+			case MAJOR_CIV_OPINION_UNFORGIVABLE:
+				iItemValue = 2500;
+				break;
+			default:
+				iItemValue = 300;
+				break;
+			}
+		}
+	}
+	// Receiving the pact means they cannot attack us either; it is worth more when they are stronger
+	else
+	{
+		if(bWeWantWar)
+		{
+			iItemValue = 5000;
+		}
+		else
+		{
+			switch(GetPlayer()->GetDiplomacyAI()->GetPlayerMilitaryStrengthComparedToUs(eOtherPlayer))
+			{
+			case STRENGTH_PATHETIC:
+				iItemValue = 10;
+				break;
+			case STRENGTH_WEAK:
+				iItemValue = 40;
+				break;
+			case STRENGTH_POOR:
+				iItemValue = 70;
+				break;
+			case STRENGTH_AVERAGE:
+				iItemValue = 100;
+				break;
+			case STRENGTH_STRONG:
+				iItemValue = 130;
+				break;
+			case STRENGTH_POWERFUL:
+				iItemValue = 170;
+				break;
+			case STRENGTH_IMMENSE:
+				iItemValue = 220;
+				break;
+			default:
+				iItemValue = 100;
+				break;
+			}
+		}
+	}
+
+	// Are we trying to find the middle point between what we think this item is worth and what another player thinks it's worth?
+	if(bUseEvenValue)
+	{
+		iItemValue += GET_PLAYER(eOtherPlayer).GetDealAI()->GetNonAggressionPactValue(!bFromMe, GetPlayer()->GetID(), /*bUseEvenValue*/ false);
 
 		iItemValue /= 2;
 	}
@@ -4210,6 +4309,52 @@ bool CvDealAI::IsMakeOfferForResearchAgreement(PlayerTypes eOtherPlayer, CvDeal*
 		bool bUselessReferenceVariable;
 		bool bCantMatchOffer;
 		bDealAcceptable = DoEqualizeDealWithHuman(pDeal, eOtherPlayer, true, false, bUselessReferenceVariable, bCantMatchOffer);	// Change the deal as necessary to make it work
+	}
+
+	return bDealAcceptable;
+}
+
+/// A good time to make an offer for a Non-Aggression Pact?
+bool CvDealAI::IsMakeOfferForNonAggressionPact(PlayerTypes eOtherPlayer, CvDeal* pDeal)
+{
+	CvAssert(eOtherPlayer >= 0);
+	CvAssert(eOtherPlayer < MAX_MAJOR_CIVS);
+
+	// Can we actually complete this deal? (embassies, our diplomat in their capital, no war,
+	// no defensive pact, and the cooldown since the last pact)
+	if(!pDeal->IsPossibleToTradeItem(GetPlayer()->GetID(), eOtherPlayer, TRADE_ITEM_NON_AGGRESSION_PACT))
+	{
+		return false;
+	}
+
+	CvDiplomacyAI* pMyDiploAI = GetPlayer()->GetDiplomacyAI();
+
+	// Never sign away the option of attacking a player we are planning a war against
+	if(pMyDiploAI->GetWarGoal(eOtherPlayer) >= WAR_GOAL_DAMAGE)
+	{
+		return false;
+	}
+
+	// Only leaders who view the other side as a potential partner bother to propose it
+	if(pMyDiploAI->GetMajorCivApproach(eOtherPlayer, /*bHideTrueFeelings*/ true) <= MAJOR_CIV_APPROACH_GUARDED)
+	{
+		return false;
+	}
+
+	// Seed the deal with the item we want
+	pDeal->AddNonAggressionPact(GetPlayer()->GetID(), 0);
+
+	bool bDealAcceptable = false;
+
+	// AI evaluation
+	if(!GET_PLAYER(eOtherPlayer).isHuman())
+	{
+		bDealAcceptable = DoEqualizeDealWithAI(pDeal, eOtherPlayer);	// Change the deal as necessary to make it work
+	}
+	else
+	{
+		// Offer the pact for free and let the human decide in the trade screen
+		bDealAcceptable = true;
 	}
 
 	return bDealAcceptable;

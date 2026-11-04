@@ -33,7 +33,7 @@
  ****************************************************************************/
 #define MOD_DLL_GUID {0xcf7d28a8, 0x1684, 0x4420, { 0xaf, 0x45, 0x11, 0x7, 0xc, 0xb, 0x8c, 0x4a }} // {CF7D28A8-1684-4420-AF45-11070C0B8C4A}
 #define MOD_DLL_NAME "CIV5 MPDLL"
-#define MOD_DLL_VERSION_NUMBER ((uint) 165)
+#define MOD_DLL_VERSION_NUMBER ((uint) 168)
 #define MOD_DLL_VERSION_STATUS ""			// a (alpha), b (beta) or blank (released)
 #define MOD_DLL_CUSTOM_BUILD_NAME ""
 
@@ -1197,6 +1197,9 @@ enum BattleTypeTypes
 #define GAMEEVENT_CityCreated					"CityCreated",					"iiibb"
 #define GAMEEVENT_CityPrepared					"CityPrepared",					"iiibb"
 #define GAMEEVENT_CitySoldBuilding				"CitySoldBuilding",				"iii"
+// Event sent when a city-state ability adds a belief to a religion the purchasing major leads.
+//   GameEvents.CityStateFaithBeliefPurchased.Add(function(iPlayer, iMinor, iBelief, iReligion) end)
+#define GAMEEVENT_CityStateFaithBeliefPurchased	"CityStateFaithBeliefPurchased",	"iiii"
 #define GAMEEVENT_CityTrained					"CityTrained",					"iiibb"
 #define GAMEEVENT_CityProjectComplete			"CityProjectComplete",			"iii"
 #define GAMEEVENT_CustomMissionCompleted		"CustomMissionCompleted",		"iiiiiii"

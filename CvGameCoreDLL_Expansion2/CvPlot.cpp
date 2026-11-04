@@ -883,7 +883,9 @@ void CvPlot::verifyUnitValidPlot()
 							
 							if (pLoopUnit != NULL)
 							{
-								if(!isValidDomainForLocation(*pLoopUnit) || !(pLoopUnit->canEnterTerritory(getTeam(), false /*bIgnoreRightOfPassage*/, isCity())))
+								// Pass the concrete plot owner so the player-level open borders rule applies here too.
+								// Without it canEnterTerritory falls back to the team-level rule, which deals no longer set.
+								if(!isValidDomainForLocation(*pLoopUnit) || !(pLoopUnit->canEnterTerritory(getTeam(), false /*bIgnoreRightOfPassage*/, isCity(), false /*bIsDeclareWarMove*/, getOwner())))
 								{
 									if (!pLoopUnit->jumpToNearestValidPlot())
 										pLoopUnit->kill(false);

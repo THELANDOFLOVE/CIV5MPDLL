@@ -5342,6 +5342,90 @@ void CvEspionageAI::DoTurn()
 
 	CvPlayerEspionage* pEspionage = m_pPlayer->GetEspionage();
 
+	// SP quest AI: send idle spies to rig elections in focused city-states, and keep the ones
+	// already there in place until the quest is done.
+	if (MOD_SP_UNIQUE_CITYSTATE)
+	{
+		for (int iMinor = MAX_MAJOR_CIVS; iMinor < MAX_CIV_PLAYERS; iMinor++)
+		{
+			PlayerTypes eMinor = (PlayerTypes)iMinor;
+
+			if (!GET_PLAYER(eMinor).isAlive())
+				continue;
+
+			if (!GET_TEAM(m_pPlayer->getTeam()).isHasMet(GET_PLAYER(eMinor).getTeam()))
+				continue;
+
+			CvMinorCivAI* pMinorAI = GET_PLAYER(eMinor).GetMinorCivAI();
+			if (pMinorAI == NULL)
+				continue;
+
+			PlayerTypes eMe = m_pPlayer->GetID();
+
+			bool bQuestActive = pMinorAI->IsActiveQuestForPlayer(eMe, MINOR_CIV_QUEST_RIG_ELECTION)
+				&& !pMinorAI->IsQuestExpired(eMe, MINOR_CIV_QUEST_RIG_ELECTION);
+
+			CvCity* pCapital = GET_PLAYER(eMinor).getCapitalCity();
+			if (pCapital == NULL)
+				continue;
+
+			int iSpyInCity = pEspionage->GetSpyIndexInCity(pCapital);
+			bool bHasSpyInCity = iSpyInCity != -1 && iSpyInCity < (int)pEspionage->m_aSpyList.size();
+
+			// Quest finished or no longer focused: release the spy we locked here. The normal
+			// reassignment pass below then decides whether it stays in the city-state or comes home.
+			if (!bQuestActive || !m_pPlayer->GetDiplomacyAI()->IsCityStateInQuestFocus(eMinor, 5))
+			{
+				// Release the spy regardless of whether it is still travelling, observing or
+				// already rigging the election; the normal pass decides if it stays or leaves.
+				if (bHasSpyInCity)
+				{
+					CvSpyState eState = pEspionage->m_aSpyList[iSpyInCity].m_eSpyState;
+
+					if (eState != SPY_STATE_DEAD
+#if defined(MOD_API_ESPIONAGE)
+						&& eState != SPY_STATE_TERMINATED
+#endif
+						)
+					{
+						pEspionage->m_aSpyList[iSpyInCity].m_bEvaluateReassignment = true;
+					}
+				}
+
+				continue;
+			}
+
+			// Already have a spy in the city-state: lock that spy in place
+			if (bHasSpyInCity)
+			{
+				pEspionage->m_aSpyList[iSpyInCity].m_bEvaluateReassignment = false;
+				continue;
+			}
+
+			// Otherwise use an idle spy, if any
+			for (uint uiSpy = 0; uiSpy < pEspionage->m_aSpyList.size(); uiSpy++)
+			{
+				if (pEspionage->m_aSpyList[uiSpy].m_eSpyState == SPY_STATE_DEAD
+#if defined(MOD_API_ESPIONAGE)
+					|| pEspionage->m_aSpyList[uiSpy].m_eSpyState == SPY_STATE_TERMINATED
+#endif
+					)
+				{
+					continue;
+				}
+
+				if (pEspionage->GetCityWithSpy(uiSpy) != NULL)
+					continue;
+
+				if (pEspionage->MoveSpyTo(pCapital, uiSpy, false))
+				{
+					pEspionage->m_aSpyList[uiSpy].m_bEvaluateReassignment = false;
+					break;
+				}
+			}
+		}
+	}
+
 	// loop through spies an extract all that aren't in a correct location
 	int iCorrectlyAssignedDiplomatSpies = 0;
 	int iCorrectlyAssignedDefenseSpies = 0;

@@ -506,6 +506,8 @@ public:
 	bool GetFaithBeliefPurchase() const;
 	// Wittenberg: keep this % of the followers when an inquisitor clears the city-state's religion
 	int GetInquisitorRetentionPercent() const;
+	// Wittenberg: the ally's inquisitors may remove heresy in city-state cities
+	bool GetInquisitorCanUseOnCityState() const;
 	// La Venta: the ally may spend faith to add an idle pantheon belief to the religion the ally leads (true = enabled)
 	bool GetFaithPantheonPurchase() const;
 	// La Venta: +X% great-person rate per masterpiece/artifact the ally owns
@@ -721,6 +723,7 @@ private:
 	// Wittenberg
 	bool m_bFaithBeliefPurchase;
 	int m_iInquisitorRetentionPercent;
+	bool m_bInquisitorCanUseOnCityState;
 	// La Venta
 	bool m_bFaithPantheonPurchase;
 	int m_iGreatPersonRateModifierPerGreatWork;
@@ -806,9 +809,16 @@ public:
 	int GetAllyEffectID() const;
 	int GetFriendEffectID() const;
 
+	// AI attraction tables (CityStateUA_ExtraFlavors / CityStateUA_VictoryFlavors). Both return 0
+	// when the entry has no row for the given index.
+	int GetExtraFlavorValue(int i) const;
+	int GetVictoryFlavorValue(int i) const;
+
 private:
 	int m_iAllyEffectID;
 	int m_iFriendEffectID;
+	int* m_piExtraFlavorValue;
+	int* m_piVictoryFlavorValue;
 };
 
 //======================================================================================================
@@ -1006,6 +1016,7 @@ public:
 	// Wittenberg
 	bool AnyFaithBeliefPurchase() const;
 	int GetInquisitorRetentionPercent() const;
+	bool IsInquisitorCanUseOnCityState() const;
 	// La Venta
 	bool AnyFaithPantheonPurchase() const;
 	int GetGreatPersonRateModifierPerGreatWork() const;
@@ -1303,6 +1314,7 @@ protected:
 	// Wittenberg
 	int m_iFaithBeliefPurchaseCount;
 	int m_iInquisitorRetentionPercent;
+	int m_iInquisitorCanUseOnCityStateCount;
 	// La Venta
 	int m_iFaithPantheonPurchaseCount;
 	int m_iGreatPersonRateModifierPerGreatWork;

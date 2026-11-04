@@ -672,6 +672,8 @@ void CvLuaUnit::PushMethods(lua_State* L, int t)
 	Method(GetCSUACombatModifier);
 	Method(GetCSUAFixedDamageScale);
 	Method(GetCSUADamageTakenScale);
+	Method(GetMeleeAttackCityReduceDamage);
+	Method(GetMeleeAttackUnitReduceDamage);
 	Method(GetFriendlyLandsModifier);
 	Method(GetFriendlyLandsAttackModifier);
 	Method(GetOutsideFriendlyLandsModifier);
@@ -5764,6 +5766,24 @@ int CvLuaUnit::lGetCSUADamageTakenScale(lua_State* L)
 
 	const int iResult = pkUnit->GetCSUADamageTakenScale(pkOtherUnit, pkOtherCity);
 	lua_pushinteger(L, iResult);
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetMeleeAttackCityReduceDamage();
+int CvLuaUnit::lGetMeleeAttackCityReduceDamage(lua_State* L)
+{
+	CvUnit* pkUnit = GetInstance(L);
+
+	lua_pushinteger(L, pkUnit->GetMeleeAttackCityReduceDamage());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetMeleeAttackUnitReduceDamage();
+int CvLuaUnit::lGetMeleeAttackUnitReduceDamage(lua_State* L)
+{
+	CvUnit* pkUnit = GetInstance(L);
+
+	lua_pushinteger(L, pkUnit->GetMeleeAttackUnitReduceDamage());
 	return 1;
 }
 //------------------------------------------------------------------------------

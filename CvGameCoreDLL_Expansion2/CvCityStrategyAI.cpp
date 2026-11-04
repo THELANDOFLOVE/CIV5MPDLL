@@ -10,6 +10,7 @@
 #include "CvGameCoreUtils.h"
 #include "CvInternalGameCoreUtils.h"
 #include "CvDiplomacyAIEnums.h"
+#include "CvDiplomacyAI.h"
 #include "CvEconomicAI.h"
 #include "CvMilitaryAI.h"
 #include "CvGrandStrategyAI.h"
@@ -857,6 +858,11 @@ void CvCityStrategyAI::ChooseProduction(bool bUseAsyncRandom, BuildingTypes eIgn
 		}
 	}
 
+	// City-state spread-building quest: build the requested building first
+	BuildingTypes eQuestBuilding = NO_BUILDING;
+	if (MOD_SP_UNIQUE_CITYSTATE)
+		eQuestBuilding = kPlayer.GetDiplomacyAI()->GetCityStateQuestBuildingTarget();
+
 	// Loop through adding the available buildings
 	for(iBldgLoop = 0; iBldgLoop < GC.GetGameBuildings()->GetNumBuildings(); iBldgLoop++)
 	{
@@ -875,6 +881,10 @@ void CvCityStrategyAI::ChooseProduction(bool bUseAsyncRandom, BuildingTypes eIgn
 			buildable.m_iTurnsToConstruct = GetCity()->getProductionTurnsLeft(eLoopBuilding, 0);
 
 			iTempWeight = m_pBuildingProductionAI->GetWeight(eLoopBuilding);
+
+			// City-state spread-building quest: prioritize the requested building
+			if (MOD_SP_UNIQUE_CITYSTATE && eLoopBuilding == eQuestBuilding)
+				iTempWeight += 300;
 
 			// Don't build the UN if you aren't going for the diplo victory
 			if(pkBuildingInfo->IsDiplomaticVoting())

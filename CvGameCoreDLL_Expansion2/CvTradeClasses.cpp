@@ -5563,6 +5563,18 @@ bool CvTradeAI::ChooseTradeUnitTargetPlot(CvUnit* pUnit, int& iOriginPlotIndex, 
 
 		if (aTradeConnections[ui].m_eDomain == pUnit->getDomainType())
 		{
+			// City-state disconnect quest: do not re-establish a route to a city-state we just cut off
+			if (MOD_SP_UNIQUE_CITYSTATE)
+			{
+				PlayerTypes eDestOwner = aTradeConnections[ui].m_eDestOwner;
+				if (eDestOwner >= 0 && eDestOwner < MAX_CIV_PLAYERS
+					&& GET_PLAYER(eDestOwner).isMinorCiv()
+					&& m_pPlayer->GetDiplomacyAI()->IsNoConnectToMinor(eDestOwner))
+				{
+					continue;
+				}
+			}
+
 			CvPlot* pPlot = GC.getMap().plot(aTradeConnections[ui].m_iOriginX, aTradeConnections[ui].m_iOriginY);
 			if (pUnit->canMakeTradeRouteAt(pPlot, aTradeConnections[ui].m_iDestX, aTradeConnections[ui].m_iDestY, aTradeConnections[ui].m_eConnectionType))
 			{

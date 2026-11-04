@@ -38,6 +38,11 @@
 		<Column name="RewardSpy" type="integer" default="0"/>
 		<Column name="RewardLeagueVotes" type="integer" default="0"/>
 		<Column name="RewardAidPoints" type="integer" default="0"/>
+		<!-- Faith scales with era and game speed like gold/culture; the other three are flat -->
+		<Column name="RewardFaith" type="integer" default="0"/>
+		<Column name="RewardFreeTech" type="integer" default="0"/>
+		<Column name="RewardPopulation" type="integer" default="0"/>
+		<Column name="RewardUnitXP" type="integer" default="0"/>
 
 		<!-- Notification text pairs, set to NULL to force a QuestSendNotification event -->
 		<Column name="StartSummary" type="text" default="NULL" reference="Language_en_US(Tag)"/>
@@ -474,6 +479,92 @@
 			<Priority>15</Priority>
 			<Icon>[ICON_DIPLOMAT]</Icon>
 			<Tooltip>TXT_KEY_CITY_STATE_QUEST_RESEARCH_AGREEMENT_FORMAL</Tooltip>
+		</Row>
+		<!-- SP contest quests -->
+		<Row>
+			<ID>32</ID>
+			<Type>MINOR_CIV_QUEST_CONTEST_WORLD_WONDERS</Type>
+			<Internal>true</Internal>
+			<Enabled>false</Enabled>
+			<Global>true</Global>
+			<RevokeOnBully>false</RevokeOnBully>
+			<Contest>true</Contest>
+			<MinPlayers>3</MinPlayers>
+			<Duration>30</Duration>
+			<Friendship>50</Friendship>
+			<RewardGold>100</RewardGold>
+			<Priority>16</Priority>
+			<Icon>[ICON_GOLDEN_AGE]</Icon>
+			<Tooltip>TXT_KEY_CITY_STATE_QUEST_CONTEST_WORLD_WONDERS_FORMAL</Tooltip>
+		</Row>
+		<Row>
+			<ID>33</ID>
+			<Type>MINOR_CIV_QUEST_CONTEST_CONVERTS</Type>
+			<Internal>true</Internal>
+			<Enabled>false</Enabled>
+			<Global>true</Global>
+			<RevokeOnBully>false</RevokeOnBully>
+			<Contest>true</Contest>
+			<MinPlayers>3</MinPlayers>
+			<Duration>30</Duration>
+			<Friendship>50</Friendship>
+			<RewardFaith>50</RewardFaith>
+			<DisabledOnOption>GAMEOPTION_NO_RELIGION</DisabledOnOption>
+			<Priority>17</Priority>
+			<Icon>[ICON_PEACE]</Icon>
+			<Tooltip>TXT_KEY_CITY_STATE_QUEST_CONTEST_CONVERTS_FORMAL</Tooltip>
+		</Row>
+		<Row>
+			<ID>34</ID>
+			<Type>MINOR_CIV_QUEST_CONTEST_GREAT_PEOPLE</Type>
+			<Internal>true</Internal>
+			<Enabled>false</Enabled>
+			<Global>true</Global>
+			<RevokeOnBully>false</RevokeOnBully>
+			<Contest>true</Contest>
+			<MinPlayers>3</MinPlayers>
+			<Duration>30</Duration>
+			<Friendship>50</Friendship>
+			<RewardFreeTech>1</RewardFreeTech>
+			<Priority>18</Priority>
+			<Icon>[ICON_GREAT_PEOPLE]</Icon>
+			<Tooltip>TXT_KEY_CITY_STATE_QUEST_CONTEST_GREAT_PEOPLE_FORMAL</Tooltip>
+		</Row>
+		<Row>
+			<ID>35</ID>
+			<Type>MINOR_CIV_QUEST_CONTEST_CITIES_FOUNDED</Type>
+			<Internal>true</Internal>
+			<Enabled>false</Enabled>
+			<Global>true</Global>
+			<RevokeOnBully>false</RevokeOnBully>
+			<Contest>true</Contest>
+			<MinPlayers>3</MinPlayers>
+			<Duration>30</Duration>
+			<Friendship>50</Friendship>
+			<RewardPopulation>1</RewardPopulation>
+			<DisabledOnOption>GAMEOPTION_ONE_CITY_CHALLENGE</DisabledOnOption>
+			<BiasMaritime>300</BiasMaritime>
+			<Priority>19</Priority>
+			<Icon>[ICON_FOOD]</Icon>
+			<Tooltip>TXT_KEY_CITY_STATE_QUEST_CONTEST_CITIES_FOUNDED_FORMAL</Tooltip>
+		</Row>
+		<Row>
+			<ID>36</ID>
+			<Type>MINOR_CIV_QUEST_CONTEST_CITIES_CAPTURED</Type>
+			<Internal>true</Internal>
+			<Enabled>false</Enabled>
+			<Global>true</Global>
+			<RevokeOnBully>false</RevokeOnBully>
+			<Contest>true</Contest>
+			<MinPlayers>3</MinPlayers>
+			<Duration>30</Duration>
+			<Friendship>50</Friendship>
+			<RewardUnitXP>100</RewardUnitXP>
+			<DisabledOnOption>GAMEOPTION_ALWAYS_PEACE</DisabledOnOption>
+			<BiasMilitaristic>300</BiasMilitaristic>
+			<Priority>20</Priority>
+			<Icon>[ICON_WAR]</Icon>
+			<Tooltip>TXT_KEY_CITY_STATE_QUEST_CONTEST_CITIES_CAPTURED_FORMAL</Tooltip>
 		</Row>
 	</Quests>
 

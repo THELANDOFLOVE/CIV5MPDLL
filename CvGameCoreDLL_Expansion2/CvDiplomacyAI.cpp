@@ -7,6 +7,7 @@
 	------------------------------------------------------------------------------------------------------- */
 
 #include "CvGameCoreDLLPCH.h"
+#include <climits>
 #include "cvStopWatch.h"
 #include "ICvDLLUserInterface.h"
 #include "CvDiplomacyAI.h"
@@ -19,6 +20,8 @@
 #include "CvGameCoreUtils.h"
 #include "CvNotifications.h"
 #include "CvDiplomacyRequests.h"
+#include "CvCityStateUAClasses.h"
+#include "CvTypes.h"
 #include "CustomMods.h"
 
 // must be included after all other headers
@@ -43,6 +46,7 @@ CvDiplomacyAI::DiplomacyAIData::DiplomacyAIData() :
 	, m_abMusteringForAttack()
 	, m_abWantsResearchAgreementWithPlayer()
 	, m_abWantToRouteToMinor()
+	, m_aiNoConnectToMinorTurn()
 	, m_aeWarFace()
 	, m_aeWarState()
 	, m_aeWarProjection()
@@ -191,6 +195,10 @@ CvDiplomacyAI::CvDiplomacyAI():
 	m_pabMusteringForAttack(NULL),
 	m_pabWantsResearchAgreementWithPlayer(NULL),
 	m_pabWantToRouteToMinor(NULL),
+	m_paiNoConnectToMinorTurn(NULL),
+	m_iLastCityStateQuestTurn(-1),
+	m_eCityStateQuestBuildingTarget(NO_BUILDING),
+	m_iLastCityStateAidPointTurn(-1),
 	m_paeWarFace(NULL),
 	m_paeWarState(NULL),
 	m_paeWarProjection(NULL),
@@ -370,6 +378,10 @@ CvDiplomacyAI::CvDiplomacyAI():
 	m_eTestStatement(NO_DIPLO_STATEMENT_TYPE),
 	m_iTestStatementArg1(-1)
 {
+	for(int iI = 0; iI < MAX_CIV_PLAYERS; iI++)
+	{
+		m_aiAidPointBullyTurn[iI] = -1;
+	}
 }
 
 /// Destructor
@@ -401,6 +413,7 @@ void CvDiplomacyAI::Init(CvPlayer* pPlayer)
 	m_pabMusteringForAttack = &m_pDiploData->m_abMusteringForAttack[0];
 	m_pabWantsResearchAgreementWithPlayer = &m_pDiploData->m_abWantsResearchAgreementWithPlayer[0];
 	m_pabWantToRouteToMinor = &m_pDiploData->m_abWantToRouteToMinor[0];
+	m_paiNoConnectToMinorTurn = &m_pDiploData->m_aiNoConnectToMinorTurn[0];
 	m_paeWarFace = &m_pDiploData->m_aeWarFace[0];
 	m_paeWarState = &m_pDiploData->m_aeWarState[0];
 	m_paeWarProjection = &m_pDiploData->m_aeWarProjection[0];
@@ -656,6 +669,7 @@ void CvDiplomacyAI::Uninit()
 	m_pabMusteringForAttack = NULL;
 	m_pabWantsResearchAgreementWithPlayer = NULL;
 	m_pabWantToRouteToMinor = NULL;
+	m_paiNoConnectToMinorTurn = NULL;
 	m_paeWarFace = NULL;
 	m_paeWarState = NULL;
 	m_paeWarProjection = NULL;
@@ -978,6 +992,16 @@ void CvDiplomacyAI::Reset()
 	{
 		m_paeMinorCivApproach[iI] = NO_MINOR_CIV_APPROACH;
 		m_pabWantToRouteToMinor[iI] = true;
+		m_paiNoConnectToMinorTurn[iI] = -1;
+	}
+
+	m_iLastCityStateQuestTurn = -1;
+	m_eCityStateQuestBuildingTarget = NO_BUILDING;
+
+	m_iLastCityStateAidPointTurn = -1;
+	for(iI = 0; iI < MAX_CIV_PLAYERS; iI++)
+	{
+		m_aiAidPointBullyTurn[iI] = -1;
 	}
 
 	for(iI = 0; iI < MAX_CIV_PLAYERS; iI++)
@@ -1145,6 +1169,8 @@ void CvDiplomacyAI::Read(FDataStream& kStream)
 
 	ArrayWrapper<bool> wrapm_pabWantToRouteToMinor(MAX_MINOR_CIVS, m_pabWantToRouteToMinor);
 	kStream >> wrapm_pabWantToRouteToMinor;
+
+	MOD_SERIALIZE_READ_ARRAY(166, kStream, m_paiNoConnectToMinorTurn, short, MAX_MINOR_CIVS, -1);
 
 
 	ArrayWrapper<short> wrapm_paeWantPeaceCounter(MAX_CIV_PLAYERS, m_paeWantPeaceCounter);
@@ -1635,6 +1661,7 @@ void CvDiplomacyAI::Write(FDataStream& kStream) const
 
 	kStream << ArrayWrapper<bool>(MAX_MAJOR_CIVS, m_pabWantsResearchAgreementWithPlayer);
 	kStream << ArrayWrapper<bool>(MAX_MINOR_CIVS, m_pabWantToRouteToMinor);
+	MOD_SERIALIZE_WRITE_ARRAY(kStream, m_paiNoConnectToMinorTurn, short, MAX_MINOR_CIVS);
 
 	kStream << ArrayWrapper<short>(MAX_CIV_PLAYERS, m_paeWantPeaceCounter);
 	kStream << ArrayWrapper<char>(MAX_MAJOR_CIVS, m_paePeaceTreatyWillingToOffer);
@@ -2099,6 +2126,26 @@ void CvDiplomacyAI::DoTurn(PlayerTypes eTargetPlayer)
 		DoUpdatePlanningExchanges();
 		DoContactMinorCivs();
 		DoContactMajorCivs();
+
+#if defined(MOD_SP_UNIQUE_CITYSTATE)
+		// Pro-active city-state quests run once per turn; skip the human-diplomacy pass in
+		// multiplayer, which re-enters DoTurn for the same AI later in the turn.
+#if defined(MOD_AI_MP_DIPLOMACY)
+		if (MOD_SP_UNIQUE_CITYSTATE && m_eTargetPlayerType != DIPLO_HUMAN_PLAYERS)
+		{
+			// Aid point spending runs first: the bully branch takes over the quest before the
+			// ordinary bully (which costs influence) gets a chance to run.
+			DoCityStateAidPointAI();
+			DoCityStateQuestAI();
+		}
+#else
+		if (MOD_SP_UNIQUE_CITYSTATE && m_eTargetPlayer != (PlayerTypes)DIPLO_HUMAN_PLAYERS)
+		{
+			DoCityStateAidPointAI();
+			DoCityStateQuestAI();
+		}
+#endif
+#endif
 
 #if defined(MOD_AI_MP_DIPLOMACY)
 		// JdH => cleanup AI to AI deals (was all deals before)
@@ -4328,6 +4375,138 @@ MinorCivApproachTypes CvDiplomacyAI::GetBestApproachTowardsMinorCiv(PlayerTypes 
 		viApproachWeights[MINOR_CIV_APPROACH_CONQUEST] -= 200;
 	}
 
+#if defined(MOD_SP_UNIQUE_CITYSTATE)
+	////////////////////////////////////
+	// CITY-STATE UNIQUE ABILITY ATTRACTION - three refinements on top of the plain linear push:
+	//   * a predatory leader still courts a rich city-state: capturing it would destroy the
+	//     very ability he wants, so conquest is suppressed above the gift threshold.
+	//   * the same leader conquers/bullies worthless city-states instead, where there is no
+	//     ability worth preserving.
+	//   * a friendly leader stops courting city-states whose UA is a poor fit (below average),
+	//     so he actively lets the incompatible ones go instead of befriending everything.
+	////////////////////////////////////
+	if (MOD_SP_UNIQUE_CITYSTATE)
+	{
+		int iCSUAValue = GetCSUAAIDesirability(ePlayer);
+		if (iCSUAValue != 0)
+		{
+			// Gold-gift scale (threshold 100) -> approach weight scale (typically 1-20)
+			int iCSUAWeight = iCSUAValue / 10;
+
+			// Set below when taking the city-state is deliberate even for a valuable UA.
+			bool bConquestReversal = false;
+
+			// Which way is this leader leaning? Personality decides the baseline, the current
+			// approach weights can override it for this particular city-state.
+			int iOffenseFlavor = 0;
+			CvFlavorManager* pFlavorMgr = GetPlayer()->GetFlavorManager();
+			if (pFlavorMgr != NULL)
+				iOffenseFlavor = pFlavorMgr->GetPersonalityIndividualFlavor((FlavorTypes)GC.getInfoTypeForString("FLAVOR_OFFENSE"));
+
+			bool bPredatory = GetMinorCivCompetitiveness() >= 6
+			                || iOffenseFlavor >= 7
+			                || (viApproachWeights[MINOR_CIV_APPROACH_CONQUEST] + viApproachWeights[MINOR_CIV_APPROACH_BULLY])
+			                 > (viApproachWeights[MINOR_CIV_APPROACH_FRIENDLY] + viApproachWeights[MINOR_CIV_APPROACH_PROTECTIVE]);
+
+			if (bPredatory)
+			{
+				// Capturing a city-state destroys its unique ability, so a rich UA is never a
+				// conquest target: the leader courts it instead. Worthless ones remain fair game.
+				int iRich = max(0, iCSUAValue - 100) / 10;
+				int iPoor = min(0, iCSUAValue - 60) / 10;
+
+				viApproachWeights[MINOR_CIV_APPROACH_FRIENDLY] += iRich;
+				viApproachWeights[MINOR_CIV_APPROACH_PROTECTIVE] += iRich / 2;
+				viApproachWeights[MINOR_CIV_APPROACH_CONQUEST] += -iRich * 2 - iPoor * 2;
+				viApproachWeights[MINOR_CIV_APPROACH_BULLY] += -iRich - iPoor;
+
+				if (iRich > 0)
+					viApproachWeights[MINOR_CIV_APPROACH_IGNORE] -= iRich;
+
+				// Two reversals where capturing beats courting even for a rich city-state:
+				//   * a conquest-grants-UA civilization (Rome) next to it can take the ability by
+				//     force, so proximity flips the decision;
+				//   * the city-state is already allied to an enemy whose influence dwarfs ours
+				//     (more than 3x our influence or our own ally threshold), so courting is
+				//     hopeless and denying the enemy its UA is the better play.
+				PlayerProximityTypes eProximity = GetPlayer()->GetProximityToPlayer(ePlayer);
+				bool bConquestGrantsUA = GetPlayer()->GetPlayerTraits()->IsGainConqueredCityStateUA()
+					&& (eProximity == PLAYER_PROXIMITY_NEIGHBORS || eProximity == PLAYER_PROXIMITY_CLOSE);
+
+				bool bEnemyLocked = false;
+				CvMinorCivAI* pMinorAI = GET_PLAYER(ePlayer).GetMinorCivAI();
+				if (pMinorAI != NULL)
+				{
+					for (int iMajorLoop = 0; iMajorLoop < MAX_MAJOR_CIVS; iMajorLoop++)
+					{
+						PlayerTypes eMajor = (PlayerTypes)iMajorLoop;
+						if (eMajor == GetPlayer()->GetID())
+							continue;
+						if (!GET_PLAYER(eMajor).isAlive())
+							continue;
+						if (!pMinorAI->IsAllies(eMajor))
+							continue;
+						// "Enemy" is not limited to an active war: a leader who is already
+						// hostile (or biding his time to declare) counts as well.
+						MajorCivApproachTypes eTheirApproach = GetMajorCivApproach(eMajor, false);
+						bool bEnemy = IsAtWar(eMajor)
+							|| eTheirApproach == MAJOR_CIV_APPROACH_WAR
+							|| eTheirApproach == MAJOR_CIV_APPROACH_HOSTILE;
+						if (!bEnemy)
+							continue;
+
+						int iTheirInfluence = pMinorAI->GetEffectiveFriendshipWithMajor(eMajor);
+						int iMyInfluence = pMinorAI->GetEffectiveFriendshipWithMajor(GetPlayer()->GetID());
+						int iMyAllyThreshold = pMinorAI->GetAlliesThresholdForPlayer(GetPlayer()->GetID());
+						int iMyFloor = max(iMyInfluence, iMyAllyThreshold);
+
+						if (iTheirInfluence > iMyFloor * 3)
+						{
+							bEnemyLocked = true;
+							break;
+						}
+					}
+				}
+
+				if (bConquestGrantsUA || bEnemyLocked)
+				{
+					bConquestReversal = true;
+
+					viApproachWeights[MINOR_CIV_APPROACH_CONQUEST] += 60;
+					viApproachWeights[MINOR_CIV_APPROACH_BULLY] += 20;
+					viApproachWeights[MINOR_CIV_APPROACH_FRIENDLY] -= 15;
+					viApproachWeights[MINOR_CIV_APPROACH_PROTECTIVE] -= 10;
+					viApproachWeights[MINOR_CIV_APPROACH_IGNORE] -= 20;
+				}
+			}
+			else
+			{
+				// Below average fit: stop courting it and let it go
+				int iMisfit = min(0, iCSUAValue - 80) / 10;
+
+				viApproachWeights[MINOR_CIV_APPROACH_FRIENDLY] += iCSUAWeight + iMisfit;
+				viApproachWeights[MINOR_CIV_APPROACH_PROTECTIVE] += iCSUAWeight / 2 + iMisfit / 2;
+				viApproachWeights[MINOR_CIV_APPROACH_CONQUEST] -= iCSUAWeight;
+				viApproachWeights[MINOR_CIV_APPROACH_BULLY] -= iCSUAWeight / 2;
+
+				if (iMisfit < 0)
+					viApproachWeights[MINOR_CIV_APPROACH_IGNORE] -= iMisfit / 2;
+			}
+
+			// A nearby city-state whose UA is worth courting is never treated as a conquest
+			// target. Vanilla neighbor and "good war target" bonuses (up to +11) plus the
+			// target-value multiplier drown out any flat subtraction, so conquest is dropped
+			// to zero outright instead of being chipped at. Only +1 proximity and +1 hostile-
+			// personality weight follow, too small to flip the decision.
+			// Reversals above keep conquest alive: there taking the city-state is the point.
+			if (!bConquestReversal && iCSUAValue >= 100
+				&& GetPlayer()->GetProximityToPlayer(ePlayer) == PLAYER_PROXIMITY_NEIGHBORS)
+			{
+				viApproachWeights[MINOR_CIV_APPROACH_CONQUEST] = 0;
+			}
+		}
+	}
+#endif
 	////////////////////////////////////
 	// RELIGION
 	////////////////////////////////////
@@ -11248,7 +11427,9 @@ void CvDiplomacyAI::DoSendStatementToPlayer(PlayerTypes ePlayer, DiploStatementT
 		LogDenounce(ePlayer);
 
 		// Send message to human
-		if(bShouldShowLeaderScene)
+		// Jerusalem CS UA: DoDenouncePlayer dropped this denouncement, so there is nothing to announce.
+		// Showing the scene anyway is exactly what makes the AI look like it denounces every turn.
+		if(bShouldShowLeaderScene && !(MOD_SP_UNIQUE_CITYSTATE && GET_PLAYER(ePlayer).IsDenounceImmunity()))
 		{
 #if defined(MOD_DIPLOMACY_STFU)
 			SendAILeaderMessage(GetPlayer()->GetID(), ePlayer, DIPLO_UI_STATE_BLANK_DISCUSSION_MEAN_AI, DIPLO_MESSAGE_WORK_AGAINST_SOMEONE, ePlayer, LEADERHEAD_ANIM_HATE_NEGATIVE);
@@ -11270,7 +11451,8 @@ void CvDiplomacyAI::DoSendStatementToPlayer(PlayerTypes ePlayer, DiploStatementT
 		LogDenounce(ePlayer, /*bBackstab*/ true);
 
 		// Send message to human
-		if(bShouldShowLeaderScene)
+		// Jerusalem CS UA: the backstab was dropped above (the friendship survives), so don't announce it.
+		if(bShouldShowLeaderScene && !(MOD_SP_UNIQUE_CITYSTATE && GET_PLAYER(ePlayer).IsDenounceImmunity()))
 		{
 #if defined(MOD_DIPLOMACY_STFU)
 			SendAILeaderMessage(GetPlayer()->GetID(), ePlayer, DIPLO_UI_STATE_BLANK_DISCUSSION, DIPLO_MESSAGE_AI_DOF_BACKSTAB, ePlayer, LEADERHEAD_ANIM_HATE_NEGATIVE);
@@ -11744,6 +11926,42 @@ void CvDiplomacyAI::DoSendStatementToPlayer(PlayerTypes ePlayer, DiploStatementT
 			szText = GetDiploStringForMessage(DIPLO_MESSAGE_RESEARCH_AGREEMENT_OFFER);
 #if defined(MOD_API_PLAYER_LOGS)
 			CvDiplomacyRequests::SendDealRequest(GetPlayer()->GetID(), ePlayer, pDeal, DIPLO_UI_STATE_TRADE_AI_MAKES_OFFER, DIPLO_MESSAGE_RESEARCH_AGREEMENT_OFFER, szText, LEADERHEAD_ANIM_REQUEST);
+#else
+			CvDiplomacyRequests::SendDealRequest(GetPlayer()->GetID(), ePlayer, pDeal, DIPLO_UI_STATE_TRADE_AI_MAKES_OFFER, szText, LEADERHEAD_ANIM_REQUEST);
+#endif
+#endif
+		}
+		// Offer to an AI player
+		else if(!bHuman)
+		{
+			CvDeal kDeal = *pDeal;
+
+			// Don't need to call DoOffer because we check to see if the deal works for both sides BEFORE sending
+#if defined(MOD_AI_MP_DIPLOMACY)
+			if (MOD_AI_MP_DIPLOMACY) {
+				GC.getGame().GetGameDeals()->FinalizeDeal(*pDeal, true);
+			} else {
+#endif
+			GC.getGame().GetGameDeals()->AddProposedDeal(kDeal);
+			GC.getGame().GetGameDeals()->FinalizeDeal(GetPlayer()->GetID(), ePlayer, true);
+#if defined(MOD_AI_MP_DIPLOMACY)
+			}
+#endif
+		}
+	}
+
+	// Offer Non-Aggression Pact
+	else if(eStatement == DIPLO_STATEMENT_NON_AGGRESSION_PACT_OFFER)
+	{
+		// Active human
+		if(bShouldShowLeaderScene)
+		{
+#if defined(MOD_DIPLOMACY_STFU)
+			SendAIDealRequest(GetPlayer()->GetID(), ePlayer, pDeal, DIPLO_UI_STATE_TRADE_AI_MAKES_OFFER, DIPLO_MESSAGE_NON_AGGRESSION_PACT_OFFER, LEADERHEAD_ANIM_REQUEST);
+#else
+			szText = GetDiploStringForMessage(DIPLO_MESSAGE_NON_AGGRESSION_PACT_OFFER);
+#if defined(MOD_API_PLAYER_LOGS)
+			CvDiplomacyRequests::SendDealRequest(GetPlayer()->GetID(), ePlayer, pDeal, DIPLO_UI_STATE_TRADE_AI_MAKES_OFFER, DIPLO_MESSAGE_NON_AGGRESSION_PACT_OFFER, szText, LEADERHEAD_ANIM_REQUEST);
 #else
 			CvDiplomacyRequests::SendDealRequest(GetPlayer()->GetID(), ePlayer, pDeal, DIPLO_UI_STATE_TRADE_AI_MAKES_OFFER, szText, LEADERHEAD_ANIM_REQUEST);
 #endif
@@ -13088,6 +13306,7 @@ void CvDiplomacyAI::DoContactPlayer(PlayerTypes ePlayer)
 		DoOpenBordersExchange(ePlayer, eStatement, pDeal);
 		DoOpenBordersOffer(ePlayer, eStatement, pDeal);
 		DoResearchAgreementOffer(ePlayer, eStatement, pDeal);
+		DoNonAggressionPactOffer(ePlayer, eStatement, pDeal);
 		DoRenewExpiredDeal(ePlayer, eStatement, pDeal);
 		DoShareIntrigueStatement(ePlayer, eStatement);
 		//DoResearchAgreementPlan(ePlayer, eStatement);
@@ -13538,6 +13757,13 @@ void CvDiplomacyAI::DoContactMinorCivs()
 			if(bWantsToMakeGoldGift && !bWantsToBuyoutThisMinor)
 			{
 				int iValue = /*100*/ GC.getMC_GIFT_WEIGHT_THRESHOLD();
+#if defined(MOD_SP_UNIQUE_CITYSTATE)
+				// CSUA attraction: this city-state's unique ability is what we want or need.
+				// Negative values mean the UA conflicts with our playstyle, so they lower the
+				// willingness to spend gold here rather than merely failing to raise it.
+				int iCSUAValue = MOD_SP_UNIQUE_CITYSTATE ? GetCSUAAIDesirability(eMinor) : 0;
+				iValue += iCSUAValue;
+#endif
 				// If we're not protective or friendly, then don't bother with minor diplo
 				if(eApproach == MINOR_CIV_APPROACH_PROTECTIVE || eApproach == MINOR_CIV_APPROACH_FRIENDLY)
 				{
@@ -13692,9 +13918,15 @@ void CvDiplomacyAI::DoContactMinorCivs()
 							iValue += /*125*/ GC.getMC_GIFT_WEIGHT_ALMOST_NOT_FRIENDS();
 							sGiftInfo.bQuickBoost = true;
 						}
-						// Not going to lose status, so not worth going after this guy
+						// Not going to lose status, so not worth going after this guy - unless its
+						// CSUA alone is valuable enough to justify upgrading friendship to alliance
 						else if(!IsGoingForDiploVictory() || !GC.getGame().IsUnitedNationsActive())
-							iValue = 0;
+						{
+#if defined(MOD_SP_UNIQUE_CITYSTATE)
+							if (!MOD_SP_UNIQUE_CITYSTATE || iCSUAValue < GC.getMC_GIFT_WEIGHT_THRESHOLD())
+#endif
+								iValue = 0;
+						}
 					}
 
 					// Did we bully you recently?  If so, giving you gold now would be very odd.
@@ -15129,6 +15361,35 @@ void CvDiplomacyAI::DoResearchAgreementOffer(PlayerTypes ePlayer, DiploStatement
 				// Clear out the deal if we don't want to offer it so that it's not tainted for the next trade possibility we look at
 				pDeal->ClearItems();
 			}
+		}
+	}
+}
+
+/// Possible Contact Statement - Non-Aggression Pact Offer
+void CvDiplomacyAI::DoNonAggressionPactOffer(PlayerTypes ePlayer, DiploStatementTypes& eStatement, CvDeal* pDeal)
+{
+	CvAssertMsg(ePlayer >= 0, "DIPLOMACY_AI: Invalid Player Index.  Please send Jon this with your last 5 autosaves and what changelist # you're playing.");
+	CvAssertMsg(ePlayer < MAX_MAJOR_CIVS, "DIPLOMACY_AI: Invalid Player Index.  Please send Jon this with your last 5 autosaves and what changelist # you're playing.");
+
+	if(eStatement == NO_DIPLO_STATEMENT_TYPE)
+	{
+		if(IsAtWar(ePlayer))
+			return;
+
+		if(GetPlayer()->GetDealAI()->IsMakeOfferForNonAggressionPact(ePlayer, /*pDeal can be modified in this function*/ pDeal))
+		{
+			DiploStatementTypes eTempStatement = DIPLO_STATEMENT_NON_AGGRESSION_PACT_OFFER;
+			int iTurnsBetweenStatements = 20;
+
+			if(GetNumTurnsSinceStatementSent(ePlayer, eTempStatement) >= iTurnsBetweenStatements)
+				eStatement = eTempStatement;
+			else
+				pDeal->ClearItems();
+		}
+		else
+		{
+			// Clear out the deal if we don't want to offer it so that it's not tainted for the next trade possibility we look at
+			pDeal->ClearItems();
 		}
 	}
 }
@@ -16784,6 +17045,8 @@ const char* GetResponseKeyForMessage(DiploMessageTypes eDiploMessage)
 		return "RESPONSE_PLAN_RESEARCH_AGREEMENT";
 	case DIPLO_MESSAGE_RESEARCH_AGREEMENT_OFFER:
 		return "RESPONSE_RESEARCH_AGREEMENT_OFFER";
+	case DIPLO_MESSAGE_NON_AGGRESSION_PACT_OFFER:
+		return "RESPONSE_NON_AGGRESSION_PACT_OFFER";
 	case DIPLO_MESSAGE_RENEW_DEAL:
 		return "RESPONSE_RENEW_DEAL";
 	case DIPLO_MESSAGE_WANT_MORE_RENEW_DEAL:
@@ -17493,6 +17756,11 @@ const char* CvDiplomacyAI::GetDiploStringForMessage(DiploMessageTypes eDiploMess
 		// AI wants RA with player
 	case DIPLO_MESSAGE_RESEARCH_AGREEMENT_OFFER:
 		strText = GetDiploTextFromTag("RESPONSE_RESEARCH_AGREEMENT_OFFER");
+		break;
+
+		// AI wants a Non-Aggression Pact with player
+	case DIPLO_MESSAGE_NON_AGGRESSION_PACT_OFFER:
+		strText = GetDiploTextFromTag("RESPONSE_NON_AGGRESSION_PACT_OFFER");
 		break;
 
 	case DIPLO_MESSAGE_RENEW_DEAL:
@@ -21788,6 +22056,12 @@ int CvDiplomacyAI::GetNumDoF()
 bool CvDiplomacyAI::IsDenounceFriendAcceptable(PlayerTypes ePlayer)
 {
 	CvAssertMsg(IsDoFAccepted(ePlayer), "Diplomacy AI: Testing whether we should Denounce a Friend, but we aren't right now. Please send Jon this with your last 5 autosaves and what changelist # you're playing.");
+#if defined(MOD_SP_UNIQUE_CITYSTATE)
+	// Jerusalem CS UA: a denounce-immune player cannot be backstabbed either. Returning false here
+	// keeps the friendship intact instead of re-sending the failed backstab statement every turn.
+	if (MOD_SP_UNIQUE_CITYSTATE && GET_PLAYER(ePlayer).IsDenounceImmunity())
+		return false;
+#endif
 
 	// Changed our approach towards ePlayer
 	MajorCivApproachTypes eTrueApproach = GetMajorCivApproach(ePlayer, /*bHideTrueFeelings*/ false);
@@ -22028,6 +22302,14 @@ bool CvDiplomacyAI::IsDenounceAcceptable(PlayerTypes ePlayer, bool bBias)
 	{
 		return false;
 	}
+#if defined(MOD_SP_UNIQUE_CITYSTATE)
+	// Jerusalem CS UA: the ally of a DenounceImmunity city-state cannot be denounced. DoDenouncePlayer
+	// drops the denouncement itself, but the decision layer must agree as well - otherwise the AI
+	// keeps picking the denounce statement that then silently fails (a friend backstab gets
+	// re-sent every single turn, because the failed denounce never breaks the friendship).
+	if (MOD_SP_UNIQUE_CITYSTATE && GET_PLAYER(ePlayer).IsDenounceImmunity())
+		return false;
+#endif
 
 	// If we've already denounced, it's no good
 	if(IsDenouncedPlayer(ePlayer))
@@ -22255,6 +22537,12 @@ PlayerTypes CvDiplomacyAI::GetRequestFriendToDenounce(PlayerTypes ePlayer, bool&
 		// Don't pick someone they've already denounced
 		if(pTheirAI->IsDenouncedPlayer(eLoopPlayer))
 			continue;
+#if defined(MOD_SP_UNIQUE_CITYSTATE)
+		// Jerusalem CS UA: nobody can denounce this player, so asking a friend to do it would only
+		// earn a refusal (and the refusal penalty attached to it).
+		if (MOD_SP_UNIQUE_CITYSTATE && GET_PLAYER(eLoopPlayer).IsDenounceImmunity())
+			continue;
+#endif
 
 		// Only look at players we've denounced, or at war with
 		if(!IsAtWar(eLoopPlayer) && !IsDenouncedPlayer(eLoopPlayer))
@@ -25051,6 +25339,1503 @@ bool CvDiplomacyAI::IsGoingForSpaceshipVictory()
 
 	return false;
 }
+
+#if defined(MOD_SP_UNIQUE_CITYSTATE)
+/// AI attraction to a city-state's unique ability, on the gold-gift value scale (threshold = 100).
+/// "Wants": CityStateUA_ExtraFlavors scales with this leader's personality flavor, using the same
+///          math as Belief_ExtraFlavors.
+/// "Needs": CityStateUA_VictoryFlavors adds a flat value for the grand strategy we pursue now.
+int CvDiplomacyAI::GetCSUAAIDesirability(PlayerTypes eMinor)
+{
+	if (!MOD_SP_UNIQUE_CITYSTATE)
+		return 0;
+
+	if (eMinor < 0 || eMinor >= MAX_CIV_PLAYERS)
+		return 0;
+
+	if (!GET_PLAYER(eMinor).isMinorCiv())
+		return 0;
+
+	CvMinorCivInfo* pMinorInfo = GC.getMinorCivInfo(GET_PLAYER(eMinor).GetMinorCivAI()->GetMinorCivType());
+	if (pMinorInfo == NULL || pMinorInfo->GetCityStateUAIndex() < 0)
+		return 0;
+
+	CvCityStateUAEntry* pEntry = GC.GetGameCityStateUAs()->GetEntry(pMinorInfo->GetCityStateUAIndex());
+	if (pEntry == NULL)
+		return 0;
+
+	int iScore = 0;
+
+	CvFlavorManager* pFlavorManager = GetPlayer()->GetFlavorManager();
+	if (pFlavorManager != NULL)
+	{
+		for (int iFlavor = 0; iFlavor < GC.getNumFlavorTypes(); iFlavor++)
+		{
+			int iExtra = pEntry->GetExtraFlavorValue(iFlavor);
+			if (iExtra == 0)
+				continue;
+
+			int iLeaderFlavor = pFlavorManager->GetPersonalityIndividualFlavor((FlavorTypes)iFlavor);
+			if (iLeaderFlavor == 0)
+				continue;
+
+			iScore += (iExtra * iLeaderFlavor) / 100;
+		}
+	}
+
+	iScore += pEntry->GetVictoryFlavorValue(GetPlayer()->GetGrandStrategyAI()->GetActiveGrandStrategy());
+
+	return iScore;
+}
+
+/// Number of city-states the AI actively works on for quests: its total diplomatic prestige.
+int CvDiplomacyAI::GetCityStateQuestFocusCount()
+{
+	if (!MOD_SP_UNIQUE_CITYSTATE)
+		return 0;
+
+	return max(0, GetPlayer()->GetDiplomaticPrestige());
+}
+
+/// 1-based rank of eMinor among known city-states by CSUA attraction (0 = not ranked).
+int CvDiplomacyAI::GetCityStateQuestRank(PlayerTypes eMinor)
+{
+	if (!MOD_SP_UNIQUE_CITYSTATE)
+		return 0;
+
+	if (eMinor < MAX_MAJOR_CIVS || eMinor >= MAX_CIV_PLAYERS)
+		return 0;
+
+	if (!GET_PLAYER(eMinor).isAlive())
+		return 0;
+
+	if (!GET_TEAM(GetTeam()).isHasMet(GET_PLAYER(eMinor).getTeam()))
+		return 0;
+
+	int iMyValue = GetCSUAAIDesirability(eMinor);
+	int iRank = 1;
+
+	for (int iLoop = MAX_MAJOR_CIVS; iLoop < MAX_CIV_PLAYERS; iLoop++)
+	{
+		PlayerTypes eLoopMinor = (PlayerTypes)iLoop;
+
+		if (eLoopMinor == eMinor)
+			continue;
+
+		if (!GET_PLAYER(eLoopMinor).isAlive())
+			continue;
+
+		if (!GET_TEAM(GetTeam()).isHasMet(GET_PLAYER(eLoopMinor).getTeam()))
+			continue;
+
+		int iValue = GetCSUAAIDesirability(eLoopMinor);
+
+		// Ties are broken by player id so the ranking is stable from turn to turn
+		if (iValue > iMyValue || (iValue == iMyValue && eLoopMinor < eMinor))
+			iRank++;
+	}
+
+	return iRank;
+}
+
+/// Is eMinor one of the top iTopRank city-states of the quest focus list?
+bool CvDiplomacyAI::IsCityStateInQuestFocus(PlayerTypes eMinor, int iTopRank)
+{
+	if (iTopRank <= 0)
+		return false;
+
+	// The focus list itself is capped by diplomatic prestige (quest requirement 0)
+	int iLimit = min(iTopRank, GetCityStateQuestFocusCount());
+	if (iLimit <= 0)
+		return false;
+
+	int iRank = GetCityStateQuestRank(eMinor);
+	return iRank > 0 && iRank <= iLimit;
+}
+
+/// Does the AI already have an offensive operation aimed at this player?
+bool CvDiplomacyAI::IsPreparingAttackOnPlayer(PlayerTypes ePlayer) const
+{
+	if (ePlayer < 0 || ePlayer >= MAX_CIV_PLAYERS)
+		return false;
+
+	// Mustering is a cheaper and earlier signal than an actual operation
+	if (IsMusteringForAttack(ePlayer))
+		return true;
+
+	for (CvAIOperation* pOperation = m_pPlayer->getFirstAIOperation();
+		pOperation != NULL;
+		pOperation = m_pPlayer->getNextAIOperation())
+	{
+		if (pOperation->GetEnemy() != ePlayer)
+			continue;
+
+		switch (pOperation->GetOperationType())
+		{
+		case AI_OPERATION_BASIC_CITY_ATTACK:
+		case AI_OPERATION_SNEAK_CITY_ATTACK:
+		case AI_OPERATION_SMALL_CITY_ATTACK:
+		case AI_OPERATION_NAVAL_ATTACK:
+		case AI_OPERATION_NAVAL_SNEAK_ATTACK:
+		case AI_OPERATION_CITY_STATE_ATTACK:
+		case AI_OPERATION_CITY_STATE_NAVAL_ATTACK:
+		case AI_OPERATION_PURE_NAVAL_CITY_ATTACK:
+		case AI_OPERATION_NUKE_ATTACK:
+			return true;
+
+		default:
+			break;
+		}
+	}
+
+	return false;
+}
+
+/// Should a hostile city-state quest against eTarget be ignored?
+bool CvDiplomacyAI::IsCityStateQuestTargetExempt(PlayerTypes eTarget) const
+{
+	if (eTarget < 0 || eTarget >= MAX_CIV_PLAYERS)
+		return true;
+
+	if (!GET_PLAYER(eTarget).isAlive())
+		return true;
+
+	PlayerTypes eMe = m_pPlayer->GetID();
+
+	if (eTarget == eMe)
+		return true;
+
+	// Same team or permanent ally
+	if (m_pPlayer->getTeam() == GET_PLAYER(eTarget).getTeam())
+		return true;
+
+	if (m_pPlayer->IsPermanentAlly(eTarget) || GET_PLAYER(eTarget).IsPermanentAlly(eMe))
+		return true;
+
+	// Peace treaty still in force
+	int iPeaceTurn = GET_TEAM(m_pPlayer->getTeam()).GetTurnMadePeaceTreatyWithTeam(GET_PLAYER(eTarget).getTeam());
+	if (iPeaceTurn > -1 && GC.getGame().getElapsedGameTurns() - iPeaceTurn < GC.getPEACE_TREATY_LENGTH())
+		return true;
+
+	// Declaration of Friendship partner (majors only)
+	if (GET_PLAYER(eTarget).isMajorCiv() && IsDoFAccepted(eTarget))
+		return true;
+
+	// City-state under the protection of a major that is militarily stronger than us
+	if (GET_PLAYER(eTarget).isMinorCiv())
+	{
+		CvMinorCivAI* pTargetMinorAI = GET_PLAYER(eTarget).GetMinorCivAI();
+
+		// Never turn against a city-state we are allied with or on friendly terms with
+		if (pTargetMinorAI != NULL && (pTargetMinorAI->IsAllies(eMe) || pTargetMinorAI->IsFriends(eMe)))
+			return true;
+
+		// Our own protectorate: bullying it means dropping protection first, which the
+		// BULLY_CITY_STATE branch decides on its own (see CanBullyProtectedCityState).
+		if (pTargetMinorAI != NULL && pTargetMinorAI->IsProtectedByMajor(eMe))
+			return true;
+
+		if (pTargetMinorAI != NULL && pTargetMinorAI->IsProtectedByAnyMajor())
+		{
+			int iMyMilitaryMight = m_pPlayer->GetMilitaryMight();
+
+			for (int iProtectorLoop = 0; iProtectorLoop < MAX_MAJOR_CIVS; iProtectorLoop++)
+			{
+				PlayerTypes eProtector = (PlayerTypes)iProtectorLoop;
+
+				if (!GET_PLAYER(eProtector).isAlive())
+					continue;
+
+				if (!pTargetMinorAI->IsProtectedByMajor(eProtector))
+					continue;
+
+				if (GET_PLAYER(eProtector).GetMilitaryMight() > iMyMilitaryMight)
+					return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+/// We protect eMinor ourselves. May we drop that protection in order to bully it?
+/// Only when its ally is a rival of ours and its influence there dwarfs ours.
+static bool CanBullyProtectedCityState(CvDiplomacyAI* pOwner, CvMinorCivAI* pTargetAI, PlayerTypes eMinor)
+{
+	if (pOwner == NULL || pTargetAI == NULL)
+		return false;
+
+	PlayerTypes eMe = pOwner->GetPlayer()->GetID();
+
+	if (!pTargetAI->IsProtectedByMajor(eMe))
+		return false;
+
+	// Dropping protection does not entitle us to break a peace treaty
+	int iPeaceTurn = GET_TEAM(pOwner->GetTeam()).GetTurnMadePeaceTreatyWithTeam(GET_PLAYER(eMinor).getTeam());
+	if (iPeaceTurn > -1 && GC.getGame().getElapsedGameTurns() - iPeaceTurn < GC.getPEACE_TREATY_LENGTH())
+		return false;
+
+	PlayerTypes eAlly = pTargetAI->GetAlly();
+	if (eAlly < 0 || eAlly >= MAX_MAJOR_CIVS || !GET_PLAYER(eAlly).isAlive())
+		return false;
+
+	// The ally has to be someone we are hostile towards
+	if (!GET_TEAM(pOwner->GetTeam()).isAtWar(GET_PLAYER(eAlly).getTeam()) && !pOwner->IsDenouncedPlayer(eAlly))
+		return false;
+
+	int iTheirInfluence = pTargetAI->GetEffectiveFriendshipWithMajor(eAlly);
+	int iOurThreshold = max(pTargetAI->GetEffectiveFriendshipWithMajor(eMe), pTargetAI->GetAlliesThresholdForPlayer(eMe));
+
+	return iTheirInfluence > iOurThreshold * 2;
+}
+
+/// Is this quest still active and not expired?
+static bool IsCityStateQuestCurrent(CvMinorCivAI* pMinorAI, PlayerTypes ePlayer, MinorCivQuestTypes eQuest)
+{
+	if (pMinorAI == NULL)
+		return false;
+
+	if (!pMinorAI->IsActiveQuestForPlayer(ePlayer, eQuest))
+		return false;
+
+	return !pMinorAI->IsQuestExpired(ePlayer, eQuest);
+}
+
+/// Recompute the building our focused city-states are asking us to spread (once per turn).
+void CvDiplomacyAI::UpdateCityStateQuestBuildingTarget()
+{
+	m_eCityStateQuestBuildingTarget = NO_BUILDING;
+
+	if (!MOD_SP_UNIQUE_CITYSTATE)
+		return;
+
+	PlayerTypes eMe = GetPlayer()->GetID();
+
+	for (int iLoop = MAX_MAJOR_CIVS; iLoop < MAX_CIV_PLAYERS; iLoop++)
+	{
+		PlayerTypes eMinor = (PlayerTypes)iLoop;
+
+		if (!GET_PLAYER(eMinor).isAlive())
+			continue;
+
+		if (!GET_TEAM(GetTeam()).isHasMet(GET_PLAYER(eMinor).getTeam()))
+			continue;
+
+		CvMinorCivAI* pMinorAI = GET_PLAYER(eMinor).GetMinorCivAI();
+		if (pMinorAI == NULL)
+			continue;
+
+		// Check the (cheap) quest test before the (expensive) ranking
+		if (!IsCityStateQuestCurrent(pMinorAI, eMe, MINOR_CIV_QUEST_SPREAD_BUILDING))
+			continue;
+
+		if (!IsCityStateInQuestFocus(eMinor, 3))
+			continue;
+
+		BuildingTypes eBuilding = (BuildingTypes)pMinorAI->GetQuestData1(eMe, MINOR_CIV_QUEST_SPREAD_BUILDING);
+		if (eBuilding == NO_BUILDING)
+			continue;
+
+		// Count how many of our cities already have it; once the target is met the quest
+		// completes on its own and there is no reason to push production.
+		int iTarget = pMinorAI->GetQuestData2(eMe, MINOR_CIV_QUEST_SPREAD_BUILDING);
+		int iCount = 0;
+		int iCityLoop;
+		for (CvCity* pCity = GetPlayer()->firstCity(&iCityLoop); pCity != NULL; pCity = GetPlayer()->nextCity(&iCityLoop))
+		{
+			if (pCity->GetCityBuildings()->GetNumRealBuilding(eBuilding) > 0)
+				iCount++;
+		}
+
+		if (iCount < iTarget)
+		{
+			m_eCityStateQuestBuildingTarget = eBuilding;
+			return;
+		}
+	}
+}
+
+/// Building requested by a focused city-state spread quest, or NO_BUILDING if none.
+BuildingTypes CvDiplomacyAI::GetCityStateQuestBuildingTarget()
+{
+	if (!MOD_SP_UNIQUE_CITYSTATE || GetPlayer()->isHuman())
+		return NO_BUILDING;
+
+	return m_eCityStateQuestBuildingTarget;
+}
+
+/// Are trade routes to this city-state blocked by a disconnect quest?
+bool CvDiplomacyAI::IsNoConnectToMinor(PlayerTypes eMinor) const
+{
+	if (eMinor < MAX_MAJOR_CIVS || eMinor >= MAX_CIV_PLAYERS)
+		return false;
+
+	int iIndex = eMinor - MAX_MAJOR_CIVS;
+	if (iIndex < 0 || iIndex >= MAX_MINOR_CIVS)
+		return false;
+
+	return m_paiNoConnectToMinorTurn[iIndex] >= GC.getGame().getGameTurn();
+}
+
+void CvDiplomacyAI::SetNoConnectToMinor(PlayerTypes eMinor, int iExpireTurn)
+{
+	if (eMinor < MAX_MAJOR_CIVS || eMinor >= MAX_CIV_PLAYERS)
+		return;
+
+	int iIndex = eMinor - MAX_MAJOR_CIVS;
+	if (iIndex < 0 || iIndex >= MAX_MINOR_CIVS)
+		return;
+
+	m_paiNoConnectToMinorTurn[iIndex] = (short)iExpireTurn;
+}
+
+/// Break all trade routes this player runs to eTarget.
+static void EndTradeRoutesToPlayer(CvPlayer* pPlayer, PlayerTypes eTarget)
+{
+	if (!MOD_API_TRADEROUTES)
+		return;
+
+	CvGameTrade* pTrade = GC.getGame().GetGameTrade();
+	if (pTrade == NULL)
+		return;
+
+	for (uint ui = 0; ui < pTrade->m_aTradeConnections.size(); ui++)
+	{
+		TradeConnection& kConnection = pTrade->m_aTradeConnections[ui];
+
+		if (kConnection.m_eOriginOwner == pPlayer->GetID() && kConnection.m_eDestOwner == eTarget)
+		{
+			pTrade->EndTradeRoute(ui);
+		}
+	}
+}
+
+/// Spend gold on the city-state's donation quests (requirement 2: only top-3 city-states).
+static void DoCityStateQuestGoldDonation(CvPlayer* pPlayer, CvMinorCivAI* pMinorAI)
+{
+	PlayerTypes eMe = pPlayer->GetID();
+
+	int iGold = pPlayer->GetTreasury()->GetGold();
+	int iNetGold = pPlayer->GetTreasury()->CalculateBaseNetGold();
+	int iReserve = max(100, iNetGold * 5);
+	if (iGold <= iReserve)
+		return;
+
+	int iAvailable = iGold - iReserve;
+	int iGift = 0;
+
+	// Large donation quest: pay exactly what is still missing
+	if (IsCityStateQuestCurrent(pMinorAI, eMe, MINOR_CIV_QUEST_DONATE_GOLD))
+	{
+		int iTarget = pMinorAI->GetQuestData1(eMe, MINOR_CIV_QUEST_DONATE_GOLD);
+		int iBefore = pMinorAI->GetQuestData2(eMe, MINOR_CIV_QUEST_DONATE_GOLD);
+		int iRemaining = iTarget - (pMinorAI->GetNumGoldGifted(eMe) - iBefore);
+
+		if (iRemaining > 0 && iAvailable >= iRemaining)
+			iGift = iRemaining;
+	}
+
+	// Ordinary gold quest: one standard tier is enough to complete it
+	if (iGift == 0 && IsCityStateQuestCurrent(pMinorAI, eMe, MINOR_CIV_QUEST_GIVE_GOLD))
+	{
+		if (iAvailable / 2 >= GC.getMINOR_GOLD_GIFT_LARGE())
+			iGift = GC.getMINOR_GOLD_GIFT_LARGE();
+		else if (iAvailable / 2 >= GC.getMINOR_GOLD_GIFT_MEDIUM())
+			iGift = GC.getMINOR_GOLD_GIFT_MEDIUM();
+		else if (iAvailable / 2 >= GC.getMINOR_GOLD_GIFT_SMALL())
+			iGift = GC.getMINOR_GOLD_GIFT_SMALL();
+	}
+
+	if (iGift > 0)
+		pMinorAI->DoGoldGiftFromMajor(eMe, iGift);
+}
+
+/// Every-turn pass: actively complete the city-state quests this AI cares about.
+void CvDiplomacyAI::DoCityStateQuestAI()
+{
+	if (!MOD_SP_UNIQUE_CITYSTATE)
+		return;
+
+	const int iTurn = GC.getGame().getGameTurn();
+
+	// DoTurn can run more than once per turn for the same AI (hotseat human-diplomacy pass)
+	if (m_iLastCityStateQuestTurn == iTurn)
+		return;
+	m_iLastCityStateQuestTurn = iTurn;
+
+	if (m_pPlayer->isHuman())
+		return;
+
+	PlayerTypes eMe = m_pPlayer->GetID();
+	int iFocusCount = GetCityStateQuestFocusCount();
+	if (iFocusCount <= 0)
+	{
+		m_eCityStateQuestBuildingTarget = NO_BUILDING;
+		return;
+	}
+
+	const int iTopThree = min(3, iFocusCount);
+
+	// Cache the spread-building target once per turn; every city's production AI reads it
+	UpdateCityStateQuestBuildingTarget();
+
+	// Build the ranking once per turn instead of re-ranking inside the loop
+	int aiValue[MAX_CIV_PLAYERS];
+	for (int iValueLoop = 0; iValueLoop < MAX_CIV_PLAYERS; iValueLoop++)
+		aiValue[iValueLoop] = INT_MAX;
+
+	for (int iValueLoop = MAX_MAJOR_CIVS; iValueLoop < MAX_CIV_PLAYERS; iValueLoop++)
+	{
+		PlayerTypes eLoopMinor = (PlayerTypes)iValueLoop;
+
+		if (!GET_PLAYER(eLoopMinor).isAlive())
+			continue;
+
+		if (!GET_TEAM(GetTeam()).isHasMet(GET_PLAYER(eLoopMinor).getTeam()))
+			continue;
+
+		aiValue[iValueLoop] = GetCSUAAIDesirability(eLoopMinor);
+	}
+
+	for (int iLoop = MAX_MAJOR_CIVS; iLoop < MAX_CIV_PLAYERS; iLoop++)
+	{
+		PlayerTypes eMinor = (PlayerTypes)iLoop;
+
+		if (aiValue[iLoop] == INT_MAX)
+			continue;
+
+		// Requirement 0: only city-states inside the focus list take part
+		int iRank = 1;
+		for (int iOtherLoop = MAX_MAJOR_CIVS; iOtherLoop < MAX_CIV_PLAYERS; iOtherLoop++)
+		{
+			if (iOtherLoop == iLoop || aiValue[iOtherLoop] == INT_MAX)
+				continue;
+
+			// Ties are broken by player id so the ranking is stable from turn to turn
+			if (aiValue[iOtherLoop] > aiValue[iLoop]
+				|| (aiValue[iOtherLoop] == aiValue[iLoop] && iOtherLoop < iLoop))
+			{
+				iRank++;
+			}
+		}
+
+		if (iRank > iFocusCount)
+			continue;
+
+		CvMinorCivAI* pMinorAI = GET_PLAYER(eMinor).GetMinorCivAI();
+		if (pMinorAI == NULL)
+			continue;
+
+		// 1) Hostile quests: once the quest is 5+ turns old, carry it out at once
+		//    if the target is already the enemy of one of our offensive operations.
+		if (IsCityStateQuestCurrent(pMinorAI, eMe, MINOR_CIV_QUEST_DECLARE_WAR))
+		{
+			PlayerTypes eTarget = (PlayerTypes)pMinorAI->GetQuestData1(eMe, MINOR_CIV_QUEST_DECLARE_WAR);
+			int iStart = pMinorAI->GetQuestStartTurn(eMe, MINOR_CIV_QUEST_DECLARE_WAR);
+
+			if (iStart >= 0 && iTurn - iStart >= 5
+				&& eTarget >= 0 && eTarget < MAX_CIV_PLAYERS
+				&& !IsCityStateQuestTargetExempt(eTarget)
+				&& !GET_TEAM(m_pPlayer->getTeam()).isAtWar(GET_PLAYER(eTarget).getTeam())
+				&& GET_TEAM(m_pPlayer->getTeam()).canDeclareWar(GET_PLAYER(eTarget).getTeam(), eMe)
+				&& IsPreparingAttackOnPlayer(eTarget))
+			{
+				GET_TEAM(m_pPlayer->getTeam()).declareWar(GET_PLAYER(eTarget).getTeam(), false, eMe);
+			}
+		}
+
+		if (IsCityStateQuestCurrent(pMinorAI, eMe, MINOR_CIV_QUEST_DENOUNCE_MAJOR))
+		{
+			PlayerTypes eTarget = (PlayerTypes)pMinorAI->GetQuestData1(eMe, MINOR_CIV_QUEST_DENOUNCE_MAJOR);
+			int iStart = pMinorAI->GetQuestStartTurn(eMe, MINOR_CIV_QUEST_DENOUNCE_MAJOR);
+
+			if (iStart >= 0 && iTurn - iStart >= 5
+				&& eTarget >= 0 && eTarget < MAX_MAJOR_CIVS
+				&& !IsCityStateQuestTargetExempt(eTarget)
+				&& !IsDenouncedPlayer(eTarget)
+				// Jerusalem CS UA: the denouncement is impossible, retrying it every turn is pointless
+				&& !(MOD_SP_UNIQUE_CITYSTATE && GET_PLAYER(eTarget).IsDenounceImmunity())
+				&& IsPreparingAttackOnPlayer(eTarget))
+			{
+				DoDenouncePlayer(eTarget);
+			}
+		}
+
+		// DoCityStateAidPointAI may already have completed this quest with aid points (no influence
+		// cost, no bully record). In that case the ordinary bully must not run on top of it.
+		if (m_aiAidPointBullyTurn[eMinor] != iTurn
+			&& IsCityStateQuestCurrent(pMinorAI, eMe, MINOR_CIV_QUEST_BULLY_CITY_STATE))
+		{
+			PlayerTypes eTargetMinor = (PlayerTypes)pMinorAI->GetQuestData1(eMe, MINOR_CIV_QUEST_BULLY_CITY_STATE);
+			int iStart = pMinorAI->GetQuestStartTurn(eMe, MINOR_CIV_QUEST_BULLY_CITY_STATE);
+
+			if (iStart >= 0 && iTurn - iStart >= 5
+				&& eTargetMinor >= MAX_MAJOR_CIVS && eTargetMinor < MAX_CIV_PLAYERS)
+			{
+				CvMinorCivAI* pTargetAI = GET_PLAYER(eTargetMinor).GetMinorCivAI();
+
+				// Only attempt the bully when it can actually succeed, otherwise we would
+				// give up our own protection (see the exception below) for nothing.
+				if (pTargetAI != NULL
+					&& (pTargetAI->CanMajorBullyGold(eMe) || pTargetAI->CanMajorBullyUnit(eMe)))
+				{
+					bool bExempt = IsCityStateQuestTargetExempt(eTargetMinor);
+
+					// Our own protectorate stays exempt unless its ally is a rival that vastly
+					// out-influences us. In that case we withdraw protection first, then bully.
+					if (bExempt && CanBullyProtectedCityState(this, pTargetAI, eTargetMinor)
+						&& pTargetAI->CanMajorWithdrawProtection(eMe))
+					{
+						pTargetAI->DoChangeProtectionFromMajor(eMe, false);
+						bExempt = false;
+					}
+
+					if (!bExempt)
+					{
+						if (pTargetAI->CanMajorBullyGold(eMe))
+						{
+							int iBullyGold = pTargetAI->GetBullyGoldAmount(eMe);
+							if (iBullyGold > 0)
+								pTargetAI->DoMajorBullyGold(eMe, iBullyGold);
+						}
+						else if (pTargetAI->CanMajorBullyUnit(eMe))
+						{
+							UnitTypes eWorker = m_pPlayer->GetSpecificUnitType("UNITCLASS_WORKER");
+							if (eWorker != NO_UNIT)
+								pTargetAI->DoMajorBullyUnit(eMe, eWorker);
+						}
+					}
+				}
+			}
+		}
+
+		// LEAGUE_SANCTION has no direct action: CvLeagueAI::ScoreProposal weights the proposal instead.
+
+		// 2) Donation quests: only the top 3 city-states get our gold
+		if (iRank <= iTopThree)
+		{
+			DoCityStateQuestGoldDonation(m_pPlayer, pMinorAI);
+
+			if (GC.getGame().IsEconomicAidActive()
+				&& !pMinorAI->IsEconomicAidFromMajor(eMe)
+				&& pMinorAI->CanMajorStartEconomicAid(eMe))
+			{
+				int iEra = GC.getGame().GetEconomicAidWorldEra();
+				if (m_pPlayer->GetTreasury()->CalculateBaseNetGold() > iEra * 3)
+					pMinorAI->DoChangeEconomicAidFromMajor(eMe, true, ECON_AID_TERM_NONE);
+			}
+		}
+
+		// 3) Disconnect trade route: cut it right away and keep it cut next turn
+		if (IsCityStateQuestCurrent(pMinorAI, eMe, MINOR_CIV_QUEST_DISCONNECT_TRADE_ROUTE))
+		{
+			PlayerTypes eTargetMinor = (PlayerTypes)pMinorAI->GetQuestData1(eMe, MINOR_CIV_QUEST_DISCONNECT_TRADE_ROUTE);
+
+			if (eTargetMinor >= MAX_MAJOR_CIVS && eTargetMinor < MAX_CIV_PLAYERS)
+			{
+				EndTradeRoutesToPlayer(m_pPlayer, eTargetMinor);
+				SetNoConnectToMinor(eTargetMinor, iTurn + 1);
+			}
+		}
+	}
+}
+
+//	--------------------------------------------------------------------------------
+// Economic Aid point spending AI (Super Power V11)
+//
+// Requirement 0: regular spending only targets city-states inside the personal quest focus list.
+// The bully takeover (2.4) is the documented exception - its city-state comes from the quest.
+// Requirement 5: deterministic. No Game.Rand, every tie is broken by player id, and the whole
+// decision reads only per-turn synchronized state, so nothing new is serialized.
+//	--------------------------------------------------------------------------------
+
+/// Quests whose outcome does not simply run out of time; a short deadline is not a failure signal.
+static bool IsCityStateQuestOutcomeTurnIndependent(MinorCivQuestTypes eQuest)
+{
+	switch(eQuest)
+	{
+	case MINOR_CIV_QUEST_CONTEST_CULTURE:
+	case MINOR_CIV_QUEST_CONTEST_FAITH:
+	case MINOR_CIV_QUEST_CONTEST_TECHS:
+	case MINOR_CIV_QUEST_CONTEST_WORLD_WONDERS:
+	case MINOR_CIV_QUEST_CONTEST_CONVERTS:
+	case MINOR_CIV_QUEST_CONTEST_GREAT_PEOPLE:
+	case MINOR_CIV_QUEST_CONTEST_CITIES_FOUNDED:
+	case MINOR_CIV_QUEST_CONTEST_CITIES_CAPTURED:
+	case MINOR_CIV_QUEST_KILL_CAMP:
+	case MINOR_CIV_QUEST_SPREAD_RELIGION:
+	case MINOR_CIV_QUEST_TRADE_ROUTE:
+	// Quests with a progress bar or an instantaneous trigger: a short deadline does not prove
+	// failure, so they must never be rerolled just because the timer looks low.
+	case MINOR_CIV_QUEST_RESEARCH_TECH:
+	case MINOR_CIV_QUEST_CONSTRUCT_WONDER:
+	case MINOR_CIV_QUEST_CONSTRUCT_NATIONAL_WONDER:
+	case MINOR_CIV_QUEST_SPREAD_BUILDING:
+	case MINOR_CIV_QUEST_GREAT_PERSON:
+	case MINOR_CIV_QUEST_CONNECT_RESOURCE:
+		return true;
+	default:
+		return false;
+	}
+}
+
+/// Is this personal quest provably impossible to finish? Only the strong signals of requirement
+/// 2.2 count, so a quest that is merely progressing slowly is never thrown away.
+bool CvDiplomacyAI::IsCityStateQuestImpossible(CvMinorCivAI* pMinorAI, PlayerTypes ePlayer, MinorCivQuestTypes eQuest)
+{
+	if (pMinorAI == NULL)
+		return false;
+
+	const int iTurn = GC.getGame().getGameTurn();
+	const int iData1 = pMinorAI->GetQuestData1(ePlayer, eQuest);
+
+	switch(eQuest)
+	{
+	case MINOR_CIV_QUEST_DECLARE_WAR:
+	case MINOR_CIV_QUEST_DENOUNCE_MAJOR:
+	case MINOR_CIV_QUEST_KILL_CITY_STATE:
+	case MINOR_CIV_QUEST_BULLY_CITY_STATE:
+	case MINOR_CIV_QUEST_CAPTURE_ORIGINAL_CAPITAL:
+	{
+		// Target gone or off-limits: the quest can never complete
+		if (iData1 < 0 || iData1 >= MAX_CIV_PLAYERS)
+			return true;
+
+		if (!GET_PLAYER((PlayerTypes)iData1).isAlive())
+			return true;
+
+		// Only hostile quests care about the target being protected or friendly
+		if (IsCityStateQuestTargetExempt((PlayerTypes)iData1))
+			return true;
+
+		break;
+	}
+
+	case MINOR_CIV_QUEST_FIND_CITY_STATE:
+	case MINOR_CIV_QUEST_FIND_PLAYER:
+	case MINOR_CIV_QUEST_DISCONNECT_TRADE_ROUTE:
+	{
+		// Discovery and trade-route quests only need a living target; being friendly with it
+		// does not block them, so the exemption check must not apply here.
+		if (iData1 < 0 || iData1 >= MAX_CIV_PLAYERS)
+			return true;
+
+		if (!GET_PLAYER((PlayerTypes)iData1).isAlive())
+			return true;
+
+		break;
+	}
+
+	case MINOR_CIV_QUEST_CONSTRUCT_WONDER:
+	{
+		BuildingTypes eBuilding = (BuildingTypes)iData1;
+		if (eBuilding < 0 || eBuilding >= GC.getNumBuildingInfos())
+			return true;
+
+		CvBuildingEntry* pkBuildingInfo = GC.getBuildingInfo(eBuilding);
+		if (pkBuildingInfo == NULL)
+			return true;
+
+		// A world wonder exists once; someone finishing it makes the quest obsolete, not
+		// impossible - the quest resolves itself and must not be rerolled for points.
+		BuildingClassTypes eBuildingClass = (BuildingClassTypes)pkBuildingInfo->GetBuildingClassType();
+		if (GC.getGame().getBuildingClassCreatedCount(eBuildingClass) > 0)
+			return false;
+
+		break;
+	}
+
+	case MINOR_CIV_QUEST_RESEARCH_TECH:
+	{
+		TechTypes eTech = (TechTypes)iData1;
+		if (eTech < 0 || eTech >= GC.getNumTechInfos())
+			return true;
+
+		// Already researched: the quest is about to finish on its own, so it is not impossible
+		if (m_pPlayer->HasTech(eTech))
+			return false;
+
+		break;
+	}
+
+	case MINOR_CIV_QUEST_GREAT_PERSON:
+	{
+		UnitTypes eUnit = (UnitTypes)iData1;
+		if (eUnit < 0 || eUnit >= GC.getNumUnitInfos())
+			return true;
+
+		break;
+	}
+
+	default:
+		break;
+	}
+
+	// Too little time left for a quest that cannot be finished in one go
+	const int iRemaining = pMinorAI->GetQuestTurnsRemaining(ePlayer, eQuest, iTurn);
+	if (iRemaining >= 0 && iRemaining < 5 && !IsCityStateQuestOutcomeTurnIndependent(eQuest))
+		return true;
+
+	return false;
+}
+
+/// Will this AI actively work on the quest on its own, without spending aid points?
+bool CvDiplomacyAI::WillCityStateQuestBeDoneByAI(CvMinorCivAI* pMinorAI, PlayerTypes ePlayer, MinorCivQuestTypes eQuest)
+{
+	if (pMinorAI == NULL)
+		return false;
+
+	const int iTurn = GC.getGame().getGameTurn();
+	const int iData1 = pMinorAI->GetQuestData1(ePlayer, eQuest);
+	const int iStart = pMinorAI->GetQuestStartTurn(ePlayer, eQuest);
+	const bool bMature = (iStart >= 0 && iTurn - iStart >= 5);
+
+	switch(eQuest)
+	{
+	case MINOR_CIV_QUEST_DECLARE_WAR:
+	case MINOR_CIV_QUEST_DENOUNCE_MAJOR:
+	{
+		PlayerTypes eTarget = (PlayerTypes)iData1;
+		if (eTarget < 0 || eTarget >= MAX_CIV_PLAYERS)
+			return false;
+
+		if (!GET_PLAYER(eTarget).isAlive())
+			return false;
+
+		if (IsCityStateQuestTargetExempt(eTarget))
+			return false;
+
+		// DoCityStateQuestAI declares war / denounces as soon as an operation is aimed at the target
+		return bMature && IsPreparingAttackOnPlayer(eTarget);
+	}
+
+	case MINOR_CIV_QUEST_BULLY_CITY_STATE:
+	{
+		PlayerTypes eTarget = (PlayerTypes)iData1;
+		if (eTarget < MAX_MAJOR_CIVS || eTarget >= MAX_CIV_PLAYERS)
+			return false;
+
+		if (IsCityStateQuestTargetExempt(eTarget))
+			return false;
+
+		CvMinorCivAI* pTargetAI = GET_PLAYER(eTarget).GetMinorCivAI();
+		if (pTargetAI == NULL)
+			return false;
+
+		// The ordinary bully runs every turn when it can succeed, and DoCityStateAidPointAI can
+		// only buy a bully that is possible in the first place.
+		return pTargetAI->CanMajorBullyGold(ePlayer) || pTargetAI->CanMajorBullyUnit(ePlayer);
+	}
+
+	case MINOR_CIV_QUEST_GIVE_GOLD:
+	case MINOR_CIV_QUEST_DONATE_GOLD:
+	{
+		// Same reserve rule as DoCityStateQuestGoldDonation
+		int iGold = m_pPlayer->GetTreasury()->GetGold();
+		int iNetGold = m_pPlayer->GetTreasury()->CalculateBaseNetGold();
+		int iAvailable = iGold - max(100, iNetGold * 5);
+		if (iAvailable <= 0)
+			return false;
+
+		if (eQuest == MINOR_CIV_QUEST_GIVE_GOLD)
+			return (iAvailable / 2 >= GC.getMINOR_GOLD_GIFT_SMALL());
+
+		return true;
+	}
+
+	case MINOR_CIV_QUEST_DISCONNECT_TRADE_ROUTE:
+		// DoCityStateQuestAI cuts the routes and keeps them cut every turn
+		return true;
+
+	default:
+		return false;
+	}
+}
+
+/// Did every currently active personal quest start too recently for a reroll? There is no save
+/// field for the last reroll turn, so the start turn of the surviving quests approximates it.
+bool CvDiplomacyAI::HasRecentlyRerolledCityStateQuests(CvMinorCivAI* pMinorAI, PlayerTypes ePlayer, int iTurn)
+{
+	if (pMinorAI == NULL)
+		return false;
+
+	bool bAnyQuest = false;
+
+	for (int iQuest = 0; iQuest < NUM_MINOR_CIV_QUEST_TYPES; iQuest++)
+	{
+		MinorCivQuestTypes eQuest = (MinorCivQuestTypes)iQuest;
+
+		if (!pMinorAI->IsPersonalQuest(eQuest))
+			continue;
+
+		if (!IsCityStateQuestCurrent(pMinorAI, ePlayer, eQuest))
+			continue;
+
+		int iStart = pMinorAI->GetQuestStartTurn(ePlayer, eQuest);
+		if (iStart < 0 || iStart <= iTurn - 30)
+			return false;
+
+		bAnyQuest = true;
+	}
+
+	return bAnyQuest;
+}
+
+/// Pick the city-state pool that pays a bill whose cost can be charged to any pool. Requirement 3:
+/// pools outside the quest focus are spent first, then the richest focus pool. Ties go to the
+/// lowest player id so every client picks the same pool.
+PlayerTypes CvDiplomacyAI::GetAidPointPaymentMinor(PlayerTypes eMajor, int iCost, const bool* pabPoolUsed, bool bHonorReservation)
+{
+	if (iCost <= 0)
+		return NO_PLAYER;
+
+	const int iFocusCount = GetCityStateQuestFocusCount();
+	PlayerTypes eBest = NO_PLAYER;
+	int iBestPoints = -1;
+
+	// Pass 0: city-states outside the focus list. Pass 1: the focus list itself.
+	for (int iPass = 0; iPass < 2; iPass++)
+	{
+		for (int iLoop = MAX_MAJOR_CIVS; iLoop < MAX_CIV_PLAYERS; iLoop++)
+		{
+			PlayerTypes eMinor = (PlayerTypes)iLoop;
+
+			if (pabPoolUsed != NULL && pabPoolUsed[eMinor])
+				continue;
+
+			if (!GET_PLAYER(eMinor).isAlive())
+				continue;
+
+			if (!GET_TEAM(GetTeam()).isHasMet(GET_PLAYER(eMinor).getTeam()))
+				continue;
+
+			const bool bInFocus = IsCityStateInQuestFocus(eMinor, iFocusCount);
+			if (iPass == 0 && bInFocus)
+				continue;
+			if (iPass == 1 && !bInFocus)
+				continue;
+
+			CvMinorCivAI* pMinorAI = GET_PLAYER(eMinor).GetMinorCivAI();
+			if (pMinorAI == NULL)
+				continue;
+
+			int iPoints = pMinorAI->GetEconomicAidPoints(eMajor);
+			if (iPoints < iCost)
+				continue;
+
+			// Annexation outranks every other purchase and applies to any pool, focus or not.
+			// Requirement 3's focus reserve (reroll and unit gift) only matters for the focus list,
+			// and is dropped for purchases that run after those two have already settled.
+			int iReserved = GetAidPointAnnexReserve(eMinor);
+			if (iPass == 1 && bHonorReservation)
+				iReserved += GetAidPointReservedForMinor(eMinor);
+
+			if (iReserved > 0 && iPoints < iCost + iReserved)
+				continue;
+
+			if (iPoints > iBestPoints || (iPoints == iBestPoints && (eBest == NO_PLAYER || eMinor < eBest)))
+			{
+				iBestPoints = iPoints;
+				eBest = eMinor;
+			}
+		}
+
+		if (eBest != NO_PLAYER)
+			return eBest;
+	}
+
+	return NO_PLAYER;
+}
+
+/// Annexation (Austria-style city-state buyout) is the highest priority use of aid points, so the
+/// pool of every city-state this AI could buy out keeps the buyout surcharge untouched. Mirrors
+/// CanMajorBuyout minus the gold and aid point checks: the pool must be allowed to accumulate the
+/// surcharge in the first place, so requiring the points here would defeat the reserve.
+int CvDiplomacyAI::GetAidPointAnnexReserve(PlayerTypes eMinor)
+{
+	const int iCost = GC.getGame().GetAidPointCostAnnexCityState();
+	if (iCost <= 0 || !m_pPlayer->IsAbleToAnnexCityStates())
+		return 0;
+
+	CvPlayer& kMinor = GET_PLAYER(eMinor);
+	if (!kMinor.isAlive())
+		return 0;
+
+	if (!GET_TEAM(GetTeam()).isHasMet(kMinor.getTeam()))
+		return 0;
+
+	if (GET_TEAM(kMinor.getTeam()).isAtWar(GetTeam()))
+		return 0;
+
+	CvMinorCivAI* pMinorAI = kMinor.GetMinorCivAI();
+	if (pMinorAI == NULL)
+		return 0;
+
+	const PlayerTypes eMe = m_pPlayer->GetID();
+	if (!pMinorAI->IsAllies(eMe))
+		return 0;
+
+	// Same alliance-length requirement as CanMajorBuyout
+	if (pMinorAI->GetAlliedTurns() < GC.getMINOR_CIV_BUYOUT_TURNS())
+		return 0;
+
+	return iCost;
+}
+
+/// Aid points this city-state needs to keep for its own reroll / unit gift this turn (0 if none).
+/// Requirement 3: the focus list's pools belong to those two purchases before anything else.
+int CvDiplomacyAI::GetAidPointReservedForMinor(PlayerTypes eMinor)
+{
+	CvMinorCivAI* pMinorAI = GET_PLAYER(eMinor).GetMinorCivAI();
+	if (pMinorAI == NULL)
+		return 0;
+
+	PlayerTypes eMe = m_pPlayer->GetID();
+	const int iTurn = GC.getGame().getGameTurn();
+	const int iFocusCount = GetCityStateQuestFocusCount();
+	int iReserved = 0;
+
+	// Reroll: same conditions as DoAidPointRerollSpend, which is limited to the top 3
+	if (IsCityStateInQuestFocus(eMinor, 3) && !HasRecentlyRerolledCityStateQuests(pMinorAI, eMe, iTurn))
+	{
+		bool bImpossible = false;
+		bool bWillDo = false;
+
+		for (int iQuest = 0; iQuest < NUM_MINOR_CIV_QUEST_TYPES; iQuest++)
+		{
+			MinorCivQuestTypes eQuest = (MinorCivQuestTypes)iQuest;
+
+			if (!IsCityStateQuestCurrent(pMinorAI, eMe, eQuest))
+				continue;
+
+			if (pMinorAI->IsPersonalQuest(eQuest) && IsCityStateQuestImpossible(pMinorAI, eMe, eQuest))
+				bImpossible = true;
+
+			if (WillCityStateQuestBeDoneByAI(pMinorAI, eMe, eQuest))
+				bWillDo = true;
+		}
+
+		if (bImpossible && !bWillDo)
+			iReserved += GC.getGame().GetAidPointCostRerollQuests();
+	}
+
+	// Unit gift: same static conditions as DoAidPointGiftUnitSpend, which covers the whole focus
+	// list (the candidate list is too expensive to rebuild here, so the pool is reserved whenever
+	// the window is open)
+	if (IsCityStateInQuestFocus(eMinor, iFocusCount)
+		&& pMinorAI->GetTrait() == MINOR_CIV_TRAIT_MILITARISTIC
+		&& pMinorAI->IsFriends(eMe)
+		&& pMinorAI->GetPendingGiftUnit(eMe) == NO_UNIT
+		&& pMinorAI->IsUnitSpawningAllowed(eMe))
+	{
+		int iCounter = pMinorAI->GetUnitSpawnCounter(eMe);
+		if (iCounter >= 0 && iCounter <= 5)
+			iReserved += GC.getGame().GetAidPointCostPendingGiftUnit();
+	}
+
+	return iReserved;
+}
+
+/// Great Person to preselect, following the grand-strategy logic of AI_chooseFreeGreatPerson.
+UnitTypes CvDiplomacyAI::GetAidPointGreatPersonChoice()
+{
+	if (MOD_AI_GREAT_PEOPLE_CHOICES)
+		return m_pPlayer->GetSpecificUnitType("UNITCLASS_SCIENTIST");
+
+	// Early wonder race: an Engineer still has time to matter
+	if (GetWonderCompetitiveness() >= 8
+		&& GC.getGame().getGameTurn() <= (GC.getGame().getEstimateEndTurn() / 2))
+	{
+		return m_pPlayer->GetSpecificUnitType("UNITCLASS_ENGINEER");
+	}
+
+	AIGrandStrategyTypes eStrategy = m_pPlayer->GetGrandStrategyAI()->GetActiveGrandStrategy();
+
+	if (eStrategy == (AIGrandStrategyTypes)GC.getInfoTypeForString("AIGRANDSTRATEGY_CONQUEST"))
+		return m_pPlayer->GetSpecificUnitType("UNITCLASS_GREAT_GENERAL");
+
+	if (eStrategy == (AIGrandStrategyTypes)GC.getInfoTypeForString("AIGRANDSTRATEGY_CULTURE"))
+	{
+		if (m_pPlayer->GetCulture()->GetNumAvailableGreatWorkSlots(CvTypes::getGREAT_WORK_SLOT_ART_ARTIFACT()) > 0)
+			return m_pPlayer->GetSpecificUnitType("UNITCLASS_ARTIST");
+		if (m_pPlayer->GetCulture()->GetNumAvailableGreatWorkSlots(CvTypes::getGREAT_WORK_SLOT_LITERATURE()) > 0)
+			return m_pPlayer->GetSpecificUnitType("UNITCLASS_WRITER");
+		return m_pPlayer->GetSpecificUnitType("UNITCLASS_MUSICIAN");
+	}
+
+	if (eStrategy == (AIGrandStrategyTypes)GC.getInfoTypeForString("AIGRANDSTRATEGY_UNITED_NATIONS"))
+		return m_pPlayer->GetSpecificUnitType("UNITCLASS_MERCHANT");
+
+	return m_pPlayer->GetSpecificUnitType("UNITCLASS_SCIENTIST");
+}
+
+/// Land unit to preselect for a militaristic ally, from GetMinorGiftUnitChoices.
+UnitTypes CvDiplomacyAI::GetAidPointGiftUnitChoice(PlayerTypes eMajor)
+{
+	std::vector<UnitTypes> veChoices;
+	GC.getGame().GetMinorGiftUnitChoices(eMajor, veChoices);
+
+	std::vector<UnitTypes> veLandChoices;
+	for (uint ui = 0; ui < veChoices.size(); ui++)
+	{
+		CvUnitEntry* pkUnitInfo = GC.getUnitInfo(veChoices[ui]);
+		if (pkUnitInfo != NULL && pkUnitInfo->GetDomainType() == DOMAIN_LAND)
+			veLandChoices.push_back(veChoices[ui]);
+	}
+
+	if (veLandChoices.empty())
+		return NO_UNIT;
+
+	// At war: prefer the land unit class we field the most
+	if (m_pPlayer->IsAtWar())
+	{
+		const int iNumUnitClasses = GC.getNumUnitClassInfos();
+		std::vector<int> viClassCount(iNumUnitClasses, 0);
+
+		int iUnitLoop = 0;
+		for (CvUnit* pLoopUnit = m_pPlayer->firstUnit(&iUnitLoop); pLoopUnit != NULL; pLoopUnit = m_pPlayer->nextUnit(&iUnitLoop))
+		{
+			// Civilians (workers, settlers, great people) are not the "main combat arm"
+			if (pLoopUnit->getDomainType() != DOMAIN_LAND || !pLoopUnit->IsCombatUnit())
+				continue;
+
+			int iUnitClass = pLoopUnit->getUnitClassType();
+			if (iUnitClass >= 0 && iUnitClass < iNumUnitClasses)
+				viClassCount[iUnitClass]++;
+		}
+
+		int iBestClass = -1;
+		int iBestClassCount = 0;
+		for (int iClass = 0; iClass < iNumUnitClasses; iClass++)
+		{
+			if (viClassCount[iClass] > iBestClassCount)
+			{
+				iBestClassCount = viClassCount[iClass];
+				iBestClass = iClass;
+			}
+		}
+
+		if (iBestClass >= 0)
+		{
+			// Match on the unit class, not the class default: the choice list may carry a unique
+			// unit that replaces the default for this class.
+			UnitTypes eBestInClass = NO_UNIT;
+			int iBestInClassStrength = -1;
+
+			for (uint ui = 0; ui < veLandChoices.size(); ui++)
+			{
+				CvUnitEntry* pkUnitInfo = GC.getUnitInfo(veLandChoices[ui]);
+				if (pkUnitInfo == NULL || pkUnitInfo->GetUnitClassType() != iBestClass)
+					continue;
+
+				int iStrength = pkUnitInfo->GetCombat() + pkUnitInfo->GetRangedCombat();
+				if (iStrength > iBestInClassStrength
+					|| (iStrength == iBestInClassStrength && (eBestInClass == NO_UNIT || veLandChoices[ui] < eBestInClass)))
+				{
+					iBestInClassStrength = iStrength;
+					eBestInClass = veLandChoices[ui];
+				}
+			}
+
+			if (eBestInClass != NO_UNIT)
+				return eBestInClass;
+		}
+	}
+
+	// Otherwise the strongest land unit; ties go to the lowest unit type id
+	UnitTypes eBest = NO_UNIT;
+	int iBestStrength = -1;
+	for (uint ui = 0; ui < veLandChoices.size(); ui++)
+	{
+		CvUnitEntry* pkUnitInfo = GC.getUnitInfo(veLandChoices[ui]);
+		if (pkUnitInfo == NULL)
+			continue;
+
+		int iStrength = pkUnitInfo->GetCombat() + pkUnitInfo->GetRangedCombat();
+		if (iStrength > iBestStrength || (iStrength == iBestStrength && (eBest == NO_UNIT || veLandChoices[ui] < eBest)))
+		{
+			iBestStrength = iStrength;
+			eBest = veLandChoices[ui];
+		}
+	}
+
+	return eBest;
+}
+
+/// Requirement 2.1: preselect the Great Person the patronage finisher will hand out.
+void CvDiplomacyAI::DoAidPointGreatPersonSpend(PlayerTypes eMajor, bool* pabPoolUsed)
+{
+	// A choice is already queued
+	if (m_pPlayer->GetNextGreatPersonChoice() != NO_UNIT)
+		return;
+
+	// GreatPeopleSpawnCounter is player-wide and only counts down while the finisher is active
+	const int iCounter = m_pPlayer->GetGreatPeopleSpawnCounter();
+	if (iCounter <= 0 || iCounter > 10)
+		return;
+
+	bool bHasAlly = false;
+	for (int iLoop = MAX_MAJOR_CIVS; iLoop < MAX_CIV_PLAYERS; iLoop++)
+	{
+		CvPlayer& kMinor = GET_PLAYER((PlayerTypes)iLoop);
+		if (!kMinor.isAlive())
+			continue;
+
+		CvMinorCivAI* pMinorAI = kMinor.GetMinorCivAI();
+		if (pMinorAI != NULL && pMinorAI->GetAlly() == eMajor)
+		{
+			bHasAlly = true;
+			break;
+		}
+	}
+
+	if (!bHasAlly)
+		return;
+
+	const int iCost = GC.getGame().GetAidPointCostNextGreatPerson();
+	const PlayerTypes ePay = GetAidPointPaymentMinor(eMajor, iCost, pabPoolUsed);
+	if (ePay == NO_PLAYER)
+		return;
+
+	const UnitTypes eGreatPerson = GetAidPointGreatPersonChoice();
+	if (eGreatPerson == NO_UNIT)
+		return;
+
+	// The pool is only charged when the slot was actually empty (checked both here and in CvGame)
+	if (GC.getGame().DoSetNextGreatPersonChoiceFromMajor(eMajor, eGreatPerson, ePay))
+		if (pabPoolUsed != NULL) pabPoolUsed[ePay] = true;
+}
+
+/// Requirement 2.2: reroll personal quests that this AI provably cannot finish.
+void CvDiplomacyAI::DoAidPointRerollSpend(PlayerTypes eMajor, bool* pabPoolUsed)
+{
+	const int iCost = GC.getGame().GetAidPointCostRerollQuests();
+	if (iCost <= 0)
+		return;
+
+	const int iTurn = GC.getGame().getGameTurn();
+
+	for (int iLoop = MAX_MAJOR_CIVS; iLoop < MAX_CIV_PLAYERS; iLoop++)
+	{
+		PlayerTypes eMinor = (PlayerTypes)iLoop;
+
+		if (pabPoolUsed != NULL && pabPoolUsed[eMinor])
+			continue;
+
+		if (!GET_PLAYER(eMinor).isAlive())
+			continue;
+
+		if (!GET_TEAM(GetTeam()).isHasMet(GET_PLAYER(eMinor).getTeam()))
+			continue;
+
+		// Only the top 3 city-states get rerolls
+		if (!IsCityStateInQuestFocus(eMinor, 3))
+			continue;
+
+		CvMinorCivAI* pMinorAI = GET_PLAYER(eMinor).GetMinorCivAI();
+		if (pMinorAI == NULL)
+			continue;
+
+		// Annexation outranks rerolls: never dip into the buyout surcharge
+		if (pMinorAI->GetEconomicAidPoints(eMajor) < iCost + GetAidPointAnnexReserve(eMinor))
+			continue;
+
+		// At most one reroll per city-state per 30 turns
+		if (HasRecentlyRerolledCityStateQuests(pMinorAI, eMajor, iTurn))
+			continue;
+
+		// Needs at least one quest that is provably impossible
+		bool bImpossible = false;
+		for (int iQuest = 0; iQuest < NUM_MINOR_CIV_QUEST_TYPES && !bImpossible; iQuest++)
+		{
+			MinorCivQuestTypes eQuest = (MinorCivQuestTypes)iQuest;
+
+			if (!pMinorAI->IsPersonalQuest(eQuest))
+				continue;
+
+			if (!IsCityStateQuestCurrent(pMinorAI, eMajor, eQuest))
+				continue;
+
+			if (IsCityStateQuestImpossible(pMinorAI, eMajor, eQuest))
+				bImpossible = true;
+		}
+
+		if (!bImpossible)
+			continue;
+
+		// ...and none that the AI would work on anyway
+		bool bWillDo = false;
+		for (int iQuest = 0; iQuest < NUM_MINOR_CIV_QUEST_TYPES && !bWillDo; iQuest++)
+		{
+			MinorCivQuestTypes eQuest = (MinorCivQuestTypes)iQuest;
+
+			if (!IsCityStateQuestCurrent(pMinorAI, eMajor, eQuest))
+				continue;
+
+			if (WillCityStateQuestBeDoneByAI(pMinorAI, eMajor, eQuest))
+				bWillDo = true;
+		}
+
+		if (bWillDo)
+			continue;
+
+		if (GC.getGame().DoMinorRerollQuestsFromMajor(eMajor, eMinor))
+			if (pabPoolUsed != NULL) pabPoolUsed[eMinor] = true;
+	}
+}
+
+/// Requirement 2.3: preselect the next unit a militaristic friend or ally will gift us.
+void CvDiplomacyAI::DoAidPointGiftUnitSpend(PlayerTypes eMajor, bool* pabPoolUsed)
+{
+	const int iCost = GC.getGame().GetAidPointCostPendingGiftUnit();
+	if (iCost <= 0)
+		return;
+
+	const int iFocusCount = GetCityStateQuestFocusCount();
+
+	for (int iLoop = MAX_MAJOR_CIVS; iLoop < MAX_CIV_PLAYERS; iLoop++)
+	{
+		PlayerTypes eMinor = (PlayerTypes)iLoop;
+
+		if (pabPoolUsed != NULL && pabPoolUsed[eMinor])
+			continue;
+
+		if (!GET_PLAYER(eMinor).isAlive())
+			continue;
+
+		if (!GET_TEAM(GetTeam()).isHasMet(GET_PLAYER(eMinor).getTeam()))
+			continue;
+
+		if (!IsCityStateInQuestFocus(eMinor, iFocusCount))
+			continue;
+
+		CvMinorCivAI* pMinorAI = GET_PLAYER(eMinor).GetMinorCivAI();
+		if (pMinorAI == NULL)
+			continue;
+
+		if (pMinorAI->GetTrait() != MINOR_CIV_TRAIT_MILITARISTIC)
+			continue;
+
+		if (!pMinorAI->IsFriends(eMajor))
+			continue;
+
+		// Only one gift may be queued per spawn cycle
+		if (pMinorAI->GetPendingGiftUnit(eMajor) != NO_UNIT)
+			continue;
+
+		if (!pMinorAI->IsUnitSpawningAllowed(eMajor))
+			continue;
+
+		const int iCounter = pMinorAI->GetUnitSpawnCounter(eMajor);
+		if (iCounter < 0 || iCounter > 5)
+			continue;
+
+		// Annexation outranks unit gifts: never dip into the buyout surcharge
+		if (pMinorAI->GetEconomicAidPoints(eMajor) < iCost + GetAidPointAnnexReserve(eMinor))
+			continue;
+
+		const UnitTypes eUnit = GetAidPointGiftUnitChoice(eMajor);
+		if (eUnit == NO_UNIT)
+			continue;
+
+		if (GC.getGame().DoSetPendingGiftUnitFromMajor(eMajor, eMinor, eUnit))
+			if (pabPoolUsed != NULL) pabPoolUsed[eMinor] = true;
+	}
+}
+
+/// Requirement 2.4: pay a bully quest with aid points instead of the usual influence loss. This is
+/// deliberately not limited to the focus list: the quest itself chooses the target city-state.
+void CvDiplomacyAI::DoAidPointBullySpend(PlayerTypes eMajor, bool* pabPoolUsed)
+{
+	const int iTurn = GC.getGame().getGameTurn();
+	const int iFocusCount = GetCityStateQuestFocusCount();
+
+	// Visit focus publishers first, so a city-state outside the focus list cannot spend a pool
+	// that a focus city-state needs for its own bully quest.
+	PlayerTypes aePublisherOrder[MAX_CIV_PLAYERS];
+	int iPublisherCount = 0;
+
+	for (int iFocusLoop = MAX_MAJOR_CIVS; iFocusLoop < MAX_CIV_PLAYERS; iFocusLoop++)
+	{
+		if (IsCityStateInQuestFocus((PlayerTypes)iFocusLoop, iFocusCount))
+			aePublisherOrder[iPublisherCount++] = (PlayerTypes)iFocusLoop;
+	}
+
+	for (int iLoop = MAX_MAJOR_CIVS; iLoop < MAX_CIV_PLAYERS; iLoop++)
+	{
+		if (!IsCityStateInQuestFocus((PlayerTypes)iLoop, iFocusCount))
+			aePublisherOrder[iPublisherCount++] = (PlayerTypes)iLoop;
+	}
+
+	for (int iOrder = 0; iOrder < iPublisherCount; iOrder++)
+	{
+		PlayerTypes ePublisher = aePublisherOrder[iOrder];
+
+		// Already paid this turn (or the ordinary bully has to be left alone)
+		if (m_aiAidPointBullyTurn[ePublisher] == iTurn)
+			continue;
+
+		if (!GET_PLAYER(ePublisher).isAlive())
+			continue;
+
+		if (!GET_TEAM(GetTeam()).isHasMet(GET_PLAYER(ePublisher).getTeam()))
+			continue;
+
+		CvMinorCivAI* pPublisherAI = GET_PLAYER(ePublisher).GetMinorCivAI();
+		if (pPublisherAI == NULL)
+			continue;
+
+		if (!IsCityStateQuestCurrent(pPublisherAI, eMajor, MINOR_CIV_QUEST_BULLY_CITY_STATE))
+			continue;
+
+		// Same 5-turn maturity rule as the ordinary bully
+		const int iStart = pPublisherAI->GetQuestStartTurn(eMajor, MINOR_CIV_QUEST_BULLY_CITY_STATE);
+		if (iStart < 0 || iTurn - iStart < 5)
+			continue;
+
+		PlayerTypes eTarget = (PlayerTypes)pPublisherAI->GetQuestData1(eMajor, MINOR_CIV_QUEST_BULLY_CITY_STATE);
+		if (eTarget < MAX_MAJOR_CIVS || eTarget >= MAX_CIV_PLAYERS)
+			continue;
+
+		// Point-paid bullying leaves no trace, but withdrawing our own protection is a separate
+		// diplomatic cost the ordinary branch accepts only under special conditions - skip it here.
+		if (IsCityStateQuestTargetExempt(eTarget))
+			continue;
+
+		if (pabPoolUsed != NULL && pabPoolUsed[eTarget])
+			continue;
+
+		CvMinorCivAI* pTargetAI = GET_PLAYER(eTarget).GetMinorCivAI();
+		if (pTargetAI == NULL)
+			continue;
+
+		if (!pTargetAI->CanMajorBullyGold(eMajor))
+			continue;
+
+		// Annexation outranks bullying: never dip into the buyout surcharge
+		const int iCost = pTargetAI->GetBullyGoldAidPointCost(eMajor);
+		if (pTargetAI->GetEconomicAidPoints(eMajor) < iCost + GetAidPointAnnexReserve(eTarget))
+			continue;
+
+		const int iGold = pTargetAI->GetBullyGoldAmount(eMajor);
+		if (iGold <= 0)
+			continue;
+
+		// CvGame charges the pool only when the bully goes through, and it reports nothing back.
+		// Compare the pool before/after so a failed attempt does not block the ordinary bully.
+		const int iPointsBefore = pTargetAI->GetEconomicAidPoints(eMajor);
+		GC.getGame().DoMinorBullyGoldWithAidPointsFromMajor(eMajor, eTarget, iGold);
+		const int iPointsAfter = pTargetAI->GetEconomicAidPoints(eMajor);
+
+		if (iCost == 0 || iPointsAfter < iPointsBefore)
+		{
+			if (pabPoolUsed != NULL) pabPoolUsed[eTarget] = true;
+			m_aiAidPointBullyTurn[ePublisher] = iTurn;
+		}
+	}
+}
+
+/// Requirement 2.5: pull the next World Congress session forward when we dominate it anyway.
+void CvDiplomacyAI::DoAidPointCongressSpend(PlayerTypes eMajor, bool* pabPoolUsed)
+{
+	const int iCost = GC.getGame().GetAidPointCostHastenCongress();
+	const int iHastenTurns = GC.getGame().GetAidPointHastenCongressTurns();
+	if (iCost <= 0 || iHastenTurns <= 0)
+		return;
+
+	CvGameLeagues* pLeagues = GC.getGame().GetGameLeagues();
+	if (pLeagues == NULL)
+		return;
+
+	CvLeague* pLeague = pLeagues->GetActiveLeague();
+	if (pLeague == NULL || pLeague->IsInSession())
+		return;
+
+	if (!pLeague->IsMember(eMajor) || !pLeague->CanEverVote(eMajor))
+		return;
+
+	// Sessions already close enough to start on their own are not worth the points
+	if (pLeague->GetTurnsUntilSession() <= iHastenTurns)
+		return;
+
+	// The proposals of the next session do not exist yet (they are drafted when the session
+	// starts), so the only way to know that a proposal we back will pass is to hold an outright
+	// majority: then any proposal we support is unstoppable.
+	int iMyVotes = 0;
+	int iOtherVotes = 0;
+	int iBestOtherVotes = 0;
+
+	for (int iMemberLoop = 0; iMemberLoop < MAX_CIV_PLAYERS; iMemberLoop++)
+	{
+		PlayerTypes eMember = (PlayerTypes)iMemberLoop;
+
+		if (!pLeague->IsMember(eMember))
+			continue;
+
+		if (!GET_PLAYER(eMember).isAlive())
+			continue;
+
+		int iVotes = pLeague->CalculateStartingVotesForMember(eMember);
+
+		if (eMember == eMajor)
+		{
+			iMyVotes = iVotes;
+		}
+		else
+		{
+			iOtherVotes += iVotes;
+			if (iVotes > iBestOtherVotes)
+				iBestOtherVotes = iVotes;
+		}
+	}
+
+	if (iMyVotes <= iBestOtherVotes || iMyVotes <= iOtherVotes)
+		return;
+
+	// Reroll and unit gift have already run (or given up) by now, so the reserves no longer apply
+	const PlayerTypes ePay = GetAidPointPaymentMinor(eMajor, iCost, pabPoolUsed, /*bHonorReservation*/ false);
+	if (ePay == NO_PLAYER)
+		return;
+
+	if (GC.getGame().DoHastenCongressWithAidPointsFromMajor(eMajor, ePay))
+		if (pabPoolUsed != NULL) pabPoolUsed[ePay] = true;
+}
+
+/// Every-turn pass: spend Economic Aid points, highest priority first. Runs before
+/// DoCityStateQuestAI so the bully takeover can pre-empt the ordinary bully branch.
+void CvDiplomacyAI::DoCityStateAidPointAI()
+{
+	if (!MOD_SP_UNIQUE_CITYSTATE)
+		return;
+
+	const int iTurn = GC.getGame().getGameTurn();
+
+	// DoTurn can run more than once per turn for the same AI (hotseat human-diplomacy pass)
+	if (m_iLastCityStateAidPointTurn == iTurn)
+		return;
+	m_iLastCityStateAidPointTurn = iTurn;
+
+	if (m_pPlayer->isHuman())
+		return;
+
+	// Requirement 0: with no diplomatic prestige there is no focus list and no spending at all
+	if (GetCityStateQuestFocusCount() <= 0)
+		return;
+
+	PlayerTypes eMe = m_pPlayer->GetID();
+
+	// Requirement 2: a pool takes part in at most one purchase per turn
+	bool abPoolUsed[MAX_CIV_PLAYERS];
+	for (int iLoop = 0; iLoop < MAX_CIV_PLAYERS; iLoop++)
+		abPoolUsed[iLoop] = false;
+
+	DoAidPointGreatPersonSpend(eMe, abPoolUsed);
+	DoAidPointRerollSpend(eMe, abPoolUsed);
+	DoAidPointGiftUnitSpend(eMe, abPoolUsed);
+	DoAidPointBullySpend(eMe, abPoolUsed);
+	DoAidPointCongressSpend(eMe, abPoolUsed);
+}
+#endif
 
 
 /// Helper function: is this a valid player to be looking at?  (e.g. are they alive, do we know them, etc.)
@@ -28754,6 +30539,9 @@ void CvDiplomacyAI::LogStatementToPlayer(PlayerTypes ePlayer, DiploStatementType
 			break;
 		case DIPLO_STATEMENT_RESEARCH_AGREEMENT_OFFER:
 			strTemp.Format("Research Agreement Offer");
+			break;
+		case DIPLO_STATEMENT_NON_AGGRESSION_PACT_OFFER:
+			strTemp.Format("Non-Aggression Pact Offer");
 			break;
 		case DIPLO_STATEMENT_RENEW_DEAL:
 			strTemp.Format("Renew Deal");

@@ -816,6 +816,7 @@ protected:
 	bool m_bDebugMode;
 	bool m_bDebugModeCache;
 	bool m_bFinalInitialized;
+	bool m_bPolicyFreeBuildingsRebuilt;
 	bool m_bPbemTurnSent;
 	bool m_bHotPbemBetweenTurns;
 	bool m_bPlayerOptionsSent;
@@ -959,6 +960,11 @@ protected:
 	void DoCacheMapScoreMod();
 
 	void doTurn();
+
+	// Rebuilds the Policy_FreeBuildingClass* grants for every City once per load or new
+	// game. Policies are restored from the save without going through processPolicies,
+	// so the free slots have to be reconciled explicitly.
+	void RebuildPolicyFreeBuildings();
 
 	void updateWar();
 	void updateMoves();

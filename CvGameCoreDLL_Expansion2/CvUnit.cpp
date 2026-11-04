@@ -1678,6 +1678,9 @@ if (MOD_API_UNIT_CANNOT_BE_RANGED_ATTACKED)
 
 	m_iNumRangeBackWhenDefense = 0;
 
+	m_iMeleeAttackCityReduceDamage = 0;
+	m_iMeleeAttackUnitReduceDamage = 0;
+
 	m_iHeavyChargeAddMoves = 0;
 	m_iHeavyChargeExtraDamage = 0;
 	m_iHeavyChargeCollateralFixed = 0;
@@ -11526,6 +11529,9 @@ bool CvUnit::DoSpreadReligion()
 			iNumFollowersSpreadAddtion = pCity->GetCityReligions()->GetNumFollowers(eReligion) - iNumFollowersBeforeSpread;
 			if(iNumFollowersSpreadAddtion > 0)
 			{
+				// SP contest quests: lifetime followers gained through missionary/prophet spread
+				kPlayer.ChangeNumFollowersConverted(iNumFollowersSpreadAddtion);
+
 				for (int iI = 0; iI < NUM_YIELD_TYPES; iI++)
 				{
 					YieldTypes eYield = (YieldTypes) iI;
@@ -11611,7 +11617,19 @@ bool CvUnit::CanRemoveHeresy(const CvPlot* pPlot) const
 		{
 			return false;
 		}
-		else if(pCity->getOwner() != getOwner())
+	}
+
+	if(pCity->getOwner() != getOwner())
+	{
+		bool bCSUAAllowed = false;
+#if defined(MOD_SP_UNIQUE_CITYSTATE)
+		// Wittenberg CS UA: the ally's inquisitors may remove heresy in any city-state city
+		if (MOD_SP_UNIQUE_CITYSTATE && GET_PLAYER(pCity->getOwner()).isMinorCiv())
+		{
+			bCSUAAllowed = GET_PLAYER(getOwner()).IsCSUAInquisitorCanUseOnCityState();
+		}
+#endif
+		if (!bCSUAAllowed)
 		{
 			return false;
 		}
@@ -27850,6 +27868,8 @@ void CvUnit::setHasPromotion(PromotionTypes eIndex, bool bNewValue)
 		ChangePerKillInflictDamageChange(iChange * thisPromotion.GetPerKillInflictDamageChange());
 		ChangePerKillDefenseDamageChange(iChange * thisPromotion.GetPerKillDefenseDamageChange());
 		ChangeNumRangeBackWhenDefense(thisPromotion.IsRangeBackWhenDefense() ? iChange : 0);
+		ChangeMeleeAttackCityReduceDamage(iChange * thisPromotion.GetMeleeAttackCityReduceDamage());
+		ChangeMeleeAttackUnitReduceDamage(iChange * thisPromotion.GetMeleeAttackUnitReduceDamage());
 		ChangeHeavyChargeAddMoves(iChange * thisPromotion.GetHeavyChargeAddMoves());
 		ChangeHeavyChargeExtraDamage(iChange * thisPromotion.GetHeavyChargeExtraDamage());
 		ChangeHeavyChargeCollateralFixed(iChange * thisPromotion.GetHeavyChargeCollateralFixed());
@@ -28440,6 +28460,8 @@ void CvUnit::read(FDataStream& kStream)
 
 	kStream >> m_iDefenseInflictDamageChange;
 	kStream >> m_iDefenseInflictDamageChangeMaxHPPercent;
+	MOD_SERIALIZE_READ(166, kStream, m_iMeleeAttackCityReduceDamage, 0);
+	MOD_SERIALIZE_READ(166, kStream, m_iMeleeAttackUnitReduceDamage, 0);
 
 	kStream >> m_iSiegeInflictDamageChange;
 	kStream >> m_iSiegeInflictDamageChangeMaxHPPercent;
@@ -28802,6 +28824,8 @@ void CvUnit::write(FDataStream& kStream) const
 
 	kStream << m_iDefenseInflictDamageChange;
 	kStream << m_iDefenseInflictDamageChangeMaxHPPercent;
+	MOD_SERIALIZE_WRITE(kStream, m_iMeleeAttackCityReduceDamage);
+	MOD_SERIALIZE_WRITE(kStream, m_iMeleeAttackUnitReduceDamage);
 
 	kStream << m_iSiegeInflictDamageChange;
 	kStream << m_iSiegeInflictDamageChangeMaxHPPercent;
@@ -33469,6 +33493,26 @@ bool CvUnit::IsRangeBackWhenDefense() const
 void CvUnit::ChangeNumRangeBackWhenDefense(int iChange)
 {
 	m_iNumRangeBackWhenDefense += iChange;
+}
+
+int CvUnit::GetMeleeAttackCityReduceDamage() const
+{
+	return m_iMeleeAttackCityReduceDamage;
+}
+
+void CvUnit::ChangeMeleeAttackCityReduceDamage(int iChange)
+{
+	m_iMeleeAttackCityReduceDamage += iChange;
+}
+
+int CvUnit::GetMeleeAttackUnitReduceDamage() const
+{
+	return m_iMeleeAttackUnitReduceDamage;
+}
+
+void CvUnit::ChangeMeleeAttackUnitReduceDamage(int iChange)
+{
+	m_iMeleeAttackUnitReduceDamage += iChange;
 }
 
 int CvUnit::GetHeavyChargeAddMoves() const

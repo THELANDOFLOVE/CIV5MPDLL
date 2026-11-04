@@ -2019,6 +2019,10 @@ bool CvNotifications::IsNotificationTypeEndOfTurnExpired(NotificationTypes eNoti
 	case NOTIFICATION_LEAGUE_CALL_FOR_PROPOSALS:
 	case NOTIFICATION_CHOOSE_ARCHAEOLOGY:
 	case NOTIFICATION_LEAGUE_CALL_FOR_VOTES:
+	// The session can finish outside the human's own turn (multiplayer, or after the last AI
+	// vote), so this result would otherwise be added and cleared by EndOfTurnCleanup before the
+	// player ever sees it. Keep it until dismissed, like the other league notifications.
+	case NOTIFICATION_LEAGUE_VOTING_DONE:
 	case NOTIFICATION_CHOOSE_IDEOLOGY:
 		return false;
 		break;

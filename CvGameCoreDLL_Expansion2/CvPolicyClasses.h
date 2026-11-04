@@ -381,6 +381,10 @@ public:
 
 	std::vector<PolicyResourceInfo>& GetCityResources();
 
+	std::vector<PolicyFreeBuildingClassInfo>& GetFreeBuildingClassInfo();
+	std::vector<PolicyFreeBuildingClassInfo>& GetFreeBuildingClassCapitalInfo();
+	std::vector<PolicyFreeBuildingClassInfo>& GetFreeBuildingClassCityStatesInfo();
+
 	int GetGlobalHappinessFromFaithPercent() const;
 	int GetHappinessInWLTKDCities() const;
 
@@ -727,6 +731,10 @@ private:
 
 	std::vector<PolicyResourceInfo> m_vCityResources;
 
+	std::vector<PolicyFreeBuildingClassInfo> m_vFreeBuildingClass;
+	std::vector<PolicyFreeBuildingClassInfo> m_vFreeBuildingClassCapital;
+	std::vector<PolicyFreeBuildingClassInfo> m_vFreeBuildingClassCityStates;
+
 	// AdjacentImprovementYieldChanges
 	std::vector<AdjacentImprovementYieldChange> m_vAdjacentImprovementYieldChanges;
 
@@ -813,6 +821,16 @@ public:
 
 	void DeletePoliciesArray();
 
+	// Cached view of the Policy_FreeBuildingClass* tables: which policies appear in them and
+	// the union of the building classes they name. Built on first use, after the database has
+	// been cached, so per-city rebuilds never scan unrelated policies and bail out at once
+	// when all three tables are empty.
+	void EnsureFreeBuildingClassCache();
+	void ResetFreeBuildingClassCache();
+	const std::vector<PolicyTypes>& GetPoliciesWithFreeBuildingClasses() const;
+	const std::vector<BuildingClassTypes>& GetFreeBuildingClasses() const;
+	const std::vector<BuildingClassTypes>& GetFreeBuildingClassesForPolicy(PolicyTypes ePolicy) const;
+
 	// Policy Branch functions
 	std::vector<CvPolicyBranchEntry*>& GetPolicyBranchEntries();
 	int GetNumPolicyBranches();
@@ -821,6 +839,13 @@ public:
 	void DeletePolicyBranchesArray();
 
 private:
+	void AddFreeBuildingClasses(const std::vector<PolicyFreeBuildingClassInfo>& vRows, std::vector<BuildingClassTypes>& vClasses, bool& bHasRow);
+
+	bool m_bFreeBuildingClassCacheBuilt;
+	std::vector<PolicyTypes> m_vPoliciesWithFreeBuildingClasses;
+	std::vector<BuildingClassTypes> m_vFreeBuildingClasses;
+	std::vector<std::vector<BuildingClassTypes> > m_vFreeBuildingClassesByPolicy;
+
 	std::vector<CvPolicyEntry*> m_paPolicyEntries;
 	std::vector<CvPolicyBranchEntry*> m_paPolicyBranchEntries;
 };

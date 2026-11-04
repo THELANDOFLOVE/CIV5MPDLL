@@ -1405,6 +1405,16 @@ public:
 	bool CanScaleImmigrantOut() const;
 #endif
 
+	// Rebuilds the free buildings granted by the Policy_FreeBuildingClass* tables from the
+	// owner's current policies. Idempotent, so every entry point can call it unconditionally.
+	void UpdatePolicyFreeBuildings();
+
+	// How many free buildings this City last received from the policy tables for one class.
+	// The free slot is shared with wonders, traits and other sources, so the count is kept
+	// separately and a rebuild only reclaims our own share.
+	int GetPolicyFreeBuildingGranted(BuildingClassTypes eBuildingClass) const;
+	void SetPolicyFreeBuildingGranted(BuildingClassTypes eBuildingClass, int iValue);
+
 #ifdef MOD_PROMOTION_CITY_DESTROYER
 	int GetSiegeKillCitizensModifier() const;
 	void ChangeSiegeKillCitizensModifier(int iChange);
@@ -1697,6 +1707,7 @@ protected:
 	std::vector<int> m_aiYieldFromUnitProduction;
 	std::vector<int> m_aiYieldFromBirth;
 	std::vector<int> m_aiYieldFromBorderGrowth;
+	std::vector<int> m_aiPolicyFreeBuildingGranted;
 
 	std::vector<int> m_aiYieldFromPillage;
 

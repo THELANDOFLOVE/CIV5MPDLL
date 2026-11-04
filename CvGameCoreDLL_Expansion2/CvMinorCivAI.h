@@ -87,6 +87,13 @@ enum MinorCivQuestTypes
 	MINOR_CIV_QUEST_DONATE_GOLD,
 	MINOR_CIV_QUEST_RESEARCH_AGREEMENT,
 
+	// SP contest quests - the ID values MUST match the rows in the Quests table
+	MINOR_CIV_QUEST_CONTEST_WORLD_WONDERS,
+	MINOR_CIV_QUEST_CONTEST_CONVERTS,
+	MINOR_CIV_QUEST_CONTEST_GREAT_PEOPLE,
+	MINOR_CIV_QUEST_CONTEST_CITIES_FOUNDED,
+	MINOR_CIV_QUEST_CONTEST_CITIES_CAPTURED,
+
 	NUM_MINOR_CIV_QUEST_TYPES,
 };
 FDataStream& operator<<(FDataStream&, const MinorCivQuestTypes&);
@@ -200,6 +207,9 @@ enum EconomicAidTerminationReason
 	ECON_AID_TERM_WAR,           // player declared war on the city-state: settled as mid-round quit (ally -20 + locked)
 	ECON_AID_TERM_ALLY_PACT,     // city-state joined via ally pact: terminate without penalty, can rejoin this round after peace
 };
+
+// Number of cities a city-state spread-building quest asks the player to build the building in
+#define MINOR_CIV_QUEST_SPREAD_BUILDING_CITIES 3
 
 class CvMinorCivAI
 {
@@ -330,10 +340,12 @@ public:
 	int GetNumActiveQuestsForPlayer(PlayerTypes ePlayer) const;
 	int GetNumActivePersonalQuestsForPlayer(PlayerTypes ePlayer) const;
 	bool IsActiveQuestForPlayer(PlayerTypes ePlayer, MinorCivQuestTypes eType);
+	bool IsQuestExpired(PlayerTypes ePlayer, MinorCivQuestTypes eType);
 	void EndAllActiveQuestsForPlayer(PlayerTypes ePlayer);
 
 	// SP extended quests: drop a single active quest of the given type from the player's list
 	void CancelQuestForPlayer(PlayerTypes ePlayer, MinorCivQuestTypes eType);
+	void CancelBannedBuildingQuests();
 
 	int GetNumDisplayedQuestsForPlayer(PlayerTypes ePlayer);
 	bool IsDisplayedQuestForPlayer(PlayerTypes ePlayer, MinorCivQuestTypes eType);
@@ -354,6 +366,7 @@ public:
 
 	int GetQuestData1(PlayerTypes ePlayer, MinorCivQuestTypes eType) const;
 	int GetQuestData2(PlayerTypes ePlayer, MinorCivQuestTypes eType) const;
+	int GetQuestStartTurn(PlayerTypes ePlayer, MinorCivQuestTypes eType) const;
 	int GetQuestTurnsRemaining(PlayerTypes ePlayer, MinorCivQuestTypes eType, int iGameTurn) const;
 #if defined(MOD_EVENTS_QUESTS)
 	int GetQuestTurnsDuration(PlayerTypes ePlayer, MinorCivQuestTypes eType) const;
@@ -370,7 +383,7 @@ public:
 	UnitTypes GetBestGreatPersonForQuest(PlayerTypes ePlayer);
 	TechTypes GetBestTechForQuest(PlayerTypes ePlayer);
 	BuildingTypes GetBestNationalWonderForQuest(PlayerTypes ePlayer);
-	BuildingTypes GetBestBuildingForQuest(PlayerTypes ePlayer);
+	BuildingTypes GetBestBuildingForQuest(PlayerTypes ePlayer, int iTargetCities = MINOR_CIV_QUEST_SPREAD_BUILDING_CITIES);
 	PlayerTypes GetBestCityStateToFind(PlayerTypes ePlayer);
 	PlayerTypes GetBestTradeRouteTargetForQuest(PlayerTypes ePlayer);
 	PlayerTypes GetBestWarTargetForQuest(PlayerTypes ePlayer);
@@ -706,6 +719,7 @@ private:
 
 	int m_iTurnsSinceThreatenedByBarbarians;
 	int m_iGlobalQuestCountdown;
+	bool m_bHasGivenGlobalQuest; // SP: whether this city-state has handed out its first global quest
 
 	bool m_abWarQuestAgainstMajor[MAX_MAJOR_CIVS];
 	int m_aaiNumEnemyUnitsLeftToKillByMajor[MAX_MAJOR_CIVS][MAX_MAJOR_CIVS];

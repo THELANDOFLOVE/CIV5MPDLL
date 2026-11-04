@@ -209,6 +209,10 @@ protected:
 	static int lGetResearchAgreementStartTurn(lua_State* L);
 	static int lIsHasTradeAgreement(lua_State* L);
 
+	static int lIsNonAggressionPact(lua_State* L);
+	static int lGetNonAggressionPactTurnsLeft(lua_State* L);
+	static int lGetNonAggressionPactCooldown(lua_State* L);
+
 	static int lIsHasTech(lua_State* L);
 	static int lSetHasTech(lua_State* L);
 

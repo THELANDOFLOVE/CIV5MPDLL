@@ -944,6 +944,41 @@ bool CvDeal::IsPossibleToTradeItem(PlayerTypes ePlayer, PlayerTypes eToPlayer, T
 
 		return true;
 	}
+	else if (eItem == TRADE_ITEM_NON_AGGRESSION_PACT)
+	{
+		// Same team - teammates can never fight each other anyway
+		if (eFromTeam == eToTeam)
+			return false;
+
+		// Only one pact item per deal: the initiator offers it and both sides are bound by it.
+		// (Skip this when finalizing a deal that already contains the item.)
+		if (!bFinalizing && ContainsItemType(TRADE_ITEM_NON_AGGRESSION_PACT))
+			return false;
+
+		// Both teams must be at peace. A pact is something you sign instead of fighting.
+		if (pFromTeam->isAtWar(eToTeam))
+			return false;
+
+		// Both sides need an embassy in the other's capital
+		if (!pFromTeam->HasEmbassyAtTeam(eToTeam) || !pToTeam->HasEmbassyAtTeam(eFromTeam))
+			return false;
+
+		// The initiator must have a spy in the other capital working as a diplomat
+		if (!pFromPlayer->GetEspionage()->IsMyDiplomatVisitingThem(eToPlayer))
+			return false;
+
+		// No defensive pact between the two teams
+		if (pFromTeam->IsHasDefensivePact(eToTeam))
+			return false;
+
+		// Only one pact at a time
+		if (GC.getGame().GetGameDeals()->IsNonAggressionPactActive(eFromTeam, eToTeam))
+			return false;
+
+		// Cooldown between two signings
+		if (GC.getGame().GetGameDeals()->GetNonAggressionPactCooldownTurns(eFromTeam, eToTeam) > 0)
+			return false;
+	}
 
 	return true;
 }
@@ -1536,6 +1571,26 @@ void CvDeal::AddDualEmpireTreaty(PlayerTypes eFrom)
 	}
 }
 
+/// Insert a non-aggression pact. The length is fixed, whatever the caller passes in.
+void CvDeal::AddNonAggressionPact(PlayerTypes eFrom, int iDuration)
+{
+	CvAssertMsg(eFrom == m_eFromPlayer || eFrom == m_eToPlayer, "DEAL: Adding deal item for a player that's not actually in this deal!");
+
+	if(IsPossibleToTradeItem(eFrom, GetOtherPlayer(eFrom), TRADE_ITEM_NON_AGGRESSION_PACT, iDuration))
+	{
+		CvTradedItem item;
+		item.m_eItemType = TRADE_ITEM_NON_AGGRESSION_PACT;
+		item.m_iDuration = CvGameDeals::GetNonAggressionPactLength();
+		item.m_iFinalTurn = -1;
+		item.m_eFromPlayer = eFrom;
+		m_TradedItems.push_back(item);
+	}
+	else
+	{
+		CvAssertMsg(false, "DEAL: Trying to add an invalid Non-Aggression Pact item to a deal");
+	}
+}
+
 int CvDeal::GetGoldTrade(PlayerTypes eFrom)
 {
 	TradedItemList::iterator it;
@@ -1825,6 +1880,19 @@ bool CvDeal::IsTechTrade(PlayerTypes eFrom, TechTypes eTech)
 	return false;
 }
 
+bool CvDeal::IsNonAggressionPactTrade(PlayerTypes eFrom)
+{
+	TradedItemList::iterator it;
+	for(it = m_TradedItems.begin(); it != m_TradedItems.end(); ++it)
+	{
+		if(it->m_eItemType == TRADE_ITEM_NON_AGGRESSION_PACT && it->m_eFromPlayer == eFrom)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 CvDeal::DealRenewStatus CvDeal::GetItemTradeableState(TradeableItems eTradeItem)
 {
 	switch(eTradeItem)
@@ -1843,6 +1911,7 @@ CvDeal::DealRenewStatus CvDeal::GetItemTradeableState(TradeableItems eTradeItem)
 	case TRADE_ITEM_DIPLOMATIC_MARRIAGE:
 	case TRADE_ITEM_DUAL_EMPIRE_TREATY:
 	case TRADE_ITEM_TECHS:
+	case TRADE_ITEM_NON_AGGRESSION_PACT:
 		return DEAL_NONRENEWABLE;
 		break;
 
@@ -2053,6 +2122,20 @@ void CvDeal::RemoveDualEmpireTreaty(PlayerTypes eFrom)
 	for(it = m_TradedItems.begin(); it != m_TradedItems.end(); ++it)
 	{
 		if (it->m_eItemType == TRADE_ITEM_DUAL_EMPIRE_TREATY &&
+			it->m_eFromPlayer == eFrom)
+		{
+			m_TradedItems.erase(it);
+			break;
+		}
+	}
+}
+
+void CvDeal::RemoveNonAggressionPact(PlayerTypes eFrom)
+{
+	TradedItemList::iterator it;
+	for(it = m_TradedItems.begin(); it != m_TradedItems.end(); ++it)
+	{
+		if (it->m_eItemType == TRADE_ITEM_NON_AGGRESSION_PACT &&
 			it->m_eFromPlayer == eFrom)
 		{
 			m_TradedItems.erase(it);
@@ -3933,6 +4016,28 @@ void CvGameDeals::DoEndTradedItem(CvTradedItem* pItem, PlayerTypes eToPlayer, bo
 			pNotifications->Add(NOTIFICATION_DEAL_EXPIRED_DEFENSIVE_PACT, strBuffer, strSummary, -1, -1, -1);
 		}
 	}
+	// Non-Aggression Pact
+	else if(pItem->m_eItemType == TRADE_ITEM_NON_AGGRESSION_PACT)
+	{
+		// The pact has no per-turn effect; expiring it only needs to be announced. Reuse the
+		// defensive pact notification type so both sides share the same icon and click action.
+		// Announce it even when the deal was cancelled, matching the defensive pact branch.
+		pNotifications = fromPlayer.GetNotifications();
+		if(pNotifications)
+		{
+			strBuffer = GetLocalizedText("TXT_KEY_NOTIFICATION_DEAL_EXPIRED_NON_AGGRESSION_PACT_FROM_US", toPlayer.getNameKey());
+			strSummary = GetLocalizedText("TXT_KEY_NOTIFICATION_SUMMARY_DEAL_EXPIRED_NON_AGGRESSION_PACT_FROM_US", toPlayer.getNameKey());
+			pNotifications->Add(NOTIFICATION_DEAL_EXPIRED_DEFENSIVE_PACT, strBuffer, strSummary, -1, -1, -1);
+		}
+
+		pNotifications = toPlayer.GetNotifications();
+		if(pNotifications)
+		{
+			strBuffer = GetLocalizedText("TXT_KEY_NOTIFICATION_DEAL_EXPIRED_NON_AGGRESSION_PACT_TO_US", fromPlayer.getNameKey());
+			strSummary = GetLocalizedText("TXT_KEY_NOTIFICATION_SUMMARY_DEAL_EXPIRED_NON_AGGRESSION_PACT_TO_US", fromPlayer.getNameKey());
+			pNotifications->Add(NOTIFICATION_DEAL_EXPIRED_DEFENSIVE_PACT, strBuffer, strSummary, -1, -1, -1);
+		}
+	}
 	// Research Agreement
 	else if(pItem->m_eItemType == TRADE_ITEM_RESEARCH_AGREEMENT)
 	{
@@ -4093,6 +4198,105 @@ void CvGameDeals::DoEndTradedItem(CvTradedItem* pItem, PlayerTypes eToPlayer, bo
 		fromPlayer.GetLeagueAI()->CancelVoteCommitmentsToPlayer(eToPlayer);
 		toPlayer.GetLeagueAI()->CancelVoteCommitmentsToPlayer(eFromPlayer);
 	}
+}
+
+/// Non-Aggression Pact length in turns
+int CvGameDeals::GetNonAggressionPactLength()
+{
+	return 10;
+}
+
+/// Turns that must pass before the same two teams may sign a new Non-Aggression Pact
+int CvGameDeals::GetNonAggressionPactCooldown()
+{
+	return 15;
+}
+
+/// Is this deal between the two teams (in either player order)?
+static bool IsDealBetweenTeams(const CvDeal& kDeal, TeamTypes eTeam1, TeamTypes eTeam2)
+{
+	if(kDeal.m_eFromPlayer == NO_PLAYER || kDeal.m_eToPlayer == NO_PLAYER)
+		return false;
+
+	TeamTypes eFromTeam = GET_PLAYER(kDeal.m_eFromPlayer).getTeam();
+	TeamTypes eToTeam = GET_PLAYER(kDeal.m_eToPlayer).getTeam();
+
+	return (eFromTeam == eTeam1 && eToTeam == eTeam2) || (eFromTeam == eTeam2 && eToTeam == eTeam1);
+}
+
+/// How many turns the pact between these two teams still has to run (0 if there is none)
+int CvGameDeals::GetNonAggressionPactTurnsLeft(TeamTypes eTeam1, TeamTypes eTeam2) const
+{
+	if(eTeam1 == NO_TEAM || eTeam2 == NO_TEAM || eTeam1 == eTeam2)
+		return 0;
+
+	const int iGameTurn = GC.getGame().getGameTurn();
+	int iTurnsLeft = 0;
+
+	for(DealList::const_iterator it = m_CurrentDeals.begin(); it != m_CurrentDeals.end(); ++it)
+	{
+		if(!IsDealBetweenTeams(*it, eTeam1, eTeam2))
+			continue;
+
+		for(TradedItemList::const_iterator itemIter = it->m_TradedItems.begin(); itemIter != it->m_TradedItems.end(); ++itemIter)
+		{
+			if(itemIter->m_eItemType != TRADE_ITEM_NON_AGGRESSION_PACT)
+				continue;
+
+			int iTurns = (int)itemIter->m_iFinalTurn - iGameTurn;
+			if(iTurns > iTurnsLeft)
+				iTurnsLeft = iTurns;
+		}
+	}
+
+	return iTurnsLeft;
+}
+
+/// Turns before these two teams may sign another pact (0 when they are free to sign)
+int CvGameDeals::GetNonAggressionPactCooldownTurns(TeamTypes eTeam1, TeamTypes eTeam2) const
+{
+	if(eTeam1 == NO_TEAM || eTeam2 == NO_TEAM || eTeam1 == eTeam2)
+		return 0;
+
+	int iLastSignTurn = -1;
+
+	// Look through current deals
+	for(DealList::const_iterator it = m_CurrentDeals.begin(); it != m_CurrentDeals.end(); ++it)
+	{
+		if(!IsDealBetweenTeams(*it, eTeam1, eTeam2))
+			continue;
+
+		for(TradedItemList::const_iterator itemIter = it->m_TradedItems.begin(); itemIter != it->m_TradedItems.end(); ++itemIter)
+		{
+			if(itemIter->m_eItemType == TRADE_ITEM_NON_AGGRESSION_PACT && (int)it->m_iStartTurn > iLastSignTurn)
+				iLastSignTurn = (int)it->m_iStartTurn;
+		}
+	}
+
+	// Look through historical deals as well (a pact that expired or was cancelled)
+	for(DealList::const_iterator it = m_HistoricalDeals.begin(); it != m_HistoricalDeals.end(); ++it)
+	{
+		if(!IsDealBetweenTeams(*it, eTeam1, eTeam2))
+			continue;
+
+		for(TradedItemList::const_iterator itemIter = it->m_TradedItems.begin(); itemIter != it->m_TradedItems.end(); ++itemIter)
+		{
+			if(itemIter->m_eItemType == TRADE_ITEM_NON_AGGRESSION_PACT && (int)it->m_iStartTurn > iLastSignTurn)
+				iLastSignTurn = (int)it->m_iStartTurn;
+		}
+	}
+
+	if(iLastSignTurn < 0)
+		return 0;
+
+	int iRemaining = GetNonAggressionPactCooldown() - (GC.getGame().getGameTurn() - iLastSignTurn);
+	return max(0, iRemaining);
+}
+
+/// Is a Non-Aggression Pact in force between the two teams right now?
+bool CvGameDeals::IsNonAggressionPactActive(TeamTypes eTeam1, TeamTypes eTeam2) const
+{
+	return GetNonAggressionPactTurnsLeft(eTeam1, eTeam2) > 0;
 }
 
 /// Some trade items require Gold to be spent by both players
@@ -4483,6 +4687,8 @@ void CvGameDeals::LogDealComplete(CvDeal* pDeal)
 				break;
 			case TRADE_ITEM_TECHS:
 				strTemp.Format("***** Technology Trade: ID %d *****", itemIter->m_iData1);
+			case TRADE_ITEM_NON_AGGRESSION_PACT:
+				strTemp.Format("***** Non-Aggression Pact Trade *****");
 				break;
 			default:
 				strTemp.Format("***** UNKNOWN TRADE!!! *****");
@@ -4692,6 +4898,8 @@ void CvGameDeals::LogDealFailed(CvDeal* pDeal, bool bNoRenew, bool bNotAccepted,
 				break;
 			case TRADE_ITEM_TECHS:
 				strTemp.Format("***** Technology Trade: ID %d *****", itemIter->m_iData1);
+			case TRADE_ITEM_NON_AGGRESSION_PACT:
+				strTemp.Format("***** Non-Aggression Pact Trade *****");
 				break;
 			default:
 				strTemp.Format("***** UNKNOWN TRADE!!! *****");

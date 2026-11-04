@@ -14,3 +14,6 @@ alter table UnitPromotions add OriginalCapitalSpecialDamageFix integer default 0
 
 alter table UnitPromotions add FixDamagePerPromotionMod integer default 0;
 alter table UnitPromotions add FixReducePerPromotionMod integer default 0;
+
+alter table UnitPromotions add MeleeAttackCityReduceDamage integer default 0;
+alter table UnitPromotions add MeleeAttackUnitReduceDamage integer default 0;

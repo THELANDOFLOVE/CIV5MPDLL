@@ -196,6 +196,8 @@ CREATE TABLE CityStateUAEffects (
     FaithBeliefPurchase boolean DEFAULT 0,
     -- Wittenberg: when this religion is cleansed from a city-state city by an inquisitor/great prophet, keep this % of the followers
     InquisitorRetentionPercent integer DEFAULT 0,
+    -- Wittenberg: the ally's inquisitors may remove heresy in city-state cities (including the adjacent-city check)
+    InquisitorCanUseOnCityState boolean DEFAULT 0,
     -- La Venta: ally may buy an idle pantheon belief and add it to the ally-led religion (price doubles per purchase)
     FaithPantheonPurchase boolean DEFAULT 0,
     -- La Venta: +X% great-person rate per masterpiece/artifact the ally owns
@@ -251,6 +253,22 @@ CREATE TABLE CityStateUAs (
     Help TEXT DEFAULT NULL REFERENCES Language_en_US(Tag),
     AllyEffectType TEXT NOT NULL REFERENCES CityStateUAEffects(Type),
     FriendEffectType TEXT NOT NULL REFERENCES CityStateUAEffects(Type)
+);
+
+-- AI personality attraction: how much a leader whose personality has the given flavor wants this
+-- city-state's UA. Mirrors Belief_ExtraFlavors; the AI score is (Flavor * leader flavor) / 100.
+create table CityStateUA_ExtraFlavors (
+    CityStateUAType text references CityStateUAs(Type),
+    FlavorType text references Flavors(Type),
+    Flavor integer default 0 not null
+);
+
+-- AI victory preference: extra desirability of this city-state's UA for an AI that is currently
+-- pursuing the given grand strategy. Flavor is on the gold-gift value scale (gift threshold is 100).
+create table CityStateUA_VictoryFlavors (
+    CityStateUAType text references CityStateUAs(Type),
+    AIGrandStrategyType text references AIGrandStrategies(Type),
+    Flavor integer default 0 not null
 );
 
 -- MinorCivilizations reference UAType directly (no mapping table needed)

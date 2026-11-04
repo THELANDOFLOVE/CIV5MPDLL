@@ -1553,6 +1553,10 @@ void CvPlayer::uninit()
 	m_bExtendedGame = false;
 	m_bFoundedFirstCity = false;
 	m_iNumCitiesFounded = 0;
+	m_iNumWorldWondersBuilt = 0;
+	m_iNumFollowersConverted = 0;
+	m_iNumCitiesCaptured = 0;
+	m_iNumGreatPeopleBorn = 0;
 	m_bStrike = false;
 	m_bCramped = false;
 	m_bLostCapital = false;
@@ -3919,6 +3923,9 @@ CvCity* CvPlayer::acquireCity(CvCity* pOldCity, bool bConquest, bool bGift, bool
 	if (MOD_GLOBAL_CITY_SCALES && pNewCity) pNewCity->UpdateScaleBuildings();
 #endif
 
+	if (pNewCity)
+		pNewCity->UpdatePolicyFreeBuildings();
+
 #ifdef MOD_TRAITS_COMBAT_BONUS_FROM_CAPTURED_HOLY_CITY
 	if (MOD_TRAITS_COMBAT_BONUS_FROM_CAPTURED_HOLY_CITY && pNewCity && pNewCity->GetCityReligions()->IsHolyCityAnyReligion()) {
 		GET_PLAYER(eOldOwner).UpdateCachedCapturedHolyCity();
@@ -4021,6 +4028,14 @@ CvCity* CvPlayer::acquireCity(CvCity* pOldCity, bool bConquest, bool bGift, bool
 			int iTpl = PickFreeConcubineTemplate();
 			if (iTpl > 0) ReceiveConcubine(eOldOwner, iTpl, false, 1);
 		}
+	}
+
+	// SP contest quests: count cities taken by conquest. Retaking a city whose original
+	// owner is us does not count; barbarian cities (if any) do not count either.
+	// City-states are intentionally included.
+	if (bConquest && eOldOwner != NO_PLAYER && eOriginalOwner != GetID() && !GET_PLAYER(eOldOwner).isBarbarian())
+	{
+		ChangeNumCitiesCaptured(1);
 	}
 
 #if defined(MOD_API_EXTENSIONS)
@@ -4695,6 +4710,13 @@ CvUnit* CvPlayer::initUnit(UnitTypes eUnit, int iX, int iY, UnitAITypes eUnitAI,
 	SpecialUnitTypes eSpecialUnitGP = (SpecialUnitTypes)GC.getInfoTypeForString("SPECIALUNIT_PEOPLE", true);
 	if (eSpecialUnitGP != -1 && pkUnitDef->GetSpecialUnitType() == eSpecialUnitGP)
 	{
+		// SP contest quests: every great person obtained counts, whatever the source
+		// (production, gold/faith purchase, free unit, city-state gift) and whatever the
+		// class, including unique replacements not listed in GreatPersons. This is the
+		// single entry point every in-game great person passes through; save loads use
+		// CvUnit::read and never reach initUnit.
+		ChangeNumGreatPeopleBorn(1);
+
 		UnitClassTypes eUC = (UnitClassTypes)pkUnitDef->GetUnitClassType();
 		GreatPersonTypes eGP = GetGreatPersonFromUnitClass(eUC);
 		if (eGP != NO_GREATPERSON)
@@ -8484,7 +8506,7 @@ void CvPlayer::receiveGoody(CvPlot* pPlot, GoodyTypes eGoody, CvUnit* pUnit)
 									if(pLoopPlot->getNumFriendlyUnitsOfType(pUnit) < GC.getPLOT_UNIT_LIMIT())
 #endif
 									{
-										if(pNewUnit->canEnterTerritory(pLoopPlot->getTeam()) && !pNewUnit->isEnemy(pLoopPlot->getTeam(), pLoopPlot))
+										if(pNewUnit->canEnterTerritory(pLoopPlot->getTeam(), false /*bIgnoreRightOfPassage*/, false /*bIsCity*/, false /*bIsDeclareWarMove*/, pLoopPlot->getOwner()) && !pNewUnit->isEnemy(pLoopPlot->getTeam(), pLoopPlot))
 										{
 											if((pNewUnit->getDomainType() != DOMAIN_AIR) || pLoopPlot->isFriendlyCity(*pNewUnit, true))
 											{
@@ -21507,6 +21529,14 @@ void CvPlayer::setCapitalCity(CvCity* pNewCapitalCity)
 		{
 			m_iCapitalCityID = FFreeList::INVALID_INDEX;
 		}
+
+		// Capital-only policy buildings follow the capital: rebuild every city so the old capital
+		// loses them and the new one gains them.
+		int iLoop = 0;
+		for(CvCity* pLoopCity = firstCity(&iLoop); pLoopCity != NULL; pLoopCity = nextCity(&iLoop))
+		{
+			pLoopCity->UpdatePolicyFreeBuildings();
+		}
 	}
 }
 
@@ -22292,14 +22322,20 @@ int CvPlayer::calculateMilitaryMight() const
 	}
 	//Simplistic increase based on player's gold
 	//500 gold will increase might by 22%, 2000 by 45%, 8000 gold by 90%
+	//A negative treasury (deficit) would make sqrt return NaN, which then turns the whole product
+	//into an undefined integer - treat debt as zero gold for this bonus instead.
+	int iGoldForMight = GetTreasury()->GetGold();
+	if(iGoldForMight < 0)
+		iGoldForMight = 0;
+
 	float fGoldMultiplier = 1.0f;
 	if(MOD_SP_SMART_AI)
 	{
-		fGoldMultiplier += sqrt((float)GetTreasury()->GetGold() / 5) / 100.0f;
+		fGoldMultiplier += sqrt((float)iGoldForMight / 5) / 100.0f;
 	}
 	else
 	{
-		fGoldMultiplier += sqrt((float)GetTreasury()->GetGold()) / 100.0f;
+		fGoldMultiplier += sqrt((float)iGoldForMight) / 100.0f;
 	}
 	if(fGoldMultiplier > 2.0f) fGoldMultiplier = 2.0f;
 
@@ -23708,6 +23744,54 @@ int CvPlayer::GetNumCitiesFounded() const
 void CvPlayer::ChangeNumCitiesFounded(int iValue)
 {
 	m_iNumCitiesFounded += iValue;
+}
+
+//	--------------------------------------------------------------------------------
+int CvPlayer::GetNumWorldWondersBuilt() const
+{
+	return m_iNumWorldWondersBuilt;
+}
+
+//	--------------------------------------------------------------------------------
+void CvPlayer::ChangeNumWorldWondersBuilt(int iValue)
+{
+	m_iNumWorldWondersBuilt += iValue;
+}
+
+//	--------------------------------------------------------------------------------
+int CvPlayer::GetNumFollowersConverted() const
+{
+	return m_iNumFollowersConverted;
+}
+
+//	--------------------------------------------------------------------------------
+void CvPlayer::ChangeNumFollowersConverted(int iValue)
+{
+	m_iNumFollowersConverted += iValue;
+}
+
+//	--------------------------------------------------------------------------------
+int CvPlayer::GetNumCitiesCaptured() const
+{
+	return m_iNumCitiesCaptured;
+}
+
+//	--------------------------------------------------------------------------------
+void CvPlayer::ChangeNumCitiesCaptured(int iValue)
+{
+	m_iNumCitiesCaptured += iValue;
+}
+
+//	--------------------------------------------------------------------------------
+int CvPlayer::GetNumGreatPeopleBorn() const
+{
+	return m_iNumGreatPeopleBorn;
+}
+
+//	--------------------------------------------------------------------------------
+void CvPlayer::ChangeNumGreatPeopleBorn(int iValue)
+{
+	m_iNumGreatPeopleBorn += iValue;
 }
 
 //	--------------------------------------------------------------------------------
@@ -30515,6 +30599,8 @@ void CvPlayer::processPolicies(PolicyTypes ePolicy, int iChange)
 		}
 #endif
 
+		pLoopCity->UpdatePolicyFreeBuildings();
+
 #ifdef MOD_GLOBAL_CORRUPTION
 		if (MOD_GLOBAL_CORRUPTION && pPolicy->IsInvolveCorruption())
 		{
@@ -31263,6 +31349,10 @@ void CvPlayer::Read(FDataStream& kStream)
 	MOD_SERIALIZE_READ(160, kStream, m_iNaturalWonderSubsequentFinderPolicies, 0);
 	MOD_SERIALIZE_READ(160, kStream, m_iNaturalWonderSubsequentFinderTech, 0);
 	MOD_SERIALIZE_READ(164, kStream, m_iLastVeniceBuyFoodTurn, -1);
+	MOD_SERIALIZE_READ(166, kStream, m_iNumWorldWondersBuilt, 0);
+	MOD_SERIALIZE_READ(166, kStream, m_iNumFollowersConverted, 0);
+	MOD_SERIALIZE_READ(166, kStream, m_iNumCitiesCaptured, 0);
+	MOD_SERIALIZE_READ(166, kStream, m_iNumGreatPeopleBorn, 0);
 	kStream >> m_iProductionBeakerMod;
 	if (uiVersion >= 13)
 	{
@@ -32307,6 +32397,10 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE(kStream, m_iNaturalWonderSubsequentFinderPolicies);
 	MOD_SERIALIZE_WRITE(kStream, m_iNaturalWonderSubsequentFinderTech);
 	MOD_SERIALIZE_WRITE(kStream, m_iLastVeniceBuyFoodTurn);
+	MOD_SERIALIZE_WRITE(kStream, m_iNumWorldWondersBuilt);
+	MOD_SERIALIZE_WRITE(kStream, m_iNumFollowersConverted);
+	MOD_SERIALIZE_WRITE(kStream, m_iNumCitiesCaptured);
+	MOD_SERIALIZE_WRITE(kStream, m_iNumGreatPeopleBorn);
 	kStream << m_iProductionBeakerMod;
 	kStream << m_iGreatEngineerRateModifier;
 	kStream << m_iGreatPersonExpendGold;
@@ -33807,10 +33901,8 @@ void CvPlayer::ChangeNumCityStateAllies(int iChange)
 	int CvPlayer::GetDiplomaticOverextensionDecayPenalty() const
 	{
 		int iOver = GetDiplomaticOverextensionCount();
-		int iPenalty = iOver * GC.getDIPLOMATIC_OVEREXTENSION_DECAY_MODIFIER();
-		if (iPenalty < -100) iPenalty = -100;
-		if (iPenalty > 100) iPenalty = 100;
-		return iPenalty;
+		// No cap: each ally over the prestige limit raises decay speed by the configured percentage.
+		return iOver * GC.getDIPLOMATIC_OVEREXTENSION_DECAY_MODIFIER();
 	}
 
 	int CvPlayer::GetDiplomaticOverextensionRisePenalty() const
@@ -34209,6 +34301,13 @@ int CvPlayer::GetCSUACapitalYieldModifierPerFollowingCity(YieldTypes eYield) con
 	int CvPlayer::GetCSUAInquisitorRetentionPercent() const
 	{
 		return m_pCityStateUA ? m_pCityStateUA->GetInquisitorRetentionPercent() : 0;
+	}
+
+	//	------------------------------------------------------------------------
+	// Wittenberg CS UA: the ally's inquisitors may remove heresy in any city-state city
+	bool CvPlayer::IsCSUAInquisitorCanUseOnCityState() const
+	{
+		return m_pCityStateUA ? m_pCityStateUA->IsInquisitorCanUseOnCityState() : false;
 	}
 
 	// Wittenberg CS UA: does this city-state's own UA grant the faith-belief-purchase ability?

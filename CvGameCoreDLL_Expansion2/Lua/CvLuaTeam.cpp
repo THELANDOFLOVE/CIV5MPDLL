@@ -232,6 +232,9 @@ void CvLuaTeam::PushMethods(lua_State* L, int t)
 	Method(IsHasResearchAgreement);
 	Method(GetResearchAgreementStartTurn);
 	Method(IsHasTradeAgreement);
+	Method(IsNonAggressionPact);
+	Method(GetNonAggressionPactTurnsLeft);
+	Method(GetNonAggressionPactCooldown);
 
 	Method(IsHasTech);
 	Method(SetHasTech);
@@ -1270,6 +1273,27 @@ int CvLuaTeam::lIsObsoleteBuilding(lua_State* L)
 int CvLuaTeam::lIsHasResearchAgreement(lua_State* L)
 {
 	return BasicLuaMethod(L, &CvTeam::IsHasResearchAgreement);
+}
+
+//------------------------------------------------------------------------------
+//bool IsNonAggressionPact(TeamTypes eTeam);
+int CvLuaTeam::lIsNonAggressionPact(lua_State* L)
+{
+	return BasicLuaMethod(L, &CvTeam::IsNonAggressionPact);
+}
+
+//------------------------------------------------------------------------------
+//int GetNonAggressionPactTurnsLeft(TeamTypes eTeam);
+int CvLuaTeam::lGetNonAggressionPactTurnsLeft(lua_State* L)
+{
+	return BasicLuaMethod(L, &CvTeam::GetNonAggressionPactTurnsLeft);
+}
+
+//------------------------------------------------------------------------------
+//int GetNonAggressionPactCooldown(TeamTypes eTeam);
+int CvLuaTeam::lGetNonAggressionPactCooldown(lua_State* L)
+{
+	return BasicLuaMethod(L, &CvTeam::GetNonAggressionPactCooldown);
 }
 
 //------------------------------------------------------------------------------

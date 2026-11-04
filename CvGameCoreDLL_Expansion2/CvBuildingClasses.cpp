@@ -247,6 +247,7 @@ CvBuildingEntry::CvBuildingEntry(void):
 	m_bMapCentering(false),
 	m_bNeverCapture(false),
 	m_bNukeImmune(false),
+	m_bBannedCityStateQuest(false),
 	m_bExtraAttackOnKill(false),
 	m_bIsForbiddenForeignSpy(false),
 	m_bIsForbiddenForeignSpyGlobal(false),
@@ -607,6 +608,7 @@ bool CvBuildingEntry::CacheResults(Database::Results& kResults, CvDatabaseUtilit
 	m_bMapCentering = kResults.GetBool("MapCentering");
 	m_bNeverCapture = kResults.GetBool("NeverCapture");
 	m_bNukeImmune = kResults.GetBool("NukeImmune");
+	m_bBannedCityStateQuest = kResults.GetBool("BannedCityStateQuest");
 	m_bExtraAttackOnKill = kResults.GetBool("CityCollateralDamage");
 	m_bIsForbiddenForeignSpy = kResults.GetBool("ForbiddenForeignSpy");
 	m_bIsForbiddenForeignSpyGlobal = kResults.GetBool("ForbiddenForeignSpyGlobal");
@@ -3283,6 +3285,13 @@ bool CvBuildingEntry::IsNeverCapture() const
 bool CvBuildingEntry::IsNukeImmune() const
 {
 	return m_bNukeImmune;
+}
+
+/// SP: is this building banned as a city-state quest target? (e.g. it is destroyed on construction,
+/// so a "construct this building" quest could never be completed)
+bool CvBuildingEntry::IsBannedCityStateQuest() const
+{
+	return m_bBannedCityStateQuest;
 }
 
 

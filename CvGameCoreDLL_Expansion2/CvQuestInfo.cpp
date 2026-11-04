@@ -20,6 +20,10 @@ CvQuestInfo::CvQuestInfo() :
 	m_iRewardSpy(0),
 	m_iRewardLeagueVotes(0),
 	m_iRewardAidPoints(0),
+	m_iRewardFaith(0),
+	m_iRewardFreeTech(0),
+	m_iRewardPopulation(0),
+	m_iRewardUnitXP(0),
 	m_iBiasFriendly(100),
 	m_iBiasNeutral(100),
 	m_iBiasHostile(100),
@@ -116,6 +120,26 @@ int CvQuestInfo::getRewardAidPoints() const
 	return m_iRewardAidPoints;
 }
 
+int CvQuestInfo::getRewardFaith() const
+{
+	return m_iRewardFaith;
+}
+
+int CvQuestInfo::getRewardFreeTech() const
+{
+	return m_iRewardFreeTech;
+}
+
+int CvQuestInfo::getRewardPopulation() const
+{
+	return m_iRewardPopulation;
+}
+
+int CvQuestInfo::getRewardUnitXP() const
+{
+	return m_iRewardUnitXP;
+}
+
 int CvQuestInfo::getBiasFriendly() const
 {
 	return (m_iBiasFriendly <= 0 ? 100 : m_iBiasFriendly);
@@ -209,6 +233,10 @@ bool CvQuestInfo::CacheResults(Database::Results& kResults, CvDatabaseUtility& k
 	m_iRewardSpy = kResults.GetInt("RewardSpy");
 	m_iRewardLeagueVotes = kResults.GetInt("RewardLeagueVotes");
 	m_iRewardAidPoints = kResults.GetInt("RewardAidPoints");
+	m_iRewardFaith = kResults.GetInt("RewardFaith");
+	m_iRewardFreeTech = kResults.GetInt("RewardFreeTech");
+	m_iRewardPopulation = kResults.GetInt("RewardPopulation");
+	m_iRewardUnitXP = kResults.GetInt("RewardUnitXP");
 	m_iBiasFriendly = kResults.GetInt("BiasFriendly");
 	m_iBiasNeutral = kResults.GetInt("BiasNeutral");
 	m_iBiasHostile = kResults.GetInt("BiasHostile");

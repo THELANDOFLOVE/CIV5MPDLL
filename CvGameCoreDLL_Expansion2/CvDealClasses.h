@@ -41,6 +41,7 @@ enum TradeableItems
 	TRADE_ITEM_DIPLOMATIC_MARRIAGE,
 	TRADE_ITEM_DUAL_EMPIRE_TREATY,
 	TRADE_ITEM_TECHS,
+	TRADE_ITEM_NON_AGGRESSION_PACT,
 	NUM_TRADEABLE_ITEMS,
 };
 FDataStream& operator>>(FDataStream&, TradeableItems&);
@@ -201,6 +202,7 @@ public:
 	void AddVoteCommitment(PlayerTypes eFrom, int iResolutionID, int iVoteChoice, int iNumVotes, bool bRepeal);
 	void AddDiplomaticMarriage(PlayerTypes eFrom, int iDuration);
 	void AddDualEmpireTreaty(PlayerTypes eFrom);
+	void AddNonAggressionPact(PlayerTypes eFrom, int iDuration);
 
 	int GetGoldTrade(PlayerTypes eFrom);
 	bool ChangeGoldTrade(PlayerTypes eFrom, int iNewAmount);
@@ -227,6 +229,7 @@ public:
 	bool IsVoteCommitmentTrade(PlayerTypes eFrom);
 	bool IsDiplomaticMarriage(PlayerTypes eFrom);
 	bool IsDualEmpireTreaty(PlayerTypes eFrom);
+	bool IsNonAggressionPactTrade(PlayerTypes eFrom);
 
 	static DealRenewStatus GetItemTradeableState(TradeableItems eItem);
 	bool IsPotentiallyRenewable();
@@ -242,6 +245,7 @@ public:
 	void RemoveVoteCommitment(PlayerTypes eFrom, int iResolutionID, int iVoteChoice, int iNumVotes, bool bRepeal);
 	void RemoveDiplomaticMarriage(PlayerTypes eFrom);
 	void RemoveDualEmpireTreaty(PlayerTypes eFrom);
+	void RemoveNonAggressionPact(PlayerTypes eFrom);
 
 	bool ContainsItemType(TradeableItems eItemType, PlayerTypes eFrom = NO_PLAYER);
 };
@@ -319,6 +323,16 @@ public:
 	void DoEndTradedItem(CvTradedItem* pItem, PlayerTypes eToPlayer, bool bCancelled, PlayerTypes eWarAggressor = NO_PLAYER);
 
 	int GetTradeItemGoldCost(TradeableItems eItem, PlayerTypes ePlayer1, PlayerTypes ePlayer2) const;
+
+	// Non-Aggression Pact: a deal item that prevents the two teams from declaring war on each other
+	// while it is active. Its length and the cooldown between two signings are fixed by design.
+	static int GetNonAggressionPactLength();
+	static int GetNonAggressionPactCooldown();
+	// Number of turns the pact still has to run between the two teams (0 when there is none)
+	int GetNonAggressionPactTurnsLeft(TeamTypes eTeam1, TeamTypes eTeam2) const;
+	// Number of turns before the two teams may sign another pact (0 when there is no cooldown)
+	int GetNonAggressionPactCooldownTurns(TeamTypes eTeam1, TeamTypes eTeam2) const;
+	bool IsNonAggressionPactActive(TeamTypes eTeam1, TeamTypes eTeam2) const;
 
 	static void PrepareRenewDeal(CvDeal* pOldDeal, const CvDeal* pNewDeal);
 

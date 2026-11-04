@@ -27,6 +27,10 @@ public:
 	int getRewardSpy() const;
 	int getRewardLeagueVotes() const;
 	int getRewardAidPoints() const;
+	int getRewardFaith() const;
+	int getRewardFreeTech() const;
+	int getRewardPopulation() const;
+	int getRewardUnitXP() const;
 	int getBiasFriendly() const;
 	int getBiasNeutral() const;
 	int getBiasHostile() const;
@@ -60,6 +64,10 @@ protected:
 	int m_iRewardSpy;
 	int m_iRewardLeagueVotes;
 	int m_iRewardAidPoints;
+	int m_iRewardFaith;
+	int m_iRewardFreeTech;
+	int m_iRewardPopulation;
+	int m_iRewardUnitXP;
 	int m_iBiasFriendly;
 	int m_iBiasNeutral;
 	int m_iBiasHostile;

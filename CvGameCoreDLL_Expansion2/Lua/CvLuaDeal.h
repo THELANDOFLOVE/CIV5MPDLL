@@ -198,6 +198,21 @@ protected:
 		return BasicLuaMethod(L, &CvDeal::AddDualEmpireTreaty);
 	}
 
+	static int lAddNonAggressionPact(lua_State* L)
+	{
+		return BasicLuaMethod(L, &CvDeal::AddNonAggressionPact);
+	}
+
+	static int lRemoveNonAggressionPact(lua_State* L)
+	{
+		return BasicLuaMethod(L, &CvDeal::RemoveNonAggressionPact);
+	}
+
+	static int lIsNonAggressionPactTrade(lua_State* L)
+	{
+		return BasicLuaMethod(L, &CvDeal::IsNonAggressionPactTrade);
+	}
+
 	static int lChangeGoldTrade(lua_State* L)
 	{
 		return BasicLuaMethod(L, &CvDeal::ChangeGoldTrade);

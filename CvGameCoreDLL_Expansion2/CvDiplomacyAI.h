@@ -620,6 +620,7 @@ public:
 	void DoOpenBordersExchange(PlayerTypes ePlayer, DiploStatementTypes& eStatement, CvDeal* pDeal);
 	void DoOpenBordersOffer(PlayerTypes ePlayer, DiploStatementTypes& eStatement, CvDeal* pDeal);
 	void DoResearchAgreementOffer(PlayerTypes ePlayer, DiploStatementTypes& eStatement, CvDeal* pDeal);
+	void DoNonAggressionPactOffer(PlayerTypes ePlayer, DiploStatementTypes& eStatement, CvDeal* pDeal);
 	void DoRenewExpiredDeal(PlayerTypes ePlayer, DiploStatementTypes& eStatement, CvDeal* pDeal);
 	//void DoResearchAgreementPlan(PlayerTypes ePlayer, DiploStatementTypes &eStatement);
 
@@ -1086,6 +1087,40 @@ public:
 	bool IsGoingForCultureVictory();
 	bool IsGoingForSpaceshipVictory();
 
+#if defined(MOD_SP_UNIQUE_CITYSTATE)
+	// CSUA attraction: personality flavors ("wants") + current victory grand strategy ("needs").
+	// Returned on the gold-gift value scale (gift threshold is 100).
+	int GetCSUAAIDesirability(PlayerTypes eMinor);
+
+	// Pro-active city-state quest completion (see DoCityStateQuestAI)
+	void DoCityStateQuestAI();
+	int GetCityStateQuestFocusCount();
+	int GetCityStateQuestRank(PlayerTypes eMinor);
+	bool IsCityStateInQuestFocus(PlayerTypes eMinor, int iTopRank);
+	bool IsPreparingAttackOnPlayer(PlayerTypes ePlayer) const;
+	bool IsCityStateQuestTargetExempt(PlayerTypes eTarget) const;
+	void UpdateCityStateQuestBuildingTarget();
+	BuildingTypes GetCityStateQuestBuildingTarget();
+	bool IsNoConnectToMinor(PlayerTypes eMinor) const;
+	void SetNoConnectToMinor(PlayerTypes eMinor, int iExpireTurn);
+
+	// Economic Aid point spending AI (see DoCityStateAidPointAI)
+	void DoCityStateAidPointAI();
+	bool IsCityStateQuestImpossible(CvMinorCivAI* pMinorAI, PlayerTypes ePlayer, MinorCivQuestTypes eQuest);
+	bool WillCityStateQuestBeDoneByAI(CvMinorCivAI* pMinorAI, PlayerTypes ePlayer, MinorCivQuestTypes eQuest);
+	bool HasRecentlyRerolledCityStateQuests(CvMinorCivAI* pMinorAI, PlayerTypes ePlayer, int iTurn);
+	PlayerTypes GetAidPointPaymentMinor(PlayerTypes eMajor, int iCost, const bool* pabPoolUsed, bool bHonorReservation = true);
+	int GetAidPointAnnexReserve(PlayerTypes eMinor);
+	int GetAidPointReservedForMinor(PlayerTypes eMinor);
+	UnitTypes GetAidPointGreatPersonChoice();
+	UnitTypes GetAidPointGiftUnitChoice(PlayerTypes eMajor);
+	void DoAidPointGreatPersonSpend(PlayerTypes eMajor, bool* pabPoolUsed);
+	void DoAidPointRerollSpend(PlayerTypes eMajor, bool* pabPoolUsed);
+	void DoAidPointGiftUnitSpend(PlayerTypes eMajor, bool* pabPoolUsed);
+	void DoAidPointBullySpend(PlayerTypes eMajor, bool* pabPoolUsed);
+	void DoAidPointCongressSpend(PlayerTypes eMajor, bool* pabPoolUsed);
+#endif
+
 	bool IsPlayerValid(PlayerTypes eOtherPlayer, bool bMyTeamIsValid = false);
 
 	// Messages sent to other players about protected Minor Civs
@@ -1228,6 +1263,8 @@ private:
 		bool m_abMusteringForAttack[REALLY_MAX_PLAYERS];
 		bool m_abWantsResearchAgreementWithPlayer[MAX_MAJOR_CIVS];
 		bool m_abWantToRouteToMinor[REALLY_MAX_PLAYERS-MAX_MAJOR_CIVS];
+		// Quest AI: trade routes to this minor are not re-established before this turn
+		short m_aiNoConnectToMinorTurn[REALLY_MAX_PLAYERS-MAX_MAJOR_CIVS];
 		char m_aeWarFace[REALLY_MAX_PLAYERS];
 		char m_aeWarState[REALLY_MAX_PLAYERS];
 		char m_aeWarProjection[REALLY_MAX_PLAYERS];
@@ -1453,6 +1490,15 @@ private:
 
 	bool* m_pabWantsResearchAgreementWithPlayer;
 	bool* m_pabWantToRouteToMinor;
+	short* m_paiNoConnectToMinorTurn;
+
+	// Quest AI runtime state (not serialized)
+	int m_iLastCityStateQuestTurn;
+	BuildingTypes m_eCityStateQuestBuildingTarget;
+
+	// Economic Aid point AI runtime state (not serialized)
+	int m_iLastCityStateAidPointTurn;
+	int m_aiAidPointBullyTurn[MAX_CIV_PLAYERS];
 
 	char* m_paeWarFace;
 	char* m_paeWarState;

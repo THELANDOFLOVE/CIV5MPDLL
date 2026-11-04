@@ -4058,7 +4058,7 @@ void CvTacticalAI::PlotSingleHexOperationMoves(CvAIEscortedOperation* pOperation
 				if(pPlot != NULL)
 				{
 					// Has to be somewhere we can move and be empty of other units
-					if(pEscort->canEnterTerrain(*pPlot) && pEscort->canEnterTerritory(pPlot->getTeam()))
+					if(pEscort->canEnterTerrain(*pPlot) && pEscort->canEnterTerritory(pPlot->getTeam(), false /*bIgnoreRightOfPassage*/, false /*bIsCity*/, false /*bIsDeclareWarMove*/, pPlot->getOwner()))
 					{
 						if(pPlot->getNumUnits() == 0)
 						{

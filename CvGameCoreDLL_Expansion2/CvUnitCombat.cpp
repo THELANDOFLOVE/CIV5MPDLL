@@ -5120,6 +5120,35 @@ static void MilanDamageReductionIntervene(InflictDamageContext* ctx)
 	}
 }
 
+static void MeleeAttackerReduceDamageIntervene(InflictDamageContext* ctx)
+{
+	// Promotion effect: a melee attacker takes Percent less counter damage. Values above 100 are
+	// clamped, so 9999 means "immune to the counter damage".
+	// Hanoi CS UA outranks this promotion: the attacker's fixed-damage scale also scales the
+	// reduction (scale 0 = no effect, 50 = half effect).
+	if (!ctx->bMelee || ctx->pAttackerUnit == nullptr || ctx->piDefenseInflictDamage == nullptr)
+		return;
+
+	int iReduce = 0;
+	if (ctx->pDefenderCity != nullptr)
+		iReduce = ctx->pAttackerUnit->GetMeleeAttackCityReduceDamage();
+	else if (ctx->pDefenderUnit != nullptr)
+		iReduce = ctx->pAttackerUnit->GetMeleeAttackUnitReduceDamage();
+	else
+		return;
+
+	if (iReduce <= 0)
+		return;
+	if (iReduce > 100)
+		iReduce = 100;
+
+	const int iScale = ctx->iAttackerFixedDamageScale;
+	if (iScale <= 0)
+		return;
+
+	*ctx->piDefenseInflictDamage -= *ctx->piDefenseInflictDamage * iReduce * iScale / 10000;
+}
+
 void CvUnitCombat::InterveneInflictDamage(InflictDamageContext* ctx)
 {
 	if (ctx == nullptr) return;
@@ -5153,6 +5182,10 @@ void CvUnitCombat::InterveneInflictDamage(InflictDamageContext* ctx)
 
 	// Milan CS UA: scales the final damage; must run after every flat add/subtract above.
 	MilanDamageReductionIntervene(ctx);
+
+	// Percent counter-damage reduction from promotions. Runs after every flat add/subtract,
+	// so a grant of 100 or more really zeroes the damage the attacker takes.
+	MeleeAttackerReduceDamageIntervene(ctx);
 
 	if (ctx->piAttackInflictDamage && *ctx->piAttackInflictDamage <= 0)
 	{

@@ -1145,6 +1145,11 @@ bool CvTeam::canDeclareWar(TeamTypes eTeam) const
 		}
 	}
 #endif
+	// A Non-Aggression Pact in force between the two teams forbids declaring war
+	if(GC.getGame().GetGameDeals()->IsNonAggressionPactActive(GetID(), eTeam))
+	{
+		return false;
+	}
 
 	if(!canChangeWarPeace(eTeam))
 	{
@@ -4620,6 +4625,30 @@ int CvTeam::GetResearchAgreementStartTurn(TeamTypes eIndex) const
 	CvAssertMsg(eIndex >= 0, "eIndex is expected to be non-negative (invalid Index)");
 	CvAssertMsg(eIndex < MAX_TEAMS, "eIndex is expected to be within maximum bounds (invalid Index)");
 	return m_aiResearchAgreementStartTurn[eIndex];
+}
+
+//	--------------------------------------------------------------------------------
+bool CvTeam::IsNonAggressionPact(TeamTypes eIndex) const
+{
+	if(eIndex < 0 || eIndex >= MAX_TEAMS || eIndex == GetID())
+		return false;
+	return GC.getGame().GetGameDeals()->IsNonAggressionPactActive(GetID(), eIndex);
+}
+
+//	--------------------------------------------------------------------------------
+int CvTeam::GetNonAggressionPactTurnsLeft(TeamTypes eIndex) const
+{
+	if(eIndex < 0 || eIndex >= MAX_TEAMS || eIndex == GetID())
+		return 0;
+	return GC.getGame().GetGameDeals()->GetNonAggressionPactTurnsLeft(GetID(), eIndex);
+}
+
+//	--------------------------------------------------------------------------------
+int CvTeam::GetNonAggressionPactCooldown(TeamTypes eIndex) const
+{
+	if(eIndex < 0 || eIndex >= MAX_TEAMS || eIndex == GetID())
+		return 0;
+	return GC.getGame().GetGameDeals()->GetNonAggressionPactCooldownTurns(GetID(), eIndex);
 }
 //	--------------------------------------------------------------------------------
 bool CvTeam::IsHasTradeAgreement(TeamTypes eIndex) const

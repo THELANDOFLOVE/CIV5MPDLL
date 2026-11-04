@@ -44614,6 +44614,16 @@ int CvPlayer::SubmitVassalMemorial(int iType, int iTarget)
 	case 23: // rites ministry: offer a woman to the palace
 		iMinistry = 2;
 		break;
+	case 24: // rites ministry: ask the overlord to intercede
+		iMinistry = 2;
+		iDeadline = iUrgent;
+		break;
+	case 25: // rites ministry: ask for a marriage
+	case 26: // rites ministry: ask to attend the sacrifice
+	case 27: // rites ministry: ask for ritual vessels
+	case 28: // rites ministry: ask for a temple
+		iMinistry = 2;
+		break;
 	case 18: // revenue ministry: relief, loan, trade, offering, famine
 	case 19:
 	case 20:
@@ -44636,7 +44646,7 @@ int CvPlayer::SubmitVassalMemorial(int iType, int iTarget)
 		if (!GET_TEAM(kOverlord.getTeam()).GetTeamTechs()->HasTech(eTech)) return 4;
 		if (GET_TEAM(getTeam()).GetTeamTechs()->HasTech(eTech)) return 4;
 	}
-	else if (iType == 9 || iType == 11)
+	else if (iType == 9 || iType == 11 || iType == 24)
 	{
 		if (iTarget < 0 || iTarget >= MAX_MAJOR_CIVS) return 4;
 		if (iTarget == GetID() || iTarget == eOverlord) return 4;

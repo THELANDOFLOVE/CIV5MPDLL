@@ -35682,7 +35682,7 @@ void CvPlayer::DoVassalAIDiplomacyTurn()
 	{
 		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
 		if (!IsLiveVassal(eVassal)) continue;
-		if (GetVassalLoyalty(eVassal) >= 40) continue;
+		if (GetVassalLoyalty(eVassal) >= SuzerainDefineInt("SUZERAIN_LOYALTY_SHAKY")) continue;
 
 		if (CanRankUpVassal(eVassal)
 			&& GetTreasury()->GetGold() >= GetVassalRankUpGold(eVassal))
@@ -35775,7 +35775,7 @@ void CvPlayer::DoVassalAIDiplomacyTurn()
 	// vassals, fund a war, and only at the cap fall back to the cheap boon.
 	int iMandate = GetMandate();
 	bool bPunished = false;
-	if (iMandate >= 40)
+	if (iMandate >= SuzerainDefineInt("SUZERAIN_MANDATE_TIANFA_COST"))
 	{
 		for (size_t i = 0; i < m_vecVassals.size(); i++)
 		{
@@ -35798,7 +35798,7 @@ void CvPlayer::DoVassalAIDiplomacyTurn()
 		for (size_t i = 0; i < m_vecVassals.size(); i++)
 		{
 			PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
-			if (IsLiveVassal(eVassal) && GetVassalLoyalty(eVassal) < 50)
+			if (IsLiveVassal(eVassal) && GetVassalLoyalty(eVassal) < SuzerainDefineInt("SUZERAIN_MANDATE_LOW_LOYALTY"))
 			{
 				bLowLoyalty = true;
 				break;
@@ -35806,16 +35806,19 @@ void CvPlayer::DoVassalAIDiplomacyTurn()
 		}
 		bool bAtWar = GET_TEAM(getTeam()).getAtWarCount(true) > 0;
 
-		if (bLowLoyalty && iMandate >= 50)
+		int iFengshanCost = SuzerainDefineInt("SUZERAIN_MANDATE_FENGSHAN_COST");
+		int iRangzaiCost = SuzerainDefineInt("SUZERAIN_MANDATE_RANGZAI_COST");
+		int iQifengCost = SuzerainDefineInt("SUZERAIN_MANDATE_QIFENG_COST");
+		if (bLowLoyalty && iMandate >= iFengshanCost)
 			DoFengshan();
-		else if (bAtWar && iMandate >= 25)
+		else if (bAtWar && iMandate >= iRangzaiCost)
 			DoRangzai();
-		else if (iMandate >= 90)
+		else if (iMandate >= SuzerainDefineInt("SUZERAIN_MANDATE_SPEND_THRESHOLD"))
 		{
 			// About to overflow: spend on the best boon still affordable.
-			if (iMandate >= 25)
+			if (iMandate >= iRangzaiCost)
 				DoRangzai();
-			else if (iMandate >= 10)
+			else if (iMandate >= iQifengCost)
 				DoQifeng();
 		}
 	}
@@ -37226,7 +37229,7 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 		}
 		else
 		{
-			ChangeVassalLoyalty(eVassal, -30);
+			ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_LOYALTY_INDEPENDENCE_DENY"));
 		}
 		bOk = true;
 		break;
@@ -37450,7 +37453,7 @@ void CvPlayer::DoVassalMemorialTurn()
 			}
 
 			// Personnel ministry: a loyal vassal asks for a named title.
-			if (GetVassalTitle(eVassal) == 0 && GetVassalLoyalty(eVassal) >= 50
+			if (GetVassalTitle(eVassal) == 0 && GetVassalLoyalty(eVassal) >= SuzerainDefineInt("SUZERAIN_MEMORIAL_TITLE_MIN_LOYALTY")
 				&& PickFreeTitle() > 0 && !HasPendingMemorial(eVassal, 14))
 			{
 				AddVassalMemorial(14, 1, 0, eVassal, NO_PLAYER, iNormalTurns);
@@ -37738,10 +37741,10 @@ void CvPlayer::DoVassalMemorialTurn()
 			{
 			case 0: // call to arms
 			case 1: // material aid
-				bApprove = (GetVassalLoyalty(eVassal) >= 40);
+				bApprove = (GetVassalLoyalty(eVassal) >= SuzerainDefineInt("SUZERAIN_AI_APPROVE_AID"));
 				break;
 			case 2: // reward
-				bApprove = (GetVassalLoyalty(eVassal) >= 60);
+				bApprove = (GetVassalLoyalty(eVassal) >= SuzerainDefineInt("SUZERAIN_AI_APPROVE_REWARD"));
 				break;
 			case 3: // hardship
 				bApprove = true;
@@ -37751,7 +37754,7 @@ void CvPlayer::DoVassalMemorialTurn()
 					&& GetTreasury()->GetGold() >= GetVassalRankUpGold(eVassal);
 				break;
 			case 5: // request for a gift
-				bApprove = (GetVassalLoyalty(eVassal) >= 50);
+				bApprove = (GetVassalLoyalty(eVassal) >= SuzerainDefineInt("SUZERAIN_AI_APPROVE_GIFT"));
 				break;
 			case 6: // plea for forgiveness
 				bApprove = (GetVassalLoyalty(eVassal) >= SuzerainDefineInt("SUZERAIN_AI_APPROVE_APOLOGY"));
@@ -39107,7 +39110,7 @@ void CvPlayer::DoVassalWonderPoolTurn()
 			CvPlayer& kVassal = GET_PLAYER(eVassal);
 			if (kVassal.GetWonderRequest() == NO_BUILDING) continue;
 			if (kVassal.m_iWonderConditionType > 0) continue;
-			ApproveVassalWonderRequest(eVassal, GetVassalLoyalty(eVassal) >= 50);
+			ApproveVassalWonderRequest(eVassal, GetVassalLoyalty(eVassal) >= SuzerainDefineInt("SUZERAIN_AI_APPROVE_WONDER"));
 		}
 
 		// Keep the pool stocked so vassals have something to request.
@@ -44523,55 +44526,74 @@ int CvPlayer::ProposeVassalPeace(PlayerTypes eA, PlayerTypes eB, PlayerTypes ePa
 	long long iMightB = kB.GetMilitaryMight();
 	if (iMightA > 0 && iMightB > 0)
 	{
-		if (iMightA * 100 >= iMightB * 120) { iAcceptA -= 20; iAcceptB += 20; }
-		else if (iMightB * 100 >= iMightA * 120) { iAcceptB -= 20; iAcceptA += 20; }
+		int iInFightRatio = SuzerainDefineInt("SUZERAIN_PEACE_INFIGHT_RATIO");
+		int iInFightAdjust = SuzerainDefineInt("SUZERAIN_PEACE_INFIGHT_ADJUST");
+		if (iMightA * 100 >= iMightB * iInFightRatio) { iAcceptA -= iInFightAdjust; iAcceptB += iInFightAdjust; }
+		else if (iMightB * 100 >= iMightA * iInFightRatio) { iAcceptB -= iInFightAdjust; iAcceptA += iInFightAdjust; }
 	}
 
 	// Loyal vassals obey the overlord; disloyal ones resist.
-	if (GetVassalLoyalty(eA) >= 60) iAcceptA += 10;
-	else if (GetVassalLoyalty(eA) < 40) iAcceptA -= 10;
-	if (GetVassalLoyalty(eB) >= 60) iAcceptB += 10;
-	else if (GetVassalLoyalty(eB) < 40) iAcceptB -= 10;
+	int iLoyalBonusMin = SuzerainDefineInt("SUZERAIN_PEACE_LOYAL_BONUS_MIN");
+	int iLoyalPenaltyMax = SuzerainDefineInt("SUZERAIN_PEACE_LOYAL_PENALTY_MAX");
+	int iLoyalAdjust = SuzerainDefineInt("SUZERAIN_PEACE_LOYAL_ADJUST");
+	if (GetVassalLoyalty(eA) >= iLoyalBonusMin) iAcceptA += iLoyalAdjust;
+	else if (GetVassalLoyalty(eA) < iLoyalPenaltyMax) iAcceptA -= iLoyalAdjust;
+	if (GetVassalLoyalty(eB) >= iLoyalBonusMin) iAcceptB += iLoyalAdjust;
+	else if (GetVassalLoyalty(eB) < iLoyalPenaltyMax) iAcceptB -= iLoyalAdjust;
 
 	// Bias: whoever has to give something resists it.
-	int iGoldBias = iGoldPercent >= 30 ? 2 : (iGoldPercent >= 20 ? 1.5 : (iGoldPercent > 0 ? 1 : 0));
-	if (iGoldPercent > 0)
+	int iGoldBiasHigh = SuzerainDefineInt("SUZERAIN_PEACE_GOLD_BIAS_HIGH");
+	int iGoldBiasMid = SuzerainDefineInt("SUZERAIN_PEACE_GOLD_BIAS_MID");
+	int iGoldBiasHighPct = SuzerainDefineInt("SUZERAIN_PEACE_GOLD_BIAS_HIGH_PERCENT");
+	int iGoldBiasMidPct = SuzerainDefineInt("SUZERAIN_PEACE_GOLD_BIAS_MID_PERCENT");
+	int iGoldRelief = SuzerainDefineInt("SUZERAIN_PEACE_GOLD_BIAS_RELIEF");
+	int iTermCost = SuzerainDefineInt("SUZERAIN_PEACE_TERM_COST");
+	int iGoldBiasPct = iGoldPercent >= iGoldBiasHigh ? iGoldBiasHighPct
+		: (iGoldPercent >= iGoldBiasMid ? iGoldBiasMidPct : (iGoldPercent > 0 ? 100 : 0));
+	if (iGoldBiasPct > 0)
 	{
-		if (ePayer == eA) iAcceptA -= (int)(iGoldBias * 15); else iAcceptB -= (int)(iGoldBias * 15);
-		if (ePayer == eA) iAcceptB += (int)(iGoldBias * 5); else iAcceptA += (int)(iGoldBias * 5);
+		int iPayCost = iGoldBiasPct * iTermCost / 100;
+		int iRelief = iGoldBiasPct * iGoldRelief / 100;
+		if (ePayer == eA) { iAcceptA -= iPayCost; iAcceptB += iRelief; }
+		else { iAcceptB -= iPayCost; iAcceptA += iRelief; }
 	}
+	int iReturnPenalty = SuzerainDefineInt("SUZERAIN_PEACE_RETURN_PENALTY");
+	int iCityPenalty = SuzerainDefineInt("SUZERAIN_PEACE_CITY_PENALTY");
 	if (bReturnCities)
 	{
 		if (iHeldByA == 0 && iHeldByB == 0) bReturnCities = false;
-		if (iHeldByA > 0) iAcceptA -= 30;
-		if (iHeldByB > 0) iAcceptB -= 30;
+		if (iHeldByA > 0) iAcceptA -= iReturnPenalty;
+		if (iHeldByB > 0) iAcceptB -= iReturnPenalty;
 		// Mutual occupation: only the net difference is punished.
-		if (iHeldByA > iHeldByB) iAcceptA -= 10 * (iHeldByA - iHeldByB);
-		else if (iHeldByB > iHeldByA) iAcceptB -= 10 * (iHeldByB - iHeldByA);
+		if (iHeldByA > iHeldByB) iAcceptA -= iCityPenalty * (iHeldByA - iHeldByB);
+		else if (iHeldByB > iHeldByA) iAcceptB -= iCityPenalty * (iHeldByB - iHeldByA);
 	}
-	if (eCensure == eA) iAcceptA -= 15;
-	else if (eCensure == eB) iAcceptB -= 15;
+	if (eCensure == eA) iAcceptA -= iTermCost;
+	else if (eCensure == eB) iAcceptB -= iTermCost;
 
 	// Fault: only the net occupation counts, so mutual captures cancel out.
 	int iNetA = iHeldByA - iHeldByB;
-	if (iNetA > 0) { iAcceptA -= 10 * iNetA; iAcceptB += 10; }
-	else if (iNetA < 0) { iAcceptB -= 10 * (-iNetA); iAcceptA += 10; }
-	if (GetVassalBreachCount(eA) > 0) iAcceptA -= 10;
-	if (GetVassalBreachCount(eB) > 0) iAcceptB -= 10;
+	int iBreachPenalty = SuzerainDefineInt("SUZERAIN_PEACE_BREACH_PENALTY");
+	if (iNetA > 0) { iAcceptA -= iCityPenalty * iNetA; iAcceptB += iCityPenalty; }
+	else if (iNetA < 0) { iAcceptB -= iCityPenalty * (-iNetA); iAcceptA += iCityPenalty; }
+	if (GetVassalBreachCount(eA) > 0) iAcceptA -= iBreachPenalty;
+	if (GetVassalBreachCount(eB) > 0) iAcceptB -= iBreachPenalty;
 
 	// Track refusals per pair; the third refusal produces a counter-proposal.
 	PlayerTypes eLow = (eA < eB) ? eA : eB;
 	PlayerTypes eHigh = (eA < eB) ? eB : eA;
 	size_t iPair = (size_t)eLow * MAX_MAJOR_CIVS + eHigh;
 
-	if (iAcceptA < 50 || iAcceptB < 50)
+	int iAcceptFloor = SuzerainDefineInt("SUZERAIN_PEACE_ACCEPT_FLOOR");
+	int iCounterRejects = SuzerainDefineInt("SUZERAIN_PEACE_COUNTER_REJECTS");
+	if (iAcceptA < iAcceptFloor || iAcceptB < iAcceptFloor)
 	{
 		if (iPair < m_aiPeaceRejects.size())
 		{
 			m_aiPeaceRejects[iPair]++;
-			if (m_aiPeaceRejects[iPair] >= 3) return 3;
+			if (m_aiPeaceRejects[iPair] >= iCounterRejects) return 3;
 		}
-		return (iAcceptA < 50) ? 1 : 2;
+		return (iAcceptA < iAcceptFloor) ? 1 : 2;
 	}
 	if (iPair < m_aiPeaceRejects.size()) m_aiPeaceRejects[iPair] = 0;
 
@@ -44605,7 +44627,7 @@ int CvPlayer::ProposeVassalPeace(PlayerTypes eA, PlayerTypes eB, PlayerTypes ePa
 	}
 
 	if (eCensure == eA || eCensure == eB)
-		ChangeVassalLoyalty(eCensure, -10);
+		ChangeVassalLoyalty(eCensure, SuzerainDefineInt("SUZERAIN_PEACE_CENSURE_LOYALTY"));
 
 	// Record the court-ordered truce.
 	if (iTruceTurns > 0)
@@ -44692,7 +44714,7 @@ int CvPlayer::GetVassalPeaceCounterField(PlayerTypes eA, PlayerTypes eB, int iFi
 	bool bReturn = bAWeaker;
 	PlayerTypes eCensure = NO_PLAYER;
 
-	if (GetVassalLoyalty(eProposer) >= 60 && !bAWeaker)
+	if (GetVassalLoyalty(eProposer) >= SuzerainDefineInt("SUZERAIN_PEACE_RETURN_CITY_LOYALTY") && !bAWeaker)
 		bReturn = true; // loyal stronger side is willing to return cities
 
 	if (iField == 0) return iGold;
@@ -44742,7 +44764,7 @@ bool CvPlayer::AcceptVassalPeaceCounterEx(PlayerTypes eA, PlayerTypes eB, Player
 	}
 
 	if (eCensure == eA || eCensure == eB)
-		ChangeVassalLoyalty(eCensure, -10);
+		ChangeVassalLoyalty(eCensure, SuzerainDefineInt("SUZERAIN_PEACE_CENSURE_LOYALTY"));
 
 	PlayerTypes eLow = (eA < eB) ? eA : eB;
 	PlayerTypes eHigh = (eA < eB) ? eB : eA;
@@ -44863,7 +44885,7 @@ void CvPlayer::DoVassalAIMemorialTurn()
 		{
 			int iCost = GetStrongestLandUnitCost();
 			bool bGive = (iCost > 0 && GetTreasury()->GetGold() >= iCost
-				&& GetVassalLoyalty(eVassal) >= 40);
+				&& GetVassalLoyalty(eVassal) >= SuzerainDefineInt("SUZERAIN_AI_APPROVE_AID"));
 			if (bGive)
 				SpawnUnitForVassal(eVassal);
 			ResolveVassalMemorial(m, bGive);
@@ -44879,7 +44901,7 @@ void CvPlayer::DoVassalAIMemorialTurn()
 				{
 					PlayerTypes eCall = (PlayerTypes)m_vecVassals[i];
 					if (!IsLiveVassal(eCall)) continue;
-					if (GetVassalLoyalty(eCall) < 50) continue;
+					if (GetVassalLoyalty(eCall) < SuzerainDefineInt("SUZERAIN_CALL_TO_ARMS_MIN_LOYALTY")) continue;
 					OrderVassalJoinWar(eCall, eWarTarget);
 				}
 			}
@@ -44888,7 +44910,7 @@ void CvPlayer::DoVassalAIMemorialTurn()
 		else if (iType == 10)
 		{
 			// Grant the technology only to a reasonably loyal vassal.
-			ResolveVassalMemorial(m, GetVassalLoyalty(eVassal) >= 40);
+			ResolveVassalMemorial(m, GetVassalLoyalty(eVassal) >= SuzerainDefineInt("SUZERAIN_AI_APPROVE_AID"));
 		}
 		else if (iType == 11)
 		{
@@ -44910,12 +44932,12 @@ void CvPlayer::DoVassalAIMemorialTurn()
 		}
 		else if (iType == 14)
 		{
-			ResolveVassalMemorial(m, GetVassalLoyalty(eVassal) >= 60 && PickFreeTitle() > 0);
+			ResolveVassalMemorial(m, GetVassalLoyalty(eVassal) >= SuzerainDefineInt("SUZERAIN_AI_APPROVE_TITLE") && PickFreeTitle() > 0);
 		}
 		else if (iType == 15)
 		{
 			int iAppraiseCap = GetVassalLoyaltyCap(eVassal);
-			ResolveVassalMemorial(m, GetVassalLoyalty(eVassal) * 100 >= iAppraiseCap * 60);
+			ResolveVassalMemorial(m, GetVassalLoyalty(eVassal) * 100 >= iAppraiseCap * SuzerainDefineInt("SUZERAIN_AI_APPROVE_APPRAISE_PERCENT"));
 		}
 		else if (iType == 16 || iType == 17)
 		{
@@ -44925,12 +44947,12 @@ void CvPlayer::DoVassalAIMemorialTurn()
 		else if (iType == 18 || iType == 22)
 		{
 			// Relief only for a reasonably loyal vassal.
-			ResolveVassalMemorial(m, GetVassalLoyalty(eVassal) >= 40);
+			ResolveVassalMemorial(m, GetVassalLoyalty(eVassal) >= SuzerainDefineInt("SUZERAIN_AI_APPROVE_AID"));
 		}
 		else if (iType == 19)
 		{
 			int iLoan = SuzerainDefineInt("SUZERAIN_LOAN_GOLD");
-			ResolveVassalMemorial(m, GetVassalLoyalty(eVassal) >= 40
+			ResolveVassalMemorial(m, GetVassalLoyalty(eVassal) >= SuzerainDefineInt("SUZERAIN_AI_APPROVE_AID")
 				&& GetTreasury()->GetGold() >= iLoan);
 		}
 		else if (iType == 20 || iType == 21)
@@ -44940,7 +44962,7 @@ void CvPlayer::DoVassalAIMemorialTurn()
 		}
 		else if (iType == 23)
 		{
-			ResolveVassalMemorial(m, GetVassalLoyalty(eVassal) >= 40);
+			ResolveVassalMemorial(m, GetVassalLoyalty(eVassal) >= SuzerainDefineInt("SUZERAIN_AI_APPROVE_AID"));
 		}
 		else if (iType == 12)
 		{
@@ -44973,15 +44995,15 @@ void CvPlayer::OrderVassalsJoinWar(PlayerTypes eTarget)
 		if (eVassalTeam == eTargetTeam) continue;
 		if (GET_TEAM(eVassalTeam).isAtWar(eTargetTeam)) continue;
 
-		if (GetVassalLoyalty(eVassal) >= 40
+		if (GetVassalLoyalty(eVassal) >= SuzerainDefineInt("SUZERAIN_LOYALTY_OBEY")
 			&& GET_TEAM(eVassalTeam).canDeclareWar(eTargetTeam, eVassal))
 		{
 			GET_TEAM(eVassalTeam).declareWar(eTargetTeam, false, eVassal);
-			ChangeVassalLoyalty(eVassal, 2);
+			ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_LOYALTY_OBEY_WAR"));
 		}
 		else
 		{
-			ChangeVassalLoyalty(eVassal, -5);
+			ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_LOYALTY_DEFY_PENALTY"));
 		}
 	}
 }
@@ -45083,14 +45105,14 @@ bool CvPlayer::OrderVassalJoinWar(PlayerTypes eVassal, PlayerTypes eTarget)
 		return false;
 	}
 
-	if (GetVassalLoyalty(eVassal) >= 40
+	if (GetVassalLoyalty(eVassal) >= SuzerainDefineInt("SUZERAIN_LOYALTY_OBEY")
 		&& GET_TEAM(eVassalTeam).canDeclareWar(eTargetTeam, eVassal))
 	{
 		GET_TEAM(eVassalTeam).declareWar(eTargetTeam, false, eVassal);
-		ChangeVassalLoyalty(eVassal, 2);
+		ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_LOYALTY_OBEY_WAR"));
 		return true;
 	}
-	ChangeVassalLoyalty(eVassal, -5);
+	ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_LOYALTY_DEFY_PENALTY"));
 	return false;
 }
 
@@ -45236,7 +45258,7 @@ bool CvPlayer::ResolveWarOrder(bool bObey)
 			if (!GET_TEAM(getTeam()).canDeclareWar(eTargetTeam, GetID())) return false;
 			GET_TEAM(getTeam()).declareWar(eTargetTeam, false, GetID());
 		}
-		kOverlord.ChangeVassalLoyalty(GetID(), 2);
+		kOverlord.ChangeVassalLoyalty(GetID(), SuzerainDefineInt("SUZERAIN_LOYALTY_OBEY_WAR"));
 	}
 	return true;
 }
@@ -45782,7 +45804,8 @@ void CvPlayer::DoVassalDecreeTurn()
 		{
 			CvPlayer& kOverlord = GET_PLAYER((PlayerTypes)iFrom);
 			int iCap = kOverlord.GetVassalLoyaltyCap(GetID());
-			bAccept = (kOverlord.GetVassalLoyalty(GetID()) * 100 >= iCap * 50);
+			int iAcceptPct = SuzerainDefineInt("SUZERAIN_DECREE_ACCEPT_PERCENT");
+			bAccept = (kOverlord.GetVassalLoyalty(GetID()) * 100 >= iCap * iAcceptPct);
 		}
 		ResolveDecree(0, bAccept);
 	}

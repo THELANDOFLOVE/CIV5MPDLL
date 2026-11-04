@@ -36578,6 +36578,96 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 			bOk = true;
 		}
 		break;
+	case 24: // rites ministry: intercede and make peace
+	{
+		PlayerTypes eTarget = (PlayerTypes)GetVassalMemorialField(iIndex, SUZERAIN_MEMORIAL_TARGET);
+		if (bApprove)
+		{
+			bOk = true;
+			if (eTarget != NO_PLAYER && eTarget != GetID() && GET_PLAYER(eTarget).isAlive())
+			{
+				TeamTypes eTargetTeam = GET_PLAYER(eTarget).getTeam();
+				TeamTypes eVassalTeam = GET_PLAYER(eVassal).getTeam();
+				if (eTargetTeam != getTeam() && GET_TEAM(getTeam()).isAtWar(eTargetTeam))
+					GET_TEAM(getTeam()).makePeace(eTargetTeam, true, false, GetID());
+				if (eVassalTeam != eTargetTeam && GET_TEAM(eVassalTeam).isAtWar(eTargetTeam))
+					GET_TEAM(eVassalTeam).makePeace(eTargetTeam, true, false, eVassal);
+
+				int iPct = SuzerainDefineInt("SUZERAIN_CONCUBINE_PEACE_TRIBUTE_PERCENT");
+				if (iPct > 0 && GET_PLAYER(eTarget).isMajorCiv()
+					&& GC.getGame().getJonRandNum(100, "Concubine peace tribute") < iPct)
+				{
+					int iTpl = PickFreeConcubineTemplate();
+					if (iTpl > 0) ReceiveConcubine(eTarget, iTpl, false, 2);
+				}
+			}
+			ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_MEMORIAL_PEACE_LOYALTY"));
+		}
+		else
+		{
+			ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_MEMORIAL_PEACE_DENY"));
+			bOk = true;
+		}
+		break;
+	}
+	case 25: // rites ministry: arrange a marriage
+		if (bApprove)
+		{
+			int iGold = SuzerainDefineInt("SUZERAIN_MEMORIAL_MARRY_GOLD");
+			int iPay = std::min(iGold, (int)GetTreasury()->GetGold());
+			if (iPay > 0) TransferGoldTo(eVassal, iPay);
+			ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_MEMORIAL_MARRY_LOYALTY"));
+			bOk = true;
+		}
+		else
+		{
+			ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_MEMORIAL_MARRY_DENY"));
+			bOk = true;
+		}
+		break;
+	case 26: // rites ministry: attend the sacrifice
+		if (bApprove)
+		{
+			ChangeMandate(SuzerainDefineInt("SUZERAIN_MEMORIAL_RITE_MANDATE"));
+			ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_MEMORIAL_RITE_LOYALTY"));
+			bOk = true;
+		}
+		else
+		{
+			ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_MEMORIAL_RITE_DENY"));
+			bOk = true;
+		}
+		break;
+	case 27: // rites ministry: a gift of ritual vessels
+		if (bApprove)
+		{
+			CvCity* pCapital = GET_PLAYER(eVassal).getCapitalCity();
+			int iCulture = SuzerainDefineInt("SUZERAIN_MEMORIAL_RELIC_CULTURE");
+			if (pCapital != NULL && iCulture > 0)
+				pCapital->ChangeJONSCultureStored(iCulture);
+			ChangeMandate(SuzerainDefineInt("SUZERAIN_MEMORIAL_RELIC_MANDATE"));
+			ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_MEMORIAL_RELIC_LOYALTY"));
+			bOk = true;
+		}
+		else
+		{
+			ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_MEMORIAL_RELIC_DENY"));
+			bOk = true;
+		}
+		break;
+	case 28: // rites ministry: a temple and a posthumous name
+		if (bApprove)
+		{
+			ChangeMandate(SuzerainDefineInt("SUZERAIN_MEMORIAL_TEMPLE_MANDATE"));
+			ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_MEMORIAL_TEMPLE_LOYALTY"));
+			bOk = true;
+		}
+		else
+		{
+			ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_MEMORIAL_TEMPLE_DENY"));
+			bOk = true;
+		}
+		break;
 	case 1: // material aid while losing a war
 	case 2: // request for a reward
 	case 3: // report of hardship
@@ -36977,6 +37067,54 @@ void CvPlayer::DoVassalMemorialTurn()
 				}
 			}
 
+			// Rites ministry: newer petitions.
+			int iRitesLoyalty = GetVassalLoyalty(eVassal);
+
+			// Arrange a marriage while the bond is warm but not at its ceiling.
+			int iMarryMin = SuzerainDefineInt("SUZERAIN_MEMORIAL_MARRY_MIN_LOYALTY");
+			int iMarryMax = SuzerainDefineInt("SUZERAIN_MEMORIAL_MARRY_MAX_LOYALTY");
+			if (iRitesLoyalty >= iMarryMin && iRitesLoyalty <= iMarryMax
+				&& !HasPendingMemorial(eVassal, 25))
+			{
+				AddVassalMemorial(25, 1, 2, eVassal, NO_PLAYER, iNormalTurns);
+			}
+
+			// Intercede in a war the vassal is losing.
+			if (!HasPendingMemorial(eVassal, 24))
+			{
+				for (int e = 0; e < MAX_MAJOR_CIVS; e++)
+				{
+					PlayerTypes eEnemy = (PlayerTypes)e;
+					if (eEnemy == eVassal || eEnemy == GetID()) continue;
+					if (!GET_PLAYER(eEnemy).isAlive() || !GET_PLAYER(eEnemy).isMajorCiv()) continue;
+					if (!GET_TEAM(GET_PLAYER(eVassal).getTeam()).isAtWar(GET_PLAYER(eEnemy).getTeam())) continue;
+					AddVassalMemorial(24, 0, 2, eVassal, eEnemy, iNormalTurns);
+					break;
+				}
+			}
+
+			// Attend the sacrifice at court.
+			int iRiteMin = SuzerainDefineInt("SUZERAIN_MEMORIAL_RITE_MIN_LOYALTY");
+			if (iRitesLoyalty >= iRiteMin && IsVassalCourtTurn()
+				&& !HasPendingMemorial(eVassal, 26))
+			{
+				AddVassalMemorial(26, 1, 2, eVassal, NO_PLAYER, iNormalTurns);
+			}
+
+			// A gift of ritual vessels.
+			int iRelicMin = SuzerainDefineInt("SUZERAIN_MEMORIAL_RELIC_MIN_LOYALTY");
+			if (iRitesLoyalty >= iRelicMin && !HasPendingMemorial(eVassal, 27))
+			{
+				AddVassalMemorial(27, 1, 2, eVassal, NO_PLAYER, iNormalTurns);
+			}
+
+			// A temple and a posthumous name, for a truly loyal vassal.
+			int iTempleMin = SuzerainDefineInt("SUZERAIN_MEMORIAL_TEMPLE_MIN_LOYALTY");
+			if (iRitesLoyalty >= iTempleMin && !HasPendingMemorial(eVassal, 28))
+			{
+				AddVassalMemorial(28, 1, 2, eVassal, NO_PLAYER, iNormalTurns);
+			}
+
 			// Rites ministry: a content vassal asks for a gift in return.
 			int iGiftMin = SuzerainDefineInt("SUZERAIN_MEMORIAL_GIFT_REQUEST_MIN_LOYALTY");
 			if (iGiftMin > 0 && GetVassalLoyalty(eVassal) >= iGiftMin
@@ -37108,7 +37246,22 @@ void CvPlayer::DoVassalMemorialTurn()
 				bApprove = (GetVassalLoyalty(eVassal) >= 50);
 				break;
 			case 6: // plea for forgiveness
-				bApprove = (GetVassalLoyalty(eVassal) >= 50);
+				bApprove = (GetVassalLoyalty(eVassal) >= SuzerainDefineInt("SUZERAIN_AI_APPROVE_APOLOGY"));
+				break;
+			case 24: // intercede in a war
+				bApprove = (GetVassalLoyalty(eVassal) >= SuzerainDefineInt("SUZERAIN_AI_APPROVE_PEACE"));
+				break;
+			case 25: // arrange a marriage
+				bApprove = (GetVassalLoyalty(eVassal) >= SuzerainDefineInt("SUZERAIN_AI_APPROVE_MARRY"));
+				break;
+			case 26: // attend the sacrifice
+				bApprove = true;
+				break;
+			case 27: // ritual vessels
+				bApprove = (GetVassalLoyalty(eVassal) >= SuzerainDefineInt("SUZERAIN_AI_APPROVE_RELIC"));
+				break;
+			case 28: // temple and posthumous name
+				bApprove = (GetVassalLoyalty(eVassal) >= SuzerainDefineInt("SUZERAIN_AI_APPROVE_TEMPLE"));
 				break;
 			default:
 				bApprove = (GetMemorialDefault(iType) > 0);

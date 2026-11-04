@@ -34567,12 +34567,12 @@ int CvPlayer::GetVassalLoyaltyCap(PlayerTypes eVassal) const
 	if (!MOD_GLOBAL_SUZERAIN) return 0;
 
 	int iCount = SuzerainDefineListCount("SUZERAIN_LOYALTY_MAX_RANK");
-	if (iCount <= 0) iCount = 6;
+	if (iCount <= 0) return 0;
 
 	int iRank = GetVassalRank(eVassal);
 	if (iRank < 0) iRank = 0;
 	if (iRank > iCount - 1) iRank = iCount - 1;
-	return SuzerainDefineListInt("SUZERAIN_LOYALTY_MAX_RANK", iRank, 60);
+	return SuzerainDefineListInt("SUZERAIN_LOYALTY_MAX_RANK", iRank, 0);
 }
 
 //--------------------------------------------------------------------------------
@@ -34665,7 +34665,7 @@ bool CvPlayer::CanRankUpVassal(PlayerTypes eVassal) const
 
 	// The loyalty cap table also defines how many ranks exist.
 	int iCount = SuzerainDefineListCount("SUZERAIN_LOYALTY_MAX_RANK");
-	if (iCount <= 0) iCount = 6;
+	if (iCount <= 0) return false;
 	int iRank = GetVassalRank(eVassal);
 	if (iRank < 0) iRank = 0;
 	if (iRank >= iCount - 1) return false;
@@ -34705,11 +34705,11 @@ void CvPlayer::DoVassalRankUp(PlayerTypes eVassal)
 
 	// The overlord's cut grows with the rank just granted. Both tables are keyed
 	// by the old rank (its index 0 is the promotion out of being untitled).
-	int iMandate = SuzerainDefineListInt("SUZERAIN_RANK_UP_MANDATE", iOldRank, 5);
+	int iMandate = SuzerainDefineListInt("SUZERAIN_RANK_UP_MANDATE", iOldRank, 0);
 	if (iMandate != 0)
 		ChangeMandate(iMandate);
 
-	int iDao = SuzerainDefineListInt("SUZERAIN_RANK_UP_DAO", iOldRank, 1);
+	int iDao = SuzerainDefineListInt("SUZERAIN_RANK_UP_DAO", iOldRank, 0);
 	if (iDao != 0)
 		ChangeDaoPoints(iDao);
 }
@@ -35109,9 +35109,7 @@ int CvPlayer::GetPrayerChanceForInvestment(int iTotal) const
 	int iBase = SuzerainDefineInt("SUZERAIN_PRAYER_CHANCE_BASE");
 	int iUnit = SuzerainDefineInt("SUZERAIN_PRAYER_INVEST_UNIT");
 	int iMax = SuzerainDefineInt("SUZERAIN_PRAYER_CHANCE_MAX");
-	if (iBase <= 0) iBase = 40;
-	if (iUnit <= 0) iUnit = 200;
-	if (iMax <= 0) iMax = 60;
+	if (iUnit <= 0) return 0; // not configured = no prayer is ever granted
 
 	int iChance = iBase + iTotal / iUnit;
 	if (iChance > iMax) iChance = iMax;
@@ -35301,21 +35299,18 @@ void CvPlayer::ApplyPrayerGrace(PlayerTypes eVassal, int iWish)
 	if (!kVassal.isAlive()) return;
 
 	int iTurns = SuzerainDefineInt("SUZERAIN_PRAYER_BLESSING_TURNS");
-	if (iTurns <= 0) iTurns = 15;
 
 	switch (iWish)
 	{
 	case PRAYER_WISH_BLESSING:
 	{
 		int iAmount = SuzerainDefineInt("SUZERAIN_PRAYER_BLESSING_AMOUNT");
-		if (iAmount <= 0) iAmount = 2;
 		kVassal.ApplyPrayerBlessing(-1, iAmount, iTurns);
 		break;
 	}
 	case PRAYER_WISH_THRESHOLD:
 	{
 		int iPercent = SuzerainDefineInt("SUZERAIN_PRAYER_THRESHOLD_PERCENT");
-		if (iPercent <= 0) iPercent = 10;
 		kVassal.m_iPrayerResearchCostModifier = -iPercent;
 		kVassal.m_iPrayerPolicyCostModifier = -iPercent;
 		kVassal.m_iPrayerThresholdTurns = GC.getGame().getGameTurn() + iTurns;
@@ -35352,7 +35347,6 @@ void CvPlayer::ApplyPrayerGrace(PlayerTypes eVassal, int iWish)
 	case PRAYER_WISH_HAPPINESS:
 	{
 		int iHappiness = SuzerainDefineInt("SUZERAIN_PRAYER_HAPPINESS");
-		if (iHappiness <= 0) iHappiness = 1;
 		if (kVassal.m_iPrayerHappinessEndTurn > 0)
 			kVassal.ChangeExtraHappinessPerCity(-1);
 		kVassal.ChangeExtraHappinessPerCity(iHappiness);
@@ -35364,7 +35358,6 @@ void CvPlayer::ApplyPrayerGrace(PlayerTypes eVassal, int iWish)
 	{
 		// Clean governance: the whole realm sits one corruption level lower.
 		int iCorruptionTurns = SuzerainDefineInt("SUZERAIN_PRAYER_CORRUPTION_TURNS");
-		if (iCorruptionTurns <= 0) iCorruptionTurns = 15;
 		if (kVassal.m_iPrayerCorruptionTurns <= 0)
 			kVassal.ChangeCorruptionLevelReduceByOneRC(1);
 		kVassal.m_iPrayerCorruptionTurns = GC.getGame().getGameTurn() + iCorruptionTurns;
@@ -35427,11 +35420,9 @@ void CvPlayer::DoPrayerTurn()
 	// AI vassals offer a small share of their stock on a fixed rhythm.
 	if (isHuman() || GetOverlord() == NO_PLAYER) return;
 	int iInterval = SuzerainDefineInt("SUZERAIN_PRAYER_AI_INTERVAL");
-	if (iInterval <= 0) iInterval = 10;
-	if (iTurn % iInterval != 0) return;
+	if (iInterval <= 0 || (iTurn % iInterval) != 0) return;
 
 	int iPercent = SuzerainDefineInt("SUZERAIN_PRAYER_AI_PERCENT");
-	if (iPercent <= 0) iPercent = 5;
 
 	int iScience = 0;
 	TechTypes eTech = GetPlayerTechs()->GetCurrentResearch();
@@ -35457,12 +35448,10 @@ void CvPlayer::DoPrayerOverlordTurn()
 
 	int iTurn = GC.getGame().getGameTurn();
 	int iInterval = SuzerainDefineInt("SUZERAIN_PRAYER_AI_INTERVAL");
-	if (iInterval <= 0) iInterval = 10;
-	if (iTurn % iInterval != 0) return;
+	if (iInterval <= 0 || (iTurn % iInterval) != 0) return;
 
 	// AI overlords grant most petitions, but not all, so loyalty still moves.
 	int iGrantPercent = SuzerainDefineInt("SUZERAIN_PRAYER_AI_GRANT_PERCENT");
-	if (iGrantPercent <= 0) iGrantPercent = 60;
 
 	while (!m_vPrayerRequests.empty())
 	{
@@ -35586,8 +35575,7 @@ void CvPlayer::DoVassalAIDiplomacyTurn()
 
 	// Recruit when under the cap.
 	int iMax = SuzerainDefineInt("SUZERAIN_AI_MAX_VASSALS");
-	if (iMax <= 0) iMax = 3;
-	if ((int)m_vecVassals.size() >= iMax) return;
+	if (iMax <= 0 || (int)m_vecVassals.size() >= iMax) return;
 
 	for (int i = 0; i < MAX_MAJOR_CIVS; i++)
 	{
@@ -35614,10 +35602,10 @@ void CvPlayer::DoVassalAIDiplomacyTurn()
 			if (!GET_TEAM(GET_PLAYER(eA).getTeam()).isAtWar(GET_PLAYER(eB).getTeam())) continue;
 
 			int iGap = SuzerainDefineInt("SUZERAIN_AI_PEACE_LOYALTY_GAP");
-			if (iGap <= 0) iGap = 20;
 			int iIndemnity = SuzerainDefineInt("SUZERAIN_AI_PEACE_INDEMNITY_PERCENT");
 			if (iIndemnity < 0) iIndemnity = 0;
-			if (iIndemnity > 30) iIndemnity = 30;
+			int iMaxIndemnity = SuzerainDefineInt("SUZERAIN_PEACE_MAX_GOLD_PERCENT");
+			if (iIndemnity > iMaxIndemnity) iIndemnity = iMaxIndemnity;
 
 			int iLoyalA = GetVassalLoyalty(eA);
 			int iLoyalB = GetVassalLoyalty(eB);
@@ -46320,8 +46308,7 @@ int CvPlayer::TryReleaseVassal(PlayerTypes eVassal)
 	if (!IsOverlordOf(eVassal)) return -1;
 
 	int iPlea = SuzerainDefineInt("SUZERAIN_RELEASE_PLEA_LOYALTY");
-	if (iPlea <= 0) iPlea = 60;
-	if (GetVassalLoyalty(eVassal) >= iPlea) return 1;
+	if (iPlea > 0 && GetVassalLoyalty(eVassal) >= iPlea) return 1;
 
 	ForceReleaseVassal(eVassal);
 	return 0;
@@ -46367,7 +46354,7 @@ void CvPlayer::ChangePressureOnCiv(PlayerTypes eTarget, int iChange)
 	int iValue = m_aiPressureOnCiv[eTarget] + iChange;
 	if (iValue < 0) iValue = 0;
 	int iMax = SuzerainDefineInt("SUZERAIN_PRESSURE_MAX");
-	if (iMax <= 0) iMax = 100;
+	if (iMax < 0) iMax = 0;
 	if (iValue > iMax) iValue = iMax;
 	m_aiPressureOnCiv[eTarget] = iValue;
 }
@@ -46442,7 +46429,7 @@ bool CvPlayer::CanDemandPeaceFrom(PlayerTypes eTarget) const
 	if (kTarget.GetOverlord() != NO_PLAYER) return false;
 
 	int iMax = SuzerainDefineInt("SUZERAIN_PRESSURE_MAX");
-	if (iMax <= 0) iMax = 100;
+	if (iMax <= 0) return false;
 	return GetPressureOnCiv(eTarget) >= iMax;
 }
 
@@ -46460,33 +46447,44 @@ int CvPlayer::ProposePeaceDemand(PlayerTypes eTarget, PlayerTypes eBeneficiary,
 	if (kTarget.GetOverlord() != NO_PLAYER) return -1;
 
 	if (eBeneficiary != GetID() && !IsOverlordOf(eBeneficiary)) eBeneficiary = GetID();
+
+	int iMaxGold = SuzerainDefineInt("SUZERAIN_PEACE_MAX_GOLD_PERCENT");
 	if (iGoldPercent < 0) iGoldPercent = 0;
-	if (iGoldPercent > 30) iGoldPercent = 30;
+	if (iGoldPercent > iMaxGold) iGoldPercent = iMaxGold;
 
 	int iPressure = GetPressureOnCiv(eTarget);
 	int iMax = SuzerainDefineInt("SUZERAIN_PRESSURE_MAX");
-	if (iMax <= 0) iMax = 100;
+	if (iMax <= 0) return -1;
 
-	bool bDesperate = (iPressure * 100 >= iMax * 90);
+	bool bDesperate = (iPressure * 100 >= iMax * SuzerainDefineInt("SUZERAIN_PEACE_DESPERATE_PERCENT"));
 	long long iOurs = GetMilitaryMight();
 	long long iTheirs = kTarget.GetMilitaryMight();
 
 	// A cession only works on a civ at the end of its rope.
-	if (bCedeCity && !(bDesperate && iTheirs > 0 && iOurs >= iTheirs * 2))
+	int iCedeRatio = SuzerainDefineInt("SUZERAIN_PEACE_CEDE_MIGHT_RATIO");
+	if (bCedeCity && !(bDesperate && iTheirs > 0 && iOurs * 100 >= iTheirs * iCedeRatio))
 		bCedeCity = false;
 
-	int iAccept = 50 + iPressure * 50 / iMax;
+	int iAccept = SuzerainDefineInt("SUZERAIN_PEACE_ACCEPT_BASE")
+		+ iPressure * SuzerainDefineInt("SUZERAIN_PEACE_ACCEPT_PRESSURE") / iMax;
 
-	if (iTheirs > 0 && iOurs * 100 >= iTheirs * 150) iAccept += 15;
-	if (iTheirs * 100 >= iOurs * 150) iAccept -= 20;
+	if (iTheirs > 0 && iOurs * 100 >= iTheirs * SuzerainDefineInt("SUZERAIN_PEACE_STRONG_RATIO"))
+		iAccept += SuzerainDefineInt("SUZERAIN_PEACE_STRONG_BONUS");
+	if (iTheirs * 100 >= iOurs * SuzerainDefineInt("SUZERAIN_PEACE_WEAK_RATIO"))
+		iAccept -= SuzerainDefineInt("SUZERAIN_PEACE_WEAK_PENALTY");
 
 	int iBias = 0;
-	if (iGoldPercent > 0) iBias += (iGoldPercent >= 30 ? 2 : (iGoldPercent >= 20 ? 1 : 1));
-	if (bReturnCities) iBias += 1;
-	if (bCedeCity) iBias += 3;
-	iAccept -= iBias * 15;
+	if (iGoldPercent > 0)
+	{
+		iBias += (iGoldPercent >= iMaxGold
+			? SuzerainDefineInt("SUZERAIN_PEACE_GOLD_WEIGHT")
+			: SuzerainDefineInt("SUZERAIN_PEACE_GOLD_WEIGHT_SMALL"));
+	}
+	if (bReturnCities) iBias += SuzerainDefineInt("SUZERAIN_PEACE_RETURN_WEIGHT");
+	if (bCedeCity) iBias += SuzerainDefineInt("SUZERAIN_PEACE_CEDE_WEIGHT");
+	iAccept -= iBias * SuzerainDefineInt("SUZERAIN_PEACE_TERM_COST");
 
-	if (!bForce && iAccept < 50) return 1;
+	if (!bForce && iAccept < SuzerainDefineInt("SUZERAIN_PEACE_ACCEPT_FLOOR")) return 1;
 
 	// Execute.
 	if (bCeaseFire)
@@ -46568,12 +46566,12 @@ int CvPlayer::GetPeaceCounterField(PlayerTypes eTarget, int iField) const
 
 	int iPressure = GetPressureOnCiv(eTarget);
 	int iMax = SuzerainDefineInt("SUZERAIN_PRESSURE_MAX");
-	if (iMax <= 0) iMax = 100;
+	if (iMax <= 0) return -1;
 
-	bool bHigh = iPressure * 100 >= iMax * 70;
-	bool bDesperate = iPressure * 100 >= iMax * 95;
+	bool bHigh = iPressure * 100 >= iMax * SuzerainDefineInt("SUZERAIN_PEACE_COUNTER_HIGH_PERCENT");
+	bool bDesperate = iPressure * 100 >= iMax * SuzerainDefineInt("SUZERAIN_PEACE_COUNTER_DESPERATE_PERCENT");
 
-	if (iField == 0) return bHigh ? 10 : 0;
+	if (iField == 0) return bHigh ? SuzerainDefineInt("SUZERAIN_PEACE_COUNTER_GOLD_PERCENT") : 0;
 	if (iField == 1) return bHigh ? 1 : 0;
 	if (iField == 2) return bDesperate ? 1 : 0;
 	if (iField == 3) return 1;
@@ -46601,7 +46599,8 @@ void CvPlayer::DoVassalWonderRequestTurn()
 
 	PlayerTypes eOverlord = GetOverlord();
 	if (eOverlord == NO_PLAYER) return;
-	if (GC.getGame().getGameTurn() % 10 != 0) return;
+	int iRequestEvery = SuzerainDefineInt("SUZERAIN_WONDER_REQUEST_INTERVAL");
+	if (iRequestEvery <= 0 || (GC.getGame().getGameTurn() % iRequestEvery) != 0) return;
 	if (GetWonderRequest() != NO_BUILDING) return;
 
 	CvPlayer& kOverlord = GET_PLAYER(eOverlord);
@@ -46644,7 +46643,7 @@ void CvPlayer::DoVassalAutoJoinWarTurn()
 	{
 		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
 		if (!IsLiveVassal(eVassal)) continue;
-		if (GetVassalLoyalty(eVassal) < 50) continue;
+		if (GetVassalLoyalty(eVassal) < SuzerainDefineInt("SUZERAIN_AUTOJOIN_MIN_LOYALTY")) continue;
 
 		TeamTypes eVassalTeam = GET_PLAYER(eVassal).getTeam();
 		for (int j = 0; j < MAX_MAJOR_CIVS; j++)
@@ -46660,7 +46659,7 @@ void CvPlayer::DoVassalAutoJoinWarTurn()
 			long long iTheirs = kOther.GetMilitaryMight();
 			// Titled vassals are defended more readily: each rank lowers the bar.
 			int iRequire = SuzerainDefineInt("SUZERAIN_AUTOJOIN_MILITARY_PERCENT");
-			if (iRequire <= 0) iRequire = 120;
+			if (iRequire <= 0) continue;
 			int iRelief = SuzerainDefineInt("SUZERAIN_RANK_AUTOJOIN_RELIEF");
 			if (iRelief > 0)
 			{

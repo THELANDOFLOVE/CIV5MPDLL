@@ -2218,6 +2218,10 @@ public:
 	bool IssueDecree(int iType, PlayerTypes eVassal, int iTarget);
 	bool CanIssueDecree(int iType, PlayerTypes eVassal, int iTarget) const;
 	void DoVassalDecreeTurn();
+	// An AI overlord issues decrees of its own on a cycle.
+	void DoAIDecreeTurn();
+	// Best decree for one vassal at a given loyalty percentage, or 0 for none.
+	int PickAIDecree(PlayerTypes eVassal, int iLoyaltyPercent, int& iTarget);
 	int GetVassalTitle(PlayerTypes eVassal) const;
 	void SetVassalTitle(PlayerTypes eVassal, int iTitle);
 	// First title index not yet held by any vassal, or 0 when all are taken.

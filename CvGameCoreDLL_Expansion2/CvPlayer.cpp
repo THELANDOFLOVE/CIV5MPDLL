@@ -5671,6 +5671,7 @@ void CvPlayer::doTurn()
 		DoSeekAllegianceTurn();
 		DoPendingWarOrderTurn();
 		DoVassalDecreeTurn();
+		DoAIDecreeTurn();
 		DoVassalFinanceTurn();
 		DoVassalRankMandateTurn();
 		DoConcubineTurn();
@@ -36125,9 +36126,15 @@ bool CvPlayer::DoVassalRevolt(PlayerTypes eVassal)
 		{
 			if (isHuman() && GetNotifications())
 			{
-				Localization::String sMsg = Localization::Lookup("TXT_KEY_NOTIFICATION_CONCUBINE_HOSTAGE_LEAVE");
+				CvString szLineKey = CvString::format("TXT_KEY_TIANDAO_CONCUBINE_TALK_%d_9", GetConcubineField(i, 0));
+				CvString szLine = Localization::Lookup(szLineKey.c_str()).toUTF8();
+				bool bHasLine = (!szLine.IsEmpty() && szLine != szLineKey);
+				Localization::String sMsg = Localization::Lookup(bHasLine
+					? "TXT_KEY_NOTIFICATION_CONCUBINE_HOSTAGE_LEAVE_LINE"
+					: "TXT_KEY_NOTIFICATION_CONCUBINE_HOSTAGE_LEAVE");
 				sMsg << szName.c_str();
 				sMsg << GET_PLAYER(eVassal).getCivilizationShortDescriptionKey();
+				if (bHasLine) sMsg << szLine.c_str();
 				Localization::String sSum = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_CONCUBINE_HOSTAGE_LEAVE");
 				sSum << szName.c_str();
 				GetNotifications()->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), -1, -1, eVassal);
@@ -45765,8 +45772,13 @@ void CvPlayer::DoVassalDecreeTurn()
 	while (GetPendingDecreeCount() > 0)
 	{
 		int iFrom = GetPendingDecreeField(0, 3);
+		int iType = GetPendingDecreeField(0, 0);
+		// A favour (title, fief, remission, market, pardon, feast, works) is
+		// never refused: no vassal turns down a gift. Only demands turn on loyalty.
+		bool bFavour = (iType == 1 || iType == 5 || iType == 7 || iType == 9
+			|| iType == 11 || iType == 14 || iType == 15);
 		bool bAccept = true;
-		if (iFrom >= 0 && iFrom < MAX_MAJOR_CIVS)
+		if (!bFavour && iFrom >= 0 && iFrom < MAX_MAJOR_CIVS)
 		{
 			CvPlayer& kOverlord = GET_PLAYER((PlayerTypes)iFrom);
 			int iCap = kOverlord.GetVassalLoyaltyCap(GetID());
@@ -45774,6 +45786,92 @@ void CvPlayer::DoVassalDecreeTurn()
 		}
 		ResolveDecree(0, bAccept);
 	}
+}
+
+//--------------------------------------------------------------------------------
+// An AI overlord rules as well as reacts. On a cycle it issues at most a few
+// decrees, appeasing disloyal vassals and drawing on loyal ones.
+void CvPlayer::DoAIDecreeTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (isHuman() || !isAlive() || !isMajorCiv()) return;
+	if (!IsSuzerainCiv()) return;
+
+	int iEvery = SuzerainDefineInt("SUZERAIN_AI_DECREE_INTERVAL");
+	if (iEvery <= 0 || (GC.getGame().getGameTurn() % iEvery) != 0) return;
+
+	int iMax = SuzerainDefineInt("SUZERAIN_AI_DECREE_MAX");
+	if (iMax <= 0) return;
+
+	int iIssued = 0;
+	for (size_t v = 0; v < m_vecVassals.size() && iIssued < iMax; v++)
+	{
+		PlayerTypes eVassal = (PlayerTypes)m_vecVassals[v];
+		if (!IsLiveVassal(eVassal)) continue;
+
+		int iCap = GetVassalLoyaltyCap(eVassal);
+		int iPercent = (iCap > 0) ? (GetVassalLoyalty(eVassal) * 100 / iCap) : 0;
+
+		int iTarget = -1;
+		int iType = PickAIDecree(eVassal, iPercent, iTarget);
+		if (iType <= 0) continue;
+
+		if (IssueDecree(iType, eVassal, iTarget)) iIssued++;
+	}
+}
+
+//--------------------------------------------------------------------------------
+// Which decree, if any, an AI overlord issues to one vassal. Low loyalty buys
+// goodwill, high loyalty pays tribute, the middle band asks only small things.
+int CvPlayer::PickAIDecree(PlayerTypes eVassal, int iLoyaltyPercent, int& iTarget)
+{
+	iTarget = -1;
+
+	int iLow = SuzerainDefineInt("SUZERAIN_AI_DECREE_LOYALTY_LOW");
+	int iHigh = SuzerainDefineInt("SUZERAIN_AI_DECREE_LOYALTY_HIGH");
+	bool bViolation = (GetVassalBreachCount(eVassal) > 0 || HasVassalPunishRight(eVassal));
+	bool bRich = (GetTreasury()->GetGold() >= SuzerainDefineInt("SUZERAIN_AI_DECREE_GOLD_RESERVE"));
+
+	if (iLoyaltyPercent < iLow)
+	{
+		// Goodwill first: wipe the record, return her old city, waive the tithe.
+		if (bViolation && CanIssueDecree(11, eVassal, -1)) return 11;
+
+		int iLoop = 0;
+		for (CvCity* pCity = firstCity(&iLoop); pCity != NULL; pCity = nextCity(&iLoop))
+		{
+			if (!CanReturnCityToVassal(pCity)) continue;
+			if (pCity->getPreviousOwner() != eVassal) continue;
+			if (!CanIssueDecree(5, eVassal, pCity->GetID())) continue;
+			iTarget = pCity->GetID();
+			return 5;
+		}
+
+		if (CanIssueDecree(7, eVassal, -1)) return 7;
+		if (CanIssueDecree(14, eVassal, -1)) return 14;
+		if (CanIssueDecree(1, eVassal, -1)) return 1;
+		if (CanIssueDecree(9, eVassal, -1)) return 9;
+		return 0;
+	}
+
+	if (iLoyaltyPercent >= iHigh)
+	{
+		// A loyal vassal can be asked to give: confession, peace, talent, troops.
+		if (bViolation && CanIssueDecree(4, eVassal, -1)) return 4;
+		if (CanIssueDecree(12, eVassal, -1)) return 12;
+		if (CanIssueDecree(3, eVassal, -1)) return 3;
+		if (CanIssueDecree(13, eVassal, -1)) return 13;
+		if (CanIssueDecree(8, eVassal, -1)) return 8;
+		if (CanIssueDecree(6, eVassal, -1)) return 6;
+		return 0;
+	}
+
+	// Middle band: one stable, mutually useful decree.
+	if (CanIssueDecree(12, eVassal, -1)) return 12;
+	if (CanIssueDecree(9, eVassal, -1)) return 9;
+	if (CanIssueDecree(2, eVassal, -1)) return 2;
+	if (bRich && CanIssueDecree(15, eVassal, -1)) return 15;
+	return 0;
 }
 
 //--------------------------------------------------------------------------------
@@ -46250,10 +46348,18 @@ void CvPlayer::DoConcubineTurn()
 				{
 					CvString szName = GetConcubineTemplateField(GetConcubineField(i, 0), 0);
 					bool bWasEmpress = (GetEmpress() == i);
-					Localization::String sMsg = Localization::Lookup(bWasEmpress
-						? "TXT_KEY_NOTIFICATION_CONCUBINE_GONE_EMPRESS"
-						: "TXT_KEY_NOTIFICATION_CONCUBINE_GONE");
+					// Her parting line (scene 9), when one has been written.
+					CvString szLineKey = CvString::format("TXT_KEY_TIANDAO_CONCUBINE_TALK_%d_9", GetConcubineField(i, 0));
+					CvString szLine = Localization::Lookup(szLineKey.c_str()).toUTF8();
+					bool bHasLine = (!szLine.IsEmpty() && szLine != szLineKey);
+					const char* szMsgKey = "TXT_KEY_NOTIFICATION_CONCUBINE_GONE";
+					if (bWasEmpress)
+						szMsgKey = bHasLine ? "TXT_KEY_NOTIFICATION_CONCUBINE_GONE_EMPRESS_LINE" : "TXT_KEY_NOTIFICATION_CONCUBINE_GONE_EMPRESS";
+					else if (bHasLine)
+						szMsgKey = "TXT_KEY_NOTIFICATION_CONCUBINE_GONE_LINE";
+					Localization::String sMsg = Localization::Lookup(szMsgKey);
 					sMsg << szName.c_str();
+					if (bHasLine) sMsg << szLine.c_str();
 					Localization::String sSum = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_CONCUBINE_GONE");
 					GetNotifications()->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), -1, -1, -1);
 				}
@@ -46528,7 +46634,19 @@ void CvPlayer::DoConcubineAdviceTurn()
 
 	if (isHuman() && GetNotifications())
 	{
-		Localization::String sMsg = Localization::Lookup("TXT_KEY_NOTIFICATION_CONCUBINE_ADVICE");
+		// Quote her counsel (scene 10) when a line has been written for her.
+		CvString szLineKey = CvString::format("TXT_KEY_TIANDAO_CONCUBINE_TALK_%d_10", GetConcubineField(iPick, 0));
+		CvString szLine = Localization::Lookup(szLineKey.c_str()).toUTF8();
+		bool bHasLine = (!szLine.IsEmpty() && szLine != szLineKey);
+		Localization::String sMsg = Localization::Lookup(bHasLine
+			? "TXT_KEY_NOTIFICATION_CONCUBINE_ADVICE_LINE"
+			: "TXT_KEY_NOTIFICATION_CONCUBINE_ADVICE");
+		if (bHasLine)
+		{
+			CvString szName = GetConcubineTemplateField(GetConcubineField(iPick, 0), 0);
+			sMsg << szName.c_str();
+			sMsg << szLine.c_str();
+		}
 		Localization::String sSum = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_CONCUBINE_ADVICE");
 		GetNotifications()->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), -1, -1, eVassal);
 	}

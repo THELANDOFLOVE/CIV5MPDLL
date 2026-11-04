@@ -36316,7 +36316,8 @@ int CvPlayer::GetOfficialEffectPercent(int iPost) const
 	int iPercent = 100;
 	int iSat = GetOfficialField(iPost, 4);
 	int iLow = SuzerainDefineInt("SUZERAIN_OFFICIAL_LOW_SATISFACTION");
-	if (iLow > 0 && iSat < iLow) iPercent = 50;
+	if (iLow > 0 && iSat < iLow)
+		iPercent = SuzerainDefineInt("SUZERAIN_OFFICIAL_LOW_SATISFACTION_PERCENT");
 
 	int iPreferred = SuzerainDefineListInt("SUZERAIN_OFFICIAL_PREFERRED_LEAN", iPost, 0);
 	int iLean = GetOfficialField(iPost, 3);
@@ -36401,7 +36402,8 @@ bool CvPlayer::ResolveOfficialAdvice(bool bAdopt)
 	int iSat = GetOfficialField(iPost, 4)
 		+ SuzerainDefineInt(bAdopt ? "SUZERAIN_OFFICIAL_ADVICE_ADOPT" : "SUZERAIN_OFFICIAL_ADVICE_DECLINE");
 	if (iSat < 0) iSat = 0;
-	if (iSat > 100) iSat = 100;
+	int iMaxSat = SuzerainDefineInt("SUZERAIN_OFFICIAL_MAX_SATISFACTION");
+	if (iSat > iMaxSat) iSat = iMaxSat;
 	m_aiOfficials.setAt((size_t)(iBase + 4), iSat);
 
 	if (bAdopt)
@@ -36558,7 +36560,7 @@ void CvPlayer::DoOfficialTurn()
 	if (iAdviceEvery > 0 && (iTurn % iAdviceEvery) == 0 && m_iOfficialAdvicePost < 0)
 	{
 		int iPick = -1;
-		int iWorst = 101;
+		int iWorst = SuzerainDefineInt("SUZERAIN_OFFICIAL_MAX_SATISFACTION") + 1;
 		for (int p = 0; p < OFFICIAL_POSTS; p++)
 		{
 			if (GetOfficialField(p, 0) <= 0) continue;

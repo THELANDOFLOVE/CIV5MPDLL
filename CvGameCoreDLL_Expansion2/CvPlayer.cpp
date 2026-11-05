@@ -449,6 +449,8 @@ CvPlayer::CvPlayer() :
 	, m_iOfficialExamTurn("CvPlayer::m_iOfficialExamTurn", m_syncArchive)
 	, m_aiProvinces("CvPlayer::m_aiProvinces", m_syncArchive)
 	, m_aiProvinceCity("CvPlayer::m_aiProvinceCity", m_syncArchive)
+	, m_aiChronicle("CvPlayer::m_aiChronicle", m_syncArchive)
+	, m_aiEmpireSnapshot("CvPlayer::m_aiEmpireSnapshot", m_syncArchive)
 	, m_iProvinceUnhappinessMod("CvPlayer::m_iProvinceUnhappinessMod", m_syncArchive)
 	, m_iFavourBonusTurn("CvPlayer::m_iFavourBonusTurn", m_syncArchive)
 	, m_aiVassalBreachCount("CvPlayer::m_aiVassalBreachCount", m_syncArchive)
@@ -1382,6 +1384,8 @@ void CvPlayer::uninit()
 	m_iOfficialAdviceTurn = 0;
 	m_aiProvinces.clear();
 	m_aiProvinceCity.clear();
+	m_aiChronicle.clear();
+	m_aiEmpireSnapshot.clear();
 	m_iProvinceUnhappinessMod = 0;
 	m_iOfficialExamStart = -1;
 	m_iOfficialExamTurn = 0;
@@ -5699,6 +5703,8 @@ void CvPlayer::doTurn()
 		DoOfficialAITurn();
 		DoProvinceTurn();
 		DoVassalOverlordVictoryCheck();
+		// One snapshot per turn gives the overview its growth curve.
+		RecordEmpireSnapshot();
 	}
 #endif
 
@@ -11934,6 +11940,9 @@ void CvPlayer::DoVassalLevy()
 			}
 		}
 	}
+
+	if (iCreated > 0)
+		AddChronicle(CHRONICLE_LEVY, iCreated, 0, 0);
 
 	if (iCreated > 0 && GetID() == GC.getGame().getActivePlayer())
 	{
@@ -31613,6 +31622,8 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ(165, kStream, m_iMandate, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iDaoPoints, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iDaoPerks, 0);
+		MOD_SERIALIZE_READ_VECTOR(168, kStream, m_aiChronicle, 0, 0);
+		MOD_SERIALIZE_READ_VECTOR(168, kStream, m_aiEmpireSnapshot, 0, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iDaoUCPicks, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iFengshanEra, -1);
 		MOD_SERIALIZE_READ(165, kStream, m_iBlessingFood, 0);
@@ -32621,6 +32632,8 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE(kStream, m_iMandate);
 	MOD_SERIALIZE_WRITE(kStream, m_iDaoPoints);
 	MOD_SERIALIZE_WRITE(kStream, m_iDaoPerks);
+	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiChronicle);
+	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiEmpireSnapshot);
 	MOD_SERIALIZE_WRITE(kStream, m_iDaoUCPicks);
 	MOD_SERIALIZE_WRITE(kStream, m_iFengshanEra);
 	MOD_SERIALIZE_WRITE(kStream, m_iBlessingFood);
@@ -34847,6 +34860,7 @@ void CvPlayer::DoVassalRankUp(PlayerTypes eVassal)
 	SetVassalRank(eVassal, iOldRank + 1);
 	SetVassalRankTurn(eVassal, GC.getGame().getGameTurn());
 	ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_LOYALTY_RANK"));
+	AddChronicle(CHRONICLE_RANK_UP, eVassal, iOldRank + 1, iGold);
 
 	// The overlord's cut grows with the rank just granted. Both tables are keyed
 	// by the old rank (its index 0 is the promotion out of being untitled).
@@ -34921,6 +34935,7 @@ void CvPlayer::DoVassalGift(PlayerTypes eVassal)
 	m_aiVassalGiftCount.setAt((size_t)eVassal, m_aiVassalGiftCount[eVassal] + 1);
 	ChangeMandate(SuzerainDefineInt("SUZERAIN_MANDATE_GIFT"));
 	ChangeDaoPoints(SuzerainDefineInt("SUZERAIN_DAO_POINT_REWARD"));
+	AddChronicle(CHRONICLE_GIFT, eVassal, 0, iGold);
 }
 
 //--------------------------------------------------------------------------------
@@ -35051,6 +35066,7 @@ bool CvPlayer::DoVassalGiftOption(PlayerTypes eVassal, int iKind, int iIndex)
 		m_aiVassalGiftCount.setAt((size_t)eVassal, m_aiVassalGiftCount[eVassal] + 1);
 		ChangeMandate(SuzerainDefineInt("SUZERAIN_MANDATE_GIFT"));
 		ChangeDaoPoints(SuzerainDefineInt("SUZERAIN_DAO_POINT_REWARD"));
+		AddChronicle(CHRONICLE_GIFT, eVassal, 1, (int)eResource);
 		return true;
 	}
 
@@ -35066,6 +35082,7 @@ bool CvPlayer::DoVassalGiftOption(PlayerTypes eVassal, int iKind, int iIndex)
 		m_aiVassalGiftCount.setAt((size_t)eVassal, m_aiVassalGiftCount[eVassal] + 1);
 		ChangeMandate(SuzerainDefineInt("SUZERAIN_MANDATE_GIFT"));
 		ChangeDaoPoints(SuzerainDefineInt("SUZERAIN_DAO_POINT_REWARD"));
+		AddChronicle(CHRONICLE_GIFT, eVassal, 2, (int)eTech);
 		return true;
 	}
 	return false;
@@ -36315,8 +36332,10 @@ bool CvPlayer::DoVassalRevolt(PlayerTypes eVassal)
 		}
 	}
 
+	int iRevoltLoyalty = GetVassalLoyalty(eVassal);
 	RemoveVassal(eVassal);
 	GET_PLAYER(eVassal).SetOverlord(NO_PLAYER);
+	AddChronicle(CHRONICLE_VASSAL_REVOLT, eVassal, bPlea ? 1 : 0, iRevoltLoyalty);
 
 	if (!bPlea && eVassalTeam != NO_TEAM && eVassalTeam != eOverlordTeam
 		&& !GET_TEAM(eVassalTeam).isAtWar(eOverlordTeam)
@@ -36450,6 +36469,7 @@ void CvPlayer::DoVassalWorksCheck()
 			ChangeVassalLoyalty(eVassal, bDone
 				? SuzerainDefineInt("SUZERAIN_DECREE_WORKS_SUCCESS")
 				: SuzerainDefineInt("SUZERAIN_DECREE_WORKS_FAIL"));
+			AddChronicle(CHRONICLE_DECREE_DONE, eVassal, bDone ? 1 : 0, iBuilding);
 		}
 		m_aiWorksOrder[eVassal * 2] = 0;
 		m_aiWorksOrder[eVassal * 2 + 1] = 0;
@@ -36530,6 +36550,7 @@ bool CvPlayer::AppointOfficial(int iPost, int iCandidate)
 			v.push_back(GetOfficialCandidateField(i, f));
 	}
 	m_aiOfficialCandidates = v;
+	AddChronicle(CHRONICLE_OFFICIAL_APPOINT, iPost, GetOfficialField(iPost, 0), GetOfficialField(iPost, 1));
 	return true;
 }
 
@@ -36557,6 +36578,7 @@ bool CvPlayer::DismissOfficial(int iPost)
 
 	for (int f = 0; f < 5; f++)
 		m_aiOfficials.setAt((size_t)(iPost * 5 + f), 0);
+	AddChronicle(CHRONICLE_OFFICIAL_DISMISS, iPost, iName, 0);
 	if (m_iOfficialAdvicePost == iPost)
 	{
 		m_iOfficialAdvicePost = -1;
@@ -36641,6 +36663,7 @@ bool CvPlayer::CreateProvince(int iNameIndex)
 	for (int k = 0; k < 13; k++) v.push_back(0);
 	v[(int)v.size() - 13] = iNameIndex;
 	m_aiProvinces = v;
+	AddChronicle(CHRONICLE_PROVINCE_FOUND, GetProvinceCount() - 1, iNameIndex, 0);
 	return true;
 }
 
@@ -36656,6 +36679,7 @@ bool CvPlayer::SetCityProvince(int iCityID, int iProv)
 		m_aiProvinceCity = v;
 	}
 	m_aiProvinceCity.setAt((size_t)iCityID, iProv);
+	AddChronicle(CHRONICLE_PROVINCE_CITY, iProv, iCityID, 0);
 	return true;
 }
 
@@ -36693,6 +36717,7 @@ bool CvPlayer::AppointProvinceOfficial(int iProv, int iPost, int iCandidate)
 	int iBase = iProv * 13 + 1 + iPost * 4;
 	for (int f = 0; f < 4; f++)
 		m_aiProvinces.setAt((size_t)(iBase + f), GetOfficialCandidateField(iCandidate, f));
+	AddChronicle(CHRONICLE_PROVINCE_APPOINT, iProv, iPost, GetProvinceField(iProv, 1 + iPost * 4));
 	return true;
 }
 
@@ -36702,6 +36727,7 @@ void CvPlayer::DismissProvinceOfficial(int iProv, int iPost)
 	if (iProv < 0 || iProv >= GetProvinceCount()) return;
 	if (iPost < 0 || iPost >= 3) return;
 	int iBase = iProv * 13 + 1 + iPost * 4;
+	AddChronicle(CHRONICLE_PROVINCE_DISMISS, iProv, iPost, 0);
 	for (int f = 0; f < 4; f++)
 		m_aiProvinces.setAt((size_t)(iBase + f), 0);
 }
@@ -36870,6 +36896,7 @@ void CvPlayer::DoOfficialTurn()
 			m_aiOfficialCandidates = v;
 			m_iOfficialExamStart = iStart;
 			m_iOfficialExamTurn = iTurn;
+			AddChronicle(CHRONICLE_EXAM, iStart, iExamCount, 0);
 		}
 	}
 
@@ -36953,7 +36980,11 @@ void CvPlayer::DoOfficialTurn()
 			int iSat = GetOfficialField(p, 4) - iDecay;
 			if (iSat < 0) iSat = 0;
 			m_aiOfficials.setAt((size_t)(p * 5 + 4), iSat);
-			if (iSat <= 0) DismissOfficial(p);
+			if (iSat <= 0)
+			{
+				AddChronicle(CHRONICLE_OFFICIAL_RESIGN, p, GetOfficialField(p, 0), 0);
+				DismissOfficial(p);
+			}
 		}
 	}
 
@@ -37677,6 +37708,8 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 	}
 
 	m_aiVassalMemorials.setAt(iStateOffset, (bApprove && bOk) ? 1 : 2);
+	AddChronicle((bApprove && bOk) ? CHRONICLE_MEMORIAL_APPROVED : CHRONICLE_MEMORIAL_REJECTED,
+		eVassal, iType, bOk ? 1 : 0);
 	return bOk;
 }
 
@@ -38432,7 +38465,96 @@ bool CvPlayer::DoVassalPunish(PlayerTypes eVassal)
 	{
 		GET_TEAM(eOverlordTeam).declareWar(eVassalTeam, false, GetID());
 	}
+	AddChronicle(CHRONICLE_VASSAL_PUNISH, eVassal, 0, 0);
 	return true;
+}
+
+//--------------------------------------------------------------------------------
+// Chronicle: one row per event, five integers (turn, type, subject, object,
+// value). Append-only and never trimmed: the whole game is the history.
+void CvPlayer::AddChronicle(int iType, int iSubject, int iObject, int iValue)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (iType <= CHRONICLE_NONE) return;
+
+	std::vector<int> v = m_aiChronicle;
+	v.push_back(GC.getGame().getGameTurn());
+	v.push_back(iType);
+	v.push_back(iSubject);
+	v.push_back(iObject);
+	v.push_back(iValue);
+	m_aiChronicle = v;
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetChronicleCount() const
+{
+	return (int)m_aiChronicle.size() / 5;
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetChronicleValue(int iIndex, int iField) const
+{
+	if (iIndex < 0 || iField < 0 || iField > 4) return 0;
+	size_t iBase = (size_t)(iIndex * 5);
+	if (iBase + 4 >= m_aiChronicle.size()) return 0;
+	return m_aiChronicle[iBase + iField];
+}
+
+//--------------------------------------------------------------------------------
+// Empire snapshot: one row per turn, eight integers, so the overview can show
+// the empire growing rather than only its current state.
+void CvPlayer::RecordEmpireSnapshot()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+
+	int iVassals = 0;
+	int iRankSum = 0;
+	for (int i = 0; i < MAX_MAJOR_CIVS; i++)
+	{
+		PlayerTypes eOther = (PlayerTypes)i;
+		if (eOther == GetID()) continue;
+		if (!GET_PLAYER(eOther).isAlive()) continue;
+		if (GET_PLAYER(eOther).IsVassalOf(GetID()))
+		{
+			iVassals++;
+			iRankSum += GetVassalRank(eOther);
+		}
+	}
+
+	int iOfficials = 0;
+	for (int iPost = 0; iPost < OFFICIAL_POSTS; iPost++)
+	{
+		size_t iBase = (size_t)(iPost * 5);
+		if (iBase < m_aiOfficials.size() && m_aiOfficials[iBase] != 0)
+			iOfficials++;
+	}
+
+	std::vector<int> v = m_aiEmpireSnapshot;
+	v.push_back(GC.getGame().getGameTurn());
+	v.push_back(iVassals);
+	v.push_back(iRankSum);
+	v.push_back(GetConcubineCount());
+	v.push_back(iOfficials);
+	v.push_back(GetMandate());
+	v.push_back(GetDaoPoints());
+	v.push_back(getNumCities());
+	m_aiEmpireSnapshot = v;
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetEmpireSnapshotCount() const
+{
+	return (int)m_aiEmpireSnapshot.size() / 8;
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetEmpireSnapshotValue(int iIndex, int iField) const
+{
+	if (iIndex < 0 || iField < 0 || iField > 7) return 0;
+	size_t iBase = (size_t)(iIndex * 8);
+	if (iBase + 7 >= m_aiEmpireSnapshot.size()) return 0;
+	return m_aiEmpireSnapshot[iBase + iField];
 }
 
 //--------------------------------------------------------------------------------
@@ -38643,6 +38765,7 @@ bool CvPlayer::DoDaoGrace(int iGrace)
 		return false;
 	}
 	ChangeDaoPoints(-iCost);
+	AddChronicle(CHRONICLE_MANDATE_GRACE, iGrace, iCost, 0);
 	return true;
 }
 
@@ -38719,6 +38842,7 @@ bool CvPlayer::DoFengshan()
 	}
 
 	m_iFengshanEra = (int)GetCurrentEra();
+	AddChronicle(CHRONICLE_MANDATE_FENGSHAN, (int)GetCurrentEra(), 0, 0);
 	return true;
 }
 
@@ -38738,6 +38862,7 @@ bool CvPlayer::DoQifeng()
 	ChangeMandate(-SuzerainDefineInt("SUZERAIN_MANDATE_QIFENG_COST"));
 	ApplyMandateBlessing(SuzerainDefineInt("SUZERAIN_MANDATE_QIFENG_FOOD"), 0, 0,
 		SuzerainDefineInt("SUZERAIN_MANDATE_QIFENG_TURNS"));
+	AddChronicle(CHRONICLE_MANDATE_QIFENG, 0, 0, 0);
 	return true;
 }
 
@@ -38759,6 +38884,7 @@ bool CvPlayer::DoRangzai()
 		SuzerainDefineInt("SUZERAIN_MANDATE_RANGZAI_PRODUCTION"),
 		SuzerainDefineInt("SUZERAIN_MANDATE_RANGZAI_CULTURE"),
 		SuzerainDefineInt("SUZERAIN_MANDATE_RANGZAI_TURNS"));
+	AddChronicle(CHRONICLE_MANDATE_RANGZAI, 0, 0, 0);
 	return true;
 }
 
@@ -39342,6 +39468,7 @@ bool CvPlayer::ApproveVassalWonderRequest(PlayerTypes eVassal, bool bApprove)
 	}
 
 	kVassal.m_iWonderRequest = NO_BUILDING;
+	AddChronicle(CHRONICLE_WONDER, eVassal, (int)eBuilding, bApproved ? 1 : 0);
 	return bApproved;
 }
 
@@ -40234,6 +40361,7 @@ void CvPlayer::AddVassal(PlayerTypes e)
 		m_aCultureFromVassals[e] = 0;
 		m_aFaithFromVassals[e] = 0;
 		m_aGoldFromVassals[e] = 0;
+		AddChronicle(CHRONICLE_VASSAL_BECOME, e, GetVassalRank(e), GetVassalLoyalty(e));
 	}
 }
 
@@ -45039,6 +45167,7 @@ int CvPlayer::ProposeVassalPeace(PlayerTypes eA, PlayerTypes eB, PlayerTypes ePa
 		if (iAB < m_aiTruceUntil.size()) m_aiTruceUntil[iAB] = iUntil;
 		if (iBA < m_aiTruceUntil.size()) m_aiTruceUntil[iBA] = iUntil;
 	}
+	AddChronicle(CHRONICLE_PEACE, eA, eB, iTruceTurns);
 	return 0;
 }
 
@@ -45752,6 +45881,8 @@ bool CvPlayer::ResolveDecree(int iIndex, bool bAccept)
 	if (iFrom < 0 || iFrom >= MAX_MAJOR_CIVS) return false;
 	CvPlayer& kOverlord = GET_PLAYER((PlayerTypes)iFrom);
 	if (!kOverlord.isAlive() || !kOverlord.IsOverlordOf(GetID())) return false;
+	kOverlord.AddChronicle(bAccept ? CHRONICLE_DECREE_OBEYED : CHRONICLE_DECREE_REFUSED,
+		GetID(), iType, iTarget);
 
 	switch (iType)
 	{
@@ -46180,6 +46311,7 @@ bool CvPlayer::IssueDecree(int iType, PlayerTypes eVassal, int iTarget)
 	v.push_back(GC.getGame().getGameTurn() + iDecreeTurns);
 	v.push_back(GetID());
 	kVassal.m_aiPendingDecrees = v;
+	AddChronicle(CHRONICLE_DECREE_SENT, eVassal, iType, iTargetValue);
 	return true;
 }
 
@@ -46555,6 +46687,7 @@ bool CvPlayer::ReceiveConcubine(PlayerTypes eVassal, int iTemplate, bool bDowry,
 		sSum << GET_PLAYER(eVassal).getCivilizationShortDescriptionKey();
 		GetNotifications()->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), -1, -1, eVassal);
 	}
+	AddChronicle(CHRONICLE_CONCUBINE_JOIN, iTemplate, (int)eVassal, iKind);
 	return true;
 }
 
@@ -46643,6 +46776,7 @@ bool CvPlayer::FavorConcubine(int iIndex)
 		}
 		m_iFavourBonusTurn = iTurn;
 	}
+	AddChronicle(CHRONICLE_CONCUBINE_FAVOR, GetConcubineField(iIndex, 0), iTurn, 0);
 	return true;
 }
 
@@ -46681,6 +46815,8 @@ bool CvPlayer::SetEmpress(int iIndex)
 			ChangeConcubineFavor(i, iCorFavor);
 	}
 	m_iEmpress = iIndex;
+	if (iIndex >= 0)
+		AddChronicle(CHRONICLE_EMPRESS_CROWN, GetConcubineField(iIndex, 0), 0, 0);
 	return true;
 }
 
@@ -46738,7 +46874,10 @@ void CvPlayer::DoConcubineTurn()
 			if (GetConcubineRank(i) >= iBlessRank) iBless++;
 		}
 		if (iBless > 0)
+		{
 			ChangeMandate(iBless * SuzerainDefineInt("SUZERAIN_CONCUBINE_BLESS_MANDATE"));
+			AddChronicle(CHRONICLE_CONCUBINE_BLESS, iBless, 0, 0);
+		}
 	}
 
 	int iFeastEvery = SuzerainDefineInt("SUZERAIN_CONCUBINE_FEAST_INTERVAL");
@@ -46753,6 +46892,7 @@ void CvPlayer::DoConcubineTurn()
 			if (eV != NO_PLAYER && IsLiveVassal(eV))
 				ChangeVassalLoyalty(eV, iFeastLoyalty);
 		}
+		AddChronicle(CHRONICLE_CONCUBINE_FESTIVAL, iCount, iFeastFavor, 0);
 	}
 	// A hostage whose homeland has renounced us or fallen has no patron left.
 	// She pines away, and when her fondness is gone she leaves the palace.
@@ -46787,6 +46927,7 @@ void CvPlayer::DoConcubineTurn()
 					Localization::String sSum = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_CONCUBINE_GONE");
 					GetNotifications()->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), -1, -1, -1);
 				}
+				AddChronicle(CHRONICLE_CONCUBINE_LEAVE, GetConcubineField(i, 0), 0, 0);
 				RemoveConcubine(i);
 			}
 		}
@@ -47015,6 +47156,7 @@ bool CvPlayer::GiftConcubine(int iIndex)
 	if (eVassal != NO_PLAYER && IsLiveVassal(eVassal))
 		ChangeVassalLoyalty(eVassal, iLoyalty);
 	ChangeConcubineFavor(iIndex, iFavorGain);
+	AddChronicle(CHRONICLE_CONCUBINE_GIFT, GetConcubineField(iIndex, 0), iKind, iGold);
 	return true;
 }
 
@@ -47074,6 +47216,7 @@ void CvPlayer::DoConcubineAdviceTurn()
 		Localization::String sSum = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_CONCUBINE_ADVICE");
 		GetNotifications()->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), -1, -1, eVassal);
 	}
+	AddChronicle(CHRONICLE_CONCUBINE_ADVICE, GetConcubineField(iPick, 0), (int)eVassal, 0);
 }
 
 int CvPlayer::GetConcubineFavor(int iIndex) const
@@ -47202,6 +47345,7 @@ bool CvPlayer::RestoreConcubineHomeland(int iIndex)
 	GET_PLAYER(eVassal).SetOverlord(GetID());
 	ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_CONCUBINE_RESTORE_LOYALTY"));
 	ChangeConcubineFavor(iIndex, SuzerainDefineInt("SUZERAIN_CONCUBINE_RESTORE_FAVOR_GAIN"));
+	AddChronicle(CHRONICLE_VASSAL_RESTORE, eVassal, iIndex, iCityID);
 	return true;
 }
 
@@ -47218,6 +47362,7 @@ bool CvPlayer::DethroneEmpress()
 		ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_CONCUBINE_DETHRONE_LOYALTY"));
 	ChangeMandate(SuzerainDefineInt("SUZERAIN_CONCUBINE_DETHRONE_MANDATE"));
 	m_iEmpress = -1;
+	AddChronicle(CHRONICLE_EMPRESS_DEPOSE, GetConcubineField(iEmp, 0), (int)eVassal, 0);
 	return true;
 }
 
@@ -47274,6 +47419,7 @@ bool CvPlayer::SatisfyConcubineWish(int iIndex)
 	if (eVassal != NO_PLAYER && IsLiveVassal(eVassal))
 		ChangeVassalLoyalty(eVassal, iLoyalty);
 	SetConcubineWish(iIndex, 0);
+	AddChronicle(iWish == 10 ? CHRONICLE_CONCUBINE_LETTER : CHRONICLE_CONCUBINE_WISH_DONE, GetConcubineField(iIndex, 0), iWish, iCost);
 	return true;
 }
 
@@ -47304,7 +47450,11 @@ void CvPlayer::DoConcubineWishTurn()
 		int iWishTypes = SuzerainDefineInt("SUZERAIN_CONCUBINE_WISH_TYPE_COUNT");
 		if (iWishTypes > 0 && iRoll < iGoldPct) iWish = GC.getGame().getJonRandNum(iWishTypes, "Concubine wish type") + 1;
 		else if (iRoll < iGoldPct + iLetterPct) iWish = 10;
-		if (iWish > 0) SetConcubineWish(i, iWish);
+		if (iWish > 0)
+		{
+			SetConcubineWish(i, iWish);
+			AddChronicle(CHRONICLE_CONCUBINE_WISH, GetConcubineField(i, 0), iWish, 0);
+		}
 	}
 }
 
@@ -47333,6 +47483,7 @@ void CvPlayer::DoConcubinePerformTurn()
 	CvCity* pCapital = getCapitalCity();
 	if (pCapital == NULL) return;
 	pCapital->ChangeJONSCultureStored(iTotal);
+	AddChronicle(CHRONICLE_CONCUBINE_PERFORM, iTotal, iCount, 0);
 
 	if (isHuman() && GetNotifications())
 	{
@@ -47735,6 +47886,7 @@ bool CvPlayer::ForceReleaseVassal(PlayerTypes eVassal)
 
 	RemoveVassal(eVassal);
 	GET_PLAYER(eVassal).SetOverlord(NO_PLAYER);
+	AddChronicle(CHRONICLE_VASSAL_RELEASE, eVassal, 0, 0);
 	return true;
 }
 

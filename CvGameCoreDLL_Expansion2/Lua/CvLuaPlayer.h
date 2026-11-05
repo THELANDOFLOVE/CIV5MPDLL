@@ -1513,6 +1513,11 @@ protected:
 	LUAAPIEXTN(DoVassalPunish, bool, ePlayer);
 	LUAAPIEXTN(GetMandate, int);
 	LUAAPIEXTN(GetDaoPoints, int);
+	LUAAPIEXTN(AddChronicle, void, iType, iSubject, iObject, iValue);
+	LUAAPIEXTN(GetChronicleCount, int);
+	LUAAPIEXTN(GetChronicleValue, int, iIndex, iField);
+	LUAAPIEXTN(GetEmpireSnapshotCount, int);
+	LUAAPIEXTN(GetEmpireSnapshotValue, int, iIndex, iField);
 	LUAAPIEXTN(GetDaoGraceCost, int, iGrace);
 	LUAAPIEXTN(DoDaoGrace, bool, iGrace);
 	LUAAPIEXTN(HasDaoPerk, bool, iPerk);

@@ -1719,6 +1719,11 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(DoVassalPunish);
 	Method(GetMandate);
 	Method(GetDaoPoints);
+	Method(AddChronicle);
+	Method(GetChronicleCount);
+	Method(GetChronicleValue);
+	Method(GetEmpireSnapshotCount);
+	Method(GetEmpireSnapshotValue);
 	Method(GetDaoGraceCost);
 	Method(DoDaoGrace);
 	Method(HasDaoPerk);
@@ -7909,6 +7914,54 @@ int CvLuaPlayer::lGetDaoPoints(lua_State* L)
 {
 	CvPlayerAI* pkPlayer = GetInstance(L);
 	lua_pushinteger(L, pkPlayer->GetDaoPoints());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//void AddChronicle(int iType, int iSubject, int iObject, int iValue);
+int CvLuaPlayer::lAddChronicle(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	int iType = lua_tointeger(L, 2);
+	int iSubject = lua_tointeger(L, 3);
+	int iObject = lua_tointeger(L, 4);
+	int iValue = lua_tointeger(L, 5);
+	pkPlayer->AddChronicle(iType, iSubject, iObject, iValue);
+	return 0;
+}
+//------------------------------------------------------------------------------
+//int GetChronicleCount();
+int CvLuaPlayer::lGetChronicleCount(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->GetChronicleCount());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetChronicleValue(int iIndex, int iField);
+int CvLuaPlayer::lGetChronicleValue(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	int iIndex = lua_tointeger(L, 2);
+	int iField = lua_tointeger(L, 3);
+	lua_pushinteger(L, pkPlayer->GetChronicleValue(iIndex, iField));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetEmpireSnapshotCount();
+int CvLuaPlayer::lGetEmpireSnapshotCount(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->GetEmpireSnapshotCount());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetEmpireSnapshotValue(int iIndex, int iField);
+int CvLuaPlayer::lGetEmpireSnapshotValue(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	int iIndex = lua_tointeger(L, 2);
+	int iField = lua_tointeger(L, 3);
+	lua_pushinteger(L, pkPlayer->GetEmpireSnapshotValue(iIndex, iField));
 	return 1;
 }
 //------------------------------------------------------------------------------

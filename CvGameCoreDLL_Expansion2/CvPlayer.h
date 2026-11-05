@@ -95,6 +95,107 @@ typedef std::vector< std::pair<UnitClassTypes, PromotionTypes> > UnitClassPromot
 typedef std::vector< std::pair<CivilizationTypes, LeaderHeadTypes> > CivLeaderArray;
 typedef FStaticVector<int, 180*92, true, c_eCiv5GameplayDLL, 0> CvPlotsVector; // allocate the size of HUGE Terra world just in case (this is max that we ship with)
 
+// Chronicle event types. The numeric ranges are stable: the Lua UI maps each
+// type to a text template, and saved chronicles must stay readable forever.
+// Subject/object/value carry the IDs and numbers the template needs.
+enum TiandaoChronicleType
+{
+	CHRONICLE_NONE = 0,
+
+	// Vassals 1-19: subject = the vassal, value = loyalty/rank when relevant.
+	CHRONICLE_VASSAL_INVITE = 1,
+	CHRONICLE_VASSAL_SEEK = 2,
+	CHRONICLE_VASSAL_SUBJUGATE = 3,
+	CHRONICLE_VASSAL_ALLEGIANCE = 4,
+	CHRONICLE_VASSAL_RELEASE = 5,
+	CHRONICLE_VASSAL_REVOLT = 6,
+	CHRONICLE_VASSAL_RESTORE = 7,
+	CHRONICLE_VASSAL_PUNISH = 8,
+	CHRONICLE_VASSAL_INDEPENDENCE = 9,
+	CHRONICLE_VASSAL_BECOME = 10,
+	CHRONICLE_VASSAL_LOST = 11,
+
+	// Ranks 20-29: subject = the vassal, value = the new rank.
+	CHRONICLE_RANK_UP = 20,
+	CHRONICLE_RANK_PETITION = 21,
+	CHRONICLE_RANK_DECLINE = 22,
+
+	// Memorials 30-39: subject = the vassal, object = memorial type,
+	// value = 0 rejected, 1 approved, 2 held.
+	CHRONICLE_MEMORIAL_APPROVED = 30,
+	CHRONICLE_MEMORIAL_REJECTED = 31,
+	CHRONICLE_MEMORIAL_HELD = 32,
+
+	// Decrees 40-49: subject = the vassal, object = decree type,
+	// value = 0 sent, 1 obeyed, 2 refused, 3 completed.
+	CHRONICLE_DECREE_SENT = 40,
+	CHRONICLE_DECREE_OBEYED = 41,
+	CHRONICLE_DECREE_REFUSED = 42,
+	CHRONICLE_DECREE_DONE = 43,
+
+	// Palace 50-79: subject = the concubine index or template, value = amount.
+	CHRONICLE_CONCUBINE_JOIN = 50,
+	CHRONICLE_CONCUBINE_GIFT = 51,
+	CHRONICLE_EMPRESS_CROWN = 52,
+	CHRONICLE_EMPRESS_DEPOSE = 53,
+	CHRONICLE_CONCUBINE_WISH = 54,
+	CHRONICLE_CONCUBINE_WISH_DONE = 55,
+	CHRONICLE_CONCUBINE_LETTER = 56,
+	CHRONICLE_CONCUBINE_ADVICE = 57,
+	CHRONICLE_CONCUBINE_BLESS = 58,
+	CHRONICLE_CONCUBINE_FESTIVAL = 59,
+	CHRONICLE_CONCUBINE_PERFORM = 60,
+	CHRONICLE_CONCUBINE_CRAFT = 61,
+	CHRONICLE_CONCUBINE_BOND = 62,
+	CHRONICLE_CONCUBINE_TITLE = 63,
+	CHRONICLE_CONCUBINE_HOSTAGE = 64,
+	CHRONICLE_CONCUBINE_LEAVE = 65,
+	CHRONICLE_CONCUBINE_PLEA = 66,
+	CHRONICLE_CONCUBINE_WARN = 67,
+	CHRONICLE_CONCUBINE_INTEL = 68,
+	CHRONICLE_CONCUBINE_REVOLT_PREP = 69,
+	CHRONICLE_CONCUBINE_WAR_INTEL = 70,
+	CHRONICLE_CONCUBINE_RESTORE = 71,
+	CHRONICLE_CONCUBINE_FAVOR = 72,
+
+	// Officials 80-99: subject = post, object = candidate, value = ability.
+	CHRONICLE_EXAM = 80,
+	CHRONICLE_OFFICIAL_APPOINT = 81,
+	CHRONICLE_OFFICIAL_DISMISS = 82,
+	CHRONICLE_OFFICIAL_ADVICE = 83,
+	CHRONICLE_OFFICIAL_RESIGN = 84,
+	CHRONICLE_OFFICIAL_RETIRE = 85,
+
+	// Provinces 100-109: subject = province, object = post, value = city count.
+	CHRONICLE_PROVINCE_FOUND = 100,
+	CHRONICLE_PROVINCE_APPOINT = 101,
+	CHRONICLE_PROVINCE_CITY = 102,
+	CHRONICLE_PROVINCE_DISMISS = 103,
+
+	// Mandate 110-119: value = cost or amount.
+	CHRONICLE_MANDATE_TIANFA = 110,
+	CHRONICLE_MANDATE_FENGSHAN = 111,
+	CHRONICLE_MANDATE_QIFENG = 112,
+	CHRONICLE_MANDATE_RANGZAI = 113,
+	CHRONICLE_MANDATE_GRACE = 114,
+
+	// Diplomacy 120-139: subject = the other player, value = clause amount.
+	CHRONICLE_PEACE = 120,
+	CHRONICLE_WAR = 121,
+	CHRONICLE_DEMAND = 122,
+	CHRONICLE_TECH_SALE = 123,
+	CHRONICLE_GIFT = 124,
+	CHRONICLE_LEVY = 125,
+	CHRONICLE_INFIGHT = 126,
+	CHRONICLE_WONDER = 127,
+	CHRONICLE_RESEARCH_PACT = 128,
+	CHRONICLE_CITY_STATE = 129,
+
+	// Empire milestones 140-149.
+	CHRONICLE_ERA = 140,
+	CHRONICLE_EMPIRE_PEAK = 141
+};
+
 class CvPlayer : public CvGameObjectExtractable
 {
 	friend class CvPlayerPolicies;
@@ -2110,6 +2211,14 @@ public:
 	bool IsVassalIncompetent(PlayerTypes eVassal) const;
 	bool CanPunishVassal(PlayerTypes eVassal) const;
 	bool DoVassalPunish(PlayerTypes eVassal);
+	// Chronicle: append-only event log and per-turn empire snapshots.
+	// The log is never trimmed; the UI pages through the whole game.
+	void AddChronicle(int iType, int iSubject = -1, int iObject = -1, int iValue = 0);
+	int GetChronicleCount() const;
+	int GetChronicleValue(int iIndex, int iField) const;
+	void RecordEmpireSnapshot();
+	int GetEmpireSnapshotCount() const;
+	int GetEmpireSnapshotValue(int iIndex, int iField) const;
 	int GetMandate() const;
 	int GetMandateMax() const;
 	void ChangeMandate(int iChange);
@@ -3468,6 +3577,12 @@ protected:
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiProvinces;
 	// Province index per city ID (-1 = unassigned).
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiProvinceCity;
+	// Full-game chronicle: stride 5 (turn, type, subject, object, value).
+	// Append-only and never trimmed; the UI pages through it from turn 0.
+	FAutoVariable<std::vector<int>, CvPlayer> m_aiChronicle;
+	// Empire snapshot: stride 8 (turn, vassals, rank sum, concubines,
+	// officials, mandate, dao points, cities), one row per turn.
+	FAutoVariable<std::vector<int>, CvPlayer> m_aiEmpireSnapshot;
 	// Global unhappiness percentage currently applied by justices.
 	FAutoVariable<int, CvPlayer> m_iProvinceUnhappinessMod;
 	// Wars already counted as breaches (derived, rebuilt each turn; not serialized)

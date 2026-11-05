@@ -31636,6 +31636,8 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ(165, kStream, m_iDaoUCPicks, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iFengshanEra, -1);
 		MOD_SERIALIZE_READ(168, kStream, m_iChronicleEra, -1);
+		MOD_SERIALIZE_READ_VECTOR(168, kStream, m_aiCourtGiftLog, 0, 0);
+		MOD_SERIALIZE_READ_VECTOR(168, kStream, m_aiVassalWarSeen, 0, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iBlessingFood, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iBlessingProduction, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iBlessingCulture, 0);
@@ -32647,6 +32649,8 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE(kStream, m_iDaoUCPicks);
 	MOD_SERIALIZE_WRITE(kStream, m_iFengshanEra);
 	MOD_SERIALIZE_WRITE(kStream, m_iChronicleEra);
+	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiCourtGiftLog);
+	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalWarSeen);
 	MOD_SERIALIZE_WRITE(kStream, m_iBlessingFood);
 	MOD_SERIALIZE_WRITE(kStream, m_iBlessingProduction);
 	MOD_SERIALIZE_WRITE(kStream, m_iBlessingCulture);

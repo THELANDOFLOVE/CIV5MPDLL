@@ -2446,7 +2446,6 @@ bool CvDeal::ValidateVassalDemand() const
 			const ResourceTypes eResource = (ResourceTypes)it->m_iData1;
 			if (eResource < 0 || eResource >= GC.getNumResourceInfos() || it->m_iData2 < 0) return false;
 			if (vResourceDemand[eResource] > INT_MAX - it->m_iData2) return false;
-			if (vResourceDemand[eResource] > INT_MAX - it->m_iData2) return false;
 			vResourceDemand[eResource] += it->m_iData2;
 			break;
 		}
@@ -4687,6 +4686,7 @@ void CvGameDeals::LogDealComplete(CvDeal* pDeal)
 				break;
 			case TRADE_ITEM_TECHS:
 				strTemp.Format("***** Technology Trade: ID %d *****", itemIter->m_iData1);
+				break;
 			case TRADE_ITEM_NON_AGGRESSION_PACT:
 				strTemp.Format("***** Non-Aggression Pact Trade *****");
 				break;
@@ -4898,6 +4898,7 @@ void CvGameDeals::LogDealFailed(CvDeal* pDeal, bool bNoRenew, bool bNotAccepted,
 				break;
 			case TRADE_ITEM_TECHS:
 				strTemp.Format("***** Technology Trade: ID %d *****", itemIter->m_iData1);
+				break;
 			case TRADE_ITEM_NON_AGGRESSION_PACT:
 				strTemp.Format("***** Non-Aggression Pact Trade *****");
 				break;

@@ -2097,7 +2097,10 @@ public:
 	bool IsLiveVassal(PlayerTypes eVassal) const;
 	bool HasAnyVassal() const;
 	const std::vector<int>& GetVassals() const;
-	void AddVassal(PlayerTypes e);
+	// iHow: how the vassalage began (0 unknown, 1 invitation, 2 protection,
+	// 3 subjugation, 4 allegiance, 5 resolution, 6 restoration). Recorded in
+	// the chronicle so the annals can say why a civ submitted.
+	void AddVassal(PlayerTypes e, int iHow = 0);
 	void RemoveVassal(PlayerTypes e);
 	// Loyalty: willingness to stay, capped by rank
 	int GetVassalLoyalty(PlayerTypes eVassal) const;
@@ -3596,6 +3599,8 @@ protected:
 	int m_iDaoUCPicks;
 	// Era of the last Fengshan, -1 when never used
 	FAutoVariable<int, CvPlayer> m_iFengshanEra;
+	// Last era recorded in the chronicle (only advances)
+	FAutoVariable<int, CvPlayer> m_iChronicleEra;
 	// Temporary mandate blessing: per-city yields and the turn it expires
 	FAutoVariable<int, CvPlayer> m_iBlessingFood;
 	FAutoVariable<int, CvPlayer> m_iBlessingProduction;

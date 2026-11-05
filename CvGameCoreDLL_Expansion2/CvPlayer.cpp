@@ -460,6 +460,7 @@ CvPlayer::CvPlayer() :
 	, m_iDaoPerks(0)
 	, m_iDaoUCPicks(0)
 	, m_iFengshanEra("CvPlayer::m_iFengshanEra", m_syncArchive)
+	, m_iChronicleEra("CvPlayer::m_iChronicleEra", m_syncArchive)
 	, m_iBlessingFood("CvPlayer::m_iBlessingFood", m_syncArchive)
 	, m_iBlessingProduction("CvPlayer::m_iBlessingProduction", m_syncArchive)
 	, m_iBlessingCulture("CvPlayer::m_iBlessingCulture", m_syncArchive)
@@ -1408,6 +1409,7 @@ void CvPlayer::uninit()
 	m_aiVassalBreachTurn.clear();
 	m_aiVassalBreachTurn.resize(MAX_MAJOR_CIVS, 0);
 	m_iFengshanEra = -1;
+	m_iChronicleEra = -1;
 	m_vPrayerRequests.clear();
 	m_aiPrayerDenyStreak.clear();
 	m_aiPrayerDenyStreak.resize(MAX_MAJOR_CIVS, 0);
@@ -5703,6 +5705,13 @@ void CvPlayer::doTurn()
 		DoOfficialAITurn();
 		DoProvinceTurn();
 		DoVassalOverlordVictoryCheck();
+		// A new era is a milestone worth writing down once.
+		int iEraNow = (int)GetCurrentEra();
+		if (iEraNow > m_iChronicleEra)
+		{
+			AddChronicle(CHRONICLE_ERA, iEraNow, 0, 0);
+			m_iChronicleEra = iEraNow;
+		}
 		// One snapshot per turn gives the overview its growth curve.
 		RecordEmpireSnapshot();
 	}
@@ -31626,6 +31635,7 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ_VECTOR(168, kStream, m_aiEmpireSnapshot, 0, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iDaoUCPicks, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iFengshanEra, -1);
+		MOD_SERIALIZE_READ(168, kStream, m_iChronicleEra, -1);
 		MOD_SERIALIZE_READ(165, kStream, m_iBlessingFood, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iBlessingProduction, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iBlessingCulture, 0);
@@ -32636,6 +32646,7 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiEmpireSnapshot);
 	MOD_SERIALIZE_WRITE(kStream, m_iDaoUCPicks);
 	MOD_SERIALIZE_WRITE(kStream, m_iFengshanEra);
+	MOD_SERIALIZE_WRITE(kStream, m_iChronicleEra);
 	MOD_SERIALIZE_WRITE(kStream, m_iBlessingFood);
 	MOD_SERIALIZE_WRITE(kStream, m_iBlessingProduction);
 	MOD_SERIALIZE_WRITE(kStream, m_iBlessingCulture);
@@ -39751,7 +39762,7 @@ bool CvPlayer::DoInviteVassal(PlayerTypes eTarget)
 	}
 
 	kTarget.SetOverlord(GetID());
-	AddVassal(eTarget);
+	AddVassal(eTarget, 1);
 	RefreshUCFromVassals();
 
 	int iStart = SuzerainDefineInt("SUZERAIN_LOYALTY_INVITE_START");
@@ -39810,7 +39821,7 @@ int CvPlayer::RequestVassalSubmission(PlayerTypes eProtector)
 	}
 
 	SetOverlord(eProtector);
-	kProtector.AddVassal(GetID());
+	kProtector.AddVassal(GetID(), 2);
 	kProtector.RefreshUCFromVassals();
 
 	int iStart = SuzerainDefineInt("SUZERAIN_LOYALTY_SEEK_START");
@@ -39869,7 +39880,7 @@ int CvPlayer::SurrenderTo(PlayerTypes eWinner)
 	GET_TEAM(getTeam()).makePeace(kWinner.getTeam(), true, false, GetID());
 
 	SetOverlord(eWinner);
-	kWinner.AddVassal(GetID());
+	kWinner.AddVassal(GetID(), 3);
 	kWinner.RefreshUCFromVassals();
 
 	int iStart = SuzerainDefineInt("SUZERAIN_LOYALTY_SUBJUGATE_START");
@@ -39940,7 +39951,7 @@ void CvPlayer::DoSeekProtectionTurn()
 	if (eProtector == NO_PLAYER) return;
 
 	SetOverlord(eProtector);
-	GET_PLAYER(eProtector).AddVassal(GetID());
+	GET_PLAYER(eProtector).AddVassal(GetID(), 2);
 	GET_PLAYER(eProtector).RefreshUCFromVassals();
 
 	int iStart = SuzerainDefineInt("SUZERAIN_LOYALTY_SEEK_START");
@@ -39997,7 +40008,7 @@ bool CvPlayer::DoSubjugate(PlayerTypes eTarget)
 	GET_TEAM(getTeam()).makePeace(kTarget.getTeam(), true, false, GetID());
 
 	kTarget.SetOverlord(GetID());
-	AddVassal(eTarget);
+	AddVassal(eTarget, 3);
 	RefreshUCFromVassals();
 
 	int iStart = SuzerainDefineInt("SUZERAIN_LOYALTY_SUBJUGATE_START");
@@ -40069,7 +40080,7 @@ void CvPlayer::DoSeekAllegianceTurn()
 	if (eBest == NO_PLAYER) return;
 
 	SetOverlord(eBest);
-	GET_PLAYER(eBest).AddVassal(GetID());
+	GET_PLAYER(eBest).AddVassal(GetID(), 4);
 	GET_PLAYER(eBest).RefreshUCFromVassals();
 
 	int iStart = SuzerainDefineInt("SUZERAIN_LOYALTY_MERIT_START");
@@ -40351,7 +40362,7 @@ const std::vector<int>& CvPlayer::GetVassals() const
 }
 
 //--------------------------------------------------------------------------------
-void CvPlayer::AddVassal(PlayerTypes e)
+void CvPlayer::AddVassal(PlayerTypes e, int iHow)
 {
 	if (!IsOverlordOf(e))
 	{
@@ -40361,7 +40372,7 @@ void CvPlayer::AddVassal(PlayerTypes e)
 		m_aCultureFromVassals[e] = 0;
 		m_aFaithFromVassals[e] = 0;
 		m_aGoldFromVassals[e] = 0;
-		AddChronicle(CHRONICLE_VASSAL_BECOME, e, GetVassalRank(e), GetVassalLoyalty(e));
+		AddChronicle(CHRONICLE_VASSAL_BECOME, e, iHow, GetVassalLoyalty(e));
 	}
 }
 
@@ -47341,7 +47352,7 @@ bool CvPlayer::RestoreConcubineHomeland(int iIndex)
 	DoLiberatePlayer(eVassal, iCityID);
 	if (!GET_PLAYER(eVassal).isAlive()) return false;
 
-	AddVassal(eVassal);
+	AddVassal(eVassal, 6);
 	GET_PLAYER(eVassal).SetOverlord(GetID());
 	ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_CONCUBINE_RESTORE_LOYALTY"));
 	ChangeConcubineFavor(iIndex, SuzerainDefineInt("SUZERAIN_CONCUBINE_RESTORE_FAVOR_GAIN"));
@@ -48443,7 +48454,7 @@ bool CvPlayer::ResolveVassalInvite(bool bAccept)
 	}
 
 	SetOverlord(eOverlord);
-	kOverlord.AddVassal(GetID());
+	kOverlord.AddVassal(GetID(), 1);
 	kOverlord.RefreshUCFromVassals();
 
 	int iStart = SuzerainDefineInt("SUZERAIN_LOYALTY_INVITE_START");

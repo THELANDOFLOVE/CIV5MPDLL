@@ -1771,7 +1771,7 @@ void CvActiveResolution::DoEffects(PlayerTypes ePlayer)
 			if (kVassal.GetOverlord() == NO_PLAYER)
 			{
 				// Establish vassal relationship
-				kOverlord.AddVassal(eVassal);
+				kOverlord.AddVassal(eVassal, 5);
 				kVassal.SetOverlord(eOverlord);
 				// Vassalization changes the overlord's effective control over original capitals -
 				// re-check domination victory immediately rather than waiting for the next city capture

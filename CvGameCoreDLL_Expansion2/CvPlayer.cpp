@@ -445,6 +445,11 @@ CvPlayer::CvPlayer() :
 	, m_aiOfficialCandidates("CvPlayer::m_aiOfficialCandidates", m_syncArchive)
 	, m_iOfficialAdvicePost("CvPlayer::m_iOfficialAdvicePost", m_syncArchive)
 	, m_iOfficialAdviceTurn("CvPlayer::m_iOfficialAdviceTurn", m_syncArchive)
+	, m_iOfficialExamStart("CvPlayer::m_iOfficialExamStart", m_syncArchive)
+	, m_iOfficialExamTurn("CvPlayer::m_iOfficialExamTurn", m_syncArchive)
+	, m_aiProvinces("CvPlayer::m_aiProvinces", m_syncArchive)
+	, m_aiProvinceCity("CvPlayer::m_aiProvinceCity", m_syncArchive)
+	, m_iProvinceUnhappinessMod("CvPlayer::m_iProvinceUnhappinessMod", m_syncArchive)
 	, m_iFavourBonusTurn("CvPlayer::m_iFavourBonusTurn", m_syncArchive)
 	, m_aiVassalBreachCount("CvPlayer::m_aiVassalBreachCount", m_syncArchive)
 	, m_aiVassalBreachTurn("CvPlayer::m_aiVassalBreachTurn", m_syncArchive)
@@ -1375,6 +1380,11 @@ void CvPlayer::uninit()
 	m_aiOfficialCandidates.clear();
 	m_iOfficialAdvicePost = -1;
 	m_iOfficialAdviceTurn = 0;
+	m_aiProvinces.clear();
+	m_aiProvinceCity.clear();
+	m_iProvinceUnhappinessMod = 0;
+	m_iOfficialExamStart = -1;
+	m_iOfficialExamTurn = 0;
 	m_iEmpress = -1;
 	m_iFavourBonusTurn = 0;
 	m_aiVassalGiftCount.clear();
@@ -5687,6 +5697,7 @@ void CvPlayer::doTurn()
 		DoVassalWorksCheck();
 		DoOfficialTurn();
 		DoOfficialAITurn();
+		DoProvinceTurn();
 		DoVassalOverlordVictoryCheck();
 	}
 #endif
@@ -31587,6 +31598,11 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiOfficialCandidates, 0, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iOfficialAdvicePost, -1);
 		MOD_SERIALIZE_READ(165, kStream, m_iOfficialAdviceTurn, 0);
+		MOD_SERIALIZE_READ(168, kStream, m_iOfficialExamStart, -1);
+		MOD_SERIALIZE_READ(168, kStream, m_iOfficialExamTurn, 0);
+		MOD_SERIALIZE_READ_VECTOR(168, kStream, m_aiProvinces, 0, 0);
+		MOD_SERIALIZE_READ_VECTOR(168, kStream, m_aiProvinceCity, 0, -1);
+		MOD_SERIALIZE_READ(168, kStream, m_iProvinceUnhappinessMod, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iFavourBonusTurn, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalBreachCount, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalPunishRight, MAX_MAJOR_CIVS, 0);
@@ -32590,6 +32606,11 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiOfficialCandidates);
 	MOD_SERIALIZE_WRITE(kStream, m_iOfficialAdvicePost);
 	MOD_SERIALIZE_WRITE(kStream, m_iOfficialAdviceTurn);
+	MOD_SERIALIZE_WRITE(kStream, m_iOfficialExamStart);
+	MOD_SERIALIZE_WRITE(kStream, m_iOfficialExamTurn);
+	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiProvinces);
+	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiProvinceCity);
+	MOD_SERIALIZE_WRITE(kStream, m_iProvinceUnhappinessMod);
 	MOD_SERIALIZE_WRITE(kStream, m_iFavourBonusTurn);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalBreachCount);
 	MOD_SERIALIZE_WRITE(kStream, m_aiVassalPunishRight);
@@ -34903,6 +34924,154 @@ void CvPlayer::DoVassalGift(PlayerTypes eVassal)
 }
 
 //--------------------------------------------------------------------------------
+// Gift menu. Kind 0 is the daily gold grant; kinds 1 and 2 list the resources
+// and technologies the overlord can hand over. A resource or technology gift
+// is limited to one per vassal per day; the gold gift keeps its own decay.
+int CvPlayer::GetVassalGiftOptionCount(PlayerTypes eVassal, int iKind) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	if (!IsOverlordOf(eVassal)) return 0;
+
+	if (iKind == 0)
+		return (GetVassalGiftLoyalty(eVassal) > 0) ? 1 : 0;
+
+	// One resource or technology gift a day, counted by the gold gift.
+	if ((size_t)eVassal < m_aiVassalGiftCount.size() && m_aiVassalGiftCount[eVassal] > 0)
+		return 0;
+
+	if (iKind == 1)
+	{
+		int iCount = 0;
+		for (int r = 0; r < GC.getNumResourceInfos(); r++)
+		{
+			ResourceTypes eResource = (ResourceTypes)r;
+			CvResourceInfo* pInfo = GC.getResourceInfo(eResource);
+			if (pInfo == NULL) continue;
+			ResourceUsageTypes eUsage = pInfo->getResourceUsage();
+			if (eUsage != RESOURCEUSAGE_STRATEGIC && eUsage != RESOURCEUSAGE_LUXURY) continue;
+			if (getNumResourceAvailable(eResource, false) > 0) iCount++;
+		}
+		return iCount;
+	}
+
+	if (iKind == 2)
+	{
+		int iCount = 0;
+		for (int t = 0; t < GC.getNumTechInfos(); t++)
+		{
+			TechTypes eTech = (TechTypes)t;
+			if (!GET_TEAM(getTeam()).GetTeamTechs()->HasTech(eTech)) continue;
+			if (GET_TEAM(GET_PLAYER(eVassal).getTeam()).GetTeamTechs()->HasTech(eTech)) continue;
+			iCount++;
+		}
+		return iCount;
+	}
+	return 0;
+}
+
+//--------------------------------------------------------------------------------
+// iField: gold 0 cost / 1 loyalty; resource 0 type / 1 amount; tech 0 type.
+int CvPlayer::GetVassalGiftOptionField(PlayerTypes eVassal, int iKind, int iIndex, int iField) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	if (!IsOverlordOf(eVassal)) return 0;
+	if (iIndex < 0) return 0;
+
+	if (iKind == 0)
+	{
+		if (iIndex != 0) return 0;
+		if (iField == 0) return SuzerainDefineInt("SUZERAIN_GIFT_GOLD");
+		if (iField == 1) return GetVassalGiftLoyalty(eVassal);
+		return 0;
+	}
+
+	if (iKind == 1)
+	{
+		int iSeen = 0;
+		for (int r = 0; r < GC.getNumResourceInfos(); r++)
+		{
+			ResourceTypes eResource = (ResourceTypes)r;
+			CvResourceInfo* pInfo = GC.getResourceInfo(eResource);
+			if (pInfo == NULL) continue;
+			ResourceUsageTypes eUsage = pInfo->getResourceUsage();
+			if (eUsage != RESOURCEUSAGE_STRATEGIC && eUsage != RESOURCEUSAGE_LUXURY) continue;
+			int iAvailable = getNumResourceAvailable(eResource, false);
+			if (iAvailable <= 0) continue;
+			if (iSeen++ != iIndex) continue;
+			if (iField == 0) return r;
+			if (iField == 1) return std::min(SuzerainDefineInt("SUZERAIN_GIFT_RESOURCE_AMOUNT"), iAvailable);
+			return 0;
+		}
+		return 0;
+	}
+
+	if (iKind == 2)
+	{
+		int iSeen = 0;
+		for (int t = 0; t < GC.getNumTechInfos(); t++)
+		{
+			TechTypes eTech = (TechTypes)t;
+			if (!GET_TEAM(getTeam()).GetTeamTechs()->HasTech(eTech)) continue;
+			if (GET_TEAM(GET_PLAYER(eVassal).getTeam()).GetTeamTechs()->HasTech(eTech)) continue;
+			if (iSeen++ != iIndex) continue;
+			return (iField == 0) ? t : 0;
+		}
+	}
+	return 0;
+}
+
+//--------------------------------------------------------------------------------
+bool CvPlayer::DoVassalGiftOption(PlayerTypes eVassal, int iKind, int iIndex)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (!IsOverlordOf(eVassal)) return false;
+	if (GetVassalGiftOptionCount(eVassal, iKind) <= iIndex) return false;
+
+	if (iKind == 0)
+	{
+		DoVassalGift(eVassal);
+		return true;
+	}
+
+	if (iKind == 1)
+	{
+		ResourceTypes eResource = (ResourceTypes)GetVassalGiftOptionField(eVassal, 1, iIndex, 0);
+		int iAmount = GetVassalGiftOptionField(eVassal, 1, iIndex, 1);
+		if (eResource == NO_RESOURCE || iAmount <= 0) return false;
+
+		// A timed deal, so the resource returns instead of moving for good.
+		CvDeal kDeal(GetID(), eVassal);
+		kDeal.AddResourceTrade(GetID(), eResource, iAmount, GC.getGame().GetDealDuration());
+		GC.getGame().GetGameDeals()->AddProposedDeal(kDeal);
+		GC.getGame().GetGameDeals()->FinalizeDeal(GetID(), eVassal, true);
+
+		ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_GIFT_RESOURCE_LOYALTY"));
+		if ((size_t)eVassal >= m_aiVassalGiftCount.size())
+			m_aiVassalGiftCount.resize(MAX_MAJOR_CIVS, 0);
+		m_aiVassalGiftCount.setAt((size_t)eVassal, m_aiVassalGiftCount[eVassal] + 1);
+		ChangeMandate(SuzerainDefineInt("SUZERAIN_MANDATE_GIFT"));
+		ChangeDaoPoints(SuzerainDefineInt("SUZERAIN_DAO_POINT_REWARD"));
+		return true;
+	}
+
+	if (iKind == 2)
+	{
+		TechTypes eTech = (TechTypes)GetVassalGiftOptionField(eVassal, 2, iIndex, 0);
+		if (eTech == NO_TECH) return false;
+
+		GET_TEAM(GET_PLAYER(eVassal).getTeam()).GetTeamTechs()->SetHasTech(eTech, true);
+		ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_GIFT_TECH_LOYALTY"));
+		if ((size_t)eVassal >= m_aiVassalGiftCount.size())
+			m_aiVassalGiftCount.resize(MAX_MAJOR_CIVS, 0);
+		m_aiVassalGiftCount.setAt((size_t)eVassal, m_aiVassalGiftCount[eVassal] + 1);
+		ChangeMandate(SuzerainDefineInt("SUZERAIN_MANDATE_GIFT"));
+		ChangeDaoPoints(SuzerainDefineInt("SUZERAIN_DAO_POINT_REWARD"));
+		return true;
+	}
+	return false;
+}
+
+//--------------------------------------------------------------------------------
 void CvPlayer::ResetVassalGiftCounts()
 {
 	if (!MOD_GLOBAL_SUZERAIN) return;
@@ -36371,6 +36540,21 @@ bool CvPlayer::DismissOfficial(int iPost)
 	if (iPost < 0 || iPost >= OFFICIAL_POSTS) return false;
 	if (m_aiOfficials.size() < (size_t)(OFFICIAL_POSTS * 5)) return false;
 
+	// A dismissed official returns to the candidate pool, so he can be
+	// appointed again instead of vanishing from the game.
+	int iName = GetOfficialField(iPost, 0);
+	if (iName > 0)
+	{
+		int iMax = SuzerainDefineInt("SUZERAIN_OFFICIAL_CANDIDATE_MAX");
+		if (iMax > 0 && GetOfficialCandidateCount() < iMax)
+		{
+			std::vector<int> v = m_aiOfficialCandidates;
+			for (int f = 0; f < 4; f++)
+				v.push_back(GetOfficialField(iPost, f));
+			m_aiOfficialCandidates = v;
+		}
+	}
+
 	for (int f = 0; f < 5; f++)
 		m_aiOfficials.setAt((size_t)(iPost * 5 + f), 0);
 	if (m_iOfficialAdvicePost == iPost)
@@ -36379,6 +36563,197 @@ bool CvPlayer::DismissOfficial(int iPost)
 		m_iOfficialAdviceTurn = 0;
 	}
 	return true;
+}
+
+//--------------------------------------------------------------------------------
+// Remove one candidate from the pool (the exam cohort can be trimmed this way).
+bool CvPlayer::RemoveOfficialCandidate(int iIndex)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (iIndex < 0 || iIndex >= GetOfficialCandidateCount()) return false;
+
+	std::vector<int> v;
+	int iCount = GetOfficialCandidateCount();
+	for (int i = 0; i < iCount; i++)
+	{
+		if (i == iIndex) continue;
+		for (int f = 0; f < 4; f++)
+			v.push_back(GetOfficialCandidateField(i, f));
+	}
+	m_aiOfficialCandidates = v;
+	if (m_iOfficialExamStart > iIndex)
+		m_iOfficialExamStart = m_iOfficialExamStart - 1;
+	return true;
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetOfficialExamStart() const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return -1;
+	return m_iOfficialExamStart;
+}
+
+//--------------------------------------------------------------------------------
+int CvPlayer::GetOfficialExamCount() const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	if (m_iOfficialExamStart < 0) return 0;
+	int iCount = GetOfficialCandidateCount() - m_iOfficialExamStart;
+	return (iCount > 0) ? iCount : 0;
+}
+
+//--------------------------------------------------------------------------------
+void CvPlayer::ClearOfficialExam()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	m_iOfficialExamStart = -1;
+	m_iOfficialExamTurn = 0;
+}
+
+//--------------------------------------------------------------------------------
+// Provinces: cities grouped under a governor, a justice and a garrison chief.
+// Stride 13: name index, then three officials x (name, ability, character, lean).
+int CvPlayer::GetProvinceCount() const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	return (int)m_aiProvinces.size() / 13;
+}
+
+int CvPlayer::GetProvinceField(int iProv, int iField) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	if (iProv < 0 || iProv >= GetProvinceCount()) return 0;
+	if (iField < 0 || iField >= 13) return 0;
+	return m_aiProvinces[iProv * 13 + iField];
+}
+
+bool CvPlayer::CreateProvince(int iNameIndex)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (iNameIndex <= 0) return false;
+	int iMax = SuzerainDefineInt("SUZERAIN_PROVINCE_MAX");
+	if (iMax > 0 && GetProvinceCount() >= iMax) return false;
+	for (int i = 0; i < GetProvinceCount(); i++)
+	{
+		if (m_aiProvinces[i * 13] == iNameIndex) return false;
+	}
+	std::vector<int> v = m_aiProvinces;
+	for (int k = 0; k < 13; k++) v.push_back(0);
+	v[(int)v.size() - 13] = iNameIndex;
+	m_aiProvinces = v;
+	return true;
+}
+
+bool CvPlayer::SetCityProvince(int iCityID, int iProv)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (iCityID < 0) return false;
+	if (iProv >= GetProvinceCount()) return false;
+	if ((size_t)iCityID >= m_aiProvinceCity.size())
+	{
+		std::vector<int> v = m_aiProvinceCity;
+		v.resize((size_t)iCityID + 1, -1);
+		m_aiProvinceCity = v;
+	}
+	m_aiProvinceCity.setAt((size_t)iCityID, iProv);
+	return true;
+}
+
+int CvPlayer::GetCityProvince(int iCityID) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return -1;
+	if (iCityID < 0 || (size_t)iCityID >= m_aiProvinceCity.size()) return -1;
+	return m_aiProvinceCity[iCityID];
+}
+
+int CvPlayer::GetProvinceCityCount(int iProv) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	if (iProv < 0) return 0;
+	int iCount = 0;
+	for (size_t i = 0; i < m_aiProvinceCity.size(); i++)
+	{
+		if (m_aiProvinceCity[i] == iProv) iCount++;
+	}
+	return iCount;
+}
+
+bool CvPlayer::AppointProvinceOfficial(int iProv, int iPost, int iCandidate)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (iProv < 0 || iProv >= GetProvinceCount()) return false;
+	if (iPost < 0 || iPost >= 3) return false;
+	if (iCandidate < 0 || iCandidate >= GetOfficialCandidateCount()) return false;
+	if (m_aiProvinces.size() < (size_t)((iProv + 1) * 13))
+	{
+		std::vector<int> v = m_aiProvinces;
+		v.resize((size_t)(iProv + 1) * 13, 0);
+		m_aiProvinces = v;
+	}
+	int iBase = iProv * 13 + 1 + iPost * 4;
+	for (int f = 0; f < 4; f++)
+		m_aiProvinces.setAt((size_t)(iBase + f), GetOfficialCandidateField(iCandidate, f));
+	return true;
+}
+
+void CvPlayer::DismissProvinceOfficial(int iProv, int iPost)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (iProv < 0 || iProv >= GetProvinceCount()) return;
+	if (iPost < 0 || iPost >= 3) return;
+	int iBase = iProv * 13 + 1 + iPost * 4;
+	for (int f = 0; f < 4; f++)
+		m_aiProvinces.setAt((size_t)(iBase + f), 0);
+}
+
+//--------------------------------------------------------------------------------
+// Daily provincial yield: governor gold, garrison mandate, justice calm.
+void CvPlayer::DoProvinceTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+
+	if (m_iProvinceUnhappinessMod != 0)
+	{
+		ChangeUnhappinessMod(-m_iProvinceUnhappinessMod);
+		m_iProvinceUnhappinessMod = 0;
+	}
+
+	int iCount = GetProvinceCount();
+	if (iCount <= 0) return;
+
+	int iGoldPer = SuzerainDefineInt("SUZERAIN_PROVINCE_GOLD_PER_ABILITY");
+	int iMandateDiv = SuzerainDefineInt("SUZERAIN_PROVINCE_MANDATE_DIVISOR");
+	int iUnhappyPer = SuzerainDefineInt("SUZERAIN_PROVINCE_UNHAPPINESS_PER_ABILITY");
+	int iUnhappyTotal = 0;
+
+	for (int p = 0; p < iCount; p++)
+	{
+		int iCities = GetProvinceCityCount(p);
+		if (iCities <= 0) continue;
+
+		int iGovernorAbility = GetProvinceField(p, 2);
+		int iJusticeAbility = GetProvinceField(p, 6);
+		int iGarrisonAbility = GetProvinceField(p, 10);
+
+		if (iGovernorAbility > 0 && iGoldPer > 0)
+			GetTreasury()->ChangeGold(iGovernorAbility * iCities * iGoldPer);
+		if (iGarrisonAbility > 0 && iMandateDiv > 0)
+			ChangeMandate(iGarrisonAbility * iCities / iMandateDiv);
+		// One justice reduces unhappiness by its ability alone; provinces do not
+		// multiply it, and the total is capped below.
+		if (iJusticeAbility > 0 && iUnhappyPer > 0)
+			iUnhappyTotal += iJusticeAbility * iUnhappyPer;
+	}
+
+	int iUnhappyCap = SuzerainDefineInt("SUZERAIN_PROVINCE_UNHAPPINESS_CAP");
+	if (iUnhappyCap > 0 && iUnhappyTotal > iUnhappyCap)
+		iUnhappyTotal = iUnhappyCap;
+
+	if (iUnhappyTotal > 0)
+	{
+		ChangeUnhappinessMod(-iUnhappyTotal);
+		m_iProvinceUnhappinessMod = -iUnhappyTotal;
+	}
 }
 
 //--------------------------------------------------------------------------------
@@ -36468,10 +36843,14 @@ void CvPlayer::DoOfficialTurn()
 
 	int iTurn = GC.getGame().getGameTurn();
 
-	// Candidates from the pool.
-	int iCandEvery = SuzerainDefineInt("SUZERAIN_OFFICIAL_CANDIDATE_INTERVAL");
-	int iCandMax = SuzerainDefineInt("SUZERAIN_OFFICIAL_CANDIDATE_MAX");
-	if (iCandEvery > 0 && (iTurn % iCandEvery) == 0 && GetOfficialCandidateCount() < iCandMax)
+	// Imperial examination: a whole cohort arrives on the exam turn. The pool
+	// has no cap; the player keeps or dismisses each candidate.
+	int iExamEvery = SuzerainDefineListInt("SUZERAIN_OFFICIAL_EXAM_INTERVAL_BY_SPEED",
+		GC.getGame().getGameSpeedType(), 0);
+	if (iExamEvery <= 0)
+		iExamEvery = SuzerainDefineInt("SUZERAIN_OFFICIAL_CANDIDATE_INTERVAL");
+	int iExamCount = SuzerainDefineInt("SUZERAIN_OFFICIAL_EXAM_COUNT");
+	if (iExamEvery > 0 && iExamCount > 0 && (iTurn % iExamEvery) == 0)
 	{
 		int iNames = SuzerainDefineInt("SUZERAIN_OFFICIAL_NAME_COUNT");
 		int iAbilityMax = SuzerainDefineInt("SUZERAIN_OFFICIAL_ABILITY_MAX");
@@ -36479,12 +36858,18 @@ void CvPlayer::DoOfficialTurn()
 		int iLeanMax = SuzerainDefineInt("SUZERAIN_OFFICIAL_LEAN_MAX");
 		if (iNames > 0 && iAbilityMax > 0 && iCharMax > 0 && iLeanMax > 0)
 		{
+			int iStart = GetOfficialCandidateCount();
 			std::vector<int> v = m_aiOfficialCandidates;
-			v.push_back(GC.getGame().getJonRandNum(iNames, "Official name") + 1);
-			v.push_back(GC.getGame().getJonRandNum(iAbilityMax, "Official ability") + 1);
-			v.push_back(GC.getGame().getJonRandNum(iCharMax, "Official character") + 1);
-			v.push_back(GC.getGame().getJonRandNum(iLeanMax, "Official leaning") + 1);
+			for (int k = 0; k < iExamCount; k++)
+			{
+				v.push_back(GC.getGame().getJonRandNum(iNames, "Official name") + 1);
+				v.push_back(GC.getGame().getJonRandNum(iAbilityMax, "Official ability") + 1);
+				v.push_back(GC.getGame().getJonRandNum(iCharMax, "Official character") + 1);
+				v.push_back(GC.getGame().getJonRandNum(iLeanMax, "Official lean") + 1);
+			}
 			m_aiOfficialCandidates = v;
+			m_iOfficialExamStart = iStart;
+			m_iOfficialExamTurn = iTurn;
 		}
 	}
 
@@ -36558,7 +36943,14 @@ void CvPlayer::DoOfficialTurn()
 		// Satisfaction decays; an official with none left resigns.
 		if (iSatDecayEvery > 0 && (iTurn % iSatDecayEvery) == 0)
 		{
-			int iSat = GetOfficialField(p, 4) - iSatDecay;
+			// Character: 1 honest (slower decay), 2 middling, 3 corrupt (faster).
+			int iCharacter = GetOfficialField(p, 2);
+			int iDecay = iSatDecay;
+			if (iCharacter == 1) iDecay -= 1;
+			else if (iCharacter == 3) iDecay += 1;
+			if (iDecay < 0) iDecay = 0;
+
+			int iSat = GetOfficialField(p, 4) - iDecay;
 			if (iSat < 0) iSat = 0;
 			m_aiOfficials.setAt((size_t)(p * 5 + 4), iSat);
 			if (iSat <= 0) DismissOfficial(p);
@@ -36935,6 +37327,13 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 			ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_MEMORIAL_TITLE_DENY"));
 			bOk = true;
 		}
+		break;
+	case 12: // rites ministry: intercede with a third party; terms are set by the UI
+		if (bApprove)
+			ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_MEMORIAL_PEACE_LOYALTY"));
+		else
+			ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_MEMORIAL_PEACE_DENY"));
+		bOk = true;
 		break;
 	case 15: // personnel ministry: request for an appraisal
 		ChangeVassalLoyalty(eVassal, bApprove
@@ -38431,6 +38830,8 @@ bool CvPlayer::CanTianfa(PlayerTypes eTarget) const
 
 	CvPlayer& kTarget = GET_PLAYER(eTarget);
 	if (!kTarget.isAlive() || !kTarget.isMajorCiv()) return false;
+	// Heaven's punishment falls on our own vassals, not on foreign civs.
+	if (!IsOverlordOf(eTarget)) return false;
 	if (kTarget.IsUnderMandatePunishment()) return false;
 
 	int iCost = SuzerainDefineInt("SUZERAIN_MANDATE_TIANFA_COST");
@@ -47440,6 +47841,25 @@ bool CvPlayer::CanDemandPeaceFrom(PlayerTypes eTarget) const
 	if (!kTarget.isAlive() || !kTarget.isMajorCiv()) return false;
 	if (kTarget.GetOverlord() != NO_PLAYER) return false;
 
+	// There must be a war to end: ours or one of our vassals'.
+	TeamTypes eTargetTeam = kTarget.getTeam();
+	if (eTargetTeam == getTeam()) return false;
+	bool bAtWar = GET_TEAM(getTeam()).isAtWar(eTargetTeam);
+	if (!bAtWar)
+	{
+		for (size_t i = 0; i < m_vecVassals.size(); i++)
+		{
+			PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
+			if (!IsLiveVassal(eVassal)) continue;
+			if (GET_TEAM(GET_PLAYER(eVassal).getTeam()).isAtWar(eTargetTeam))
+			{
+				bAtWar = true;
+				break;
+			}
+		}
+	}
+	if (!bAtWar) return false;
+
 	int iMax = SuzerainDefineInt("SUZERAIN_PRESSURE_MAX");
 	if (iMax <= 0) return false;
 	return GetPressureOnCiv(eTarget) >= iMax;
@@ -47451,12 +47871,120 @@ bool CvPlayer::CanDemandPeaceFrom(PlayerTypes eTarget) const
 int CvPlayer::ProposePeaceDemand(PlayerTypes eTarget, PlayerTypes eBeneficiary,
 	int iGoldPercent, bool bReturnCities, bool bCedeCity, bool bCeaseFire, bool bForce)
 {
+	return ProposePeaceDemandWithCity(eTarget, eBeneficiary, iGoldPercent,
+		bReturnCities ? -2 : -1, bCedeCity ? -2 : -1, bCeaseFire, bForce);
+}
+
+//--------------------------------------------------------------------------------
+// Cities the target holds that once belonged to us or to one of our vassals.
+int CvPlayer::GetPeaceReturnCityCount(PlayerTypes eTarget) const
+{
+	if (!MOD_GLOBAL_SUZERAIN || !IsSuzerainCiv()) return 0;
+	if (eTarget < 0 || eTarget >= MAX_MAJOR_CIVS) return 0;
+	CvPlayer& kTarget = GET_PLAYER(eTarget);
+	if (!kTarget.isAlive()) return 0;
+
+	int iCount = 0;
+	int iLoop = 0;
+	for (CvCity* pCity = kTarget.firstCity(&iLoop); pCity != NULL; pCity = kTarget.nextCity(&iLoop))
+	{
+		PlayerTypes eOriginal = pCity->getOriginalOwner();
+		if (eOriginal == GetID() || IsOverlordOf(eOriginal)) iCount++;
+	}
+	return iCount;
+}
+
+int CvPlayer::GetPeaceReturnCityField(PlayerTypes eTarget, int iIndex) const
+{
+	if (!MOD_GLOBAL_SUZERAIN || !IsSuzerainCiv()) return -1;
+	if (eTarget < 0 || eTarget >= MAX_MAJOR_CIVS || iIndex < 0) return -1;
+	CvPlayer& kTarget = GET_PLAYER(eTarget);
+	if (!kTarget.isAlive()) return -1;
+
+	int iSeen = 0;
+	int iLoop = 0;
+	for (CvCity* pCity = kTarget.firstCity(&iLoop); pCity != NULL; pCity = kTarget.nextCity(&iLoop))
+	{
+		PlayerTypes eOriginal = pCity->getOriginalOwner();
+		if (eOriginal != GetID() && !IsOverlordOf(eOriginal)) continue;
+		if (iSeen++ != iIndex) continue;
+		return pCity->GetID();
+	}
+	return -1;
+}
+
+//--------------------------------------------------------------------------------
+// Cities the target could cede: its own non-capital cities.
+int CvPlayer::GetPeaceCedeCityCount(PlayerTypes eTarget) const
+{
+	if (!MOD_GLOBAL_SUZERAIN || !IsSuzerainCiv()) return 0;
+	if (eTarget < 0 || eTarget >= MAX_MAJOR_CIVS) return 0;
+	CvPlayer& kTarget = GET_PLAYER(eTarget);
+	if (!kTarget.isAlive()) return 0;
+
+	int iCount = 0;
+	int iLoop = 0;
+	for (CvCity* pCity = kTarget.firstCity(&iLoop); pCity != NULL; pCity = kTarget.nextCity(&iLoop))
+	{
+		if (pCity->isCapital()) continue;
+		if (pCity->getOriginalOwner() != eTarget) continue;
+		iCount++;
+	}
+	return iCount;
+}
+
+int CvPlayer::GetPeaceCedeCityField(PlayerTypes eTarget, int iIndex) const
+{
+	if (!MOD_GLOBAL_SUZERAIN || !IsSuzerainCiv()) return -1;
+	if (eTarget < 0 || eTarget >= MAX_MAJOR_CIVS || iIndex < 0) return -1;
+	CvPlayer& kTarget = GET_PLAYER(eTarget);
+	if (!kTarget.isAlive()) return -1;
+
+	int iSeen = 0;
+	int iLoop = 0;
+	for (CvCity* pCity = kTarget.firstCity(&iLoop); pCity != NULL; pCity = kTarget.nextCity(&iLoop))
+	{
+		if (pCity->isCapital()) continue;
+		if (pCity->getOriginalOwner() != eTarget) continue;
+		if (iSeen++ != iIndex) continue;
+		return pCity->GetID();
+	}
+	return -1;
+}
+
+//--------------------------------------------------------------------------------
+// Demand peace terms; -2 means the legacy automatic choice (all cities / weakest).
+int CvPlayer::ProposePeaceDemandWithCity(PlayerTypes eTarget, PlayerTypes eBeneficiary,
+	int iGoldPercent, int iReturnCityID, int iCedeCityID, bool bCeaseFire, bool bForce)
+{
+	bool bReturnCities = (iReturnCityID != -1);
+	bool bCedeCity = (iCedeCityID != -1);
+
 	if (!MOD_GLOBAL_SUZERAIN || !IsSuzerainCiv()) return -1;
 	if (eTarget < 0 || eTarget >= MAX_MAJOR_CIVS || eTarget == GetID()) return -1;
 
 	CvPlayer& kTarget = GET_PLAYER(eTarget);
 	if (!kTarget.isAlive() || !kTarget.isMajorCiv()) return -1;
 	if (kTarget.GetOverlord() != NO_PLAYER) return -1;
+
+	// There must be a war to end: ours or one of our vassals'.
+	TeamTypes eTargetTeam = kTarget.getTeam();
+	if (eTargetTeam == getTeam()) return -1;
+	bool bAtWar = GET_TEAM(getTeam()).isAtWar(eTargetTeam);
+	if (!bAtWar)
+	{
+		for (size_t i = 0; i < m_vecVassals.size(); i++)
+		{
+			PlayerTypes eVassal = (PlayerTypes)m_vecVassals[i];
+			if (!IsLiveVassal(eVassal)) continue;
+			if (GET_TEAM(GET_PLAYER(eVassal).getTeam()).isAtWar(eTargetTeam))
+			{
+				bAtWar = true;
+				break;
+			}
+		}
+	}
+	if (!bAtWar) return -1;
 
 	if (eBeneficiary != GetID() && !IsOverlordOf(eBeneficiary)) eBeneficiary = GetID();
 
@@ -47524,11 +48052,24 @@ int CvPlayer::ProposePeaceDemand(PlayerTypes eTarget, PlayerTypes eBeneficiary,
 	{
 		int iLoop = 0;
 		std::vector<int> vReturn;
-		for (CvCity* pCity = kTarget.firstCity(&iLoop); pCity != NULL; pCity = kTarget.nextCity(&iLoop))
+		if (iReturnCityID >= 0)
 		{
-			PlayerTypes eOriginal = pCity->getOriginalOwner();
-			if (eOriginal == GetID() || IsOverlordOf(eOriginal))
-				vReturn.push_back(pCity->GetID());
+			CvCity* pCity = kTarget.getCity(iReturnCityID);
+			if (pCity != NULL)
+			{
+				PlayerTypes eOriginal = pCity->getOriginalOwner();
+				if (eOriginal == GetID() || IsOverlordOf(eOriginal))
+					vReturn.push_back(iReturnCityID);
+			}
+		}
+		else
+		{
+			for (CvCity* pCity = kTarget.firstCity(&iLoop); pCity != NULL; pCity = kTarget.nextCity(&iLoop))
+			{
+				PlayerTypes eOriginal = pCity->getOriginalOwner();
+				if (eOriginal == GetID() || IsOverlordOf(eOriginal))
+					vReturn.push_back(pCity->GetID());
+			}
 		}
 		for (size_t i = 0; i < vReturn.size(); i++)
 		{
@@ -47540,17 +48081,24 @@ int CvPlayer::ProposePeaceDemand(PlayerTypes eTarget, PlayerTypes eBeneficiary,
 
 	if (bCedeCity)
 	{
-		// Hand over the least valuable non-capital city.
 		CvCity* pWorst = NULL;
-		int iLoop = 0;
-		for (CvCity* pCity = kTarget.firstCity(&iLoop); pCity != NULL; pCity = kTarget.nextCity(&iLoop))
+		if (iCedeCityID >= 0)
 		{
-			if (pCity->isCapital()) continue;
-			if (pCity->getOriginalOwner() != eTarget) continue;
-			if (pWorst == NULL || pCity->getPopulation() < pWorst->getPopulation())
-				pWorst = pCity;
+			pWorst = kTarget.getCity(iCedeCityID);
 		}
-		if (pWorst != NULL)
+		else
+		{
+			// Legacy: hand over the least valuable non-capital city.
+			int iLoop = 0;
+			for (CvCity* pCity = kTarget.firstCity(&iLoop); pCity != NULL; pCity = kTarget.nextCity(&iLoop))
+			{
+				if (pCity->isCapital()) continue;
+				if (pCity->getOriginalOwner() != eTarget) continue;
+				if (pWorst == NULL || pCity->getPopulation() < pWorst->getPopulation())
+					pWorst = pCity;
+			}
+		}
+		if (pWorst != NULL && !pWorst->isCapital() && pWorst->getOriginalOwner() == eTarget)
 			GET_PLAYER(eBeneficiary).acquireCity(pWorst, false, true);
 	}
 

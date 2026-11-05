@@ -133,6 +133,9 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoVassalRankUp);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetVassalRankUpGold);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoVassalGift);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetVassalGiftOptionCount);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetVassalGiftOptionField);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoVassalGiftOption);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoVassalProtect);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoVassalMediate);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lProposeVassalPeace);
@@ -174,6 +177,18 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetOfficialCandidateField);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lAppointOfficial);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDismissOfficial);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lRemoveOfficialCandidate);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetOfficialExamStart);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetOfficialExamCount);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lClearOfficialExam);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceCount);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceField);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lCreateProvince);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSetCityProvince);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetCityProvince);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceCityCount);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lAppointProvinceOfficial);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDismissProvinceOfficial);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetOfficialAdvicePost);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetOfficialAdviceTurn);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lResolveOfficialAdvice);
@@ -191,6 +206,7 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lOrderPermanentAllyCityStatesWar);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoTradeBlock);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lProposePeaceDemand);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lProposePeaceDemandWithCity);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lAcceptPeaceCounter);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lPunishVassal);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDoReturnCityToVassal);
@@ -1586,6 +1602,9 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(GetVassalRankUpGold);
 	Method(GetVassalGiftLoyalty);
 	Method(DoVassalGift);
+	Method(GetVassalGiftOptionCount);
+	Method(GetVassalGiftOptionField);
+	Method(DoVassalGiftOption);
 	Method(GetCourtGiftCount);
 	Method(GetCourtGiftVassal);
 	Method(GetCourtGiftGold);
@@ -1634,6 +1653,18 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(GetOfficialCandidateField);
 	Method(AppointOfficial);
 	Method(DismissOfficial);
+	Method(RemoveOfficialCandidate);
+	Method(GetOfficialExamStart);
+	Method(GetOfficialExamCount);
+	Method(ClearOfficialExam);
+	Method(GetProvinceCount);
+	Method(GetProvinceField);
+	Method(CreateProvince);
+	Method(SetCityProvince);
+	Method(GetCityProvince);
+	Method(GetProvinceCityCount);
+	Method(AppointProvinceOfficial);
+	Method(DismissProvinceOfficial);
 	Method(GetOfficialAdvicePost);
 	Method(GetOfficialAdviceTurn);
 	Method(ResolveOfficialAdvice);
@@ -1654,6 +1685,11 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(OrderPermanentAllyCityStatesWar);
 	Method(DoTradeBlock);
 	Method(ProposePeaceDemand);
+	Method(GetPeaceReturnCityCount);
+	Method(GetPeaceReturnCityField);
+	Method(GetPeaceCedeCityCount);
+	Method(GetPeaceCedeCityField);
+	Method(ProposePeaceDemandWithCity);
 	Method(GetPeaceCounterField);
 	Method(AcceptPeaceCounter);
 	Method(PunishVassal);
@@ -7527,6 +7563,39 @@ int CvLuaPlayer::lDoVassalGift(lua_State* L)
 	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
 	pkPlayer->DoVassalGift(e);
 	return 0;
+}
+//------------------------------------------------------------------------------
+//int GetVassalGiftOptionCount(PlayerTypes e, int iKind);
+int CvLuaPlayer::lGetVassalGiftOptionCount(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
+	int iKind = lua_tointeger(L, 3);
+	lua_pushinteger(L, pkPlayer->GetVassalGiftOptionCount(e, iKind));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetVassalGiftOptionField(PlayerTypes e, int iKind, int iIndex, int iField);
+int CvLuaPlayer::lGetVassalGiftOptionField(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
+	int iKind = lua_tointeger(L, 3);
+	int iIndex = lua_tointeger(L, 4);
+	int iField = lua_tointeger(L, 5);
+	lua_pushinteger(L, pkPlayer->GetVassalGiftOptionField(e, iKind, iIndex, iField));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool DoVassalGiftOption(PlayerTypes e, int iKind, int iIndex);
+int CvLuaPlayer::lDoVassalGiftOption(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes e = (PlayerTypes)lua_tointeger(L, 2);
+	int iKind = lua_tointeger(L, 3);
+	int iIndex = lua_tointeger(L, 4);
+	lua_pushboolean(L, pkPlayer->DoVassalGiftOption(e, iKind, iIndex));
+	return 1;
 }
 //------------------------------------------------------------------------------
 //int GetCourtGiftCount();
@@ -15776,6 +15845,115 @@ int CvLuaPlayer::lDismissOfficial(lua_State* L)
 	lua_pushboolean(L, pkPlayer->DismissOfficial(iPost));
 	return 1;
 }
+//------------------------------------------------------------------------------
+//bool RemoveOfficialCandidate(int iIndex);
+int CvLuaPlayer::lRemoveOfficialCandidate(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	const int iIndex = lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->RemoveOfficialCandidate(iIndex));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetOfficialExamStart();
+int CvLuaPlayer::lGetOfficialExamStart(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->GetOfficialExamStart());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetOfficialExamCount();
+int CvLuaPlayer::lGetOfficialExamCount(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->GetOfficialExamCount());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//void ClearOfficialExam();
+int CvLuaPlayer::lClearOfficialExam(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	pkPlayer->ClearOfficialExam();
+	return 0;
+}
+//------------------------------------------------------------------------------
+//int GetProvinceCount();
+int CvLuaPlayer::lGetProvinceCount(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->GetProvinceCount());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetProvinceField(int iProv, int iField);
+int CvLuaPlayer::lGetProvinceField(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iProv = lua_tointeger(L, 2);
+	int iField = lua_tointeger(L, 3);
+	lua_pushinteger(L, pkPlayer->GetProvinceField(iProv, iField));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool CreateProvince(int iNameIndex);
+int CvLuaPlayer::lCreateProvince(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iNameIndex = lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->CreateProvince(iNameIndex));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool SetCityProvince(int iCityID, int iProv);
+int CvLuaPlayer::lSetCityProvince(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iCityID = lua_tointeger(L, 2);
+	int iProv = lua_tointeger(L, 3);
+	lua_pushboolean(L, pkPlayer->SetCityProvince(iCityID, iProv));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetCityProvince(int iCityID);
+int CvLuaPlayer::lGetCityProvince(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iCityID = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetCityProvince(iCityID));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetProvinceCityCount(int iProv);
+int CvLuaPlayer::lGetProvinceCityCount(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iProv = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetProvinceCityCount(iProv));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//bool AppointProvinceOfficial(int iProv, int iPost, int iCandidate);
+int CvLuaPlayer::lAppointProvinceOfficial(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iProv = lua_tointeger(L, 2);
+	int iPost = lua_tointeger(L, 3);
+	int iCandidate = lua_tointeger(L, 4);
+	lua_pushboolean(L, pkPlayer->AppointProvinceOfficial(iProv, iPost, iCandidate));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//void DismissProvinceOfficial(int iProv, int iPost);
+int CvLuaPlayer::lDismissProvinceOfficial(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iProv = lua_tointeger(L, 2);
+	int iPost = lua_tointeger(L, 3);
+	pkPlayer->DismissProvinceOfficial(iProv, iPost);
+	return 0;
+}
 //int GetOfficialAdvicePost();
 int CvLuaPlayer::lGetOfficialAdvicePost(lua_State* L)
 {
@@ -15936,6 +16114,58 @@ int CvLuaPlayer::lProposePeaceDemand(lua_State* L)
 	const bool bCedeCity = lua_toboolean(L, 6);
 	const bool bCeaseFire = lua_toboolean(L, 7);
 	lua_pushinteger(L, pkPlayer->ProposePeaceDemand(eTarget, eBeneficiary, iGoldPercent, bReturnCities, bCedeCity, bCeaseFire));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetPeaceReturnCityCount(PlayerTypes eTarget);
+int CvLuaPlayer::lGetPeaceReturnCityCount(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes eTarget = (PlayerTypes)lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetPeaceReturnCityCount(eTarget));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetPeaceReturnCityField(PlayerTypes eTarget, int iIndex);
+int CvLuaPlayer::lGetPeaceReturnCityField(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes eTarget = (PlayerTypes)lua_tointeger(L, 2);
+	int iIndex = lua_tointeger(L, 3);
+	lua_pushinteger(L, pkPlayer->GetPeaceReturnCityField(eTarget, iIndex));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetPeaceCedeCityCount(PlayerTypes eTarget);
+int CvLuaPlayer::lGetPeaceCedeCityCount(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes eTarget = (PlayerTypes)lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetPeaceCedeCityCount(eTarget));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetPeaceCedeCityField(PlayerTypes eTarget, int iIndex);
+int CvLuaPlayer::lGetPeaceCedeCityField(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes eTarget = (PlayerTypes)lua_tointeger(L, 2);
+	int iIndex = lua_tointeger(L, 3);
+	lua_pushinteger(L, pkPlayer->GetPeaceCedeCityField(eTarget, iIndex));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int ProposePeaceDemandWithCity(PlayerTypes eTarget, PlayerTypes eBeneficiary, int iGoldPercent, int iReturnCityID, int iCedeCityID, bool bCeaseFire);
+int CvLuaPlayer::lProposePeaceDemandWithCity(lua_State* L)
+{
+	CvPlayerAI* pkPlayer = GetInstance(L);
+	PlayerTypes eTarget = (PlayerTypes)lua_tointeger(L, 2);
+	PlayerTypes eBeneficiary = (PlayerTypes)lua_tointeger(L, 3);
+	int iGoldPercent = lua_tointeger(L, 4);
+	int iReturnCityID = lua_tointeger(L, 5);
+	int iCedeCityID = lua_tointeger(L, 6);
+	bool bCeaseFire = lua_toboolean(L, 7) != 0;
+	lua_pushinteger(L, pkPlayer->ProposePeaceDemandWithCity(eTarget, eBeneficiary, iGoldPercent, iReturnCityID, iCedeCityID, bCeaseFire));
 	return 1;
 }
 //int GetPeaceCounterField(PlayerTypes eTarget, int iField);

@@ -2014,6 +2014,12 @@ public:
 	void DoVassalRankMandateTurn();
 	int GetVassalGiftLoyalty(PlayerTypes eVassal) const;
 	void DoVassalGift(PlayerTypes eVassal);
+	// Gift menu: kind 0 gold, 1 resource, 2 technology.
+	int GetVassalGiftOptionCount(PlayerTypes eVassal, int iKind) const;
+	// iField for gold: 0 cost, 1 loyalty. Resource: 0 type, 1 amount.
+	// Technology: 0 type.
+	int GetVassalGiftOptionField(PlayerTypes eVassal, int iKind, int iIndex, int iField) const;
+	bool DoVassalGiftOption(PlayerTypes eVassal, int iKind, int iIndex);
 	// Court gift log: who came to court this session and what they brought
 	int GetCourtGiftCount() const;
 	int GetCourtGiftVassal(int iIndex) const;
@@ -2046,6 +2052,13 @@ public:
 	void DoPressureTurn();
 	bool CanDemandPeaceFrom(PlayerTypes eTarget) const;
 	int ProposePeaceDemand(PlayerTypes eTarget, PlayerTypes eBeneficiary, int iGoldPercent, bool bReturnCities, bool bCedeCity, bool bCeaseFire, bool bForce = false);
+	// Cities the peace panel can offer, and a demand naming one of each.
+	int GetPeaceReturnCityCount(PlayerTypes eTarget) const;
+	int GetPeaceReturnCityField(PlayerTypes eTarget, int iIndex) const;
+	int GetPeaceCedeCityCount(PlayerTypes eTarget) const;
+	int GetPeaceCedeCityField(PlayerTypes eTarget, int iIndex) const;
+	int ProposePeaceDemandWithCity(PlayerTypes eTarget, PlayerTypes eBeneficiary,
+		int iGoldPercent, int iReturnCityID, int iCedeCityID, bool bCeaseFire, bool bForce = false);
 	int GetPendingVassalInvite() const;
 	bool ResolveVassalInvite(bool bAccept);
 	int GetPeaceCounterField(PlayerTypes eTarget, int iField) const;
@@ -2199,6 +2212,21 @@ public:
 	int GetOfficialCandidateField(int iIndex, int iField) const;
 	bool AppointOfficial(int iPost, int iCandidate);
 	bool DismissOfficial(int iPost);
+	// Imperial examination: drop one candidate, and read/clear the cohort.
+	bool RemoveOfficialCandidate(int iIndex);
+	int GetOfficialExamStart() const;
+	int GetOfficialExamCount() const;
+	void ClearOfficialExam();
+	// Provinces (dao): cities grouped under three local officials.
+	int GetProvinceCount() const;
+	int GetProvinceField(int iProv, int iField) const;
+	bool CreateProvince(int iNameIndex);
+	bool SetCityProvince(int iCityID, int iProv);
+	int GetCityProvince(int iCityID) const;
+	int GetProvinceCityCount(int iProv) const;
+	bool AppointProvinceOfficial(int iProv, int iPost, int iCandidate);
+	void DismissProvinceOfficial(int iProv, int iPost);
+	void DoProvinceTurn();
 	void DoOfficialTurn();
 	void DoOfficialAITurn();
 	int GetOfficialAdvicePost() const;
@@ -3432,6 +3460,16 @@ protected:
 	// Pending advice: post index and the turn it was raised
 	FAutoVariable<int, CvPlayer> m_iOfficialAdvicePost;
 	FAutoVariable<int, CvPlayer> m_iOfficialAdviceTurn;
+	// Exam cohort: pool index of the first candidate from the last exam.
+	FAutoVariable<int, CvPlayer> m_iOfficialExamStart;
+	FAutoVariable<int, CvPlayer> m_iOfficialExamTurn;
+	// Province data: stride 13 = name index, then three officials x
+	// (name, ability, character, leaning).
+	FAutoVariable<std::vector<int>, CvPlayer> m_aiProvinces;
+	// Province index per city ID (-1 = unassigned).
+	FAutoVariable<std::vector<int>, CvPlayer> m_aiProvinceCity;
+	// Global unhappiness percentage currently applied by justices.
+	FAutoVariable<int, CvPlayer> m_iProvinceUnhappinessMod;
 	// Wars already counted as breaches (derived, rebuilt each turn; not serialized)
 	std::vector<int> m_aiVassalWarSeen;
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalBreachTurn;

@@ -2360,6 +2360,8 @@ public:
 	void DoProvinceQueueTurn();
 	void DoProvincePatrolTurn();
 	void DoProvinceDefenseTurn();
+	// Warn the player when a peaceful neighbour masses visible troops on the border.
+	void DoBackstabWarningTurn();
 	int GetProvinceGarrisonCount(int iProv) const;
 	int GetProvinceGarrisonTarget(int iProv) const;
 	// Province military mission: 1 = exterminate barbarians near a target plot.
@@ -3651,6 +3653,8 @@ protected:
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiProvinceBorder;
 	// Recent province report entries.
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiProvinceReport;
+	// Turn of the last backstab warning (cooldown).
+	FAutoVariable<int, CvPlayer> m_iLastBackstabWarnTurn;
 	// Production queue per province: stride is one count + slots * (type, target, count).
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiProvinceQueue;
 	// Military mission per province: type, x, y, deadline, state, flags, spare, spare.

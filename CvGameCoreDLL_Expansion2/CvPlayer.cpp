@@ -455,6 +455,7 @@ CvPlayer::CvPlayer() :
 	, m_aiProvinceWar("CvPlayer::m_aiProvinceWar", m_syncArchive)
 	, m_aiProvinceBorder("CvPlayer::m_aiProvinceBorder", m_syncArchive)
 	, m_aiProvinceReport("CvPlayer::m_aiProvinceReport", m_syncArchive)
+	, m_iLastBackstabWarnTurn("CvPlayer::m_iLastBackstabWarnTurn", m_syncArchive)
 	, m_aiProvinceQueue("CvPlayer::m_aiProvinceQueue", m_syncArchive)
 	, m_aiProvinceMission("CvPlayer::m_aiProvinceMission", m_syncArchive)
 	, m_aiChronicle("CvPlayer::m_aiChronicle", m_syncArchive)
@@ -1399,6 +1400,7 @@ void CvPlayer::uninit()
 	m_aiProvinceWar.clear();
 	m_aiProvinceBorder.clear();
 	m_aiProvinceReport.clear();
+	m_iLastBackstabWarnTurn = 0;
 	m_aiProvinceQueue.clear();
 	m_aiProvinceMission.clear();
 	m_aiChronicle.clear();
@@ -37002,6 +37004,7 @@ void CvPlayer::DoProvinceTurn()
 	DoProvinceMissionTurn();
 	DoProvinceDefenseTurn();
 	DoProvincePatrolTurn();
+	DoBackstabWarningTurn();
 }
 
 //--------------------------------------------------------------------------------
@@ -37102,6 +37105,73 @@ void CvPlayer::DoProvinceDefenseTurn()
 				pUnit->PushMission(CvTypes::getMISSION_MOVE_TO(), pTarget->getX(), pTarget->getY());
 			}
 			iSent++;
+		}
+	}
+}
+
+//--------------------------------------------------------------------------------
+// Backstab warning: a peaceful neighbour massing visible combat units near our
+// cities is reported. Only what the player can actually see is counted.
+void CvPlayer::DoBackstabWarningTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (!isHuman()) return;
+
+	int iEvery = SuzerainDefineInt("SUZERAIN_BACKSTAB_CHECK_INTERVAL");
+	if (iEvery <= 0) return;
+	const int iTurn = GC.getGame().getGameTurn();
+	if ((iTurn % iEvery) != 0) return;
+
+	int iCooldown = SuzerainDefineInt("SUZERAIN_BACKSTAB_WARN_COOLDOWN");
+	if (iCooldown > 0 && m_iLastBackstabWarnTurn > 0 && iTurn - m_iLastBackstabWarnTurn < iCooldown) return;
+
+	int iRadius = SuzerainDefineInt("SUZERAIN_BACKSTAB_RADIUS");
+	int iThreshold = SuzerainDefineInt("SUZERAIN_BACKSTAB_UNIT_THRESHOLD");
+	if (iRadius <= 0 || iThreshold <= 0) return;
+
+	for (int iPlayer = 0; iPlayer < MAX_CIV_PLAYERS; iPlayer++)
+	{
+		PlayerTypes eOther = (PlayerTypes)iPlayer;
+		if (eOther == GetID()) continue;
+
+		CvPlayer& kOther = GET_PLAYER(eOther);
+		if (!kOther.isAlive() || !kOther.isMajorCiv()) continue;
+		if (GET_TEAM(getTeam()).isAtWar(kOther.getTeam())) continue; // already at war is not a backstab
+
+		int iNear = 0;
+		int iEnemyLoop = 0;
+		for (CvUnit* pUnit = kOther.firstUnit(&iEnemyLoop); pUnit != NULL; pUnit = kOther.nextUnit(&iEnemyLoop))
+		{
+			if (pUnit->IsDead()) continue;
+			if (!pUnit->IsCombatUnit()) continue;
+
+			CvPlot* pPlot = pUnit->plot();
+			if (pPlot == NULL || !pPlot->isVisibleToWatchingHuman()) continue; // only visible troops
+
+			int iCityLoop = 0;
+			for (CvCity* pCity = firstCity(&iCityLoop); pCity != NULL; pCity = nextCity(&iCityLoop))
+			{
+				if (plotDistance(pUnit->getX(), pUnit->getY(), pCity->getX(), pCity->getY()) <= iRadius)
+				{
+					iNear++;
+					break;
+				}
+			}
+			if (iNear >= iThreshold) break;
+		}
+
+		if (iNear >= iThreshold)
+		{
+			m_iLastBackstabWarnTurn = iTurn;
+			CvNotifications* pNotifications = GetNotifications();
+			if (pNotifications != NULL)
+			{
+				Localization::String sMsg = Localization::Lookup("TXT_KEY_NOTIFICATION_BACKSTAB_WARNING");
+				sMsg << kOther.getCivilizationShortDescriptionKey() << iNear;
+				Localization::String sSum = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_BACKSTAB_WARNING");
+				pNotifications->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), -1, -1, eOther);
+			}
+			return; // one warning per check
 		}
 	}
 }

@@ -2359,6 +2359,7 @@ public:
 	void ClearProvinceQueue(int iProv);
 	void DoProvinceQueueTurn();
 	void DoProvincePatrolTurn();
+	void DoProvinceDefenseTurn();
 	int GetProvinceGarrisonCount(int iProv) const;
 	int GetProvinceGarrisonTarget(int iProv) const;
 	// Province military mission: 1 = exterminate barbarians near a target plot.

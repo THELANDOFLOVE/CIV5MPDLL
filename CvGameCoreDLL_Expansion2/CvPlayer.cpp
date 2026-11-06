@@ -37000,7 +37000,110 @@ void CvPlayer::DoProvinceTurn()
 
 	DoProvinceWarTurn();
 	DoProvinceMissionTurn();
+	DoProvinceDefenseTurn();
 	DoProvincePatrolTurn();
+}
+
+//--------------------------------------------------------------------------------
+// Wartime defence: idle provincial garrisons engage enemy units that come near
+// their cities, keeping the minimum garrison at home. Ranged units fire when
+// in range, melee units move in; nothing chases across the map.
+void CvPlayer::DoProvinceDefenseTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+
+	int iInterval = SuzerainDefineInt("SUZERAIN_PROVINCE_DEFENSE_INTERVAL");
+	if (iInterval <= 0) return;
+	if ((GC.getGame().getGameTurn() % iInterval) != 0) return;
+
+	int iRadius = SuzerainDefineInt("SUZERAIN_PROVINCE_DEFENSE_RADIUS");
+	if (iRadius <= 0) return;
+	int iMinDefend = SuzerainDefineInt("SUZERAIN_PROVINCE_DEFEND_MIN_PER_CITY");
+	if (iMinDefend < 0) iMinDefend = 0;
+
+	for (int p = 0; p < GetProvinceCount(); p++)
+	{
+		if (IsCapitalProvince(p)) continue;
+		if (GetProvinceWar(p) == 0) continue;
+		if (GetProvinceAutonomy(p) < 1) continue;
+
+		const int iCities = GetProvinceCityCount(p);
+		if (iCities <= 0) continue;
+
+		int iCanSend = GetProvinceGarrisonCount(p) - iCities * iMinDefend;
+		if (iCanSend <= 0) continue;
+
+		// Nearest enemy unit near any city of this province.
+		CvPlot* pTarget = NULL;
+		int iBestDistance = INT_MAX;
+		for (int iPlayer = 0; iPlayer < MAX_CIV_PLAYERS; iPlayer++)
+		{
+			PlayerTypes eOther = (PlayerTypes)iPlayer;
+			if (eOther == GetID()) continue;
+
+			CvPlayer& kOther = GET_PLAYER(eOther);
+			if (!kOther.isAlive()) continue;
+			if (!GET_TEAM(getTeam()).isAtWar(kOther.getTeam())) continue;
+
+			int iEnemyLoop = 0;
+			for (CvUnit* pEnemy = kOther.firstUnit(&iEnemyLoop); pEnemy != NULL; pEnemy = kOther.nextUnit(&iEnemyLoop))
+			{
+				if (pEnemy->IsDead()) continue;
+
+				int iCityLoop = 0;
+				for (CvCity* pCity = firstCity(&iCityLoop); pCity != NULL; pCity = nextCity(&iCityLoop))
+				{
+					if (GetCityProvince(pCity->GetID()) != p) continue;
+					int iDistance = plotDistance(pEnemy->getX(), pEnemy->getY(), pCity->getX(), pCity->getY());
+					if (iDistance <= iRadius && iDistance < iBestDistance)
+					{
+						iBestDistance = iDistance;
+						pTarget = pEnemy->plot();
+					}
+				}
+			}
+		}
+		if (pTarget == NULL) continue;
+
+		int iSent = 0;
+		int iUnitLoop = 0;
+		for (CvUnit* pUnit = firstUnit(&iUnitLoop); pUnit != NULL; pUnit = nextUnit(&iUnitLoop))
+		{
+			if (iSent >= iCanSend) break;
+			if (pUnit->IsDead()) continue;
+			if (!pUnit->IsCombatUnit()) continue;
+			if (pUnit->getDomainType() != DOMAIN_LAND) continue;
+			if (pUnit->GetProvinceLevy() >= 0) continue;
+			if (pUnit->IsAutomated()) continue;
+			if (pUnit->GetActivityType() != ACTIVITY_AWAKE) continue;
+			if (!pUnit->canMove()) continue;
+
+			CvCity* pNearest = NULL;
+			int iBest = INT_MAX;
+			int iCityLoop = 0;
+			for (CvCity* pCity = firstCity(&iCityLoop); pCity != NULL; pCity = nextCity(&iCityLoop))
+			{
+				int iDistance = plotDistance(pUnit->getX(), pUnit->getY(), pCity->getX(), pCity->getY());
+				if (iDistance < iBest)
+				{
+					iBest = iDistance;
+					pNearest = pCity;
+				}
+			}
+			if (pNearest == NULL || GetCityProvince(pNearest->GetID()) != p) continue;
+
+			if (pUnit->isRanged()
+				&& plotDistance(pUnit->getX(), pUnit->getY(), pTarget->getX(), pTarget->getY()) <= pUnit->GetRange())
+			{
+				pUnit->PushMission(CvTypes::getMISSION_RANGE_ATTACK(), pTarget->getX(), pTarget->getY());
+			}
+			else
+			{
+				pUnit->PushMission(CvTypes::getMISSION_MOVE_TO(), pTarget->getX(), pTarget->getY());
+			}
+			iSent++;
+		}
+	}
 }
 
 //--------------------------------------------------------------------------------

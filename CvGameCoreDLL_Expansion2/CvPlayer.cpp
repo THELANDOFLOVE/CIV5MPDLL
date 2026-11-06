@@ -35895,6 +35895,8 @@ void CvPlayer::DoVassalAIDiplomacyTurn()
 	if (isHuman() || !isAlive() || !isMajorCiv()) return;
 	if (!IsVassalCourtTurn()) return;
 
+	const int iTruceTurns = SuzerainDefineInt("SUZERAIN_AI_PEACE_TRUCE_TURNS");
+
 	// Mediate one dispute per court session.
 	for (size_t a = 0; a < m_vecVassals.size(); a++)
 	{
@@ -36054,11 +36056,11 @@ void CvPlayer::DoVassalAIDiplomacyTurn()
 			int iLoyalB = GetVassalLoyalty(eB);
 			int iResult = -1;
 			if (iLoyalA >= iLoyalB + iGap)
-				iResult = ProposeVassalPeace(eA, eB, eB, iIndemnity, true, 10, eB);
+				iResult = ProposeVassalPeace(eA, eB, eB, iIndemnity, true, iTruceTurns, eB);
 			else if (iLoyalB >= iLoyalA + iGap)
-				iResult = ProposeVassalPeace(eA, eB, eA, iIndemnity, true, 10, eA);
+				iResult = ProposeVassalPeace(eA, eB, eA, iIndemnity, true, iTruceTurns, eA);
 			else
-				iResult = ProposeVassalPeace(eA, eB, eA, 0, false, 10, NO_PLAYER);
+				iResult = ProposeVassalPeace(eA, eB, eA, 0, false, iTruceTurns, NO_PLAYER);
 
 			if (iResult != 0)
 			{
@@ -36075,7 +36077,7 @@ void CvPlayer::DoVassalAIDiplomacyTurn()
 					eCensure = (PlayerTypes)GetVassalPeaceCounterField(eA, eB, 3);
 				}
 				if (!AcceptVassalPeaceCounterEx(eA, eB, ePayerCounter, iGold, bReturn, eCensure))
-					ProposeVassalPeace(eA, eB, eA, 0, false, 10, NO_PLAYER);
+					ProposeVassalPeace(eA, eB, eA, 0, false, iTruceTurns, NO_PLAYER);
 			}
 		}
 	}
@@ -37965,6 +37967,7 @@ void CvPlayer::DoProvinceMissionTurn()
 		if (iDeadline > 0 && iTurn > iDeadline)
 		{
 			m_aiProvinceMission.setAt((size_t)p * 8 + 4, 3);
+			AddProvinceReport(p, 6, 0, 0); // raid failed / expired
 			continue;
 		}
 
@@ -38008,6 +38011,7 @@ void CvPlayer::DoProvinceMissionTurn()
 		{
 			// Nothing left to hunt: the mission is complete.
 			m_aiProvinceMission.setAt((size_t)p * 8 + 4, 2);
+			AddProvinceReport(p, 5, 0, 0); // raid complete
 			continue;
 		}
 
@@ -41038,7 +41042,8 @@ void CvPlayer::DoVassalCourtGiftTurn()
 		int iFirstAmount = 0;
 
 		// Gold gift scales with contentment.
-		int iGold = iGoldBase + iCurrentLoyalty / 10;
+		const int iLoyaltyDivisor = SuzerainDefineInt("SUZERAIN_COURT_GIFT_LOYALTY_DIVISOR");
+		int iGold = iGoldBase + (iLoyaltyDivisor > 0 ? iCurrentLoyalty / iLoyaltyDivisor : 0);
 		if (iGold > 0)
 		{
 			int iPay = std::min(iGold, (int)kVassal.GetTreasury()->GetGold());
@@ -41486,9 +41491,12 @@ void CvPlayer::DoVassalWonderPoolTurn()
 			}
 
 			int iPercent = GC.getDefineINT("SUZERAIN_AI_WONDER_CONDITION_GOLD_PERCENT", false);
-			if (iPercent <= 0) iPercent = 15;
 			int iMin = GC.getDefineINT("SUZERAIN_AI_WONDER_CONDITION_GOLD_MIN", false);
-			if (iMin <= 0) iMin = 50;
+			if (iPercent <= 0 || iMin <= 0)
+			{
+				ApproveVassalWonderRequest(eVassal, false); // not configured = no tribute terms
+				continue;
+			}
 
 			int iVassalGold = (int)kVassal.GetTreasury()->GetGold();
 			int iDemand = iVassalGold * iPercent / 100;
@@ -46901,7 +46909,8 @@ int CvPlayer::ProposeVassalPeace(PlayerTypes eA, PlayerTypes eB, PlayerTypes ePa
 	if (!GET_TEAM(kA.getTeam()).isAtWar(kB.getTeam())) return -1;
 
 	if (iGoldPercent < 0) iGoldPercent = 0;
-	if (iGoldPercent > 30) iGoldPercent = 30;
+	const int iMaxGoldPercent = SuzerainDefineInt("SUZERAIN_PEACE_MAX_GOLD_PERCENT");
+	if (iMaxGoldPercent > 0 && iGoldPercent > iMaxGoldPercent) iGoldPercent = iMaxGoldPercent;
 	if (ePayer != eA && ePayer != eB) iGoldPercent = 0;
 
 	// Cities each side holds from the other.
@@ -46913,7 +46922,8 @@ int CvPlayer::ProposeVassalPeace(PlayerTypes eA, PlayerTypes eB, PlayerTypes ePa
 	for (CvCity* pCity = kB.firstCity(&iLoop); pCity != NULL; pCity = kB.nextCity(&iLoop))
 		if (pCity->getOriginalOwner() == eA) iHeldByB++;
 
-	int iAcceptA = 50, iAcceptB = 50;
+	const int iAcceptBase = SuzerainDefineInt("SUZERAIN_PEACE_ACCEPT_BASE");
+	int iAcceptA = iAcceptBase, iAcceptB = iAcceptBase;
 
 	// The stronger side resists any peace that costs it.
 	long long iMightA = kA.GetMilitaryMight();
@@ -47573,7 +47583,7 @@ void CvPlayer::DoVassalAIMemorialTurn()
 			PlayerTypes eTargetCiv = (PlayerTypes)GetVassalMemorialField(m, SUZERAIN_MEMORIAL_VASSAL);
 			if (eTargetCiv != NO_PLAYER && CanDemandPeaceFrom(eTargetCiv))
 			{
-				if (ProposePeaceDemand(eTargetCiv, GetID(), 10, true, false, true) != 0)
+				if (ProposePeaceDemand(eTargetCiv, GetID(), SuzerainDefineInt("SUZERAIN_MEMORIAL_PEACE_GOLD_PERCENT"), true, false, true) != 0)
 					AcceptPeaceCounter(eTargetCiv, GetID());
 			}
 			ResolveVassalMemorial(m, true);
@@ -49160,9 +49170,7 @@ void CvPlayer::DoOfferConcubineTurn()
 		{
 			if (kOverlord.ReceiveConcubine(GetID(), t))
 			{
-				int iOfferGain = SuzerainDefineInt("SUZERAIN_CONCUBINE_OFFER_LOYALTY");
-				if (iOfferGain == 0) iOfferGain = 8;
-				kOverlord.ChangeVassalLoyalty(GetID(), iOfferGain);
+				kOverlord.ChangeVassalLoyalty(GetID(), SuzerainDefineInt("SUZERAIN_CONCUBINE_OFFER_LOYALTY"));
 			}
 			return;
 		}
@@ -49970,9 +49978,7 @@ bool CvPlayer::KeepVassal(PlayerTypes eVassal)
 	if (!MOD_GLOBAL_SUZERAIN) return false;
 	if (!IsOverlordOf(eVassal)) return false;
 
-	int iBonus = SuzerainDefineInt("SUZERAIN_RELEASE_KEEP_LOYALTY");
-	if (iBonus == 0) iBonus = 10;
-	ChangeVassalLoyalty(eVassal, iBonus);
+	ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_RELEASE_KEEP_LOYALTY"));
 	return true;
 }
 

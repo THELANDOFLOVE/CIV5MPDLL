@@ -11290,9 +11290,7 @@ int CvLeagueAI::ScoreProposal(CvLeague* pLeague, ResolutionTypes eResolution, in
 			&& kTarget.GetOverlord() == NO_PLAYER
 			&& (pkResolution->GetVassalTaxPercent() > 0 || pkResolution->GetVassalDemandGoldPercent() > 0))
 		{
-			int iBonus = GC.getDefineINT("SUZERAIN_AI_PROPOSAL_SCORE", false);
-			if (iBonus <= 0) iBonus = 500;
-			iYesScore += iBonus;
+			iYesScore += GC.getDefineINT("SUZERAIN_AI_PROPOSAL_SCORE", false);
 		}
 	}
 #endif

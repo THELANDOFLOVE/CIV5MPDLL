@@ -2362,6 +2362,8 @@ public:
 	void DoProvinceDefenseTurn();
 	// Warn the player when a peaceful neighbour masses visible troops on the border.
 	void DoBackstabWarningTurn();
+	// Levied troops gathered at the capital engage enemies near it.
+	void DoLevyDefenseTurn();
 	int GetProvinceGarrisonCount(int iProv) const;
 	int GetProvinceGarrisonTarget(int iProv) const;
 	// Province military mission: 1 = exterminate barbarians near a target plot.

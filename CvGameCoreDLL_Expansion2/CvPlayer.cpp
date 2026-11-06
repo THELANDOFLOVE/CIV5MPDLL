@@ -37004,6 +37004,7 @@ void CvPlayer::DoProvinceTurn()
 	DoProvinceMissionTurn();
 	DoProvinceDefenseTurn();
 	DoProvincePatrolTurn();
+	DoLevyDefenseTurn();
 	DoBackstabWarningTurn();
 }
 
@@ -37172,6 +37173,76 @@ void CvPlayer::DoBackstabWarningTurn()
 				pNotifications->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), -1, -1, eOther);
 			}
 			return; // one warning per check
+		}
+	}
+}
+
+//--------------------------------------------------------------------------------
+// Levied troops gathered at the capital defend it: enemies that come near the
+// capital are engaged by the central army. This is the defensive half of the
+// rally order; offensive campaigns stay in the player's hands.
+void CvPlayer::DoLevyDefenseTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+
+	int iInterval = SuzerainDefineInt("SUZERAIN_LEVY_DEFENSE_INTERVAL");
+	if (iInterval <= 0) return;
+	if ((GC.getGame().getGameTurn() % iInterval) != 0) return;
+
+	int iRadius = SuzerainDefineInt("SUZERAIN_LEVY_DEFENSE_RADIUS");
+	if (iRadius <= 0) return;
+
+	const CvCity* pCapital = getCapitalCity();
+	if (pCapital == NULL) return;
+
+	// Nearest enemy unit near the capital.
+	CvPlot* pTarget = NULL;
+	int iBestDistance = INT_MAX;
+	for (int iPlayer = 0; iPlayer < MAX_CIV_PLAYERS; iPlayer++)
+	{
+		PlayerTypes eOther = (PlayerTypes)iPlayer;
+		if (eOther == GetID()) continue;
+
+		CvPlayer& kOther = GET_PLAYER(eOther);
+		if (!kOther.isAlive()) continue;
+		if (!GET_TEAM(getTeam()).isAtWar(kOther.getTeam())) continue;
+
+		int iEnemyLoop = 0;
+		for (CvUnit* pEnemy = kOther.firstUnit(&iEnemyLoop); pEnemy != NULL; pEnemy = kOther.nextUnit(&iEnemyLoop))
+		{
+			if (pEnemy->IsDead()) continue;
+			int iDistance = plotDistance(pEnemy->getX(), pEnemy->getY(), pCapital->getX(), pCapital->getY());
+			if (iDistance <= iRadius && iDistance < iBestDistance)
+			{
+				iBestDistance = iDistance;
+				pTarget = pEnemy->plot();
+			}
+		}
+	}
+	if (pTarget == NULL) return;
+
+	int iUnitLoop = 0;
+	for (CvUnit* pUnit = firstUnit(&iUnitLoop); pUnit != NULL; pUnit = nextUnit(&iUnitLoop))
+	{
+		if (pUnit->IsDead()) continue;
+		if (!pUnit->IsCombatUnit()) continue;
+		if (pUnit->getDomainType() != DOMAIN_LAND) continue;
+		if (pUnit->GetProvinceLevy() < 0) continue;
+		if (pUnit->IsAutomated()) continue;
+		if (pUnit->GetActivityType() != ACTIVITY_AWAKE) continue;
+		if (!pUnit->canMove()) continue;
+
+		// Only levied troops stationed near the capital answer.
+		if (plotDistance(pUnit->getX(), pUnit->getY(), pCapital->getX(), pCapital->getY()) > iRadius) continue;
+
+		if (pUnit->isRanged()
+			&& plotDistance(pUnit->getX(), pUnit->getY(), pTarget->getX(), pTarget->getY()) <= pUnit->GetRange())
+		{
+			pUnit->PushMission(CvTypes::getMISSION_RANGE_ATTACK(), pTarget->getX(), pTarget->getY());
+		}
+		else
+		{
+			pUnit->PushMission(CvTypes::getMISSION_MOVE_TO(), pTarget->getX(), pTarget->getY());
 		}
 	}
 }

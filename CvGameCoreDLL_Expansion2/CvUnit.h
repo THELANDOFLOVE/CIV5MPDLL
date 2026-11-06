@@ -178,6 +178,12 @@ public:
 	AutomateTypes GetAutomateType() const;
 	bool IsAutomated() const;
 	void SetAutomateType(AutomateTypes eNewValue);
+	// Province that levied this unit for the centre (-1 = not levied).
+	int GetProvinceLevy() const;
+	void SetProvinceLevy(int iProvince);
+	// Province this levy is marching to (-1 = no auto target).
+	int GetLevyTarget() const;
+	void SetLevyTarget(int iProvince);
 	bool CanAutomate(AutomateTypes eAutomate, bool bTestVisible = false) const;
 	void Automate(AutomateTypes eAutomate);
 
@@ -2583,6 +2589,8 @@ protected:
 	IDInfo m_missionAIUnit;
 	FAutoVariable<ActivityTypes, CvUnit> m_eActivityType;
 	FAutoVariable<AutomateTypes, CvUnit> m_eAutomateType;
+	FAutoVariable<int, CvUnit> m_iProvinceLevy;
+	FAutoVariable<int, CvUnit> m_iLevyTarget;
 	FAutoVariable<UnitAITypes, CvUnit> m_eUnitAIType;
 	DestructionNotification<UnitHandle> m_destructionNotification;
 

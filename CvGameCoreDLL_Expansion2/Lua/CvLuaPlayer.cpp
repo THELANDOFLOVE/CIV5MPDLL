@@ -189,6 +189,37 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceCityCount);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lAppointProvinceOfficial);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDismissProvinceOfficial);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceTreasury);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceTreasuryCap);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceAutonomy);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSetProvinceAutonomy);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lIsCapitalProvince);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceQueueCount);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceQueueField);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lAddProvinceQueueItem);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lRemoveProvinceQueueItem);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lClearProvinceQueue);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceGarrisonCount);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceGarrisonTarget);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceMissionField);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSetProvinceMission);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lClearProvinceMission);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lLevyProvinceGarrison);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lReturnProvinceGarrison);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceLevyCount);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetOfficialAutonomy);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSetOfficialAutonomy);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetMemorialBacklog);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetMemorialAdvice);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceWar);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceBorder);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSetProvinceBorder);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lOrderLevyToProvince);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lOrderLevyRally);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceReportCount);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceReportField);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDepositProvinceTreasury);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSpendProvinceTreasury);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetOfficialAdvicePost);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetOfficialAdviceTurn);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lResolveOfficialAdvice);
@@ -1665,6 +1696,37 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(GetProvinceCityCount);
 	Method(AppointProvinceOfficial);
 	Method(DismissProvinceOfficial);
+	Method(GetProvinceTreasury);
+	Method(GetProvinceTreasuryCap);
+	Method(GetProvinceAutonomy);
+	Method(SetProvinceAutonomy);
+	Method(IsCapitalProvince);
+	Method(GetProvinceQueueCount);
+	Method(GetProvinceQueueField);
+	Method(AddProvinceQueueItem);
+	Method(RemoveProvinceQueueItem);
+	Method(ClearProvinceQueue);
+	Method(GetProvinceGarrisonCount);
+	Method(GetProvinceGarrisonTarget);
+	Method(GetProvinceMissionField);
+	Method(SetProvinceMission);
+	Method(ClearProvinceMission);
+	Method(LevyProvinceGarrison);
+	Method(ReturnProvinceGarrison);
+	Method(GetProvinceLevyCount);
+	Method(GetOfficialAutonomy);
+	Method(SetOfficialAutonomy);
+	Method(GetMemorialBacklog);
+	Method(GetMemorialAdvice);
+	Method(GetProvinceWar);
+	Method(GetProvinceBorder);
+	Method(SetProvinceBorder);
+	Method(OrderLevyToProvince);
+	Method(OrderLevyRally);
+	Method(GetProvinceReportCount);
+	Method(GetProvinceReportField);
+	Method(DepositProvinceTreasury);
+	Method(SpendProvinceTreasury);
 	Method(GetOfficialAdvicePost);
 	Method(GetOfficialAdviceTurn);
 	Method(ResolveOfficialAdvice);
@@ -16006,6 +16068,274 @@ int CvLuaPlayer::lDismissProvinceOfficial(lua_State* L)
 	int iPost = lua_tointeger(L, 3);
 	pkPlayer->DismissProvinceOfficial(iProv, iPost);
 	return 0;
+}
+//int GetProvinceTreasury(int iProv);
+int CvLuaPlayer::lGetProvinceTreasury(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iProv = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetProvinceTreasury(iProv));
+	return 1;
+}
+//int GetProvinceTreasuryCap(int iProv);
+int CvLuaPlayer::lGetProvinceTreasuryCap(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iProv = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetProvinceTreasuryCap(iProv));
+	return 1;
+}
+//int GetProvinceAutonomy(int iProv);
+int CvLuaPlayer::lGetProvinceAutonomy(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iProv = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetProvinceAutonomy(iProv));
+	return 1;
+}
+//void SetProvinceAutonomy(int iProv, int iValue);
+int CvLuaPlayer::lSetProvinceAutonomy(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iProv = lua_tointeger(L, 2);
+	int iValue = lua_tointeger(L, 3);
+	pkPlayer->SetProvinceAutonomy(iProv, iValue);
+	return 0;
+}
+//bool IsCapitalProvince(int iProv);
+int CvLuaPlayer::lIsCapitalProvince(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iProv = lua_tointeger(L, 2);
+	lua_pushboolean(L, pkPlayer->IsCapitalProvince(iProv));
+	return 1;
+}
+//int GetProvinceQueueCount(int iProv);
+int CvLuaPlayer::lGetProvinceQueueCount(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iProv = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetProvinceQueueCount(iProv));
+	return 1;
+}
+//int GetProvinceQueueField(int iProv, int iIndex, int iField);
+int CvLuaPlayer::lGetProvinceQueueField(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iProv = lua_tointeger(L, 2);
+	int iIndex = lua_tointeger(L, 3);
+	int iField = lua_tointeger(L, 4);
+	lua_pushinteger(L, pkPlayer->GetProvinceQueueField(iProv, iIndex, iField));
+	return 1;
+}
+//bool AddProvinceQueueItem(int iProv, int iType, int iTarget, int iCount);
+int CvLuaPlayer::lAddProvinceQueueItem(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iProv = lua_tointeger(L, 2);
+	int iType = lua_tointeger(L, 3);
+	int iTarget = lua_tointeger(L, 4);
+	int iCount = lua_tointeger(L, 5);
+	lua_pushboolean(L, pkPlayer->AddProvinceQueueItem(iProv, iType, iTarget, iCount));
+	return 1;
+}
+//void RemoveProvinceQueueItem(int iProv, int iIndex);
+int CvLuaPlayer::lRemoveProvinceQueueItem(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iProv = lua_tointeger(L, 2);
+	int iIndex = lua_tointeger(L, 3);
+	pkPlayer->RemoveProvinceQueueItem(iProv, iIndex);
+	return 0;
+}
+//void ClearProvinceQueue(int iProv);
+int CvLuaPlayer::lClearProvinceQueue(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iProv = lua_tointeger(L, 2);
+	pkPlayer->ClearProvinceQueue(iProv);
+	return 0;
+}
+//int GetProvinceGarrisonCount(int iProv);
+int CvLuaPlayer::lGetProvinceGarrisonCount(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iProv = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetProvinceGarrisonCount(iProv));
+	return 1;
+}
+//int GetProvinceGarrisonTarget(int iProv);
+int CvLuaPlayer::lGetProvinceGarrisonTarget(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iProv = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetProvinceGarrisonTarget(iProv));
+	return 1;
+}
+//int GetProvinceMissionField(int iProv, int iField);
+int CvLuaPlayer::lGetProvinceMissionField(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iProv = lua_tointeger(L, 2);
+	int iField = lua_tointeger(L, 3);
+	lua_pushinteger(L, pkPlayer->GetProvinceMissionField(iProv, iField));
+	return 1;
+}
+//void SetProvinceMission(int iProv, int iType, int iX, int iY, int iDeadline, bool bCrossBorder);
+int CvLuaPlayer::lSetProvinceMission(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iProv = lua_tointeger(L, 2);
+	int iType = lua_tointeger(L, 3);
+	int iX = lua_tointeger(L, 4);
+	int iY = lua_tointeger(L, 5);
+	int iDeadline = lua_tointeger(L, 6);
+	bool bCrossBorder = lua_toboolean(L, 7) != 0;
+	pkPlayer->SetProvinceMission(iProv, iType, iX, iY, iDeadline, bCrossBorder);
+	return 0;
+}
+//void ClearProvinceMission(int iProv);
+int CvLuaPlayer::lClearProvinceMission(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iProv = lua_tointeger(L, 2);
+	pkPlayer->ClearProvinceMission(iProv);
+	return 0;
+}
+//int LevyProvinceGarrison(int iProv);
+int CvLuaPlayer::lLevyProvinceGarrison(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iProv = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->LevyProvinceGarrison(iProv));
+	return 1;
+}
+//void ReturnProvinceGarrison(int iProv);
+int CvLuaPlayer::lReturnProvinceGarrison(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iProv = lua_tointeger(L, 2);
+	pkPlayer->ReturnProvinceGarrison(iProv);
+	return 0;
+}
+//int GetProvinceLevyCount(int iProv);
+int CvLuaPlayer::lGetProvinceLevyCount(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iProv = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetProvinceLevyCount(iProv));
+	return 1;
+}
+//int GetOfficialAutonomy(int iPost);
+int CvLuaPlayer::lGetOfficialAutonomy(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iPost = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetOfficialAutonomy(iPost));
+	return 1;
+}
+//void SetOfficialAutonomy(int iPost, int iValue);
+int CvLuaPlayer::lSetOfficialAutonomy(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iPost = lua_tointeger(L, 2);
+	int iValue = lua_tointeger(L, 3);
+	pkPlayer->SetOfficialAutonomy(iPost, iValue);
+	return 0;
+}
+//int GetMemorialBacklog(int iPost);
+int CvLuaPlayer::lGetMemorialBacklog(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iPost = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetMemorialBacklog(iPost));
+	return 1;
+}
+//int GetMemorialAdvice(int iIndex);
+int CvLuaPlayer::lGetMemorialAdvice(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iIndex = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetMemorialAdvice(iIndex));
+	return 1;
+}
+//int GetProvinceWar(int iProv);
+int CvLuaPlayer::lGetProvinceWar(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iProv = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetProvinceWar(iProv));
+	return 1;
+}
+//int GetProvinceBorder(int iProv);
+int CvLuaPlayer::lGetProvinceBorder(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iProv = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetProvinceBorder(iProv));
+	return 1;
+}
+//void SetProvinceBorder(int iProv, int iValue);
+int CvLuaPlayer::lSetProvinceBorder(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iProv = lua_tointeger(L, 2);
+	int iValue = lua_tointeger(L, 3);
+	pkPlayer->SetProvinceBorder(iProv, iValue);
+	return 0;
+}
+//int OrderLevyToProvince(int iProv);
+int CvLuaPlayer::lOrderLevyToProvince(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iProv = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->OrderLevyToProvince(iProv));
+	return 1;
+}
+//void OrderLevyRally(int iX, int iY);
+int CvLuaPlayer::lOrderLevyRally(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iX = lua_tointeger(L, 2);
+	int iY = lua_tointeger(L, 3);
+	pkPlayer->OrderLevyRally(iX, iY);
+	return 0;
+}
+//int GetProvinceReportCount(int iProv);
+int CvLuaPlayer::lGetProvinceReportCount(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iProv = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetProvinceReportCount(iProv));
+	return 1;
+}
+//int GetProvinceReportField(int iProv, int iIndex, int iField);
+int CvLuaPlayer::lGetProvinceReportField(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iProv = lua_tointeger(L, 2);
+	int iIndex = lua_tointeger(L, 3);
+	int iField = lua_tointeger(L, 4);
+	lua_pushinteger(L, pkPlayer->GetProvinceReportField(iProv, iIndex, iField));
+	return 1;
+}
+//bool DepositProvinceTreasury(int iProv, int iGold);
+int CvLuaPlayer::lDepositProvinceTreasury(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iProv = lua_tointeger(L, 2);
+	int iGold = lua_tointeger(L, 3);
+	lua_pushboolean(L, pkPlayer->DepositProvinceTreasury(iProv, iGold));
+	return 1;
+}
+//bool SpendProvinceTreasury(int iProv, int iGold);
+int CvLuaPlayer::lSpendProvinceTreasury(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iProv = lua_tointeger(L, 2);
+	int iGold = lua_tointeger(L, 3);
+	lua_pushboolean(L, pkPlayer->SpendProvinceTreasury(iProv, iGold));
+	return 1;
 }
 //int GetOfficialAdvicePost();
 int CvLuaPlayer::lGetOfficialAdvicePost(lua_State* L)

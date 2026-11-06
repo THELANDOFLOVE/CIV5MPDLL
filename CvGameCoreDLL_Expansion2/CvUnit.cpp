@@ -589,6 +589,8 @@ CvUnit::CvUnit() :
 	, m_missionAIUnit()
 	, m_eActivityType("CvUnit::m_eActivityType", m_syncArchive, true)
 	, m_eAutomateType("CvUnit::m_eAutomateType", m_syncArchive)
+	, m_iProvinceLevy("CvUnit::m_iProvinceLevy", m_syncArchive)
+	, m_iLevyTarget("CvUnit::m_iLevyTarget", m_syncArchive)
 	, m_eUnitAIType("CvUnit::m_eUnitAIType", m_syncArchive)
 	, m_thisHandle(this)
 	, m_bWaitingForMove(false)
@@ -1624,6 +1626,8 @@ if (MOD_API_UNIT_CANNOT_BE_RANGED_ATTACKED)
 	m_iMissionTimer = 0;
 	m_eActivityType = ACTIVITY_AWAKE;
 	m_eAutomateType = NO_AUTOMATE;
+	m_iProvinceLevy = -1;
+	m_iLevyTarget = -1;
 
 	m_kLastPath.clear();
 	m_uiLastPathCacheDest = (uint)-1;
@@ -29697,6 +29701,34 @@ bool CvUnit::IsAutomated() const
 {
 	VALIDATE_OBJECT
 	return (GetAutomateType() != NO_AUTOMATE);
+}
+
+//	--------------------------------------------------------------------------------
+int CvUnit::GetProvinceLevy() const
+{
+	VALIDATE_OBJECT
+	return m_iProvinceLevy;
+}
+
+//	--------------------------------------------------------------------------------
+void CvUnit::SetProvinceLevy(int iProvince)
+{
+	VALIDATE_OBJECT
+	m_iProvinceLevy = iProvince;
+}
+
+//	--------------------------------------------------------------------------------
+int CvUnit::GetLevyTarget() const
+{
+	VALIDATE_OBJECT
+	return m_iLevyTarget;
+}
+
+//	--------------------------------------------------------------------------------
+void CvUnit::SetLevyTarget(int iProvince)
+{
+	VALIDATE_OBJECT
+	m_iLevyTarget = iProvince;
 }
 
 

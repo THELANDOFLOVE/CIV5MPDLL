@@ -116,6 +116,11 @@ void CvTreasury::DoGold()
 		}
 	}
 #endif
+
+#if defined(MOD_GLOBAL_SUZERAIN)
+	// Settle the provincial share after the national income is booked.
+	m_pPlayer->DoProvinceTreasuryTurn();
+#endif
 }
 
 /// Returns current balance in treasury

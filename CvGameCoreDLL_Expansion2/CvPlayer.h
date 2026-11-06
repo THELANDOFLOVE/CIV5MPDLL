@@ -2339,8 +2339,66 @@ public:
 	bool AppointProvinceOfficial(int iProv, int iPost, int iCandidate);
 	void DismissProvinceOfficial(int iProv, int iPost);
 	void DoProvinceTurn();
+	// Province treasury: a share of local gold kept for provincial spending.
+	int GetProvinceTreasury(int iProv) const;
+	int GetProvinceTreasuryCap(int iProv) const;
+	void ChangeProvinceTreasury(int iProv, int iChange);
+	bool SpendProvinceTreasury(int iProv, int iGold);
+	bool DepositProvinceTreasury(int iProv, int iGold);
+	bool IsCapitalProvince(int iProv) const;
+	void DoProvinceTreasuryTurn();
+	void DoProvinceBuildTurn();
+	// 0 = direct rule, 1 = review (build only), 2 = full autonomy.
+	int GetProvinceAutonomy(int iProv) const;
+	void SetProvinceAutonomy(int iProv, int iValue);
+	// Province production queue: player-ordered building/unit/project list.
+	int GetProvinceQueueCount(int iProv) const;
+	int GetProvinceQueueField(int iProv, int iIndex, int iField) const;
+	bool AddProvinceQueueItem(int iProv, int iType, int iTarget, int iCount);
+	void RemoveProvinceQueueItem(int iProv, int iIndex);
+	void ClearProvinceQueue(int iProv);
+	void DoProvinceQueueTurn();
+	void DoProvincePatrolTurn();
+	int GetProvinceGarrisonCount(int iProv) const;
+	int GetProvinceGarrisonTarget(int iProv) const;
+	// Province military mission: 1 = exterminate barbarians near a target plot.
+	int GetProvinceMissionField(int iProv, int iField) const;
+	void SetProvinceMission(int iProv, int iType, int iX, int iY, int iDeadline, bool bCrossBorder);
+	void ClearProvinceMission(int iProv);
+	void DoProvinceMissionTurn();
+	// Levy: hand the province's garrison to the centre, or give it back.
+	int LevyProvinceGarrison(int iProv);
+	int LevyProvinceGarrisonUpTo(int iProv, int iCount, bool bMarchToBorder = false);
+	void ReturnProvinceGarrison(int iProv);
+	int GetProvinceLevyCount(int iProv) const;
+	// Wartime: a province near an active front levies its surplus garrison
+	// and builds for war until the fighting moves away.
+	int GetProvinceWar(int iProv) const;
+	void SetProvinceWar(int iProv, int iValue);
+	bool IsProvinceInWar(int iProv) const;
+	void DoProvinceWarTurn();
+	bool LevyProvinceUnitTo(int iSourceProv, int iTargetProv);
+	int OrderLevyToProvince(int iProv);
+	void OrderLevyRally(int iX, int iY);
+	// Province report log: stride 1 count + 16 entries * (turn, type, a, b).
+	void AddProvinceReport(int iProv, int iType, int iA, int iB);
+	int GetProvinceReportCount(int iProv) const;
+	int GetProvinceReportField(int iProv, int iIndex, int iField) const;
+	// Border provinces keep a larger standing garrison; interior ones keep less.
+	int GetProvinceBorder(int iProv) const;
+	void SetProvinceBorder(int iProv, int iValue);
+	void UpdateProvinceBorderFlags();
 	void DoOfficialTurn();
 	void DoOfficialAITurn();
+	// Memorial delegation: 0 = the player handles everything, 1 = the ministry
+	// handles what it can. Post 0 is the chancellor's master switch.
+	int GetOfficialAutonomy(int iPost) const;
+	void SetOfficialAutonomy(int iPost, int iValue);
+	void DoOfficialMemorialTurn();
+	int GetMemorialBacklog(int iPost) const;
+	bool ShouldMemorialBeApproved(int iIndex);
+	// -1 no advice, 0 reject, 1 approve (only when the ministry is on review).
+	int GetMemorialAdvice(int iIndex);
 	int GetOfficialAdvicePost() const;
 	int GetOfficialAdviceTurn() const;
 	bool ResolveOfficialAdvice(bool bAdopt);
@@ -3580,6 +3638,22 @@ protected:
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiProvinces;
 	// Province index per city ID (-1 = unassigned).
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiProvinceCity;
+	// Gold held by each province for local development.
+	FAutoVariable<std::vector<int>, CvPlayer> m_aiProvinceTreasury;
+	// Autonomy level per province: 0 direct rule, 1 review, 2 full autonomy.
+	FAutoVariable<std::vector<int>, CvPlayer> m_aiProvinceAutonomy;
+	// Memorial delegation per post: 0 direct, 1 delegated. Index 0 is the chancellor.
+	FAutoVariable<std::vector<int>, CvPlayer> m_aiOfficialAutonomy;
+	// Wartime flag per province (1 = near an active front).
+	FAutoVariable<std::vector<int>, CvPlayer> m_aiProvinceWar;
+	// Border flag per province (1 = frontier province, larger standing garrison).
+	FAutoVariable<std::vector<int>, CvPlayer> m_aiProvinceBorder;
+	// Recent province report entries.
+	FAutoVariable<std::vector<int>, CvPlayer> m_aiProvinceReport;
+	// Production queue per province: stride is one count + slots * (type, target, count).
+	FAutoVariable<std::vector<int>, CvPlayer> m_aiProvinceQueue;
+	// Military mission per province: type, x, y, deadline, state, flags, spare, spare.
+	FAutoVariable<std::vector<int>, CvPlayer> m_aiProvinceMission;
 	// Full-game chronicle: stride 5 (turn, type, subject, object, value).
 	// Append-only and never trimmed; the UI pages through it from turn 0.
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiChronicle;

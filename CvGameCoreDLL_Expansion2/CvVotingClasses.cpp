@@ -11275,6 +11275,27 @@ int CvLeagueAI::ScoreProposal(CvLeague* pLeague, ResolutionTypes eResolution, in
 		}
 	}
 #endif
+#if defined(MOD_GLOBAL_SUZERAIN)
+	// A suzerain civ should actively push to bring a weak independent civ under
+	// its wing. The league has already validated the target through
+	// CanProposeEnact; the generic vote score simply has no opinion on it.
+	if (MOD_GLOBAL_SUZERAIN && GetPlayer()->IsSuzerainCiv()
+		&& iChoice >= 0 && iChoice < MAX_MAJOR_CIVS
+		&& iChoice != GetPlayer()->GetID())
+	{
+		CvResolutionEntry* pkResolution = GC.getResolutionInfo(eResolution);
+		CvPlayer& kTarget = GET_PLAYER((PlayerTypes)iChoice);
+		if (pkResolution != NULL
+			&& kTarget.isAlive() && kTarget.isMajorCiv()
+			&& kTarget.GetOverlord() == NO_PLAYER
+			&& (pkResolution->GetVassalTaxPercent() > 0 || pkResolution->GetVassalDemandGoldPercent() > 0))
+		{
+			int iBonus = GC.getDefineINT("SUZERAIN_AI_PROPOSAL_SCORE", false);
+			if (iBonus <= 0) iBonus = 500;
+			iYesScore += iBonus;
+		}
+	}
+#endif
 
 	return iYesScore;
 }

@@ -19923,8 +19923,19 @@ bool CvCity::IsCanPurchase(bool bTestPurchaseCost, bool bTestTrainable, UnitType
 		{
 			if(bTestPurchaseCost)
 			{
-				// Trying to buy something when you don't have enough money!!
-				if(iGoldCost > GET_PLAYER(getOwner()).GetTreasury()->GetGold())
+				// Trying to buy something when you don't have enough money!
+				long long iAvailableGold = GET_PLAYER(getOwner()).GetTreasury()->GetGold();
+#if defined(MOD_GLOBAL_SUZERAIN)
+				// A province's own treasury can cover its purchases.
+				if (MOD_GLOBAL_SUZERAIN)
+				{
+					CvPlayer& kOwner = GET_PLAYER(getOwner());
+					int iProv = kOwner.GetCityProvince(GetID());
+					if (iProv >= 0 && !kOwner.IsCapitalProvince(iProv))
+						iAvailableGold += kOwner.GetProvinceTreasury(iProv);
+				}
+#endif
+				if(iGoldCost > iAvailableGold)
 					return false;
 			}
 		}
@@ -20236,6 +20247,21 @@ void CvCity::Purchase(UnitTypes eUnitType, BuildingTypes eBuildingType, ProjectT
 			kPlayer.GetTreasury()->LogExpenditure((CvString)GC.getProjectInfo(eProjectType)->GetText(), iGoldCost, 2);
 		}
 
+#if defined(MOD_GLOBAL_SUZERAIN)
+		// Let the province pay first; the national treasury only covers the rest.
+		bool bProvincePaid = false;
+		if (MOD_GLOBAL_SUZERAIN && iGoldCost > 0)
+		{
+			int iProv = kPlayer.GetCityProvince(GetID());
+			if (iProv >= 0 && !kPlayer.IsCapitalProvince(iProv)
+				&& kPlayer.GetProvinceTreasury(iProv) >= iGoldCost
+				&& kPlayer.SpendProvinceTreasury(iProv, iGoldCost))
+			{
+				bProvincePaid = true;
+			}
+		}
+		if (!bProvincePaid)
+#endif
 		kPlayer.GetTreasury()->ChangeGold(-iGoldCost);
 
 		bool bResult = false;

@@ -173,6 +173,27 @@ void CvNationalMilitaryDispatcher::EvaluateNationalThreats(void)
 
 	// Sort tasks by priority (highest first)
 	std::sort(m_vTasks.begin(), m_vTasks.end(), TaskPriorityComparator);
+
+	// One enemy stack may sit within the radius of several provinces. Keep the
+	// highest-priority task per target plot and merge the demand, so two
+	// provinces do not send two fleets after the same squadron.
+	for (size_t i = 0; i < m_vTasks.size(); i++)
+	{
+		if (m_vTasks[i].pTarget == NULL) continue;
+		for (size_t j = i + 1; j < m_vTasks.size(); )
+		{
+			if (m_vTasks[j].pTarget == m_vTasks[i].pTarget)
+			{
+				if (m_vTasks[j].iUnitsNeeded > m_vTasks[i].iUnitsNeeded)
+					m_vTasks[i].iUnitsNeeded = m_vTasks[j].iUnitsNeeded;
+				m_vTasks.erase(m_vTasks.begin() + j);
+			}
+			else
+			{
+				j++;
+			}
+		}
+	}
 }
 
 // Helper: evaluate enemy land threats in a province. Water plots are skipped so
@@ -553,9 +574,21 @@ void CvNationalMilitaryDispatcher::DispatchByPriority(void)
 			// Land and naval defence both use the threatened province's own
 			// garrison first.
 			if (bDefensiveTask && iUnitProvince == task.iProvince)
+			{
 				vLocal.push_back(kCandidate);
+			}
+			else if (bNaval && iUnitProvince >= 0
+				&& m_pPlayer->GetProvinceWar(iUnitProvince) > 0)
+			{
+				// A province at war keeps its fleet at home: with several naval
+				// provinces under attack, the first task must not strip the
+				// second province's squadron before its own task runs.
+				continue;
+			}
 			else
+			{
 				vRemote.push_back(kCandidate);
+			}
 		}
 
 		std::vector<CvUnit*> vAssigned;

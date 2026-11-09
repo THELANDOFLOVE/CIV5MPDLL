@@ -39292,8 +39292,8 @@ void CvPlayer::DoProvinceBuildTurn()
 
 			// Unified path: the province production AI chooses for every
 			// autonomous city, human or AI. The legacy fallback below only runs
-			// when that AI is unavailable.
-			if (m_pProvinceProductionAI != NULL)
+			// when that AI is unavailable or auto-fill is switched off.
+			if (m_pProvinceProductionAI != NULL && SuzerainDefineInt("SUZERAIN_AUTO_FILL_PRODUCTION") > 0)
 			{
 				m_pProvinceProductionAI->ChooseProduction(p, pCity);
 				continue;

@@ -628,6 +628,11 @@ void CvNationalMilitaryDispatcher::DispatchByPriority(void)
 			AssignUnitToTask(pUnit, task);
 			vAssigned.push_back(pUnit);
 			pPool->erase(std::remove(pPool->begin(), pPool->end(), pUnit), pPool->end());
+			// Local defence is not blocked by the budget, but it consumes it:
+			// otherwise several provinces defending at once could spend the
+			// whole pool locally and still let the remote loop draw 80% of the
+			// original pool, leaving no reserve.
+			if (iBudget > 0) iBudget--;
 			iNeeded--;
 		}
 

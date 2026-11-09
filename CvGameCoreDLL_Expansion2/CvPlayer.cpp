@@ -37243,9 +37243,12 @@ void CvPlayer::DoProvinceTurn()
 		m_pNationalMilitaryDispatcher->DoTurn();
 	}
 
+	// Player-ordered raid missions execute independently, run them after the
+	// dispatcher so they override any stale AI orders.
+	DoProvinceMissionTurn();
+
 	// Patrol and levy defence are folded into the dispatcher; keep them off so
 	// two systems do not fight over the same unit.
-	// DoProvinceMissionTurn();
 	// DoProvinceDefenseTurn();
 	// DoProvincePatrolTurn();
 	// DoLevyDefenseTurn();
@@ -37656,14 +37659,37 @@ int CvPlayer::GetProvinceGarrisonTarget(int iProv) const
 }
 
 //--------------------------------------------------------------------------------
-// Levy: mark the province's garrison as centrally commanded. Levied units are
-// left to the player and ignored by the provincial patrol, raid and garrison
-// count, so the province will train replacements on its own.
+// Levy: mark the province's garrison as centrally commanded and muster it at
+// the province capital, where it fortifies as a standing reserve. Levied units
+// are left to the player and ignored by the provincial patrol, raid and
+// garrison count, so the province will train replacements on its own.
 int CvPlayer::LevyProvinceGarrison(int iProv)
 {
 	if (!MOD_GLOBAL_SUZERAIN) return 0;
 	if (iProv < 0 || iProv >= GetProvinceCount()) return 0;
 	if (IsCapitalProvince(iProv)) return 0;
+
+	// Muster point: the province capital (its most populous city). Ships use
+	// the largest coastal city, since they cannot enter an inland capital.
+	CvCity* pGather = NULL;
+	CvCity* pGatherSea = NULL;
+	int iBestPop = -1;
+	int iBestCoastal = -1;
+	int iCityLoop = 0;
+	for (CvCity* pCity = firstCity(&iCityLoop); pCity != NULL; pCity = nextCity(&iCityLoop))
+	{
+		if (GetCityProvince(pCity->GetID()) != iProv) continue;
+		if (pCity->getPopulation() > iBestPop)
+		{
+			iBestPop = pCity->getPopulation();
+			pGather = pCity;
+		}
+		if (pCity->isCoastal() && pCity->getPopulation() > iBestCoastal)
+		{
+			iBestCoastal = pCity->getPopulation();
+			pGatherSea = pCity;
+		}
+	}
 
 	int iCount = 0;
 	int iLoop = 0;
@@ -37672,11 +37698,14 @@ int CvPlayer::LevyProvinceGarrison(int iProv)
 		if (pUnit->IsDead()) continue;
 		if (!pUnit->IsCombatUnit()) continue;
 		if (pUnit->GetProvinceLevy() >= 0) continue;
+		// A unit already executing a provincial order finishes it first.
+		if (pUnit->GetActivityType() == ACTIVITY_MISSION) continue;
+		if (pUnit->GetLengthMissionQueue() > 0) continue;
 
 		CvCity* pNearest = NULL;
 		int iBest = INT_MAX;
-		int iCityLoop = 0;
-		for (CvCity* pCity = firstCity(&iCityLoop); pCity != NULL; pCity = nextCity(&iCityLoop))
+		int iNearestLoop = 0;
+		for (CvCity* pCity = firstCity(&iNearestLoop); pCity != NULL; pCity = nextCity(&iNearestLoop))
 		{
 			int iDistance = plotDistance(pUnit->getX(), pUnit->getY(), pCity->getX(), pCity->getY());
 			if (iDistance < iBest)
@@ -37690,6 +37719,23 @@ int CvPlayer::LevyProvinceGarrison(int iProv)
 		pUnit->SetProvinceLevy(iProv);
 		pUnit->SetLevyTarget(-1);
 		iCount++;
+
+		// Levied troops muster at the province capital and fortify there, so the
+		// player sees them as a standing reserve instead of idle stragglers.
+		const DomainTypes eDomain = pUnit->getDomainType();
+		CvCity* pMuster = (eDomain == DOMAIN_SEA) ? pGatherSea : pGather;
+		if (eDomain != DOMAIN_LAND && eDomain != DOMAIN_SEA) pMuster = NULL;
+		if (pMuster == NULL) continue;
+
+		if (pUnit->getX() == pMuster->getX() && pUnit->getY() == pMuster->getY())
+		{
+			pUnit->PushMission(CvTypes::getMISSION_FORTIFY());
+		}
+		else
+		{
+			pUnit->PushMission(CvTypes::getMISSION_MOVE_TO(), pMuster->getX(), pMuster->getY());
+			pUnit->PushMission(CvTypes::getMISSION_FORTIFY(), -1, -1, 0, true);
+		}
 	}
 	if (iCount > 0)
 		AddProvinceReport(iProv, SuzerainReportType("SUZERAIN_REPORT_LEVY", 3), iCount, 0);
@@ -38117,6 +38163,89 @@ bool CvPlayer::LevyProvinceUnitTo(int iSourceProv, int iTargetProv)
 }
 
 //--------------------------------------------------------------------------------
+// Manual support order: rush the nearest idle garrisons from the rest of the
+// realm into a province under attack. They are re-tagged as levied by the
+// target province so the national dispatcher leaves them under player control,
+// and they fortify on arrival.
+int CvPlayer::DispatchSupportToProvince(int iTargetProv)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	if (iTargetProv < 0 || iTargetProv >= GetProvinceCount()) return 0;
+
+	// Muster point: the target province's most populous city.
+	CvCity* pTarget = NULL;
+	int iBestPop = -1;
+	int iCityLoop = 0;
+	for (CvCity* pCity = firstCity(&iCityLoop); pCity != NULL; pCity = nextCity(&iCityLoop))
+	{
+		if (GetCityProvince(pCity->GetID()) != iTargetProv) continue;
+		if (pCity->getPopulation() > iBestPop)
+		{
+			iBestPop = pCity->getPopulation();
+			pTarget = pCity;
+		}
+	}
+	if (pTarget == NULL) return 0;
+
+	int iMaxUnits = SuzerainDefineInt("SUZERAIN_SUPPORT_DISPATCH_MAX_UNITS");
+	if (iMaxUnits <= 0) iMaxUnits = 4;
+
+	struct SupportCandidate
+	{
+		CvUnit* pUnit;
+		int iDistance;
+	};
+	std::vector<SupportCandidate> vCandidates;
+
+	int iLoop = 0;
+	for (CvUnit* pUnit = firstUnit(&iLoop); pUnit != NULL; pUnit = nextUnit(&iLoop))
+	{
+		if (pUnit->IsDead()) continue;
+		if (!pUnit->IsCombatUnit()) continue;
+		if (pUnit->IsAutomated()) continue;
+		if (!pUnit->canMove()) continue;
+		if (pUnit->GetActivityType() == ACTIVITY_MISSION) continue;
+		if (pUnit->GetLengthMissionQueue() > 0) continue;
+
+		const DomainTypes eDomain = pUnit->getDomainType();
+		if (eDomain != DOMAIN_LAND && eDomain != DOMAIN_SEA) continue;
+		if (eDomain == DOMAIN_SEA && !pTarget->isCoastal()) continue;
+
+		// Units already stationed in the target province stay where they are.
+		CvPlot* pPlot = pUnit->plot();
+		if (pPlot == NULL) continue;
+		CvCity* pNearest = findClosestCity(*pPlot);
+		if (pNearest != NULL && GetCityProvince(pNearest->GetID()) == iTargetProv) continue;
+
+		SupportCandidate kCandidate;
+		kCandidate.pUnit = pUnit;
+		kCandidate.iDistance = plotDistance(pUnit->getX(), pUnit->getY(), pTarget->getX(), pTarget->getY());
+		vCandidates.push_back(kCandidate);
+	}
+
+	std::sort(vCandidates.begin(), vCandidates.end(),
+		[](const SupportCandidate& a, const SupportCandidate& b) { return a.iDistance < b.iDistance; });
+
+	int iSent = 0;
+	for (size_t i = 0; i < vCandidates.size() && iSent < iMaxUnits; i++)
+	{
+		CvUnit* pUnit = vCandidates[i].pUnit;
+		if (pUnit == NULL || pUnit->IsDead()) continue;
+
+		pUnit->SetProvinceLevy(iTargetProv);
+		pUnit->SetLevyTarget(-1);
+		pUnit->PushMission(CvTypes::getMISSION_MOVE_TO(), pTarget->getX(), pTarget->getY());
+		pUnit->PushMission(CvTypes::getMISSION_FORTIFY(), -1, -1, 0, true);
+		iSent++;
+	}
+
+	if (iSent > 0)
+		AddProvinceReport(iTargetProv, SuzerainReportType("SUZERAIN_REPORT_DISPATCH_DEFEND", 10),
+			GetProvinceWar(iTargetProv), iSent);
+	return iSent;
+}
+
+//--------------------------------------------------------------------------------
 int CvPlayer::GetProvinceBorder(int iProv) const
 {
 	if (!MOD_GLOBAL_SUZERAIN) return 0;
@@ -38263,7 +38392,11 @@ void CvPlayer::DoAIProvinceMissionTurn()
 	{
 		if (IsCapitalProvince(p)) continue;
 		if (GetProvinceAutonomy(p) < 1) continue;
-		if (GetProvinceMissionField(p, 0) != 0) continue; // a mission is already running
+		// Replace a finished (2) or expired (3) mission with a fresh one; keep
+		// pending, marching and waiting-for-troops missions untouched.
+		const int iOldType = GetProvinceMissionField(p, 0);
+		const int iOldState = GetProvinceMissionField(p, 4);
+		if (iOldType != 0 && iOldState != 2 && iOldState != 3) continue;
 
 		// Province centre: the most populous city of the province.
 		CvCity* pCentre = NULL;
@@ -38336,11 +38469,12 @@ void CvPlayer::DoProvinceMissionTurn()
 	for (int p = 0; p < GetProvinceCount(); p++)
 	{
 		if (IsCapitalProvince(p)) continue;
-		if (GetProvinceAutonomy(p) < 1) continue;
 
 		const int iMissionType = GetProvinceMissionField(p, 0);
 		if (iMissionType != 1) continue;
 
+		// State 4 = waiting for enough troops; it keeps the mission alive and
+		// is retried every turn.
 		const int iState = GetProvinceMissionField(p, 4);
 		if (iState == 2 || iState == 3) continue;
 
@@ -38348,7 +38482,7 @@ void CvPlayer::DoProvinceMissionTurn()
 		if (iDeadline > 0 && iTurn > iDeadline)
 		{
 			m_aiProvinceMission.setAt((size_t)p * 8 + 4, 3);
-			AddProvinceReport(p, SuzerainReportType("SUZERAIN_REPORT_RAID_FAILED", 6), 0, 0); // raid failed / expired
+			AddProvinceReport(p, SuzerainReportType("SUZERAIN_REPORT_RAID_TIMEOUT", 6), 0, 0);
 			continue;
 		}
 
@@ -38392,18 +38526,35 @@ void CvPlayer::DoProvinceMissionTurn()
 		{
 			// Nothing left to hunt: the mission is complete.
 			m_aiProvinceMission.setAt((size_t)p * 8 + 4, 2);
-			AddProvinceReport(p, SuzerainReportType("SUZERAIN_REPORT_RAID_DONE", 5), 0, 0); // raid complete
+			AddProvinceReport(p, SuzerainReportType("SUZERAIN_REPORT_RAID_DONE", 5), 0, 0);
 			continue;
 		}
 
 		// Crossing the border requires the player's permission.
 		if (pTarget->getOwner() != GetID() && GetProvinceMissionField(p, 5) == 0)
+		{
+			// Target outside borders, but cross-border not allowed: fail silently
+			// so the mission hangs until the player checks the cross-border box or
+			// the deadline expires.
 			continue;
+		}
 
 		// Keep a minimum garrison at home; the rest march out.
 		const int iKeep = GetProvinceCityCount(p) * iMinDefend;
 		const int iSend = GetProvinceGarrisonCount(p) - iKeep;
-		if (iSend < iMinUnits) continue;
+		if (iSend < iMinUnits)
+		{
+			// Not enough troops. State 4 marks "waiting for troops" so the
+			// report is logged only when the mission first runs dry, not every
+			// turn while the province trains replacements.
+			if (iState != 4)
+			{
+				m_aiProvinceMission.setAt((size_t)p * 8 + 4, 4);
+				AddProvinceReport(p, SuzerainReportType("SUZERAIN_REPORT_RAID_NO_TROOPS", 17),
+					iSend + iKeep, iMinUnits + iKeep);
+			}
+			continue;
+		}
 
 		int iSent = 0;
 		int iUnitLoop = 0;
@@ -38416,6 +38567,7 @@ void CvPlayer::DoProvinceMissionTurn()
 			if (pUnit->getDomainType() != DOMAIN_LAND) continue;
 			if (pUnit->IsAutomated()) continue;
 			if (pUnit->GetActivityType() == ACTIVITY_MISSION) continue;
+			if (pUnit->GetLengthMissionQueue() > 0) continue;
 			if (!pUnit->canMove()) continue;
 
 			// Only units whose nearest city belongs to this province.

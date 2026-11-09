@@ -103,6 +103,9 @@ bool CvNationalMilitaryDispatcher::IsUnitAvailable(CvUnit* pUnit) const
 	int iCurrentTask = GetUnitCurrentTask(pUnit);
 	if (iCurrentTask == PROVINCE_TASK_PLAYER) return false;
 
+	// Levied units are the player's standing reserve; never pull them away.
+	if (pUnit->GetProvinceLevy() >= 0) return false;
+
 	// Don't interrupt units with mission queues (they're already doing something)
 	if (pUnit->GetLengthMissionQueue() > 0) return false;
 
@@ -121,6 +124,9 @@ bool CvNationalMilitaryDispatcher::IsShipAvailable(CvUnit* pUnit) const
 
 	int iCurrentTask = GetUnitCurrentTask(pUnit);
 	if (iCurrentTask == PROVINCE_TASK_PLAYER) return false;
+
+	// Levied units are the player's standing reserve; never pull them away.
+	if (pUnit->GetProvinceLevy() >= 0) return false;
 
 	if (pUnit->GetLengthMissionQueue() > 0) return false;
 
@@ -170,11 +176,15 @@ void CvNationalMilitaryDispatcher::EvaluateNationalThreats(void)
 
 // Helper: evaluate enemy land threats in a province. Water plots are skipped so
 // land garrisons are never ordered into the sea; ships are handled separately.
+// The dispatcher prioritizes the province's own garrison before requesting aid
+// from other provinces, so provincial units engage local threats first.
 void CvNationalMilitaryDispatcher::EvaluateEnemyThreats(int iProv)
 {
 	if (m_pPlayer->IsCapitalProvince(iProv)) return;
-	if (m_pPlayer->GetProvinceAutonomy(iProv) < 1) return;
 
+	// Defensive dispatch applies to directly ruled provinces too: the player
+	// may run a frontline province by hand, but its garrison still answers an
+	// invasion automatically.
 	if (m_pPlayer->GetProvinceWar(iProv) == 0) return;
 
 	int iDefenseRadius = GC.getDefineINT("SUZERAIN_PROVINCE_DEFENSE_RADIUS", false);
@@ -265,8 +275,8 @@ void CvNationalMilitaryDispatcher::EvaluateEnemyThreats(int iProv)
 void CvNationalMilitaryDispatcher::EvaluateNavalThreats(int iProv)
 {
 	if (m_pPlayer->IsCapitalProvince(iProv)) return;
-	if (m_pPlayer->GetProvinceAutonomy(iProv) < 1) return;
 
+	// Naval defence also covers directly ruled coastal provinces.
 	if (m_pPlayer->GetProvinceWar(iProv) == 0) return;
 
 	int iRadius = GC.getDefineINT("SUZERAIN_NAVAL_DEFENSE_RADIUS", false);
@@ -429,7 +439,8 @@ void CvNationalMilitaryDispatcher::EvaluateBarbarianThreats(int iProv)
 	}
 }
 
-// Dispatch units to tasks by priority
+// Dispatch units to tasks by priority. Provincial garrisons engage local threats
+// first; cross-province reinforcements only arrive when the local pool runs dry.
 void CvNationalMilitaryDispatcher::DispatchByPriority(void)
 {
 	for (size_t i = 0; i < m_vTasks.size(); i++)
@@ -440,16 +451,71 @@ void CvNationalMilitaryDispatcher::DispatchByPriority(void)
 		bool bNaval = IsNavalTask(task.iType);
 		std::vector<CvUnit*>* pPool = bNaval ? &m_vIdleShips : &m_vIdleUnits;
 
-		std::vector<CvUnit*> vAssigned;
-		for (int j = 0; j < task.iUnitsNeeded && !pPool->empty(); j++)
+		// Defensive tasks prefer units already in the threatened province.
+		std::vector<CvUnit*> vLocal;
+		std::vector<CvUnit*> vRemote;
+		if (task.iType == PROVINCE_TASK_DEFEND)
 		{
-			CvUnit* pBest = FindNearestUnit(*pPool, task.iX, task.iY);
-			if (pBest == NULL) break;
+			for (size_t j = 0; j < pPool->size(); j++)
+			{
+				CvUnit* pUnit = (*pPool)[j];
+				if (pUnit == NULL) continue;
+				CvPlot* pPlot = pUnit->plot();
+				if (pPlot == NULL)
+				{
+					vRemote.push_back(pUnit);
+					continue;
+				}
+				CvCity* pNearest = m_pPlayer->findClosestCity(*pPlot);
+				int iUnitProv = (pNearest != NULL) ? m_pPlayer->GetCityProvince(pNearest->GetID()) : -1;
+				if (iUnitProv == task.iProvince)
+					vLocal.push_back(pUnit);
+				else
+					vRemote.push_back(pUnit);
+			}
+		}
 
-			AssignUnitToTask(pBest, task);
-			vAssigned.push_back(pBest);
+		std::vector<CvUnit*> vAssigned;
+		int iNeeded = task.iUnitsNeeded;
 
-			pPool->erase(std::remove(pPool->begin(), pPool->end(), pBest), pPool->end());
+		// Drain local pool first for defensive tasks
+		if (task.iType == PROVINCE_TASK_DEFEND)
+		{
+			while (iNeeded > 0 && !vLocal.empty())
+			{
+				CvUnit* pBest = FindNearestUnit(vLocal, task.iX, task.iY);
+				if (pBest == NULL) break;
+				AssignUnitToTask(pBest, task);
+				vAssigned.push_back(pBest);
+				vLocal.erase(std::remove(vLocal.begin(), vLocal.end(), pBest), vLocal.end());
+				pPool->erase(std::remove(pPool->begin(), pPool->end(), pBest), pPool->end());
+				iNeeded--;
+			}
+			// Then draw from the global pool if local units were insufficient
+			while (iNeeded > 0 && !vRemote.empty())
+			{
+				CvUnit* pBest = FindNearestUnit(vRemote, task.iX, task.iY);
+				if (pBest == NULL) break;
+				AssignUnitToTask(pBest, task);
+				vAssigned.push_back(pBest);
+				vRemote.erase(std::remove(vRemote.begin(), vRemote.end(), pBest), vRemote.end());
+				pPool->erase(std::remove(pPool->begin(), pPool->end(), pBest), pPool->end());
+				iNeeded--;
+			}
+		}
+		else
+		{
+			// Non-defensive tasks (raid, naval) use the global pool directly
+			for (int j = 0; j < task.iUnitsNeeded && !pPool->empty(); j++)
+			{
+				CvUnit* pBest = FindNearestUnit(*pPool, task.iX, task.iY);
+				if (pBest == NULL) break;
+
+				AssignUnitToTask(pBest, task);
+				vAssigned.push_back(pBest);
+
+				pPool->erase(std::remove(pPool->begin(), pPool->end(), pBest), pPool->end());
+			}
 		}
 
 		// Log dispatch only when units actually moved, so the report log does
@@ -574,6 +640,7 @@ void CvNationalMilitaryDispatcher::ReturnIdleGarrison(void)
 
 		if (!pUnit->canMove()) continue;
 		if (pUnit->IsAutomated()) continue;
+		if (pUnit->GetProvinceLevy() >= 0) continue;
 		if (pUnit->GetLengthMissionQueue() > 0) continue;
 
 		int iTask = GetUnitCurrentTask(pUnit);

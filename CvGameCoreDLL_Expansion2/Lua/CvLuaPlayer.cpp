@@ -222,6 +222,7 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSetProvinceBorder);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lOrderLevyToProvince);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lOrderLevyRally);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDispatchSupportToProvince);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceReportCount);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceReportField);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lAutoFillProvinceProduction);
@@ -1708,6 +1709,12 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(GetProvinceAutonomy);
 	Method(SetProvinceAutonomy);
 	Method(IsCapitalProvince);
+	Method(GetNationalStrategy);
+	Method(SetNationalStrategy);
+	Method(GetProvinceChronicleCount);
+	Method(GetProvinceChronicleField);
+	Method(GetProvinceChronicleEventCount);
+	Method(GetProvinceChronicleEventField);
 	Method(GetProvinceQueueCount);
 	Method(GetProvinceQueueField);
 	Method(AddProvinceQueueItem);
@@ -1730,6 +1737,7 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(SetProvinceBorder);
 	Method(OrderLevyToProvince);
 	Method(OrderLevyRally);
+	Method(DispatchSupportToProvince);
 	Method(GetProvinceReportCount);
 	Method(GetProvinceReportField);
 	Method(AutoFillProvinceProduction);
@@ -16364,6 +16372,14 @@ int CvLuaPlayer::lOrderLevyRally(lua_State* L)
 	int iY = lua_tointeger(L, 3);
 	pkPlayer->OrderLevyRally(iX, iY);
 	return 0;
+}
+//int DispatchSupportToProvince(int iProv);
+int CvLuaPlayer::lDispatchSupportToProvince(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iProv = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->DispatchSupportToProvince(iProv));
+	return 1;
 }
 //int GetProvinceReportCount(int iProv);
 int CvLuaPlayer::lGetProvinceReportCount(lua_State* L)

@@ -2403,6 +2403,9 @@ public:
 	// Levy: hand the province's garrison to the centre, or give it back.
 	int LevyProvinceGarrison(int iProv);
 	int LevyProvinceGarrisonUpTo(int iProv, int iCount, bool bMarchToBorder = false);
+	// Manual support order: rush idle garrisons from the rest of the realm to
+	// the given province and fortify them there.
+	int DispatchSupportToProvince(int iProv);
 	void ReturnProvinceGarrison(int iProv);
 	int GetProvinceLevyCount(int iProv) const;
 	// Wartime: a province near an active front levies its surplus garrison

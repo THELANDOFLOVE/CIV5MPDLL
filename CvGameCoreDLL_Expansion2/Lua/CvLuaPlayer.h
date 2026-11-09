@@ -1492,6 +1492,7 @@ protected:
 	LUAAPIEXTN(SetProvinceBorder, void, iProv, iValue);
 	LUAAPIEXTN(OrderLevyToProvince, int, iProv);
 	LUAAPIEXTN(OrderLevyRally, void, iX, iY);
+	LUAAPIEXTN(DispatchSupportToProvince, int, iProv);
 	LUAAPIEXTN(GetProvinceReportCount, int, iProv);
 	LUAAPIEXTN(GetProvinceReportField, int, iProv, iIndex, iField);
 	LUAAPIEXTN(AutoFillProvinceProduction, void);

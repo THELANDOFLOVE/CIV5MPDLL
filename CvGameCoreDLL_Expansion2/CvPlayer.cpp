@@ -37488,6 +37488,9 @@ void CvPlayer::DoLevyDefenseTurn()
 		if (pUnit->getDomainType() != DOMAIN_LAND) continue;
 		if (pUnit->GetProvinceLevy() < 0) continue;
 		if (pUnit->IsAutomated()) continue;
+		// Holding (fortified) means the player has taken command: do not wake
+		// the unit up to chase an enemy it was told to sit out.
+		if (pUnit->GetActivityType() == ACTIVITY_HOLD) continue;
 		if (pUnit->GetActivityType() == ACTIVITY_MISSION) continue;
 		if (pUnit->GetLengthMissionQueue() > 0) continue;
 		if (!pUnit->canMove()) continue;

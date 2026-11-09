@@ -39999,6 +39999,8 @@ void CvPlayer::DoVassalMemorialTurn()
 	int iDeadlineTurns = SuzerainDefineInt("SUZERAIN_MEMORIAL_URGENT_TURNS");
 	if (iDeadlineTurns <= 0) return; // not configured = memorials off
 
+	int iMemorialsBefore = GetVassalMemorialCount();
+
 	// One urgent protect memorial per threatened vassal.
 	for (size_t i = 0; i < m_vecVassals.size(); i++)
 	{
@@ -40357,6 +40359,20 @@ void CvPlayer::DoVassalMemorialTurn()
 		AddVassalMemorial(12, 0, 1, eTarget, NO_PLAYER, iDays);
 	}
 
+	// Tell a human overlord that new memorials are waiting: the panel is a
+	// manual entry point and is easy to miss.
+	if (isHuman() && GetNotifications())
+	{
+		int iNewMemorials = GetVassalMemorialCount() - iMemorialsBefore;
+		if (iNewMemorials > 0)
+		{
+			Localization::String sMsg = Localization::Lookup("TXT_KEY_NOTIFICATION_MEMORIAL_NEW");
+			sMsg << iNewMemorials;
+			Localization::String sSum = Localization::Lookup("TXT_KEY_NOTIFICATION_SUMMARY_MEMORIAL_NEW");
+			GetNotifications()->Add(NOTIFICATION_GENERIC, sMsg.toUTF8(), sSum.toUTF8(), -1, -1, -1);
+		}
+	}
+
 	// Expire overdue memorials.
 	int iNeglect = SuzerainDefineInt("SUZERAIN_LOYALTY_NEGLECT");
 	int iTurn = GC.getGame().getGameTurn();
@@ -40372,6 +40388,15 @@ void CvPlayer::DoVassalMemorialTurn()
 		bAnyExpired = true;
 
 		PlayerTypes eVassal = (PlayerTypes)GetVassalMemorialField(m, SUZERAIN_MEMORIAL_VASSAL);
+
+		// The sender may have left the realm while the memorial waited. Settle
+		// nothing then: no default verdict, no loyalty write, no mandate loss.
+		if (!IsLiveVassal(eVassal))
+		{
+			m_aiVassalMemorials.setAt(m * SUZERAIN_MEMORIAL_STRIDE + SUZERAIN_MEMORIAL_STATE, 3);
+			continue;
+		}
+
 		int iType = GetVassalMemorialField(m, SUZERAIN_MEMORIAL_TYPE);
 		int iDefault = GetMemorialDefault(iType);
 
@@ -49384,10 +49409,20 @@ void CvPlayer::DoConcubineTurn()
 	{
 		for (int i = iCount - 1; i >= 0; i--)
 		{
-			// Captives and tributes have no patron to pine for.
-			if ((size_t)i < m_aiConcubineKind.size() && m_aiConcubineKind[i] != 0) continue;
+			// Captives and tributes have no patron to pine for. A missing kind
+			// entry (older save) must fail safe, not turn everyone into a hostage.
+			if ((size_t)i >= m_aiConcubineKind.size() || m_aiConcubineKind[i] != 0) continue;
 			PlayerTypes eV = (PlayerTypes)GetConcubineField(i, 1);
 			if (eV != NO_PLAYER && IsLiveVassal(eV)) continue;
+
+			// A homeland that merely renounced us (or is at war) is not gone. A
+			// fond hostage stays in the palace; only a cold one goes home.
+			if (eV != NO_PLAYER && GET_PLAYER(eV).isAlive())
+			{
+				int iStayFavor = SuzerainDefineInt("SUZERAIN_CONCUBINE_HOSTAGE_STAY_FAVOR");
+				if (GetConcubineFavor(i) >= iStayFavor) continue;
+			}
+
 			ChangeConcubineFavor(i, iHostageDecay);
 			if (GetConcubineFavor(i) <= 0)
 			{

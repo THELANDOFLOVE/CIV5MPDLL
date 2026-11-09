@@ -461,6 +461,8 @@ void CvNationalMilitaryDispatcher::EvaluateBarbarianThreats(int iProv)
 void CvNationalMilitaryDispatcher::DispatchByPriority(void)
 {
 	const int iMinKeepPercent = GC.getDefineINT("SUZERAIN_DISPATCH_MIN_GARRISON_PERCENT", false);
+	const int iMinPerCity = GC.getDefineINT("SUZERAIN_DISPATCH_MIN_GARRISON_PER_CITY", false);
+	const int iLocalKeepPerCity = GC.getDefineINT("SUZERAIN_PROVINCE_DEFEND_MIN_PER_CITY", false);
 	const int iCommitPercent = GC.getDefineINT("SUZERAIN_DISPATCH_MAX_COMMIT_PERCENT", false);
 	const int iProvCount = m_pPlayer->GetProvinceCount();
 	std::vector<int> vDrawn(iProvCount, 0);
@@ -478,15 +480,24 @@ void CvNationalMilitaryDispatcher::DispatchByPriority(void)
 		int iProvince;
 	};
 
-	// A province keeps iMinKeepPercent of its garrison target before any unit
-	// may be drawn away. Units already drawn this turn count against it.
+	// A province keeps a per-city garrison floor before any unit may be drawn
+	// away. An optional percentage-of-target floor can be added on top, but it
+	// is off by default because a peacetime garrison can sit exactly on that
+	// percentage and then never release a single unit.
 	auto CanDraw = [&](int iProv) -> bool
 	{
 		if (iProv < 0 || iProv >= iProvCount) return true;
-		if (iMinKeepPercent <= 0) return true;
-		const int iTarget = m_pPlayer->GetProvinceGarrisonTarget(iProv);
+
+		const int iCities = m_pPlayer->GetProvinceCityCount(iProv);
+		int iFloor = iCities * iMinPerCity;
+		if (iMinKeepPercent > 0)
+		{
+			const int iPctFloor = m_pPlayer->GetProvinceGarrisonTarget(iProv) * iMinKeepPercent / 100;
+			if (iPctFloor > iFloor) iFloor = iPctFloor;
+		}
+		if (iFloor <= 0) return true;
+
 		const int iCurrent = m_pPlayer->GetProvinceGarrisonCount(iProv) - vDrawn[iProv];
-		const int iFloor = iTarget * iMinKeepPercent / 100;
 		return iCurrent > iFloor;
 	};
 
@@ -514,6 +525,8 @@ void CvNationalMilitaryDispatcher::DispatchByPriority(void)
 		const MilitaryTask& task = m_vTasks[i];
 
 		bool bNaval = IsNavalTask(task.iType);
+		const bool bDefensiveTask = (task.iType == PROVINCE_TASK_DEFEND
+			|| task.iType == PROVINCE_TASK_DEFEND_SEA);
 		std::vector<CvUnit*>* pPool = bNaval ? &m_vIdleShips : &m_vIdleUnits;
 		int& iBudget = bNaval ? iSeaBudget : iLandBudget;
 
@@ -537,7 +550,9 @@ void CvNationalMilitaryDispatcher::DispatchByPriority(void)
 			Candidate kCandidate;
 			kCandidate.pUnit = pUnit;
 			kCandidate.iProvince = iUnitProvince;
-			if (task.iType == PROVINCE_TASK_DEFEND && iUnitProvince == task.iProvince)
+			// Land and naval defence both use the threatened province's own
+			// garrison first.
+			if (bDefensiveTask && iUnitProvince == task.iProvince)
 				vLocal.push_back(kCandidate);
 			else
 				vRemote.push_back(kCandidate);
@@ -545,14 +560,22 @@ void CvNationalMilitaryDispatcher::DispatchByPriority(void)
 
 		std::vector<CvUnit*> vAssigned;
 		int iNeeded = task.iUnitsNeeded;
+		int iLocalAvailable = (int)vLocal.size();
+		// The province sends its surplus, never its last defenders: every city
+		// keeps SUZERAIN_PROVINCE_DEFEND_MIN_PER_CITY units at home. A naval
+		// task may sortie its whole local squadron.
+		const int iLocalKeep = bNaval ? 0
+			: m_pPlayer->GetProvinceCityCount(task.iProvince) * iLocalKeepPerCity;
 
-		// The province's own garrison defends it without a floor check.
-		while (iNeeded > 0 && !vLocal.empty())
+		// The province's own garrison defends it without a floor check, but the
+		// local keep is still honored.
+		while (iNeeded > 0 && iLocalAvailable > iLocalKeep && !vLocal.empty())
 		{
 			const int k = FindBestIndex(vLocal, task.iX, task.iY, false);
 			if (k < 0) break;
 			CvUnit* pUnit = vLocal[k].pUnit;
 			vLocal.erase(vLocal.begin() + k);
+			iLocalAvailable--;
 
 			AssignUnitToTask(pUnit, task);
 			vAssigned.push_back(pUnit);
@@ -561,10 +584,11 @@ void CvNationalMilitaryDispatcher::DispatchByPriority(void)
 		}
 
 		// Outside units respect the source province floor and the national
-		// commit budget, so a second front still has a reserve.
+		// commit budget, so a second front still has a reserve. Naval sorties
+		// skip the land-garrison floor: fleet strength is not city garrison.
 		while (iNeeded > 0 && !vRemote.empty() && iBudget > 0)
 		{
-			const int k = FindBestIndex(vRemote, task.iX, task.iY, true);
+			const int k = FindBestIndex(vRemote, task.iX, task.iY, !bNaval);
 			if (k < 0) break;
 			CvUnit* pUnit = vRemote[k].pUnit;
 			const int iSource = vRemote[k].iProvince;

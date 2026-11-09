@@ -37620,6 +37620,11 @@ int CvPlayer::GetProvinceGarrisonCount(int iProv) const
 			}
 		}
 		if (pUnit->GetProvinceLevy() >= 0) continue;
+		// Units already marching or on a mission are not on garrison duty:
+		// counting them made production AI believe a province was defended
+		// while its troops were away fighting.
+		if (pUnit->GetActivityType() == ACTIVITY_MISSION) continue;
+		if (pUnit->GetLengthMissionQueue() > 0) continue;
 		if (pNearest != NULL && GetCityProvince(pNearest->GetID()) == iProv)
 			iCount++;
 	}
@@ -38592,6 +38597,9 @@ void CvPlayer::DoAIProvinceMissionTurn()
 	{
 		if (IsCapitalProvince(p)) continue;
 		if (GetProvinceAutonomy(p) < 1) continue;
+		// War takes priority over hunting barbarians: hold the garrison home
+		// instead of raising a new raid mission.
+		if (SuzerainDefineInt("SUZERAIN_RAID_PAUSE_AT_WAR") > 0 && GetProvinceWar(p) > 0) continue;
 
 		// Leave the province alone while any of its missions is still running.
 		bool bActive = false;
@@ -38677,6 +38685,9 @@ void CvPlayer::DoProvinceMissionTurn()
 	for (int p = 0; p < GetProvinceCount(); p++)
 	{
 		if (IsCapitalProvince(p)) continue;
+		// Existing raid missions pause while the province is at war; they
+		// resume once the fighting moves away.
+		if (SuzerainDefineInt("SUZERAIN_RAID_PAUSE_AT_WAR") > 0 && GetProvinceWar(p) > 0) continue;
 
 		const int iMissionCount = GetProvinceMissionCount(p);
 		for (int s = 0; s < iMissionCount; s++)
@@ -39111,13 +39122,24 @@ void CvPlayer::DoProvinceTreasuryTurn()
 {
 	if (!MOD_GLOBAL_SUZERAIN) return;
 
-	const int iKeepPercent = SuzerainDefineInt("SUZERAIN_PROVINCE_KEEP_PERCENT");
-	if (iKeepPercent <= 0) return;
+	const int iBaseKeepPercent = SuzerainDefineInt("SUZERAIN_PROVINCE_KEEP_PERCENT");
+	if (iBaseKeepPercent <= 0) return;
+	const int iWarKeepPercent = SuzerainDefineInt("SUZERAIN_PROVINCE_KEEP_WAR_PERCENT");
+	const int iBorderKeepPercent = SuzerainDefineInt("SUZERAIN_PROVINCE_KEEP_BORDER_PERCENT");
 
 	const int iCount = GetProvinceCount();
 	for (int p = 0; p < iCount; p++)
 	{
 		if (IsCapitalProvince(p)) continue;
+
+		// Wartime and border provinces keep a larger share of city gold for
+		// local defence; the multiplier is a percentage of the base share.
+		int iKeepPercent = iBaseKeepPercent;
+		if (GetProvinceWar(p) > 0 && iWarKeepPercent > 0)
+			iKeepPercent = iBaseKeepPercent * iWarKeepPercent / 100;
+		else if (GetProvinceBorder(p) > 0 && iBorderKeepPercent > 0)
+			iKeepPercent = iBaseKeepPercent * iBorderKeepPercent / 100;
+		if (iKeepPercent > 100) iKeepPercent = 100;
 
 		int iSpace = GetProvinceTreasuryCap(p) - GetProvinceTreasury(p);
 		if (iSpace <= 0) continue;

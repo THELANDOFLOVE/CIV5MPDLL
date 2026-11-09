@@ -181,7 +181,11 @@ void CvNationalMilitaryDispatcher::EvaluateNationalThreats(void)
 // from other provinces, so provincial units engage local threats first.
 void CvNationalMilitaryDispatcher::EvaluateEnemyThreats(int iProv)
 {
-	if (m_pPlayer->IsCapitalProvince(iProv)) return;
+	// The capital may opt out of automatic defence; by default it is defended
+	// like any other province.
+	if (m_pPlayer->IsCapitalProvince(iProv)
+		&& GC.getDefineINT("SUZERAIN_PROVINCE_AUTO_DEFEND_CAPITAL", false) <= 0)
+		return;
 
 	// Defensive dispatch applies to directly ruled provinces too: the player
 	// may run a frontline province by hand, but its garrison still answers an
@@ -199,6 +203,12 @@ void CvNationalMilitaryDispatcher::EvaluateEnemyThreats(int iProv)
 	int iPriority = GC.getDefineINT("SUZERAIN_DISPATCH_DEFEND_PRIORITY", false);
 	if (iMinUnits <= 0 || iPerEnemy <= 0 || iPriority <= 0)
 		return; // not configured = no land dispatch
+
+	// Strategic weighting: the capital first, then border provinces, then the
+	// interior, so a nearby village does not outrank the heartland.
+	int iPriorityBonus = 0;
+	if (m_pPlayer->IsCapitalProvince(iProv)) iPriorityBonus = 3;
+	else if (m_pPlayer->GetProvinceBorder(iProv) > 0) iPriorityBonus = 1;
 
 	// Gather distinct land plots holding a visible enemy near a province city.
 	struct ThreatPlot
@@ -259,7 +269,7 @@ void CvNationalMilitaryDispatcher::EvaluateEnemyThreats(int iProv)
 	{
 		MilitaryTask task;
 		task.iType = PROVINCE_TASK_DEFEND;
-		task.iPriority = iPriority;
+		task.iPriority = iPriority + iPriorityBonus;
 		task.iProvince = iProv;
 		task.pTarget = vThreats[t].pPlot;
 		task.iX = vThreats[t].pPlot->getX();
@@ -275,7 +285,9 @@ void CvNationalMilitaryDispatcher::EvaluateEnemyThreats(int iProv)
 // Helper: evaluate enemy naval threats near a province's coastal cities.
 void CvNationalMilitaryDispatcher::EvaluateNavalThreats(int iProv)
 {
-	if (m_pPlayer->IsCapitalProvince(iProv)) return;
+	if (m_pPlayer->IsCapitalProvince(iProv)
+		&& GC.getDefineINT("SUZERAIN_PROVINCE_AUTO_DEFEND_CAPITAL", false) <= 0)
+		return;
 
 	// Naval defence also covers directly ruled coastal provinces.
 	if (m_pPlayer->GetProvinceWar(iProv) == 0) return;
@@ -291,6 +303,10 @@ void CvNationalMilitaryDispatcher::EvaluateNavalThreats(int iProv)
 	int iPriority = GC.getDefineINT("SUZERAIN_NAVAL_DISPATCH_PRIORITY", false);
 	if (iMinUnits <= 0 || iPerEnemy <= 0 || iPriority <= 0)
 		return; // not configured = no naval dispatch
+
+	int iPriorityBonus = 0;
+	if (m_pPlayer->IsCapitalProvince(iProv)) iPriorityBonus = 3;
+	else if (m_pPlayer->GetProvinceBorder(iProv) > 0) iPriorityBonus = 1;
 
 	struct SeaThreat
 	{
@@ -346,7 +362,7 @@ void CvNationalMilitaryDispatcher::EvaluateNavalThreats(int iProv)
 	{
 		MilitaryTask task;
 		task.iType = PROVINCE_TASK_DEFEND_SEA;
-		task.iPriority = iPriority;
+		task.iPriority = iPriority + iPriorityBonus;
 		task.iProvince = iProv;
 		task.pTarget = vThreats[t].pPlot;
 		task.iX = vThreats[t].pPlot->getX();
@@ -444,79 +460,122 @@ void CvNationalMilitaryDispatcher::EvaluateBarbarianThreats(int iProv)
 // first; cross-province reinforcements only arrive when the local pool runs dry.
 void CvNationalMilitaryDispatcher::DispatchByPriority(void)
 {
+	const int iMinKeepPercent = GC.getDefineINT("SUZERAIN_DISPATCH_MIN_GARRISON_PERCENT", false);
+	const int iCommitPercent = GC.getDefineINT("SUZERAIN_DISPATCH_MAX_COMMIT_PERCENT", false);
+	const int iProvCount = m_pPlayer->GetProvinceCount();
+	std::vector<int> vDrawn(iProvCount, 0);
+
+	int iLandBudget = (iCommitPercent > 0 && iCommitPercent < 100)
+		? (int)m_vIdleUnits.size() * iCommitPercent / 100
+		: (int)m_vIdleUnits.size();
+	int iSeaBudget = (iCommitPercent > 0 && iCommitPercent < 100)
+		? (int)m_vIdleShips.size() * iCommitPercent / 100
+		: (int)m_vIdleShips.size();
+
+	struct Candidate
+	{
+		CvUnit* pUnit;
+		int iProvince;
+	};
+
+	// A province keeps iMinKeepPercent of its garrison target before any unit
+	// may be drawn away. Units already drawn this turn count against it.
+	auto CanDraw = [&](int iProv) -> bool
+	{
+		if (iProv < 0 || iProv >= iProvCount) return true;
+		if (iMinKeepPercent <= 0) return true;
+		const int iTarget = m_pPlayer->GetProvinceGarrisonTarget(iProv);
+		const int iCurrent = m_pPlayer->GetProvinceGarrisonCount(iProv) - vDrawn[iProv];
+		const int iFloor = iTarget * iMinKeepPercent / 100;
+		return iCurrent > iFloor;
+	};
+
+	auto FindBestIndex = [&](const std::vector<Candidate>& vUnits, int iX, int iY, bool bCheckFloor) -> int
+	{
+		int iBest = -1;
+		int iBestDistance = INT_MAX;
+		for (size_t k = 0; k < vUnits.size(); k++)
+		{
+			CvUnit* pUnit = vUnits[k].pUnit;
+			if (pUnit == NULL) continue;
+			if (bCheckFloor && !CanDraw(vUnits[k].iProvince)) continue;
+			const int iDistance = plotDistance(pUnit->getX(), pUnit->getY(), iX, iY);
+			if (iDistance < iBestDistance)
+			{
+				iBestDistance = iDistance;
+				iBest = (int)k;
+			}
+		}
+		return iBest;
+	};
+
 	for (size_t i = 0; i < m_vTasks.size(); i++)
 	{
 		const MilitaryTask& task = m_vTasks[i];
 
-		// Land tasks draw from the land pool, naval tasks from the ship pool.
 		bool bNaval = IsNavalTask(task.iType);
 		std::vector<CvUnit*>* pPool = bNaval ? &m_vIdleShips : &m_vIdleUnits;
+		int& iBudget = bNaval ? iSeaBudget : iLandBudget;
 
-		// Defensive tasks prefer units already in the threatened province.
-		std::vector<CvUnit*> vLocal;
-		std::vector<CvUnit*> vRemote;
-		if (task.iType == PROVINCE_TASK_DEFEND)
+		// Split the pool into the province's own garrison and outside units.
+		std::vector<Candidate> vLocal;
+		std::vector<Candidate> vRemote;
+		for (size_t j = 0; j < pPool->size(); j++)
 		{
-			for (size_t j = 0; j < pPool->size(); j++)
+			CvUnit* pUnit = (*pPool)[j];
+			if (pUnit == NULL) continue;
+
+			int iUnitProvince = -1;
+			CvPlot* pPlot = pUnit->plot();
+			if (pPlot != NULL)
 			{
-				CvUnit* pUnit = (*pPool)[j];
-				if (pUnit == NULL) continue;
-				CvPlot* pPlot = pUnit->plot();
-				if (pPlot == NULL)
-				{
-					vRemote.push_back(pUnit);
-					continue;
-				}
 				CvCity* pNearest = m_pPlayer->findClosestCity(*pPlot);
-				int iUnitProv = (pNearest != NULL) ? m_pPlayer->GetCityProvince(pNearest->GetID()) : -1;
-				if (iUnitProv == task.iProvince)
-					vLocal.push_back(pUnit);
-				else
-					vRemote.push_back(pUnit);
+				if (pNearest != NULL)
+					iUnitProvince = m_pPlayer->GetCityProvince(pNearest->GetID());
 			}
+
+			Candidate kCandidate;
+			kCandidate.pUnit = pUnit;
+			kCandidate.iProvince = iUnitProvince;
+			if (task.iType == PROVINCE_TASK_DEFEND && iUnitProvince == task.iProvince)
+				vLocal.push_back(kCandidate);
+			else
+				vRemote.push_back(kCandidate);
 		}
 
 		std::vector<CvUnit*> vAssigned;
 		int iNeeded = task.iUnitsNeeded;
 
-		// Drain local pool first for defensive tasks
-		if (task.iType == PROVINCE_TASK_DEFEND)
+		// The province's own garrison defends it without a floor check.
+		while (iNeeded > 0 && !vLocal.empty())
 		{
-			while (iNeeded > 0 && !vLocal.empty())
-			{
-				CvUnit* pBest = FindNearestUnit(vLocal, task.iX, task.iY);
-				if (pBest == NULL) break;
-				AssignUnitToTask(pBest, task);
-				vAssigned.push_back(pBest);
-				vLocal.erase(std::remove(vLocal.begin(), vLocal.end(), pBest), vLocal.end());
-				pPool->erase(std::remove(pPool->begin(), pPool->end(), pBest), pPool->end());
-				iNeeded--;
-			}
-			// Then draw from the global pool if local units were insufficient
-			while (iNeeded > 0 && !vRemote.empty())
-			{
-				CvUnit* pBest = FindNearestUnit(vRemote, task.iX, task.iY);
-				if (pBest == NULL) break;
-				AssignUnitToTask(pBest, task);
-				vAssigned.push_back(pBest);
-				vRemote.erase(std::remove(vRemote.begin(), vRemote.end(), pBest), vRemote.end());
-				pPool->erase(std::remove(pPool->begin(), pPool->end(), pBest), pPool->end());
-				iNeeded--;
-			}
+			const int k = FindBestIndex(vLocal, task.iX, task.iY, false);
+			if (k < 0) break;
+			CvUnit* pUnit = vLocal[k].pUnit;
+			vLocal.erase(vLocal.begin() + k);
+
+			AssignUnitToTask(pUnit, task);
+			vAssigned.push_back(pUnit);
+			pPool->erase(std::remove(pPool->begin(), pPool->end(), pUnit), pPool->end());
+			iNeeded--;
 		}
-		else
+
+		// Outside units respect the source province floor and the national
+		// commit budget, so a second front still has a reserve.
+		while (iNeeded > 0 && !vRemote.empty() && iBudget > 0)
 		{
-			// Non-defensive tasks (raid, naval) use the global pool directly
-			for (int j = 0; j < task.iUnitsNeeded && !pPool->empty(); j++)
-			{
-				CvUnit* pBest = FindNearestUnit(*pPool, task.iX, task.iY);
-				if (pBest == NULL) break;
+			const int k = FindBestIndex(vRemote, task.iX, task.iY, true);
+			if (k < 0) break;
+			CvUnit* pUnit = vRemote[k].pUnit;
+			const int iSource = vRemote[k].iProvince;
+			vRemote.erase(vRemote.begin() + k);
 
-				AssignUnitToTask(pBest, task);
-				vAssigned.push_back(pBest);
-
-				pPool->erase(std::remove(pPool->begin(), pPool->end(), pBest), pPool->end());
-			}
+			AssignUnitToTask(pUnit, task);
+			vAssigned.push_back(pUnit);
+			pPool->erase(std::remove(pPool->begin(), pPool->end(), pUnit), pPool->end());
+			if (iSource >= 0 && iSource < iProvCount) vDrawn[iSource]++;
+			iBudget--;
+			iNeeded--;
 		}
 
 		// Log dispatch only when units actually moved, so the report log does
@@ -532,7 +591,6 @@ void CvNationalMilitaryDispatcher::DispatchByPriority(void)
 				iLogType = CvPlayer::SuzerainReportType("SUZERAIN_REPORT_DISPATCH_RAID", 11);
 			m_pPlayer->AddProvinceReport(task.iProvince, iLogType, task.iThreat, (int)vAssigned.size());
 
-			// Update mission state if this is a raid
 			if (task.iType == PROVINCE_TASK_RAID)
 			{
 				m_pPlayer->SetProvinceMissionState(task.iProvince, 1);  // Mission in progress
@@ -628,6 +686,12 @@ void CvNationalMilitaryDispatcher::ReturnIdleGarrison(void)
 
 	int iThreshold = GC.getDefineINT("SUZERAIN_RETURN_DISTANCE", false);
 	if (iThreshold <= 0) return; // not configured = units stay where they are
+
+	// During a war, finishing a defensive task must not send the unit home:
+	// the front may still need it, and the next turn would march it right back.
+	if (GC.getDefineINT("SUZERAIN_RETURN_DURING_WAR", false) <= 0
+		&& GET_TEAM(m_pPlayer->getTeam()).getAtWarCount(true) > 0)
+		return;
 
 	int iLoop = 0;
 	for (CvUnit* pUnit = m_pPlayer->firstUnit(&iLoop); pUnit != NULL; pUnit = m_pPlayer->nextUnit(&iLoop))

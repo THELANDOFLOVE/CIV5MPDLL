@@ -1464,6 +1464,12 @@ protected:
 	LUAAPIEXTN(GetProvinceAutonomy, int, iProv);
 	LUAAPIEXTN(SetProvinceAutonomy, void, iProv, iValue);
 	LUAAPIEXTN(IsCapitalProvince, bool, iProv);
+	LUAAPIEXTN(GetNationalStrategy, int);
+	LUAAPIEXTN(SetNationalStrategy, void, iStrategy);
+	LUAAPIEXTN(GetProvinceChronicleCount, int);
+	LUAAPIEXTN(GetProvinceChronicleField, int, iIndex, iField);
+	LUAAPIEXTN(GetProvinceChronicleEventCount, int, iIndex);
+	LUAAPIEXTN(GetProvinceChronicleEventField, int, iIndex, iEvent, iField);
 	LUAAPIEXTN(GetProvinceQueueCount, int, iProv);
 	LUAAPIEXTN(GetProvinceQueueField, int, iProv, iIndex, iField);
 	LUAAPIEXTN(AddProvinceQueueItem, bool, iProv, iType, iTarget, iCount);
@@ -1488,6 +1494,7 @@ protected:
 	LUAAPIEXTN(OrderLevyRally, void, iX, iY);
 	LUAAPIEXTN(GetProvinceReportCount, int, iProv);
 	LUAAPIEXTN(GetProvinceReportField, int, iProv, iIndex, iField);
+	LUAAPIEXTN(AutoFillProvinceProduction, void);
 	LUAAPIEXTN(DepositProvinceTreasury, bool, iProv, iGold);
 	LUAAPIEXTN(SpendProvinceTreasury, bool, iProv, iGold);
 	LUAAPIEXTN(GetOfficialAdvicePost, int);

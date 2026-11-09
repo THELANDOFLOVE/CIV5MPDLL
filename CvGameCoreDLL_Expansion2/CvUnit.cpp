@@ -591,6 +591,10 @@ CvUnit::CvUnit() :
 	, m_eAutomateType("CvUnit::m_eAutomateType", m_syncArchive)
 	, m_iProvinceLevy("CvUnit::m_iProvinceLevy", m_syncArchive)
 	, m_iLevyTarget("CvUnit::m_iLevyTarget", m_syncArchive)
+	, m_iProvinceTask("CvUnit::m_iProvinceTask", m_syncArchive)
+	, m_iTaskProvince("CvUnit::m_iTaskProvince", m_syncArchive)
+	, m_iTaskPriority("CvUnit::m_iTaskPriority", m_syncArchive)
+	, m_iHomeProvince("CvUnit::m_iHomeProvince", m_syncArchive)
 	, m_eUnitAIType("CvUnit::m_eUnitAIType", m_syncArchive)
 	, m_thisHandle(this)
 	, m_bWaitingForMove(false)
@@ -1628,6 +1632,10 @@ if (MOD_API_UNIT_CANNOT_BE_RANGED_ATTACKED)
 	m_eAutomateType = NO_AUTOMATE;
 	m_iProvinceLevy = -1;
 	m_iLevyTarget = -1;
+	m_iProvinceTask = 0;      // PROVINCE_TASK_NONE
+	m_iTaskProvince = -1;
+	m_iTaskPriority = 0;
+	m_iHomeProvince = -1;
 
 	m_kLastPath.clear();
 	m_uiLastPathCacheDest = (uint)-1;
@@ -29729,6 +29737,63 @@ void CvUnit::SetLevyTarget(int iProvince)
 {
 	VALIDATE_OBJECT
 	m_iLevyTarget = iProvince;
+}
+
+
+//	--------------------------------------------------------------------------------
+int CvUnit::GetProvinceTask() const
+{
+	VALIDATE_OBJECT
+	return m_iProvinceTask;
+}
+
+//	--------------------------------------------------------------------------------
+void CvUnit::SetProvinceTask(int iTask)
+{
+	VALIDATE_OBJECT
+	m_iProvinceTask = iTask;
+}
+
+//	--------------------------------------------------------------------------------
+int CvUnit::GetTaskProvince() const
+{
+	VALIDATE_OBJECT
+	return m_iTaskProvince;
+}
+
+//	--------------------------------------------------------------------------------
+void CvUnit::SetTaskProvince(int iProv)
+{
+	VALIDATE_OBJECT
+	m_iTaskProvince = iProv;
+}
+
+//	--------------------------------------------------------------------------------
+int CvUnit::GetTaskPriority() const
+{
+	VALIDATE_OBJECT
+	return m_iTaskPriority;
+}
+
+//	--------------------------------------------------------------------------------
+void CvUnit::SetTaskPriority(int iPriority)
+{
+	VALIDATE_OBJECT
+	m_iTaskPriority = iPriority;
+}
+
+//	--------------------------------------------------------------------------------
+int CvUnit::GetHomeProvince() const
+{
+	VALIDATE_OBJECT
+	return m_iHomeProvince;
+}
+
+//	--------------------------------------------------------------------------------
+void CvUnit::SetHomeProvince(int iProv)
+{
+	VALIDATE_OBJECT
+	m_iHomeProvince = iProv;
 }
 
 

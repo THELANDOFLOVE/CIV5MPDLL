@@ -66,6 +66,10 @@ class CvPlayerTechs;
 class CvFlavorManager;
 class CvTacticalAI;
 class CvHomelandAI;
+class CvNationalMilitaryDispatcher;
+class CvProvinceProductionAI;
+class CvCentralTreasury;
+class CvProvinceChronicle;
 class CvMinorCivAI;
 class CvDealAI;
 class CvBuilderTaskingAI;
@@ -199,6 +203,7 @@ enum TiandaoChronicleType
 class CvPlayer : public CvGameObjectExtractable
 {
 	friend class CvPlayerPolicies;
+	friend class CvProvinceChronicle;
 
 public:
 	typedef std::map<unsigned int, int> TurnData;
@@ -2332,6 +2337,7 @@ public:
 	// Provinces (dao): cities grouped under three local officials.
 	int GetProvinceCount() const;
 	int GetProvinceField(int iProv, int iField) const;
+	void SetProvinceField(int iProv, int iField, int iValue);
 	bool CreateProvince(int iNameIndex);
 	bool SetCityProvince(int iCityID, int iProv);
 	int GetCityProvince(int iCityID) const;
@@ -2339,6 +2345,24 @@ public:
 	bool AppointProvinceOfficial(int iProv, int iPost, int iCandidate);
 	void DismissProvinceOfficial(int iProv, int iPost);
 	void DoProvinceTurn();
+	// Migrate old save data (loyalty -> ability)
+	void MigrateProvinceOfficialData();
+	// National Military Dispatcher accessor
+	CvNationalMilitaryDispatcher* GetNationalMilitaryDispatcher() const;
+	// Province Production AI accessor
+	CvProvinceProductionAI* GetProvinceProductionAI() const;
+	// Central Treasury accessor
+	CvCentralTreasury* GetCentralTreasury() const;
+	// Province Chronicle accessor
+	CvProvinceChronicle* GetProvinceChronicle() const;
+	// Chronicle query methods
+	int GetProvinceChronicleCount() const;
+	int GetProvinceChronicleField(int iIndex, int iField) const;
+	int GetProvinceChronicleEventCount(int iIndex) const;
+	int GetProvinceChronicleEventField(int iIndex, int iEvent, int iField) const;
+	// National strategy (affects all province AI decisions)
+	int GetNationalStrategy() const;
+	void SetNationalStrategy(int iStrategy);
 	// Province treasury: a share of local gold kept for provincial spending.
 	int GetProvinceTreasury(int iProv) const;
 	int GetProvinceTreasuryCap(int iProv) const;
@@ -2360,6 +2384,9 @@ public:
 	void DoProvinceQueueTurn();
 	void DoProvincePatrolTurn();
 	void DoProvinceDefenseTurn();
+	// Fill empty production queues of autonomous provinces so the turn can end.
+	void DoAutoProductionTurn();
+	void AutoFillProvinceProduction();
 	// Warn the player when a peaceful neighbour masses visible troops on the border.
 	void DoBackstabWarningTurn();
 	// Levied troops gathered at the capital engage enemies near it.
@@ -2368,9 +2395,11 @@ public:
 	int GetProvinceGarrisonTarget(int iProv) const;
 	// Province military mission: 1 = exterminate barbarians near a target plot.
 	int GetProvinceMissionField(int iProv, int iField) const;
+	void SetProvinceMissionState(int iProv, int iState);
 	void SetProvinceMission(int iProv, int iType, int iX, int iY, int iDeadline, bool bCrossBorder);
 	void ClearProvinceMission(int iProv);
 	void DoProvinceMissionTurn();
+	void DoAIProvinceMissionTurn();
 	// Levy: hand the province's garrison to the centre, or give it back.
 	int LevyProvinceGarrison(int iProv);
 	int LevyProvinceGarrisonUpTo(int iProv, int iCount, bool bMarchToBorder = false);
@@ -2386,6 +2415,9 @@ public:
 	int OrderLevyToProvince(int iProv);
 	void OrderLevyRally(int iX, int iY);
 	// Province report log: stride 1 count + 16 entries * (turn, type, a, b).
+	// Report type ids live in SQL as SUZERAIN_REPORT_* defines; the helper
+	// returns the configured value with a fallback for missing defines.
+	static int SuzerainReportType(const char* szName, int iDefault);
 	void AddProvinceReport(int iProv, int iType, int iA, int iB);
 	int GetProvinceReportCount(int iProv) const;
 	int GetProvinceReportField(int iProv, int iIndex, int iField) const;
@@ -3655,6 +3687,8 @@ protected:
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiProvinceBorder;
 	// Recent province report entries.
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiProvinceReport;
+	// Compiled province chronicle: stride CHRONICLE_STRIDE ints per entry.
+	FAutoVariable<std::vector<int>, CvPlayer> m_aiProvinceChronicle;
 	// Turn of the last backstab warning (cooldown).
 	FAutoVariable<int, CvPlayer> m_iLastBackstabWarnTurn;
 	// Production queue per province: stride is one count + slots * (type, target, count).
@@ -3669,6 +3703,8 @@ protected:
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiEmpireSnapshot;
 	// Global unhappiness percentage currently applied by justices.
 	FAutoVariable<int, CvPlayer> m_iProvinceUnhappinessMod;
+	// National strategy (0=balanced, 1=military, 2=economic, 3=cultural, 4=scientific)
+	FAutoVariable<int, CvPlayer> m_iNationalStrategy;
 	// Wars already counted as breaches (derived, rebuilt each turn; not serialized)
 	std::vector<int> m_aiVassalWarSeen;
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalBreachTurn;
@@ -4034,6 +4070,18 @@ protected:
 	// AI Tactics
 	CvTacticalAI* m_pTacticalAI;
 	CvHomelandAI* m_pHomelandAI;
+
+	// National Military Dispatcher (Tiandao Province System)
+	CvNationalMilitaryDispatcher* m_pNationalMilitaryDispatcher;
+
+	// Province Production AI (Tiandao Province System)
+	CvProvinceProductionAI* m_pProvinceProductionAI;
+
+	// Central Treasury (Tiandao Province System)
+	CvCentralTreasury* m_pCentralTreasury;
+
+	// Province Chronicle (Tiandao Province System)
+	CvProvinceChronicle* m_pProvinceChronicle;
 
 	// Techs
 	CvPlayerTechs* m_pPlayerTechs;

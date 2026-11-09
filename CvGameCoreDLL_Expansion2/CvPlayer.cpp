@@ -33,6 +33,10 @@
 #include "CvTechAI.h"
 #include "CvFlavorManager.h"
 #include "CvHomelandAI.h"
+#include "CvNationalMilitaryDispatcher.h"
+#include "CvProvinceProductionAI.h"
+#include "CvCentralTreasury.h"
+#include "CvProvinceChronicle.h"
 #include "CvMinorCivAI.h"
 #include "CvDealAI.h"
 #include "CvImprovementClasses.h"
@@ -455,12 +459,14 @@ CvPlayer::CvPlayer() :
 	, m_aiProvinceWar("CvPlayer::m_aiProvinceWar", m_syncArchive)
 	, m_aiProvinceBorder("CvPlayer::m_aiProvinceBorder", m_syncArchive)
 	, m_aiProvinceReport("CvPlayer::m_aiProvinceReport", m_syncArchive)
+	, m_aiProvinceChronicle("CvPlayer::m_aiProvinceChronicle", m_syncArchive)
 	, m_iLastBackstabWarnTurn("CvPlayer::m_iLastBackstabWarnTurn", m_syncArchive)
 	, m_aiProvinceQueue("CvPlayer::m_aiProvinceQueue", m_syncArchive)
 	, m_aiProvinceMission("CvPlayer::m_aiProvinceMission", m_syncArchive)
 	, m_aiChronicle("CvPlayer::m_aiChronicle", m_syncArchive)
 	, m_aiEmpireSnapshot("CvPlayer::m_aiEmpireSnapshot", m_syncArchive)
 	, m_iProvinceUnhappinessMod("CvPlayer::m_iProvinceUnhappinessMod", m_syncArchive)
+	, m_iNationalStrategy("CvPlayer::m_iNationalStrategy", m_syncArchive)
 	, m_iFavourBonusTurn("CvPlayer::m_iFavourBonusTurn", m_syncArchive)
 	, m_aiVassalBreachCount("CvPlayer::m_aiVassalBreachCount", m_syncArchive)
 	, m_aiVassalBreachTurn("CvPlayer::m_aiVassalBreachTurn", m_syncArchive)
@@ -698,6 +704,10 @@ CvPlayer::CvPlayer() :
 	m_pFlavorManager = FNEW(CvFlavorManager, c_eCiv5GameplayDLL, 0);
 	m_pTacticalAI = FNEW(CvTacticalAI, c_eCiv5GameplayDLL, 0);
 	m_pHomelandAI = FNEW(CvHomelandAI, c_eCiv5GameplayDLL, 0);
+	m_pNationalMilitaryDispatcher = FNEW(CvNationalMilitaryDispatcher, c_eCiv5GameplayDLL, 0);
+	m_pProvinceProductionAI = FNEW(CvProvinceProductionAI, c_eCiv5GameplayDLL, 0);
+	m_pCentralTreasury = FNEW(CvCentralTreasury, c_eCiv5GameplayDLL, 0);
+	m_pProvinceChronicle = FNEW(CvProvinceChronicle, c_eCiv5GameplayDLL, 0);
 	m_pMinorCivAI = FNEW(CvMinorCivAI, c_eCiv5GameplayDLL, 0);
 	m_pDealAI = FNEW(CvDealAI, c_eCiv5GameplayDLL, 0);
 	m_pBuilderTaskingAI = FNEW(CvBuilderTaskingAI, c_eCiv5GameplayDLL, 0);
@@ -757,6 +767,10 @@ CvPlayer::~CvPlayer()
 	delete m_pFlavorManager;
 	delete m_pTacticalAI;
 	delete m_pHomelandAI;
+	delete m_pNationalMilitaryDispatcher;
+	delete m_pProvinceProductionAI;
+	delete m_pCentralTreasury;
+	delete m_pProvinceChronicle;
 	delete m_pMinorCivAI;
 	delete m_pDealAI;
 	delete m_pBuilderTaskingAI;
@@ -1007,6 +1021,22 @@ void CvPlayer::uninit()
 	m_pFlavorManager->Uninit();
 	m_pTacticalAI->Uninit();
 	m_pHomelandAI->Uninit();
+	if (m_pNationalMilitaryDispatcher != NULL)
+	{
+		m_pNationalMilitaryDispatcher->Uninit();
+	}
+	if (m_pProvinceProductionAI != NULL)
+	{
+		m_pProvinceProductionAI->Uninit();
+	}
+	if (m_pCentralTreasury != NULL)
+	{
+		m_pCentralTreasury->Uninit();
+	}
+	if (m_pProvinceChronicle != NULL)
+	{
+		m_pProvinceChronicle->Uninit();
+	}
 	m_pMinorCivAI->Uninit();
 	m_pDealAI->Uninit();
 	m_pBuilderTaskingAI->Uninit();
@@ -1400,12 +1430,14 @@ void CvPlayer::uninit()
 	m_aiProvinceWar.clear();
 	m_aiProvinceBorder.clear();
 	m_aiProvinceReport.clear();
+	m_aiProvinceChronicle.clear();
 	m_iLastBackstabWarnTurn = 0;
 	m_aiProvinceQueue.clear();
 	m_aiProvinceMission.clear();
 	m_aiChronicle.clear();
 	m_aiEmpireSnapshot.clear();
 	m_iProvinceUnhappinessMod = 0;
+	m_iNationalStrategy = 0; // NATIONAL_STRATEGY_BALANCED
 	m_iOfficialExamStart = -1;
 	m_iOfficialExamTurn = 0;
 	m_iEmpress = -1;
@@ -1894,6 +1926,22 @@ void CvPlayer::reset(PlayerTypes eID, bool bConstructorCall)
 		m_pPlayerPolicies->Init(GC.GetGamePolicies(), this, false);
 		m_pTacticalAI->Init(this);
 		m_pHomelandAI->Init(this);
+		if (m_pNationalMilitaryDispatcher != NULL)
+		{
+			m_pNationalMilitaryDispatcher->Init(this);
+		}
+		if (m_pProvinceProductionAI != NULL)
+		{
+			m_pProvinceProductionAI->Init(this);
+		}
+		if (m_pCentralTreasury != NULL)
+		{
+			m_pCentralTreasury->Init(this);
+		}
+		if (m_pProvinceChronicle != NULL)
+		{
+			m_pProvinceChronicle->Init(this);
+		}
 		m_pMinorCivAI->Init(this);
 		m_pDealAI->Init(this);
 		m_pBuilderTaskingAI->Init(this);
@@ -23120,6 +23168,12 @@ void CvPlayer::setAlive(bool bNewValue, bool bNotify)
 
 			GET_TEAM(getTeam()).SetKilledByTeam(NO_TEAM);
 
+			// Migrate province official data (Phase 6)
+			if (GC.getGame().getGameTurn() > 0)
+			{
+				MigrateProvinceOfficialData();
+			}
+
 			if(isSimultaneousTurns() || (GC.getGame().getNumGameTurnActive() == 0) || (GC.getGame().isSimultaneousTeamTurns() && GET_TEAM(getTeam()).isTurnActive()))
 			{
 				setTurnActive(true);
@@ -31646,6 +31700,7 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ_VECTOR(168, kStream, m_aiProvinceWar, 0, 0);
 		MOD_SERIALIZE_READ_VECTOR(168, kStream, m_aiProvinceBorder, 0, 0);
 		MOD_SERIALIZE_READ_VECTOR(168, kStream, m_aiProvinceReport, 0, 0);
+		MOD_SERIALIZE_READ_VECTOR(168, kStream, m_aiProvinceChronicle, 0, 0);
 		MOD_SERIALIZE_READ_VECTOR(168, kStream, m_aiProvinceQueue, 0, 0);
 		MOD_SERIALIZE_READ_VECTOR(168, kStream, m_aiProvinceMission, 0, 0);
 		MOD_SERIALIZE_READ(168, kStream, m_iProvinceUnhappinessMod, 0);
@@ -32667,6 +32722,7 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiProvinceWar);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiProvinceBorder);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiProvinceReport);
+	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiProvinceChronicle);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiProvinceQueue);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiProvinceMission);
 	MOD_SERIALIZE_WRITE(kStream, m_iProvinceUnhappinessMod);
@@ -36702,7 +36758,7 @@ bool CvPlayer::DismissOfficial(int iPost)
 	if (iName > 0)
 	{
 		int iMax = SuzerainDefineInt("SUZERAIN_OFFICIAL_CANDIDATE_MAX");
-		if (iMax > 0 && GetOfficialCandidateCount() < iMax)
+		if (iMax <= 0 || GetOfficialCandidateCount() < iMax)
 		{
 			std::vector<int> v = m_aiOfficialCandidates;
 			for (int f = 0; f < 4; f++)
@@ -36784,6 +36840,14 @@ int CvPlayer::GetProvinceField(int iProv, int iField) const
 	return m_aiProvinces[iProv * 13 + iField];
 }
 
+void CvPlayer::SetProvinceField(int iProv, int iField, int iValue)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (iProv < 0 || iProv >= GetProvinceCount()) return;
+	if (iField < 0 || iField >= 13) return;
+	m_aiProvinces.setAt((size_t)iProv * 13 + iField, iValue);
+}
+
 bool CvPlayer::CreateProvince(int iNameIndex)
 {
 	if (!MOD_GLOBAL_SUZERAIN) return false;
@@ -36852,7 +36916,23 @@ bool CvPlayer::AppointProvinceOfficial(int iProv, int iPost, int iCandidate)
 	int iBase = iProv * 13 + 1 + iPost * 4;
 	for (int f = 0; f < 4; f++)
 		m_aiProvinces.setAt((size_t)(iBase + f), GetOfficialCandidateField(iCandidate, f));
+
+	// Consume the candidate, as the central appointment does, so one person
+	// cannot hold several posts at the same time.
+	std::vector<int> vCandidates;
+	int iCount = GetOfficialCandidateCount();
+	for (int i = 0; i < iCount; i++)
+	{
+		if (i == iCandidate) continue;
+		for (int f = 0; f < 4; f++)
+			vCandidates.push_back(GetOfficialCandidateField(i, f));
+	}
+	m_aiOfficialCandidates = vCandidates;
+	if (m_iOfficialExamStart > iCandidate)
+		m_iOfficialExamStart = m_iOfficialExamStart - 1;
+
 	AddChronicle(CHRONICLE_PROVINCE_APPOINT, iProv, iPost, GetProvinceField(iProv, 1 + iPost * 4));
+	AddProvinceReport(iProv, SuzerainReportType("SUZERAIN_REPORT_OFFICIAL_APPOINTED", 13), iPost, 0);
 	return true;
 }
 
@@ -36862,6 +36942,21 @@ void CvPlayer::DismissProvinceOfficial(int iProv, int iPost)
 	if (iProv < 0 || iProv >= GetProvinceCount()) return;
 	if (iPost < 0 || iPost >= 3) return;
 	int iBase = iProv * 13 + 1 + iPost * 4;
+
+	// A dismissed province official returns to the candidate pool, matching
+	// the central appointment rules.
+	if (GetProvinceField(iProv, 1 + iPost * 4) > 0)
+	{
+		int iMax = SuzerainDefineInt("SUZERAIN_OFFICIAL_CANDIDATE_MAX");
+		if (iMax <= 0 || GetOfficialCandidateCount() < iMax)
+		{
+			std::vector<int> v = m_aiOfficialCandidates;
+			for (int f = 0; f < 4; f++)
+				v.push_back(GetProvinceField(iProv, 1 + iPost * 4 + f));
+			m_aiOfficialCandidates = v;
+		}
+	}
+
 	AddChronicle(CHRONICLE_PROVINCE_DISMISS, iProv, iPost, 0);
 	for (int f = 0; f < 4; f++)
 		m_aiProvinces.setAt((size_t)(iBase + f), 0);
@@ -36869,6 +36964,132 @@ void CvPlayer::DismissProvinceOfficial(int iProv, int iPost)
 
 //--------------------------------------------------------------------------------
 // Daily provincial yield: governor gold, garrison mandate, justice calm.
+//	--------------------------------------------------------------------------------
+// Migrate old save data: convert loyalty (50-100) to ability (0-5)
+void CvPlayer::MigrateProvinceOfficialData()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+
+	int iProvinceCount = GetProvinceCount();
+	for (int iProv = 0; iProv < iProvinceCount; iProv++)
+	{
+		for (int iPost = 0; iPost < 3; iPost++)
+		{
+			int iFieldIndex = 2 + iPost * 4;
+			int iValue = GetProvinceField(iProv, iFieldIndex);
+
+			// If value is 50-100, it's old "loyalty" data
+			if (iValue >= 50 && iValue <= 100)
+			{
+				// Convert to ability (0-5 stars)
+				int iAbility = 0;
+				if (iValue >= 90) iAbility = 5;
+				else if (iValue >= 80) iAbility = 4;
+				else if (iValue >= 70) iAbility = 3;
+				else if (iValue >= 60) iAbility = 2;
+				else iAbility = 1;
+
+				// Write back
+				SetProvinceField(iProv, iFieldIndex, iAbility);
+			}
+			// If value is 0-5, it's already new "ability" data
+			else if (iValue >= 0 && iValue <= 5)
+			{
+				// No conversion needed
+			}
+			// Invalid value, set to default 3 stars
+			else
+			{
+				SetProvinceField(iProv, iFieldIndex, 3);
+			}
+		}
+	}
+}
+
+//	--------------------------------------------------------------------------------
+CvNationalMilitaryDispatcher* CvPlayer::GetNationalMilitaryDispatcher() const
+{
+	return m_pNationalMilitaryDispatcher;
+}
+
+//	--------------------------------------------------------------------------------
+CvProvinceProductionAI* CvPlayer::GetProvinceProductionAI() const
+{
+	return m_pProvinceProductionAI;
+}
+
+//	--------------------------------------------------------------------------------
+CvCentralTreasury* CvPlayer::GetCentralTreasury() const
+{
+	return m_pCentralTreasury;
+}
+
+//	--------------------------------------------------------------------------------
+CvProvinceChronicle* CvPlayer::GetProvinceChronicle() const
+{
+	return m_pProvinceChronicle;
+}
+
+//	--------------------------------------------------------------------------------
+int CvPlayer::GetProvinceChronicleCount() const
+{
+	return (int)(m_aiProvinceChronicle.size() / CHRONICLE_STRIDE);
+}
+
+//	--------------------------------------------------------------------------------
+int CvPlayer::GetProvinceChronicleField(int iIndex, int iField) const
+{
+	if (iIndex < 0 || iField < 0 || iField >= CHRONICLE_FIELD_EVENT_COUNT) return 0;
+	size_t iBase = (size_t)iIndex * CHRONICLE_STRIDE;
+	if (iBase + CHRONICLE_STRIDE > m_aiProvinceChronicle.size()) return 0;
+	return m_aiProvinceChronicle[iBase + iField];
+}
+
+//	--------------------------------------------------------------------------------
+int CvPlayer::GetProvinceChronicleEventCount(int iIndex) const
+{
+	if (iIndex < 0) return 0;
+	size_t iBase = (size_t)iIndex * CHRONICLE_STRIDE;
+	if (iBase + CHRONICLE_STRIDE > m_aiProvinceChronicle.size()) return 0;
+	return m_aiProvinceChronicle[iBase + CHRONICLE_FIELD_EVENT_COUNT];
+}
+
+//	--------------------------------------------------------------------------------
+int CvPlayer::GetProvinceChronicleEventField(int iIndex, int iEvent, int iField) const
+{
+	if (iIndex < 0 || iEvent < 0 || iField < 0 || iField >= CHRONICLE_EVENT_STRIDE) return 0;
+	size_t iBase = (size_t)iIndex * CHRONICLE_STRIDE;
+	if (iBase + CHRONICLE_STRIDE > m_aiProvinceChronicle.size()) return 0;
+	int iCount = m_aiProvinceChronicle[iBase + CHRONICLE_FIELD_EVENT_COUNT];
+	if (iEvent >= iCount) return 0;
+	return m_aiProvinceChronicle[iBase + CHRONICLE_FIELD_EVENTS + iEvent * CHRONICLE_EVENT_STRIDE + iField];
+}
+
+//	--------------------------------------------------------------------------------
+int CvPlayer::GetNationalStrategy() const
+{
+	return m_iNationalStrategy;
+}
+
+//	--------------------------------------------------------------------------------
+void CvPlayer::SetNationalStrategy(int iStrategy)
+{
+	if (iStrategy < 0 || iStrategy > 4) return;
+	int iOld = m_iNationalStrategy;
+	m_iNationalStrategy = iStrategy;
+
+	// Log strategy change: type 12, A = old strategy, B = new strategy
+	CvCity* pCapital = getCapitalCity();
+	if (iOld != iStrategy && pCapital != NULL && GetProvinceCount() > 0)
+	{
+		int iCapitalProvince = GetCityProvince(pCapital->GetID());
+		if (iCapitalProvince >= 0)
+			AddProvinceReport(iCapitalProvince,
+				SuzerainReportType("SUZERAIN_REPORT_STRATEGY_CHANGED", 12), iOld, iStrategy);
+	}
+}
+
+//	--------------------------------------------------------------------------------
 void CvPlayer::DoProvinceTurn()
 {
 	if (!MOD_GLOBAL_SUZERAIN) return;
@@ -36879,10 +37100,11 @@ void CvPlayer::DoProvinceTurn()
 		m_iProvinceUnhappinessMod = 0;
 	}
 
-	// AI overlords found a province once enough cities sit outside one, then
-	// assign a bounded batch. One province per turn keeps the map readable
-	// and avoids a single session swallowing every city.
-	if (!isHuman())
+	// Found a province once enough cities sit outside one, then assign a
+	// bounded batch. One province per turn keeps the map readable and avoids
+	// a single session swallowing every city. Human players opt in via SQL so
+	// they can leave autonomous provinces to develop on their own.
+	if (!isHuman() || SuzerainDefineInt("SUZERAIN_AUTO_CREATE_PROVINCE_HUMAN") > 0)
 	{
 		int iNameMax = SuzerainDefineInt("SUZERAIN_PROVINCE_MAX");
 		int iCityMin = SuzerainDefineInt("SUZERAIN_AI_PROVINCE_CITY_MIN");
@@ -36933,7 +37155,8 @@ void CvPlayer::DoProvinceTurn()
 	// AI overlords staff every vacant provincial post with the ablest candidate
 	// already in the pool, and replace an incumbent when the pool clearly
 	// offers a better man. Appointing costs no gold either way.
-	if (!isHuman() && GetOfficialCandidateCount() > 0)
+	if ((!isHuman() || SuzerainDefineInt("SUZERAIN_AUTO_APPOINT_OFFICIALS_HUMAN") > 0)
+		&& GetOfficialCandidateCount() > 0)
 	{
 		int iMargin = SuzerainDefineInt("SUZERAIN_AI_OFFICIAL_UPGRADE_MARGIN");
 
@@ -36982,14 +37205,21 @@ void CvPlayer::DoProvinceTurn()
 		int iJusticeAbility = GetProvinceField(p, 6);
 		int iGarrisonAbility = GetProvinceField(p, 10);
 
+		// New ability-based efficiency formula (Phase 6)
+		// Ability ranges from 0-5, efficiency from 50%-100%
+		// No negative penalty, only positive bonus
+		float fGovEfficiency = 0.5f + (iGovernorAbility * 0.1f);
+		float fJusEfficiency = 0.5f + (iJusticeAbility * 0.1f);
+		float fGarEfficiency = 0.5f + (iGarrisonAbility * 0.1f);
+
 		if (iGovernorAbility > 0 && iGoldPer > 0)
-			GetTreasury()->ChangeGold(iGovernorAbility * iCities * iGoldPer);
+			GetTreasury()->ChangeGold((int)(iGovernorAbility * iCities * iGoldPer * fGovEfficiency));
 		if (iGarrisonAbility > 0 && iMandateDiv > 0)
-			ChangeMandate(iGarrisonAbility * iCities / iMandateDiv);
+			ChangeMandate((int)(iGarrisonAbility * iCities * fGarEfficiency / iMandateDiv));
 		// One justice reduces unhappiness by its ability alone; provinces do not
 		// multiply it, and the total is capped below.
 		if (iJusticeAbility > 0 && iUnhappyPer > 0)
-			iUnhappyTotal += iJusticeAbility * iUnhappyPer;
+			iUnhappyTotal += (int)(iJusticeAbility * iUnhappyPer * fJusEfficiency);
 	}
 
 	int iUnhappyCap = SuzerainDefineInt("SUZERAIN_PROVINCE_UNHAPPINESS_CAP");
@@ -37003,11 +37233,62 @@ void CvPlayer::DoProvinceTurn()
 	}
 
 	DoProvinceWarTurn();
-	DoProvinceMissionTurn();
-	DoProvinceDefenseTurn();
-	DoProvincePatrolTurn();
-	DoLevyDefenseTurn();
+
+	// AI provinces raise their own raid missions before dispatch
+	DoAIProvinceMissionTurn();
+
+	// Unified military dispatcher: sole owner of garrison unit orders
+	if (m_pNationalMilitaryDispatcher != NULL && MOD_GLOBAL_SUZERAIN)
+	{
+		m_pNationalMilitaryDispatcher->DoTurn();
+	}
+
+	// Patrol and levy defence are folded into the dispatcher; keep them off so
+	// two systems do not fight over the same unit.
+	// DoProvinceMissionTurn();
+	// DoProvinceDefenseTurn();
+	// DoProvincePatrolTurn();
+	// DoLevyDefenseTurn();
+
+	DoAutoProductionTurn();
 	DoBackstabWarningTurn();
+}
+
+//--------------------------------------------------------------------------------
+// Civ5 blocks the end of a turn while any city has an empty production queue.
+// Only autonomous provinces are filled here: the capital and directly ruled
+// provinces stay under the player's hand.
+void CvPlayer::AutoFillProvinceProduction()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (!isHuman()) return;
+	if (SuzerainDefineInt("SUZERAIN_AUTO_FILL_PRODUCTION") <= 0) return;
+
+	int iLoop = 0;
+	for (CvCity* pCity = firstCity(&iLoop); pCity != NULL; pCity = nextCity(&iLoop))
+	{
+		const int iProv = GetCityProvince(pCity->GetID());
+		if (iProv < 0 || iProv >= GetProvinceCount()) continue;
+		if (IsCapitalProvince(iProv)) continue;
+		if (GetProvinceAutonomy(iProv) < 1) continue;
+		if (pCity->getOrderQueueLength() > 0) continue;
+
+		// Use new Province Production AI instead of generic AI_chooseProduction
+		if (m_pProvinceProductionAI != NULL)
+		{
+			m_pProvinceProductionAI->ChooseProduction(iProv, pCity);
+		}
+		else
+		{
+			// Fallback to old system
+			pCity->AI_chooseProduction(false);
+		}
+	}
+}
+
+void CvPlayer::DoAutoProductionTurn()
+{
+	AutoFillProvinceProduction();
 }
 
 //--------------------------------------------------------------------------------
@@ -37081,7 +37362,7 @@ void CvPlayer::DoProvinceDefenseTurn()
 			if (pUnit->getDomainType() != DOMAIN_LAND) continue;
 			if (pUnit->GetProvinceLevy() >= 0) continue;
 			if (pUnit->IsAutomated()) continue;
-			if (pUnit->GetActivityType() != ACTIVITY_AWAKE) continue;
+			if (pUnit->GetActivityType() == ACTIVITY_MISSION) continue;
 			if (!pUnit->canMove()) continue;
 
 			CvCity* pNearest = NULL;
@@ -37231,7 +37512,7 @@ void CvPlayer::DoLevyDefenseTurn()
 		if (pUnit->getDomainType() != DOMAIN_LAND) continue;
 		if (pUnit->GetProvinceLevy() < 0) continue;
 		if (pUnit->IsAutomated()) continue;
-		if (pUnit->GetActivityType() != ACTIVITY_AWAKE) continue;
+		if (pUnit->GetActivityType() == ACTIVITY_MISSION) continue;
 		if (!pUnit->canMove()) continue;
 
 		// Only levied troops stationed near the capital answer.
@@ -37281,7 +37562,7 @@ void CvPlayer::DoProvincePatrolTurn()
 			if (!pUnit->IsCombatUnit()) continue;
 			if (pUnit->GetProvinceLevy() >= 0) continue;
 			if (pUnit->IsAutomated()) continue;
-			if (pUnit->GetActivityType() != ACTIVITY_AWAKE) continue;
+			if (pUnit->GetActivityType() == ACTIVITY_MISSION) continue;
 			if (!pUnit->canMove()) continue;
 
 			// The unit belongs to the province of its nearest city.
@@ -37411,7 +37692,7 @@ int CvPlayer::LevyProvinceGarrison(int iProv)
 		iCount++;
 	}
 	if (iCount > 0)
-		AddProvinceReport(iProv, 3, iCount, 0);
+		AddProvinceReport(iProv, SuzerainReportType("SUZERAIN_REPORT_LEVY", 3), iCount, 0);
 	return iCount;
 }
 
@@ -37462,7 +37743,7 @@ int CvPlayer::LevyProvinceGarrisonUpTo(int iProv, int iCount, bool bMarchToBorde
 		if (pUnit->IsDead()) continue;
 		if (!pUnit->IsCombatUnit()) continue;
 		if (pUnit->GetProvinceLevy() >= 0) continue;
-		if (pUnit->GetActivityType() != ACTIVITY_AWAKE) continue;
+		if (pUnit->GetActivityType() == ACTIVITY_MISSION) continue;
 
 		CvCity* pNearest = NULL;
 		int iBest = INT_MAX;
@@ -37615,7 +37896,9 @@ void CvPlayer::DoProvinceWarTurn()
 		if (bWar != (iOld > 0))
 		{
 			SetProvinceWar(p, bWar ? 1 : 0);
-			AddProvinceReport(p, bWar ? 1 : 2, 0, 0);
+			AddProvinceReport(p, bWar
+				? SuzerainReportType("SUZERAIN_REPORT_WAR_ON", 1)
+				: SuzerainReportType("SUZERAIN_REPORT_WAR_OFF", 2), 0, 0);
 		}
 
 		// Warn the player the first time a province comes under threat.
@@ -37697,7 +37980,7 @@ int CvPlayer::OrderLevyToProvince(int iProv)
 		iCount++;
 	}
 	if (iCount > 0)
-		AddProvinceReport(iProv, 4, iCount, 0);
+		AddProvinceReport(iProv, SuzerainReportType("SUZERAIN_REPORT_RECALL", 4), iCount, 0);
 	return iCount;
 }
 
@@ -37705,6 +37988,12 @@ int CvPlayer::OrderLevyToProvince(int iProv)
 // Province report log, kept for the whole game. Entries are stored flat:
 // province, turn, type, a, b — five ints each, in chronological order.
 static const int PROVINCE_REPORT_STRIDE = 5;
+
+int CvPlayer::SuzerainReportType(const char* szName, int iDefault)
+{
+	int iValue = GC.getDefineINT(szName, false);
+	return iValue > 0 ? iValue : iDefault;
+}
 
 void CvPlayer::AddProvinceReport(int iProv, int iType, int iA, int iB)
 {
@@ -37765,6 +38054,10 @@ void CvPlayer::OrderLevyRally(int iX, int iY)
 	{
 		if (pUnit->IsDead()) continue;
 		if (pUnit->GetProvinceLevy() < 0) continue;
+
+		// Bug fix: don't interrupt units that are already on a mission
+		if (pUnit->GetLengthMissionQueue() > 0) continue;
+
 		pUnit->SetLevyTarget(-1);
 		pUnit->PushMission(CvTypes::getMISSION_MOVE_TO(), iX, iY);
 	}
@@ -37783,7 +38076,7 @@ bool CvPlayer::LevyProvinceUnitTo(int iSourceProv, int iTargetProv)
 		if (pUnit->IsDead()) continue;
 		if (!pUnit->IsCombatUnit()) continue;
 		if (pUnit->GetProvinceLevy() >= 0) continue;
-		if (pUnit->GetActivityType() != ACTIVITY_AWAKE) continue;
+		if (pUnit->GetActivityType() == ACTIVITY_MISSION) continue;
 
 		CvCity* pNearest = NULL;
 		int iBest = INT_MAX;
@@ -37929,6 +38222,16 @@ void CvPlayer::SetProvinceMission(int iProv, int iType, int iX, int iY, int iDea
 	m_aiProvinceMission.setAt(iBase + 7, 0);
 }
 
+void CvPlayer::SetProvinceMissionState(int iProv, int iState)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	if (iProv < 0 || iProv >= GetProvinceCount()) return;
+
+	size_t iBase = (size_t)iProv * 8;
+	if (iBase + 4 >= m_aiProvinceMission.size()) return;
+	m_aiProvinceMission.setAt(iBase + 4, iState);
+}
+
 void CvPlayer::ClearProvinceMission(int iProv)
 {
 	if (!MOD_GLOBAL_SUZERAIN) return;
@@ -37938,6 +38241,84 @@ void CvPlayer::ClearProvinceMission(int iProv)
 	if (iBase >= m_aiProvinceMission.size()) return;
 	for (int i = 0; i < 8; i++)
 		m_aiProvinceMission.setAt(iBase + i, 0);
+}
+
+// AI provinces raise their own extermination missions when barbarians or camps
+// sit near a provincial centre. Without this the unified dispatcher would never
+// see a raid task for AI players, because only the human UI sets missions.
+void CvPlayer::DoAIProvinceMissionTurn()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	// Human players may opt in so autonomous provinces hunt barbarians on
+	// their own instead of waiting for a manual order.
+	if (isHuman() && SuzerainDefineInt("SUZERAIN_AUTO_RAID_MISSIONS_HUMAN") <= 0) return;
+
+	int iRadius = SuzerainDefineInt("SUZERAIN_PROVINCE_RAID_RADIUS");
+	if (iRadius <= 0) return;
+
+	int iDeadlineTurns = SuzerainDefineInt("SUZERAIN_AI_RAID_DEADLINE_TURNS");
+	if (iDeadlineTurns <= 0) iDeadlineTurns = 20;
+
+	for (int p = 0; p < GetProvinceCount(); p++)
+	{
+		if (IsCapitalProvince(p)) continue;
+		if (GetProvinceAutonomy(p) < 1) continue;
+		if (GetProvinceMissionField(p, 0) != 0) continue; // a mission is already running
+
+		// Province centre: the most populous city of the province.
+		CvCity* pCentre = NULL;
+		int iBestPop = -1;
+		int iCityLoop = 0;
+		for (CvCity* pCity = firstCity(&iCityLoop); pCity != NULL; pCity = nextCity(&iCityLoop))
+		{
+			if (GetCityProvince(pCity->GetID()) != p) continue;
+			if (pCity->getPopulation() > iBestPop)
+			{
+				iBestPop = pCity->getPopulation();
+				pCentre = pCity;
+			}
+		}
+		if (pCentre == NULL) continue;
+
+		// Nearest barbarian unit, then nearest camp, inside the raid radius.
+		CvPlot* pTarget = NULL;
+		int iBestDistance = INT_MAX;
+		CvPlayer& kBarb = GET_PLAYER(BARBARIAN_PLAYER);
+		int iBarbLoop = 0;
+		for (CvUnit* pBarb = kBarb.firstUnit(&iBarbLoop); pBarb != NULL; pBarb = kBarb.nextUnit(&iBarbLoop))
+		{
+			if (pBarb->IsDead()) continue;
+			int iDistance = plotDistance(pCentre->getX(), pCentre->getY(), pBarb->getX(), pBarb->getY());
+			if (iDistance <= iRadius && iDistance < iBestDistance)
+			{
+				iBestDistance = iDistance;
+				pTarget = pBarb->plot();
+			}
+		}
+
+		if (pTarget == NULL)
+		{
+			for (int dx = -iRadius; dx <= iRadius && pTarget == NULL; dx++)
+			{
+				for (int dy = -iRadius; dy <= iRadius; dy++)
+				{
+					CvPlot* pPlot = GC.getMap().plot(pCentre->getX() + dx, pCentre->getY() + dy);
+					if (pPlot == NULL) continue;
+					if (pPlot->HasBarbarianCamp())
+					{
+						pTarget = pPlot;
+						break;
+					}
+				}
+			}
+		}
+
+		if (pTarget == NULL) continue;
+
+		bool bCrossBorder = (pTarget->getOwner() != GetID());
+		SetProvinceMission(p, 1, pTarget->getX(), pTarget->getY(),
+			GC.getGame().getGameTurn() + iDeadlineTurns, bCrossBorder);
+	}
 }
 
 void CvPlayer::DoProvinceMissionTurn()
@@ -37967,7 +38348,7 @@ void CvPlayer::DoProvinceMissionTurn()
 		if (iDeadline > 0 && iTurn > iDeadline)
 		{
 			m_aiProvinceMission.setAt((size_t)p * 8 + 4, 3);
-			AddProvinceReport(p, 6, 0, 0); // raid failed / expired
+			AddProvinceReport(p, SuzerainReportType("SUZERAIN_REPORT_RAID_FAILED", 6), 0, 0); // raid failed / expired
 			continue;
 		}
 
@@ -38011,7 +38392,7 @@ void CvPlayer::DoProvinceMissionTurn()
 		{
 			// Nothing left to hunt: the mission is complete.
 			m_aiProvinceMission.setAt((size_t)p * 8 + 4, 2);
-			AddProvinceReport(p, 5, 0, 0); // raid complete
+			AddProvinceReport(p, SuzerainReportType("SUZERAIN_REPORT_RAID_DONE", 5), 0, 0); // raid complete
 			continue;
 		}
 
@@ -38034,7 +38415,7 @@ void CvPlayer::DoProvinceMissionTurn()
 			if (pUnit->GetProvinceLevy() >= 0) continue;
 			if (pUnit->getDomainType() != DOMAIN_LAND) continue;
 			if (pUnit->IsAutomated()) continue;
-			if (pUnit->GetActivityType() != ACTIVITY_AWAKE) continue;
+			if (pUnit->GetActivityType() == ACTIVITY_MISSION) continue;
 			if (!pUnit->canMove()) continue;
 
 			// Only units whose nearest city belongs to this province.
@@ -38379,6 +38760,18 @@ void CvPlayer::DoProvinceTreasuryTurn()
 		GetTreasury()->ChangeGold(-iKeep);
 		ChangeProvinceTreasury(p, iKeep);
 	}
+
+	// Run central treasury for resource allocation
+	if (m_pCentralTreasury != NULL)
+	{
+		m_pCentralTreasury->DoTurn();
+	}
+
+	// Run province chronicle system
+	if (m_pProvinceChronicle != NULL)
+	{
+		m_pProvinceChronicle->DoTurn();
+	}
 }
 
 //--------------------------------------------------------------------------------
@@ -38504,7 +38897,7 @@ void CvPlayer::DoProvinceBuildTurn()
 					&& pCity->IsCanPurchase(true, true, eUnit, eBuilding, eProject, YIELD_GOLD))
 				{
 					pCity->Purchase(eUnit, eBuilding, eProject, YIELD_GOLD);
-					AddProvinceReport(p, 7, iCost, 0);
+					AddProvinceReport(p, SuzerainReportType("SUZERAIN_REPORT_BUY", 7), iCost, 0);
 					iTreasury = GetProvinceTreasury(p);
 				}
 				continue;
@@ -40614,18 +41007,25 @@ void CvPlayer::DoDaoTurn()
 	if (!MOD_GLOBAL_SUZERAIN) return;
 
 	// Observatory: +1 dao point each court session while a city has one.
+	// Observatory: +1 dao point per court session if any city has the building.
 	if (IsVassalCourtTurn() && HasAnyVassal())
 	{
-		BuildingTypes eObs = (BuildingTypes)GC.getInfoTypeForString("BUILDING_TIANDAO_OBSERVATORY", true);
-		if (eObs != NO_BUILDING)
+		CvString sBuildingType = GC.getDefineSTRING("SUZERAIN_OBSERVATORY_BUILDING", false);
+		if (!sBuildingType.empty())
 		{
-			int iLoop = 0;
-			for (CvCity* pCity = firstCity(&iLoop); pCity != NULL; pCity = nextCity(&iLoop))
+			BuildingTypes eObs = (BuildingTypes)GC.getInfoTypeForString(sBuildingType.c_str(), true);
+			if (eObs != NO_BUILDING)
 			{
-				if (pCity->GetCityBuildings()->GetNumBuilding(eObs) > 0)
+				int iLoop = 0;
+				for (CvCity* pCity = firstCity(&iLoop); pCity != NULL; pCity = nextCity(&iLoop))
 				{
-					ChangeDaoPoints(1);
-					break;
+					if (pCity->GetCityBuildings()->GetNumBuilding(eObs) > 0)
+					{
+						int iDaoPoints = GC.getDefineINT("SUZERAIN_OBSERVATORY_DAO_PER_COURT", false);
+						if (iDaoPoints > 0)
+							ChangeDaoPoints(iDaoPoints);
+						break;
+					}
 				}
 			}
 		}

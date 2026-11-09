@@ -364,6 +364,10 @@
     <ClCompile Include="Lua\CvLuaTeam.cpp" />
     <ClCompile Include="Lua\CvLuaTeamTech.cpp" />
     <ClCompile Include="Lua\CvLuaUnit.cpp" />
+    <ClCompile Include="CvNationalMilitaryDispatcher.cpp" />
+    <ClCompile Include="CvProvinceProductionAI.cpp" />
+    <ClCompile Include="CvCentralTreasury.cpp" />
+    <ClCompile Include="CvProvinceChronicle.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\CvGameCoreDLLUtil\include\CustomModsGlobal.h" />
@@ -643,6 +647,10 @@
     <ClInclude Include="Lua\CvLuaTeam.h" />
     <ClInclude Include="Lua\CvLuaTeamTech.h" />
     <ClInclude Include="Lua\CvLuaUnit.h" />
+    <ClInclude Include="CvNationalMilitaryDispatcher.h" />
+    <ClInclude Include="CvProvinceProductionAI.h" />
+    <ClInclude Include="CvCentralTreasury.h" />
+    <ClInclude Include="CvProvinceChronicle.h" />
     <ClInclude Include="StackWalker.h" />
   </ItemGroup>
   <ItemGroup>

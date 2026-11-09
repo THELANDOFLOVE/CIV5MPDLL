@@ -14613,15 +14613,23 @@ int CvCity::getBaseYieldRate(YieldTypes eIndex, const bool bIgnoreFromOtherYield
 #endif
 
 #if defined(MOD_GLOBAL_SUZERAIN)
-	// Observatory: each vassal adds +1 science in a city that has one.
+	// Observatory: each vassal adds science in a city that has one.
 	if (MOD_GLOBAL_SUZERAIN && eIndex == YIELD_SCIENCE)
 	{
-		BuildingTypes eObs = (BuildingTypes)GC.getInfoTypeForString("BUILDING_TIANDAO_OBSERVATORY", true);
-		if (eObs != NO_BUILDING && GetCityBuildings()->GetNumBuilding(eObs) > 0)
+		CvString sBuildingType = GC.getDefineSTRING("SUZERAIN_OBSERVATORY_BUILDING", false);
+		if (!sBuildingType.empty())
 		{
-			int iVassals = (int)GET_PLAYER(getOwner()).GetVassals().size();
-			if (iVassals > 0)
-				iValue += iVassals;
+			BuildingTypes eObs = (BuildingTypes)GC.getInfoTypeForString(sBuildingType.c_str(), true);
+			if (eObs != NO_BUILDING && GetCityBuildings()->GetNumBuilding(eObs) > 0)
+			{
+				int iVassals = (int)GET_PLAYER(getOwner()).GetVassals().size();
+				if (iVassals > 0)
+				{
+					int iPerVassal = GC.getDefineINT("SUZERAIN_OBSERVATORY_SCIENCE_PER_VASSAL", false);
+					if (iPerVassal > 0)
+						iValue += iVassals * iPerVassal;
+				}
+			}
 		}
 	}
 #endif
@@ -19497,6 +19505,18 @@ int CvCity::CreateUnit(UnitTypes eUnitType, bool bIsGold, bool bIsFaith, UnitAIT
 		}
 		
 	}
+
+#if defined(MOD_GLOBAL_SUZERAIN)
+	// Chronicle: count units actually trained in a province (purchases excluded).
+	if (MOD_GLOBAL_SUZERAIN && !bIsGold && !bIsFaith && GC.getGame().getGameTurn() > 0)
+	{
+		int iProv = thisPlayer.GetCityProvince(GetID());
+		if (iProv >= 0)
+			thisPlayer.AddProvinceReport(iProv,
+				CvPlayer::SuzerainReportType("SUZERAIN_REPORT_UNIT_TRAINED", 15), eUnitType, pUnit->GetID());
+	}
+#endif
+
 	return pUnit->GetID();
 }
 
@@ -19563,6 +19583,17 @@ bool CvCity::CreateBuilding(BuildingTypes eBuildingType)
 	{
 		kPlayer.ChangeNumWorldWondersBuilt(1);
 	}
+
+#if defined(MOD_GLOBAL_SUZERAIN)
+	// Chronicle: count buildings acquired by a province city.
+	if (MOD_GLOBAL_SUZERAIN && GC.getGame().getGameTurn() > 0)
+	{
+		int iProv = kPlayer.GetCityProvince(GetID());
+		if (iProv >= 0)
+			kPlayer.AddProvinceReport(iProv,
+				CvPlayer::SuzerainReportType("SUZERAIN_REPORT_BUILDING_BUILT", 14), eBuildingType, 0);
+	}
+#endif
 
 	return true;
 }

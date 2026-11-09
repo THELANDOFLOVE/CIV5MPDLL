@@ -194,6 +194,12 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceAutonomy);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSetProvinceAutonomy);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lIsCapitalProvince);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetNationalStrategy);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSetNationalStrategy);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceChronicleCount);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceChronicleField);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceChronicleEventCount);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceChronicleEventField);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceQueueCount);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceQueueField);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lAddProvinceQueueItem);
@@ -218,6 +224,7 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lOrderLevyRally);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceReportCount);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceReportField);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lAutoFillProvinceProduction);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lDepositProvinceTreasury);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSpendProvinceTreasury);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetOfficialAdvicePost);
@@ -1725,6 +1732,7 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(OrderLevyRally);
 	Method(GetProvinceReportCount);
 	Method(GetProvinceReportField);
+	Method(AutoFillProvinceProduction);
 	Method(DepositProvinceTreasury);
 	Method(SpendProvinceTreasury);
 	Method(GetOfficialAdvicePost);
@@ -16110,6 +16118,62 @@ int CvLuaPlayer::lIsCapitalProvince(lua_State* L)
 	lua_pushboolean(L, pkPlayer->IsCapitalProvince(iProv));
 	return 1;
 }
+//------------------------------------------------------------------------------
+//int GetNationalStrategy();
+int CvLuaPlayer::lGetNationalStrategy(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->GetNationalStrategy());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//void SetNationalStrategy(int iStrategy);
+int CvLuaPlayer::lSetNationalStrategy(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iStrategy = lua_tointeger(L, 2);
+	pkPlayer->SetNationalStrategy(iStrategy);
+	return 0;
+}
+//------------------------------------------------------------------------------
+//int GetProvinceChronicleCount();
+int CvLuaPlayer::lGetProvinceChronicleCount(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->GetProvinceChronicleCount());
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetProvinceChronicleField(int iIndex, int iField);
+int CvLuaPlayer::lGetProvinceChronicleField(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iIndex = lua_tointeger(L, 2);
+	int iField = lua_tointeger(L, 3);
+	lua_pushinteger(L, pkPlayer->GetProvinceChronicleField(iIndex, iField));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetProvinceChronicleEventCount(int iIndex);
+int CvLuaPlayer::lGetProvinceChronicleEventCount(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iIndex = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetProvinceChronicleEventCount(iIndex));
+	return 1;
+}
+//------------------------------------------------------------------------------
+//int GetProvinceChronicleEventField(int iIndex, int iEvent, int iField);
+int CvLuaPlayer::lGetProvinceChronicleEventField(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iIndex = lua_tointeger(L, 2);
+	int iEvent = lua_tointeger(L, 3);
+	int iField = lua_tointeger(L, 4);
+	lua_pushinteger(L, pkPlayer->GetProvinceChronicleEventField(iIndex, iEvent, iField));
+	return 1;
+}
+//------------------------------------------------------------------------------
 //int GetProvinceQueueCount(int iProv);
 int CvLuaPlayer::lGetProvinceQueueCount(lua_State* L)
 {
@@ -16318,6 +16382,13 @@ int CvLuaPlayer::lGetProvinceReportField(lua_State* L)
 	int iField = lua_tointeger(L, 4);
 	lua_pushinteger(L, pkPlayer->GetProvinceReportField(iProv, iIndex, iField));
 	return 1;
+}
+//void AutoFillProvinceProduction();
+int CvLuaPlayer::lAutoFillProvinceProduction(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	pkPlayer->AutoFillProvinceProduction();
+	return 0;
 }
 //bool DepositProvinceTreasury(int iProv, int iGold);
 int CvLuaPlayer::lDepositProvinceTreasury(lua_State* L)

@@ -14,10 +14,11 @@
 
 #include "LintFree.h"
 
-static int SuzerainTreasuryDefine(const char* szName, int iDefault)
+// Missing or non-positive values disable the related treasury behaviour
+// instead of falling back to a number baked into the code.
+static int SuzerainTreasuryDefine(const char* szName)
 {
-	int iValue = GC.getDefineINT(szName, false);
-	return iValue > 0 ? iValue : iDefault;
+	return GC.getDefineINT(szName, false);
 }
 
 CvCentralTreasury::CvCentralTreasury(void)
@@ -100,7 +101,8 @@ int CvCentralTreasury::CalculateBaseBudget(int iProv, int iTotalRevenue, int iTo
 
 	// Base budget: proportional to city count. The share of the national
 	// treasury available for distribution comes from SQL.
-	int iDistributePercent = SuzerainTreasuryDefine("SUZERAIN_TREASURY_DISTRIBUTE_PERCENT", 50);
+	int iDistributePercent = SuzerainTreasuryDefine("SUZERAIN_TREASURY_DISTRIBUTE_PERCENT");
+	if (iDistributePercent <= 0) return 0; // distribution not configured
 	int iDistributable = iTotalRevenue * iDistributePercent / 100;
 	return (iDistributable * iCities) / iTotalCities;
 }
@@ -112,41 +114,47 @@ int CvCentralTreasury::GetProvincePriorityModifier(int iProv) const
 
 	int iPercent = 100;
 
-	// War provinces need more resources
-	if (m_pPlayer->GetProvinceWar(iProv) > 0)
+	// War provinces need more resources (bonus only when configured)
+	int iWarBonus = SuzerainTreasuryDefine("SUZERAIN_TREASURY_WAR_BONUS_PERCENT");
+	if (iWarBonus > 0 && m_pPlayer->GetProvinceWar(iProv) > 0)
 	{
-		iPercent = iPercent * SuzerainTreasuryDefine("SUZERAIN_TREASURY_WAR_BONUS_PERCENT", 150) / 100;
+		iPercent = iPercent * iWarBonus / 100;
 	}
 
-	// Border provinces need defensive preparations
-	int iBorderRadius = SuzerainTreasuryDefine("SUZERAIN_TREASURY_BORDER_RADIUS", 3);
+	// Border provinces need defensive preparations. A missing radius simply
+	// turns the border check off.
+	int iBorderRadius = SuzerainTreasuryDefine("SUZERAIN_TREASURY_BORDER_RADIUS");
 	bool bBorder = false;
-	int iCityLoop = 0;
-	for (CvCity* pCity = m_pPlayer->firstCity(&iCityLoop); pCity != NULL; pCity = m_pPlayer->nextCity(&iCityLoop))
+	if (iBorderRadius > 0)
 	{
-		if (m_pPlayer->GetCityProvince(pCity->GetID()) != iProv)
-			continue;
-
-		for (int iRange = 1; iRange <= iBorderRadius && !bBorder; iRange++)
+		int iCityLoop = 0;
+		for (CvCity* pCity = m_pPlayer->firstCity(&iCityLoop); pCity != NULL; pCity = m_pPlayer->nextCity(&iCityLoop))
 		{
-			for (int dx = -iRange; dx <= iRange && !bBorder; dx++)
+			if (m_pPlayer->GetCityProvince(pCity->GetID()) != iProv)
+				continue;
+
+			for (int iRange = 1; iRange <= iBorderRadius && !bBorder; iRange++)
 			{
-				for (int dy = -iRange; dy <= iRange; dy++)
+				for (int dx = -iRange; dx <= iRange && !bBorder; dx++)
 				{
-					CvPlot* pPlot = GC.getMap().plot(pCity->getX() + dx, pCity->getY() + dy);
-					if (pPlot != NULL && pPlot->getOwner() != NO_PLAYER && pPlot->getOwner() != m_pPlayer->GetID())
+					for (int dy = -iRange; dy <= iRange; dy++)
 					{
-						bBorder = true;
-						break;
+						CvPlot* pPlot = GC.getMap().plot(pCity->getX() + dx, pCity->getY() + dy);
+						if (pPlot != NULL && pPlot->getOwner() != NO_PLAYER && pPlot->getOwner() != m_pPlayer->GetID())
+						{
+							bBorder = true;
+							break;
+						}
 					}
 				}
 			}
 		}
 	}
 
-	if (bBorder)
+	int iBorderBonus = SuzerainTreasuryDefine("SUZERAIN_TREASURY_BORDER_BONUS_PERCENT");
+	if (bBorder && iBorderBonus > 0)
 	{
-		iPercent = iPercent * SuzerainTreasuryDefine("SUZERAIN_TREASURY_BORDER_BONUS_PERCENT", 120) / 100;
+		iPercent = iPercent * iBorderBonus / 100;
 	}
 
 	return iPercent;
@@ -160,6 +168,11 @@ void CvCentralTreasury::HandleEmergencyTransfers(void)
 	int iProvinceCount = m_pPlayer->GetProvinceCount();
 	if (iProvinceCount <= 1) return;
 
+	int iRichPercent = SuzerainTreasuryDefine("SUZERAIN_TREASURY_RICH_PERCENT");
+	int iPoorPercent = SuzerainTreasuryDefine("SUZERAIN_TREASURY_POOR_PERCENT");
+	if (iRichPercent <= 0 || iPoorPercent <= 0)
+		return; // transfer thresholds not configured
+
 	// Build list of rich and poor provinces
 	std::vector<int> vRichProvinces;
 	std::vector<int> vPoorProvinces;
@@ -170,9 +183,6 @@ void CvCentralTreasury::HandleEmergencyTransfers(void)
 
 		int iTreasury = m_pPlayer->GetProvinceTreasury(iProv);
 		int iCap = m_pPlayer->GetProvinceTreasuryCap(iProv);
-
-		int iRichPercent = SuzerainTreasuryDefine("SUZERAIN_TREASURY_RICH_PERCENT", 150);
-		int iPoorPercent = SuzerainTreasuryDefine("SUZERAIN_TREASURY_POOR_PERCENT", 50);
 
 		// Rich: above the rich threshold; poor: below the poor threshold
 		if (iTreasury > (iCap * iRichPercent / 100))
@@ -212,10 +222,12 @@ void CvCentralTreasury::HandleEmergencyTransfers(void)
 			}
 		}
 
+		int iTransferPercent = SuzerainTreasuryDefine("SUZERAIN_TREASURY_TRANSFER_PERCENT");
+		if (iTransferPercent <= 0) continue; // transfers not configured
+
 		if (iBestTo >= 0 && iBestDeficit > 0)
 		{
 			// Transfer amount: a configured share of the surplus, capped by the deficit
-			int iTransferPercent = SuzerainTreasuryDefine("SUZERAIN_TREASURY_TRANSFER_PERCENT", 50);
 			int iTransfer = std::min(iSurplus * iTransferPercent / 100, iBestDeficit);
 
 			if (iTransfer > 0)
@@ -233,8 +245,7 @@ void CvCentralTreasury::HandleEmergencyTransfers(void)
 				// Remove from poor list if now satisfied
 				int iNewBalance = m_pPlayer->GetProvinceTreasury(iBestTo);
 				int iNewCap = m_pPlayer->GetProvinceTreasuryCap(iBestTo);
-				int iPoorPercent2 = SuzerainTreasuryDefine("SUZERAIN_TREASURY_POOR_PERCENT", 50);
-				if (iNewBalance >= (iNewCap * iPoorPercent2 / 100))
+				if (iNewBalance >= (iNewCap * iPoorPercent / 100))
 				{
 					vPoorProvinces.erase(std::remove(vPoorProvinces.begin(), vPoorProvinces.end(), iBestTo), vPoorProvinces.end());
 				}

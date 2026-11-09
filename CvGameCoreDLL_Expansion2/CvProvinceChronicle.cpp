@@ -89,7 +89,7 @@ static void SuzerainApplyStat(ChronicleEntry& entry, const std::string& sKey)
 
 CvProvinceChronicle::CvProvinceChronicle(void)
 	: m_pPlayer(NULL)
-	, m_iCompileInterval(50) // Compile every 50 turns
+	, m_iCompileInterval(0) // set from SQL in Init
 	, m_iLastCompileTurn(0)
 	, m_iLastEra(-1)
 {
@@ -106,7 +106,6 @@ void CvProvinceChronicle::Init(CvPlayer* pPlayer)
 	m_iLastCompileTurn = 0;
 	m_iLastEra = -1;
 	m_iCompileInterval = GC.getDefineINT("SUZERAIN_CHRONICLE_COMPILE_INTERVAL", false);
-	if (m_iCompileInterval <= 0) m_iCompileInterval = 50;
 }
 
 void CvProvinceChronicle::Uninit(void)
@@ -133,8 +132,10 @@ void CvProvinceChronicle::DoTurn(void)
 	}
 	m_iLastEra = iCurrentEra;
 
-	// Backup: if staying in same era for long time, compile every 50 turns
-	if (iCurrentTurn > 0 && iCurrentTurn - m_iLastCompileTurn >= m_iCompileInterval)
+	// Backup: compile every configured interval while no era change happens.
+	if (m_iCompileInterval > 0
+		&& iCurrentTurn > 0
+		&& iCurrentTurn - m_iLastCompileTurn >= m_iCompileInterval)
 	{
 		CompileChronicle();
 		m_iLastCompileTurn = iCurrentTurn;
@@ -147,7 +148,9 @@ void CvProvinceChronicle::CompileChronicle(void)
 	if (m_pPlayer == NULL) return;
 
 	int iCurrentTurn = GC.getGame().getGameTurn();
-	int iStartTurn = iCurrentTurn - m_iCompileInterval;
+	// A missing interval compiles from the start of the game instead of a
+	// hardcoded window.
+	int iStartTurn = (m_iCompileInterval > 0) ? (iCurrentTurn - m_iCompileInterval) : 0;
 	if (iStartTurn < 0) iStartTurn = 0;
 
 	int iProvinceCount = m_pPlayer->GetProvinceCount();

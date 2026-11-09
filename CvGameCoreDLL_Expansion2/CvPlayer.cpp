@@ -38257,7 +38257,7 @@ void CvPlayer::DoAIProvinceMissionTurn()
 	if (iRadius <= 0) return;
 
 	int iDeadlineTurns = SuzerainDefineInt("SUZERAIN_AI_RAID_DEADLINE_TURNS");
-	if (iDeadlineTurns <= 0) iDeadlineTurns = 20;
+	if (iDeadlineTurns <= 0) return; // not configured = no AI raid missions
 
 	for (int p = 0; p < GetProvinceCount(); p++)
 	{

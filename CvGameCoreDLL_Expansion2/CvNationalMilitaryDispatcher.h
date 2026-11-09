@@ -25,7 +25,8 @@ enum ProvinceTaskType
 	PROVINCE_TASK_DEFEND = 1,      // Defending against enemy invasion (highest priority)
 	PROVINCE_TASK_RAID = 2,        // Raiding barbarians (medium priority)
 	PROVINCE_TASK_PATROL = 3,      // Routine patrol (low priority)
-	PROVINCE_TASK_PLAYER = 4       // Player direct control (never auto-assigned)
+	PROVINCE_TASK_PLAYER = 4,      // Player direct control (never auto-assigned)
+	PROVINCE_TASK_DEFEND_SEA = 5   // Naval interception of enemy ships
 };
 
 // Military task descriptor
@@ -58,6 +59,9 @@ public:
 	// Collect all idle garrison units (no active missions)
 	void CollectIdleGarrison(void);
 
+	// Collect all idle naval units (no active missions)
+	void CollectIdleShips(void);
+
 	// Evaluate threats across all provinces
 	void EvaluateNationalThreats(void);
 
@@ -80,6 +84,12 @@ public:
 	// Check if unit is available for assignment
 	bool IsUnitAvailable(CvUnit* pUnit) const;
 
+	// Check if a naval unit is available for assignment
+	bool IsShipAvailable(CvUnit* pUnit) const;
+
+	// True when the task is executed by naval units
+	static bool IsNavalTask(int iType);
+
 	// Cancel unit's current task and return it to idle pool
 	void CancelUnitTask(CvUnit* pUnit);
 
@@ -94,10 +104,14 @@ public:
 private:
 	CvPlayer* m_pPlayer;
 	std::vector<CvUnit*> m_vIdleUnits;
+	std::vector<CvUnit*> m_vIdleShips;
 	std::vector<MilitaryTask> m_vTasks;
 
-	// Helper: evaluate enemy threats in a province
+	// Helper: evaluate enemy land threats in a province
 	void EvaluateEnemyThreats(int iProv);
+
+	// Helper: evaluate enemy naval threats near a province's coastal cities
+	void EvaluateNavalThreats(int iProv);
 
 	// Helper: evaluate barbarian threats in a province
 	void EvaluateBarbarianThreats(int iProv);

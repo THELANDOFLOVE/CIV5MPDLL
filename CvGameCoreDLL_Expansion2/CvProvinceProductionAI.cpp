@@ -44,10 +44,11 @@ static void SuzerainParseTypeList(const char* szDefine, std::vector<std::string>
 	}
 }
 
-static int SuzerainProdDefine(const char* szName, int iDefault)
+// Reads a SQL define. Missing or non-positive values disable the feature
+// rather than falling back to a value baked into the code.
+static int SuzerainProdDefine(const char* szName)
 {
-	int iValue = GC.getDefineINT(szName, false);
-	return iValue > 0 ? iValue : iDefault;
+	return GC.getDefineINT(szName, false);
 }
 
 // Parse a SQL define of the form "a:b,c:d" into pairs.
@@ -209,10 +210,14 @@ void CvProvinceProductionAI::ChooseProduction(int iProv, CvCity* pCity)
 	}
 
 	// Governor ability determines how far ahead the province plans
-	int iHighAbility = SuzerainProdDefine("SUZERAIN_PRODUCTION_HIGH_ABILITY", 4);
-	int iLowAbility = SuzerainProdDefine("SUZERAIN_PRODUCTION_LOW_ABILITY", 2);
+	int iHighAbility = SuzerainProdDefine("SUZERAIN_PRODUCTION_HIGH_ABILITY");
+	int iLowAbility = SuzerainProdDefine("SUZERAIN_PRODUCTION_LOW_ABILITY");
 
-	if (iGovernorAbility >= iHighAbility)
+	if (iHighAbility <= 0 || iLowAbility <= 0)
+	{
+		pCity->AI_chooseProduction(false); // tiers not configured
+	}
+	else if (iGovernorAbility >= iHighAbility)
 	{
 		ChooseLongTermBuilding(iProv, pCity);
 	}
@@ -246,8 +251,10 @@ bool CvProvinceProductionAI::NeedWorkers(int iProv, CvCity* pCity)
 		}
 	}
 
+	int iPerCity = SuzerainProdDefine("SUZERAIN_PROVINCE_WORKERS_PER_CITY");
+	if (iPerCity <= 0) return false; // worker target not configured
+
 	int iCities = m_pPlayer->GetProvinceCityCount(iProv);
-	int iPerCity = SuzerainProdDefine("SUZERAIN_PROVINCE_WORKERS_PER_CITY", 6);
 	int iTarget = iCities * iPerCity;
 
 	return iWorkers < iTarget;
@@ -261,7 +268,8 @@ bool CvProvinceProductionAI::NeedGarrison(int iProv, CvCity* pCity)
 	int iCurrent = m_pPlayer->GetProvinceGarrisonCount(iProv);
 	int iTarget = m_pPlayer->GetProvinceGarrisonTarget(iProv);
 
-	int iThreshold = SuzerainProdDefine("SUZERAIN_PRODUCTION_GARRISON_THRESHOLD_PERCENT", 80);
+	int iThreshold = SuzerainProdDefine("SUZERAIN_PRODUCTION_GARRISON_THRESHOLD_PERCENT");
+	if (iThreshold <= 0) return false; // threshold not configured
 	return iCurrent < (iTarget * iThreshold / 100);
 }
 
@@ -270,7 +278,8 @@ bool CvProvinceProductionAI::IsProvinceBorder(int iProv) const
 {
 	if (m_pPlayer == NULL) return false;
 
-	int iRadius = SuzerainProdDefine("SUZERAIN_PRODUCTION_BORDER_RADIUS", 3);
+	int iRadius = SuzerainProdDefine("SUZERAIN_PRODUCTION_BORDER_RADIUS");
+	if (iRadius <= 0) return false; // border scan not configured
 
 	int iCityLoop = 0;
 	for (CvCity* pCity = m_pPlayer->firstCity(&iCityLoop); pCity != NULL; pCity = m_pPlayer->nextCity(&iCityLoop))

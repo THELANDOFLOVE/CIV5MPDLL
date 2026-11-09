@@ -36,12 +36,14 @@ void CvNationalMilitaryDispatcher::Init(CvPlayer* pPlayer)
 {
 	m_pPlayer = pPlayer;
 	m_vIdleUnits.clear();
+	m_vIdleShips.clear();
 	m_vTasks.clear();
 }
 
 void CvNationalMilitaryDispatcher::Uninit(void)
 {
 	m_vIdleUnits.clear();
+	m_vIdleShips.clear();
 	m_vTasks.clear();
 	m_pPlayer = NULL;
 }
@@ -58,6 +60,7 @@ void CvNationalMilitaryDispatcher::DoTurn(void)
 
 	// Step 1: Collect all idle garrison units
 	CollectIdleGarrison();
+	CollectIdleShips();
 
 	// Step 2: Evaluate threats across all provinces
 	EvaluateNationalThreats();
@@ -106,6 +109,43 @@ bool CvNationalMilitaryDispatcher::IsUnitAvailable(CvUnit* pUnit) const
 	return true;
 }
 
+// Check if a naval unit is available for assignment
+bool CvNationalMilitaryDispatcher::IsShipAvailable(CvUnit* pUnit) const
+{
+	if (pUnit == NULL) return false;
+	if (pUnit->IsDead()) return false;
+	if (!pUnit->IsCombatUnit()) return false;
+	if (pUnit->getDomainType() != DOMAIN_SEA) return false;
+	if (!pUnit->canMove()) return false;
+	if (pUnit->IsAutomated()) return false;
+
+	int iCurrentTask = GetUnitCurrentTask(pUnit);
+	if (iCurrentTask == PROVINCE_TASK_PLAYER) return false;
+
+	if (pUnit->GetLengthMissionQueue() > 0) return false;
+
+	return true;
+}
+
+// True when the task is executed by naval units
+bool CvNationalMilitaryDispatcher::IsNavalTask(int iType)
+{
+	return iType == PROVINCE_TASK_DEFEND_SEA;
+}
+
+// Collect all idle naval units
+void CvNationalMilitaryDispatcher::CollectIdleShips(void)
+{
+	m_vIdleShips.clear();
+
+	int iLoop = 0;
+	for (CvUnit* pUnit = m_pPlayer->firstUnit(&iLoop); pUnit != NULL; pUnit = m_pPlayer->nextUnit(&iLoop))
+	{
+		if (IsShipAvailable(pUnit))
+			m_vIdleShips.push_back(pUnit);
+	}
+}
+
 // Evaluate threats across all provinces
 void CvNationalMilitaryDispatcher::EvaluateNationalThreats(void)
 {
@@ -117,6 +157,9 @@ void CvNationalMilitaryDispatcher::EvaluateNationalThreats(void)
 		// Evaluate enemy threats (highest priority)
 		EvaluateEnemyThreats(iProv);
 
+		// Evaluate enemy naval threats near coastal cities
+		EvaluateNavalThreats(iProv);
+
 		// Evaluate barbarian threats (medium priority)
 		EvaluateBarbarianThreats(iProv);
 	}
@@ -125,19 +168,36 @@ void CvNationalMilitaryDispatcher::EvaluateNationalThreats(void)
 	std::sort(m_vTasks.begin(), m_vTasks.end(), TaskPriorityComparator);
 }
 
-// Helper: evaluate enemy threats in a province
+// Helper: evaluate enemy land threats in a province. Water plots are skipped so
+// land garrisons are never ordered into the sea; ships are handled separately.
 void CvNationalMilitaryDispatcher::EvaluateEnemyThreats(int iProv)
 {
 	if (m_pPlayer->IsCapitalProvince(iProv)) return;
 	if (m_pPlayer->GetProvinceAutonomy(iProv) < 1) return;
 
-	// Check if province is in war state
 	if (m_pPlayer->GetProvinceWar(iProv) == 0) return;
 
 	int iDefenseRadius = GC.getDefineINT("SUZERAIN_PROVINCE_DEFENSE_RADIUS", false);
 	if (iDefenseRadius <= 0) return;
 
-	// Find province cities
+	// 0 (default) means one task per enemy stack, with no cap.
+	int iMaxTasks = GC.getDefineINT("SUZERAIN_DISPATCH_MAX_TASKS_PER_PROVINCE", false);
+
+	int iMinUnits = GC.getDefineINT("SUZERAIN_DISPATCH_DEFEND_MIN_UNITS", false);
+	int iPerEnemy = GC.getDefineINT("SUZERAIN_DISPATCH_DEFEND_UNITS_PER_ENEMY", false);
+	int iPriority = GC.getDefineINT("SUZERAIN_DISPATCH_DEFEND_PRIORITY", false);
+	if (iMinUnits <= 0 || iPerEnemy <= 0 || iPriority <= 0)
+		return; // not configured = no land dispatch
+
+	// Gather distinct land plots holding a visible enemy near a province city.
+	struct ThreatPlot
+	{
+		CvPlot* pPlot;
+		int iDistance;
+		int iCount;
+	};
+	std::vector<ThreatPlot> vThreats;
+
 	int iCityLoop = 0;
 	for (CvCity* pCity = m_pPlayer->firstCity(&iCityLoop); pCity != NULL; pCity = m_pPlayer->nextCity(&iCityLoop))
 	{
@@ -147,7 +207,6 @@ void CvNationalMilitaryDispatcher::EvaluateEnemyThreats(int iProv)
 		int iCityX = pCity->getX();
 		int iCityY = pCity->getY();
 
-		// Scan for enemy units near this city
 		for (int dx = -iDefenseRadius; dx <= iDefenseRadius; dx++)
 		{
 			for (int dy = -iDefenseRadius; dy <= iDefenseRadius; dy++)
@@ -155,37 +214,137 @@ void CvNationalMilitaryDispatcher::EvaluateEnemyThreats(int iProv)
 				CvPlot* pPlot = GC.getMap().plot(iCityX + dx, iCityY + dy);
 				if (pPlot == NULL) continue;
 
-				// Check for enemy units
-				CvUnit* pEnemyUnit = pPlot->getVisibleEnemyDefender(m_pPlayer->GetID());
-				if (pEnemyUnit != NULL)
+				// Land garrisons cannot engage ships; naval threats are separate.
+				if (pPlot->isWater()) continue;
+
+				if (pPlot->getVisibleEnemyDefender(m_pPlayer->GetID()) == NULL) continue;
+
+				bool bKnown = false;
+				for (size_t t = 0; t < vThreats.size(); t++)
 				{
-					// Calculate units needed based on enemy strength (SQL tunable)
-					int iMinUnits = GC.getDefineINT("SUZERAIN_DISPATCH_DEFEND_MIN_UNITS", false);
-					if (iMinUnits <= 0) iMinUnits = 3;
-					int iPerEnemy = GC.getDefineINT("SUZERAIN_DISPATCH_DEFEND_UNITS_PER_ENEMY", false);
-					if (iPerEnemy <= 0) iPerEnemy = 2;
-
-					int iEnemyCount = pPlot->getNumUnits();
-					int iUnitsNeeded = std::max(iMinUnits, iEnemyCount * iPerEnemy);
-
-					int iPriority = GC.getDefineINT("SUZERAIN_DISPATCH_DEFEND_PRIORITY", false);
-					if (iPriority <= 0) iPriority = 10;
-
-					MilitaryTask task;
-					task.iType = PROVINCE_TASK_DEFEND;
-					task.iPriority = iPriority;
-					task.iProvince = iProv;
-					task.pTarget = pPlot;
-					task.iX = pPlot->getX();
-					task.iY = pPlot->getY();
-					task.iUnitsNeeded = iUnitsNeeded;
-					task.iThreat = iEnemyCount;
-
-					m_vTasks.push_back(task);
-					return;  // One defense task per province per turn
+					if (vThreats[t].pPlot == pPlot)
+					{
+						bKnown = true;
+						break;
+					}
 				}
+				if (bKnown) continue;
+
+				ThreatPlot kThreat;
+				kThreat.pPlot = pPlot;
+				kThreat.iDistance = plotDistance(pCity->getX(), pCity->getY(), pPlot->getX(), pPlot->getY());
+				kThreat.iCount = pPlot->getNumUnits();
+				vThreats.push_back(kThreat);
 			}
 		}
+	}
+
+	// Nearest threats first, capped by the configured task count.
+	std::sort(vThreats.begin(), vThreats.end(),
+		[](const ThreatPlot& a, const ThreatPlot& b) { return a.iDistance < b.iDistance; });
+
+	int iTasksMade = 0;
+	for (size_t t = 0; t < vThreats.size() && (iMaxTasks <= 0 || iTasksMade < iMaxTasks); t++)
+	{
+		MilitaryTask task;
+		task.iType = PROVINCE_TASK_DEFEND;
+		task.iPriority = iPriority;
+		task.iProvince = iProv;
+		task.pTarget = vThreats[t].pPlot;
+		task.iX = vThreats[t].pPlot->getX();
+		task.iY = vThreats[t].pPlot->getY();
+		task.iUnitsNeeded = std::max(iMinUnits, vThreats[t].iCount * iPerEnemy);
+		task.iThreat = vThreats[t].iCount;
+
+		m_vTasks.push_back(task);
+		iTasksMade++;
+	}
+}
+
+// Helper: evaluate enemy naval threats near a province's coastal cities.
+void CvNationalMilitaryDispatcher::EvaluateNavalThreats(int iProv)
+{
+	if (m_pPlayer->IsCapitalProvince(iProv)) return;
+	if (m_pPlayer->GetProvinceAutonomy(iProv) < 1) return;
+
+	if (m_pPlayer->GetProvinceWar(iProv) == 0) return;
+
+	int iRadius = GC.getDefineINT("SUZERAIN_NAVAL_DEFENSE_RADIUS", false);
+	if (iRadius <= 0) return; // not configured = no naval defence
+
+	// 0 (default) means one task per enemy stack, with no cap.
+	int iMaxTasks = GC.getDefineINT("SUZERAIN_DISPATCH_MAX_TASKS_PER_PROVINCE", false);
+
+	int iMinUnits = GC.getDefineINT("SUZERAIN_DISPATCH_DEFEND_MIN_UNITS", false);
+	int iPerEnemy = GC.getDefineINT("SUZERAIN_DISPATCH_DEFEND_UNITS_PER_ENEMY", false);
+	int iPriority = GC.getDefineINT("SUZERAIN_NAVAL_DISPATCH_PRIORITY", false);
+	if (iMinUnits <= 0 || iPerEnemy <= 0 || iPriority <= 0)
+		return; // not configured = no naval dispatch
+
+	struct SeaThreat
+	{
+		CvPlot* pPlot;
+		int iDistance;
+		int iCount;
+	};
+	std::vector<SeaThreat> vThreats;
+
+	int iCityLoop = 0;
+	for (CvCity* pCity = m_pPlayer->firstCity(&iCityLoop); pCity != NULL; pCity = m_pPlayer->nextCity(&iCityLoop))
+	{
+		if (m_pPlayer->GetCityProvince(pCity->GetID()) != iProv)
+			continue;
+		if (!pCity->isCoastal()) continue;
+
+		for (int dx = -iRadius; dx <= iRadius; dx++)
+		{
+			for (int dy = -iRadius; dy <= iRadius; dy++)
+			{
+				CvPlot* pPlot = GC.getMap().plot(pCity->getX() + dx, pCity->getY() + dy);
+				if (pPlot == NULL) continue;
+				if (!pPlot->isWater()) continue;
+
+				CvUnit* pEnemy = pPlot->getVisibleEnemyDefender(m_pPlayer->GetID());
+				if (pEnemy == NULL) continue;
+
+				bool bKnown = false;
+				for (size_t t = 0; t < vThreats.size(); t++)
+				{
+					if (vThreats[t].pPlot == pPlot)
+					{
+						bKnown = true;
+						break;
+					}
+				}
+				if (bKnown) continue;
+
+				SeaThreat kThreat;
+				kThreat.pPlot = pPlot;
+				kThreat.iDistance = plotDistance(pCity->getX(), pCity->getY(), pPlot->getX(), pPlot->getY());
+				kThreat.iCount = pPlot->getNumUnits();
+				vThreats.push_back(kThreat);
+			}
+		}
+	}
+
+	std::sort(vThreats.begin(), vThreats.end(),
+		[](const SeaThreat& a, const SeaThreat& b) { return a.iDistance < b.iDistance; });
+
+	int iTasksMade = 0;
+	for (size_t t = 0; t < vThreats.size() && (iMaxTasks <= 0 || iTasksMade < iMaxTasks); t++)
+	{
+		MilitaryTask task;
+		task.iType = PROVINCE_TASK_DEFEND_SEA;
+		task.iPriority = iPriority;
+		task.iProvince = iProv;
+		task.pTarget = vThreats[t].pPlot;
+		task.iX = vThreats[t].pPlot->getX();
+		task.iY = vThreats[t].pPlot->getY();
+		task.iUnitsNeeded = std::max(iMinUnits, vThreats[t].iCount * iPerEnemy);
+		task.iThreat = vThreats[t].iCount;
+
+		m_vTasks.push_back(task);
+		iTasksMade++;
 	}
 }
 
@@ -245,10 +404,9 @@ void CvNationalMilitaryDispatcher::EvaluateBarbarianThreats(int iProv)
 	if (pTarget != NULL)
 	{
 		int iMinUnits = GC.getDefineINT("SUZERAIN_PROVINCE_RAID_MIN_UNITS", false);
-		if (iMinUnits <= 0) iMinUnits = 5;
-
 		int iPriority = GC.getDefineINT("SUZERAIN_DISPATCH_RAID_PRIORITY", false);
-		if (iPriority <= 0) iPriority = 5;
+		if (iMinUnits <= 0 || iPriority <= 0)
+			return; // not configured = no raid dispatch
 
 		MilitaryTask task;
 		task.iType = PROVINCE_TASK_RAID;
@@ -278,28 +436,33 @@ void CvNationalMilitaryDispatcher::DispatchByPriority(void)
 	{
 		const MilitaryTask& task = m_vTasks[i];
 
-		// Assign nearest units to this task
+		// Land tasks draw from the land pool, naval tasks from the ship pool.
+		bool bNaval = IsNavalTask(task.iType);
+		std::vector<CvUnit*>* pPool = bNaval ? &m_vIdleShips : &m_vIdleUnits;
+
 		std::vector<CvUnit*> vAssigned;
-		for (int j = 0; j < task.iUnitsNeeded && !m_vIdleUnits.empty(); j++)
+		for (int j = 0; j < task.iUnitsNeeded && !pPool->empty(); j++)
 		{
-			CvUnit* pBest = FindNearestUnit(m_vIdleUnits, task.iX, task.iY);
+			CvUnit* pBest = FindNearestUnit(*pPool, task.iX, task.iY);
 			if (pBest == NULL) break;
 
-			// Assign unit to task
 			AssignUnitToTask(pBest, task);
 			vAssigned.push_back(pBest);
 
-			// Remove from idle pool
-			m_vIdleUnits.erase(std::remove(m_vIdleUnits.begin(), m_vIdleUnits.end(), pBest), m_vIdleUnits.end());
+			pPool->erase(std::remove(pPool->begin(), pPool->end(), pBest), pPool->end());
 		}
 
 		// Log dispatch only when units actually moved, so the report log does
 		// not fill with empty decisions.
 		if (!vAssigned.empty())
 		{
-			int iLogType = (task.iType == PROVINCE_TASK_DEFEND)
-				? CvPlayer::SuzerainReportType("SUZERAIN_REPORT_DISPATCH_DEFEND", 10)
-				: CvPlayer::SuzerainReportType("SUZERAIN_REPORT_DISPATCH_RAID", 11);
+			int iLogType;
+			if (bNaval)
+				iLogType = CvPlayer::SuzerainReportType("SUZERAIN_REPORT_DISPATCH_SEA", 16);
+			else if (task.iType == PROVINCE_TASK_DEFEND)
+				iLogType = CvPlayer::SuzerainReportType("SUZERAIN_REPORT_DISPATCH_DEFEND", 10);
+			else
+				iLogType = CvPlayer::SuzerainReportType("SUZERAIN_REPORT_DISPATCH_RAID", 11);
 			m_pPlayer->AddProvinceReport(task.iProvince, iLogType, task.iThreat, (int)vAssigned.size());
 
 			// Update mission state if this is a raid
@@ -397,14 +560,18 @@ void CvNationalMilitaryDispatcher::ReturnIdleGarrison(void)
 	if (m_pPlayer == NULL) return;
 
 	int iThreshold = GC.getDefineINT("SUZERAIN_RETURN_DISTANCE", false);
-	if (iThreshold <= 0) iThreshold = 3;
+	if (iThreshold <= 0) return; // not configured = units stay where they are
 
 	int iLoop = 0;
 	for (CvUnit* pUnit = m_pPlayer->firstUnit(&iLoop); pUnit != NULL; pUnit = m_pPlayer->nextUnit(&iLoop))
 	{
 		if (pUnit->IsDead()) continue;
 		if (!pUnit->IsCombatUnit()) continue;
-		if (pUnit->getDomainType() != DOMAIN_LAND) continue;
+
+		int iDomain = pUnit->getDomainType();
+		if (iDomain != DOMAIN_LAND && iDomain != DOMAIN_SEA) continue;
+		bool bNaval = (iDomain == DOMAIN_SEA);
+
 		if (!pUnit->canMove()) continue;
 		if (pUnit->IsAutomated()) continue;
 		if (pUnit->GetLengthMissionQueue() > 0) continue;
@@ -415,13 +582,15 @@ void CvNationalMilitaryDispatcher::ReturnIdleGarrison(void)
 		int iHome = pUnit->GetHomeProvince();
 		if (iHome < 0) continue;
 
-		// Home city: most populous city of the home province.
+		// Home city: most populous city of the home province; ships need a
+		// coastal one.
 		CvCity* pHomeCity = NULL;
 		int iBestPop = -1;
 		int iCityLoop = 0;
 		for (CvCity* pCity = m_pPlayer->firstCity(&iCityLoop); pCity != NULL; pCity = m_pPlayer->nextCity(&iCityLoop))
 		{
 			if (m_pPlayer->GetCityProvince(pCity->GetID()) != iHome) continue;
+			if (bNaval && !pCity->isCoastal()) continue;
 			if (pCity->getPopulation() > iBestPop)
 			{
 				iBestPop = pCity->getPopulation();
@@ -487,8 +656,11 @@ void CvNationalMilitaryDispatcher::SetUnitTaskPriority(CvUnit* pUnit, int iPrior
 	pUnit->SetTaskPriority(iPriority);
 }
 
-// Static comparator for sorting tasks by priority
+// Static comparator: higher priority first, then the bigger threat first so
+// a large enemy stack is reinforced before a lone scout.
 bool CvNationalMilitaryDispatcher::TaskPriorityComparator(const MilitaryTask& a, const MilitaryTask& b)
 {
-	return a.iPriority > b.iPriority;
+	if (a.iPriority != b.iPriority)
+		return a.iPriority > b.iPriority;
+	return a.iThreat > b.iThreat;
 }

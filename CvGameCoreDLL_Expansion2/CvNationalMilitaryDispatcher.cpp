@@ -196,6 +196,21 @@ void CvNationalMilitaryDispatcher::EvaluateNationalThreats(void)
 	}
 }
 
+// Threat demand counts combat units only: civilians, workers, missionaries and
+// cargo do not need a soldier each.
+static int CountCombatUnitsOnPlot(CvPlot* pPlot)
+{
+	if (pPlot == NULL) return 0;
+	int iCount = 0;
+	for (int i = 0; i < pPlot->getNumUnits(); i++)
+	{
+		CvUnit* pUnit = pPlot->getUnitByIndex(i);
+		if (pUnit != NULL && !pUnit->IsDead() && pUnit->IsCombatUnit())
+			iCount++;
+	}
+	return iCount;
+}
+
 // Helper: evaluate enemy land threats in a province. Water plots are skipped so
 // land garrisons are never ordered into the sea; ships are handled separately.
 // The dispatcher prioritizes the province's own garrison before requesting aid
@@ -275,7 +290,7 @@ void CvNationalMilitaryDispatcher::EvaluateEnemyThreats(int iProv)
 				ThreatPlot kThreat;
 				kThreat.pPlot = pPlot;
 				kThreat.iDistance = plotDistance(pCity->getX(), pCity->getY(), pPlot->getX(), pPlot->getY());
-				kThreat.iCount = pPlot->getNumUnits();
+				kThreat.iCount = CountCombatUnitsOnPlot(pPlot);
 				vThreats.push_back(kThreat);
 			}
 		}
@@ -369,7 +384,7 @@ void CvNationalMilitaryDispatcher::EvaluateNavalThreats(int iProv)
 				SeaThreat kThreat;
 				kThreat.pPlot = pPlot;
 				kThreat.iDistance = plotDistance(pCity->getX(), pCity->getY(), pPlot->getX(), pPlot->getY());
-				kThreat.iCount = pPlot->getNumUnits();
+				kThreat.iCount = CountCombatUnitsOnPlot(pPlot);
 				vThreats.push_back(kThreat);
 			}
 		}

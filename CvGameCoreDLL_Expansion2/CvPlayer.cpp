@@ -466,6 +466,7 @@ CvPlayer::CvPlayer() :
 	, m_aiChronicle("CvPlayer::m_aiChronicle", m_syncArchive)
 	, m_aiEmpireSnapshot("CvPlayer::m_aiEmpireSnapshot", m_syncArchive)
 	, m_iProvinceUnhappinessMod("CvPlayer::m_iProvinceUnhappinessMod", m_syncArchive)
+	, m_iProvinceMobilization("CvPlayer::m_iProvinceMobilization", m_syncArchive)
 	, m_iNationalStrategy("CvPlayer::m_iNationalStrategy", m_syncArchive)
 	, m_iFavourBonusTurn("CvPlayer::m_iFavourBonusTurn", m_syncArchive)
 	, m_aiVassalBreachCount("CvPlayer::m_aiVassalBreachCount", m_syncArchive)
@@ -1437,6 +1438,7 @@ void CvPlayer::uninit()
 	m_aiChronicle.clear();
 	m_aiEmpireSnapshot.clear();
 	m_iProvinceUnhappinessMod = 0;
+	m_iProvinceMobilization = 0;
 	m_iNationalStrategy = 0; // NATIONAL_STRATEGY_BALANCED
 	m_iOfficialExamStart = -1;
 	m_iOfficialExamTurn = 0;
@@ -31704,6 +31706,7 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ_VECTOR(168, kStream, m_aiProvinceQueue, 0, 0);
 		MOD_SERIALIZE_READ_VECTOR(168, kStream, m_aiProvinceMission, 0, 0);
 		MOD_SERIALIZE_READ(168, kStream, m_iProvinceUnhappinessMod, 0);
+		MOD_SERIALIZE_READ(168, kStream, m_iProvinceMobilization, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iFavourBonusTurn, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalBreachCount, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalPunishRight, MAX_MAJOR_CIVS, 0);
@@ -32726,6 +32729,7 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiProvinceQueue);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiProvinceMission);
 	MOD_SERIALIZE_WRITE(kStream, m_iProvinceUnhappinessMod);
+	MOD_SERIALIZE_WRITE(kStream, m_iProvinceMobilization);
 	MOD_SERIALIZE_WRITE(kStream, m_iFavourBonusTurn);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalBreachCount);
 	MOD_SERIALIZE_WRITE(kStream, m_aiVassalPunishRight);
@@ -37639,6 +37643,14 @@ int CvPlayer::GetProvinceGarrisonTarget(int iProv) const
 	if (!MOD_GLOBAL_SUZERAIN) return 0;
 	if (iProv < 0 || iProv >= GetProvinceCount()) return 0;
 
+	// National mobilisation overrides the local threat picture: every province
+	// is treated as a front while it is active.
+	if (GetProvinceMobilization() > 0)
+	{
+		return GetProvinceCityCount(iProv)
+			* SuzerainDefineInt("SUZERAIN_PROVINCE_MOBILIZATION_GARRISON_PER_CITY");
+	}
+
 	const bool bBorder = (GetProvinceBorder(iProv) > 0);
 	const bool bWar = (GetProvinceWar(iProv) > 0);
 	const bool bAnyWar = (GET_TEAM(getTeam()).getAtWarCount(true) > 0);
@@ -37875,6 +37887,22 @@ void CvPlayer::SetProvinceWar(int iProv, int iValue)
 		m_aiProvinceWar = v;
 	}
 	m_aiProvinceWar.setAt((size_t)iProv, iValue > 0 ? 1 : 0);
+}
+
+//--------------------------------------------------------------------------------
+// National mobilisation. While active every province uses the wartime
+// garrison target, treasury share and military production, even if no enemy
+// is inside its detection radius.
+int CvPlayer::GetProvinceMobilization() const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	return m_iProvinceMobilization > 0 ? 1 : 0;
+}
+
+void CvPlayer::SetProvinceMobilization(int iValue)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	m_iProvinceMobilization = iValue > 0 ? 1 : 0;
 }
 
 bool CvPlayer::IsProvinceInWar(int iProv) const
@@ -38602,7 +38630,8 @@ void CvPlayer::DoAIProvinceMissionTurn()
 		if (GetProvinceAutonomy(p) < 1) continue;
 		// War takes priority over hunting barbarians: hold the garrison home
 		// instead of raising a new raid mission.
-		if (SuzerainDefineInt("SUZERAIN_RAID_PAUSE_AT_WAR") > 0 && GetProvinceWar(p) > 0) continue;
+		if (SuzerainDefineInt("SUZERAIN_RAID_PAUSE_AT_WAR") > 0
+			&& (GetProvinceWar(p) > 0 || GetProvinceMobilization() > 0)) continue;
 
 		// Leave the province alone while any of its missions is still running.
 		bool bActive = false;
@@ -38690,7 +38719,8 @@ void CvPlayer::DoProvinceMissionTurn()
 		if (IsCapitalProvince(p)) continue;
 		// Existing raid missions pause while the province is at war; they
 		// resume once the fighting moves away.
-		if (SuzerainDefineInt("SUZERAIN_RAID_PAUSE_AT_WAR") > 0 && GetProvinceWar(p) > 0) continue;
+		if (SuzerainDefineInt("SUZERAIN_RAID_PAUSE_AT_WAR") > 0
+			&& (GetProvinceWar(p) > 0 || GetProvinceMobilization() > 0)) continue;
 
 		const int iMissionCount = GetProvinceMissionCount(p);
 		for (int s = 0; s < iMissionCount; s++)
@@ -39138,7 +39168,7 @@ void CvPlayer::DoProvinceTreasuryTurn()
 		// Wartime and border provinces keep a larger share of city gold for
 		// local defence; the multiplier is a percentage of the base share.
 		int iKeepPercent = iBaseKeepPercent;
-		if (GetProvinceWar(p) > 0 && iWarKeepPercent > 0)
+		if ((GetProvinceWar(p) > 0 || GetProvinceMobilization() > 0) && iWarKeepPercent > 0)
 			iKeepPercent = iBaseKeepPercent * iWarKeepPercent / 100;
 		else if (GetProvinceBorder(p) > 0 && iBorderKeepPercent > 0)
 			iKeepPercent = iBaseKeepPercent * iBorderKeepPercent / 100;
@@ -39217,9 +39247,10 @@ void CvPlayer::DoProvinceBuildTurn()
 		const int iCities = GetProvinceCityCount(p);
 		if (iCities <= 0) continue;
 
-		const bool bWarProvince = (GetProvinceWar(p) > 0);
+		const bool bWarProvince = (GetProvinceWar(p) > 0) || (GetProvinceMobilization() > 0);
 		const bool bBorderProvince = (GetProvinceBorder(p) > 0);
-		const bool bAnyWar = (GET_TEAM(getTeam()).getAtWarCount(true) > 0);
+		const bool bAnyWar = (GET_TEAM(getTeam()).getAtWarCount(true) > 0)
+			|| (GetProvinceMobilization() > 0);
 		int iPerCity;
 		if (bWarProvince)
 			iPerCity = iBorderWarPerCity; // a province under attack always stands at full strength

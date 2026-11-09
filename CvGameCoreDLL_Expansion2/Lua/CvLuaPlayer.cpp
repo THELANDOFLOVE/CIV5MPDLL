@@ -223,6 +223,8 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetMemorialBacklog);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetMemorialAdvice);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceWar);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceMobilization);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSetProvinceMobilization);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceBorder);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSetProvinceBorder);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lOrderLevyToProvince);
@@ -1743,6 +1745,8 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(GetMemorialBacklog);
 	Method(GetMemorialAdvice);
 	Method(GetProvinceWar);
+	Method(GetProvinceMobilization);
+	Method(SetProvinceMobilization);
 	Method(GetProvinceBorder);
 	Method(SetProvinceBorder);
 	Method(OrderLevyToProvince);
@@ -16389,6 +16393,21 @@ int CvLuaPlayer::lGetProvinceWar(lua_State* L)
 	int iProv = lua_tointeger(L, 2);
 	lua_pushinteger(L, pkPlayer->GetProvinceWar(iProv));
 	return 1;
+}
+//int GetProvinceMobilization();
+int CvLuaPlayer::lGetProvinceMobilization(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->GetProvinceMobilization());
+	return 1;
+}
+//void SetProvinceMobilization(int iValue);
+int CvLuaPlayer::lSetProvinceMobilization(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iValue = lua_tointeger(L, 2);
+	pkPlayer->SetProvinceMobilization(iValue);
+	return 0;
 }
 //int GetProvinceBorder(int iProv);
 int CvLuaPlayer::lGetProvinceBorder(lua_State* L)

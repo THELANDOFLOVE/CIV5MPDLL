@@ -2424,6 +2424,9 @@ public:
 	int GetProvinceWar(int iProv) const;
 	void SetProvinceWar(int iProv, int iValue);
 	bool IsProvinceInWar(int iProv) const;
+	// National mobilisation: puts every province on a wartime footing.
+	int GetProvinceMobilization() const;
+	void SetProvinceMobilization(int iValue);
 	void DoProvinceWarTurn();
 	bool LevyProvinceUnitTo(int iSourceProv, int iTargetProv);
 	int OrderLevyToProvince(int iProv);
@@ -3717,6 +3720,9 @@ protected:
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiEmpireSnapshot;
 	// Global unhappiness percentage currently applied by justices.
 	FAutoVariable<int, CvPlayer> m_iProvinceUnhappinessMod;
+	// National mobilisation: 1 = every province builds as if at war until
+	// the player stands the realm down.
+	FAutoVariable<int, CvPlayer> m_iProvinceMobilization;
 	// National strategy (0=balanced, 1=military, 2=economic, 3=cultural, 4=scientific)
 	FAutoVariable<int, CvPlayer> m_iNationalStrategy;
 	// Wars already counted as breaches (derived, rebuilt each turn; not serialized)

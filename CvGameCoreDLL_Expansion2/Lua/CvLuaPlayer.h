@@ -1493,6 +1493,8 @@ protected:
 	LUAAPIEXTN(GetMemorialBacklog, int, iPost);
 	LUAAPIEXTN(GetMemorialAdvice, int, iIndex);
 	LUAAPIEXTN(GetProvinceWar, int, iProv);
+	LUAAPIEXTN(GetProvinceMobilization, int);
+	LUAAPIEXTN(SetProvinceMobilization, void, iValue);
 	LUAAPIEXTN(GetProvinceBorder, int, iProv);
 	LUAAPIEXTN(SetProvinceBorder, void, iProv, iValue);
 	LUAAPIEXTN(OrderLevyToProvince, int, iProv);

@@ -312,7 +312,8 @@ bool CvProvinceProductionAI::IsProvinceBorder(int iProv) const
 bool CvProvinceProductionAI::IsProvinceAtWar(int iProv) const
 {
 	if (m_pPlayer == NULL) return false;
-	return m_pPlayer->GetProvinceWar(iProv) > 0;
+	return m_pPlayer->GetProvinceMobilization() > 0
+		|| m_pPlayer->GetProvinceWar(iProv) > 0;
 }
 
 // Helper: choose building for long-term development (high wisdom)

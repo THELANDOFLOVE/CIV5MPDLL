@@ -1478,8 +1478,13 @@ protected:
 	LUAAPIEXTN(GetProvinceGarrisonCount, int, iProv);
 	LUAAPIEXTN(GetProvinceGarrisonTarget, int, iProv);
 	LUAAPIEXTN(GetProvinceMissionField, int, iProv, iField);
+	LUAAPIEXTN(GetProvinceMissionFieldAt, int, iProv, iIndex, iField);
+	LUAAPIEXTN(GetProvinceMissionCount, int, iProv);
 	LUAAPIEXTN(SetProvinceMission, void, iProv, iType, iX, iY, iDeadline, bCrossBorder);
+	LUAAPIEXTN(RemoveProvinceMissionAt, bool, iProv, iIndex);
 	LUAAPIEXTN(ClearProvinceMission, void, iProv);
+	LUAAPIEXTN(LaunchGlobalRaidMissions, int);
+	LUAAPIEXTN(ReinforceAllWarProvinces, int);
 	LUAAPIEXTN(LevyProvinceGarrison, int, iProv);
 	LUAAPIEXTN(ReturnProvinceGarrison, void, iProv);
 	LUAAPIEXTN(GetProvinceLevyCount, int, iProv);
@@ -1492,7 +1497,7 @@ protected:
 	LUAAPIEXTN(SetProvinceBorder, void, iProv, iValue);
 	LUAAPIEXTN(OrderLevyToProvince, int, iProv);
 	LUAAPIEXTN(OrderLevyRally, void, iX, iY);
-	LUAAPIEXTN(DispatchSupportToProvince, int, iProv);
+	LUAAPIEXTN(DispatchSupportToProvince, int, iProv, iSourceProv, iCount);
 	LUAAPIEXTN(GetProvinceReportCount, int, iProv);
 	LUAAPIEXTN(GetProvinceReportField, int, iProv, iIndex, iField);
 	LUAAPIEXTN(AutoFillProvinceProduction, void);

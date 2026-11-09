@@ -38167,10 +38167,12 @@ bool CvPlayer::LevyProvinceUnitTo(int iSourceProv, int iTargetProv)
 // realm into a province under attack. They are re-tagged as levied by the
 // target province so the national dispatcher leaves them under player control,
 // and they fortify on arrival.
-int CvPlayer::DispatchSupportToProvince(int iTargetProv)
+int CvPlayer::DispatchSupportToProvince(int iTargetProv, int iSourceProv, int iCount)
 {
 	if (!MOD_GLOBAL_SUZERAIN) return 0;
 	if (iTargetProv < 0 || iTargetProv >= GetProvinceCount()) return 0;
+	if (iSourceProv >= GetProvinceCount()) return 0;
+	if (iSourceProv == iTargetProv) return 0;
 
 	// Muster point: the target province's most populous city.
 	CvCity* pTarget = NULL;
@@ -38187,7 +38189,7 @@ int CvPlayer::DispatchSupportToProvince(int iTargetProv)
 	}
 	if (pTarget == NULL) return 0;
 
-	int iMaxUnits = SuzerainDefineInt("SUZERAIN_SUPPORT_DISPATCH_MAX_UNITS");
+	int iMaxUnits = (iCount > 0) ? iCount : SuzerainDefineInt("SUZERAIN_SUPPORT_DISPATCH_MAX_UNITS");
 	if (iMaxUnits <= 0) iMaxUnits = 4;
 
 	struct SupportCandidate
@@ -38216,6 +38218,12 @@ int CvPlayer::DispatchSupportToProvince(int iTargetProv)
 		if (pPlot == NULL) continue;
 		CvCity* pNearest = findClosestCity(*pPlot);
 		if (pNearest != NULL && GetCityProvince(pNearest->GetID()) == iTargetProv) continue;
+
+		// A named source province only contributes its own garrison.
+		if (iSourceProv >= 0)
+		{
+			if (pNearest == NULL || GetCityProvince(pNearest->GetID()) != iSourceProv) continue;
+		}
 
 		SupportCandidate kCandidate;
 		kCandidate.pUnit = pUnit;
@@ -38315,16 +38323,44 @@ void CvPlayer::UpdateProvinceBorderFlags()
 
 //--------------------------------------------------------------------------------
 // Province military mission. Type 0 is idle, type 1 hunts barbarians near the
-// target plot. State 0 pending, 1 marching, 2 done, 3 failed/expired.
-int CvPlayer::GetProvinceMissionField(int iProv, int iField) const
+// target plot. State 0 pending, 1 marching, 2 done, 3 expired, 4 waiting for
+// troops. A province can run several missions at once; slots are packed from 0
+// and a type of 0 marks the end of the list.
+static const int PROVINCE_MISSION_SLOTS = 3;
+static const int PROVINCE_MISSION_FIELDS = 8;
+static const int PROVINCE_MISSION_BLOCK = PROVINCE_MISSION_SLOTS * PROVINCE_MISSION_FIELDS;
+
+int CvPlayer::GetProvinceMissionFieldAt(int iProv, int iIndex, int iField) const
 {
 	if (!MOD_GLOBAL_SUZERAIN) return 0;
 	if (iProv < 0 || iProv >= GetProvinceCount()) return 0;
-	if (iField < 0 || iField >= 8) return 0;
+	if (iIndex < 0 || iIndex >= PROVINCE_MISSION_SLOTS) return 0;
+	if (iField < 0 || iField >= PROVINCE_MISSION_FIELDS) return 0;
 
-	size_t iPos = (size_t)iProv * 8 + iField;
+	size_t iPos = (size_t)iProv * PROVINCE_MISSION_BLOCK
+		+ (size_t)iIndex * PROVINCE_MISSION_FIELDS + iField;
 	if (iPos >= m_aiProvinceMission.size()) return 0;
 	return m_aiProvinceMission[iPos];
+}
+
+int CvPlayer::GetProvinceMissionCount(int iProv) const
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+	if (iProv < 0 || iProv >= GetProvinceCount()) return 0;
+
+	int iCount = 0;
+	for (int s = 0; s < PROVINCE_MISSION_SLOTS; s++)
+	{
+		if (GetProvinceMissionFieldAt(iProv, s, 0) == 0) break;
+		iCount++;
+	}
+	return iCount;
+}
+
+// Legacy accessor: the first mission of the province.
+int CvPlayer::GetProvinceMissionField(int iProv, int iField) const
+{
+	return GetProvinceMissionFieldAt(iProv, 0, iField);
 }
 
 void CvPlayer::SetProvinceMission(int iProv, int iType, int iX, int iY, int iDeadline, bool bCrossBorder)
@@ -38334,31 +38370,85 @@ void CvPlayer::SetProvinceMission(int iProv, int iType, int iX, int iY, int iDea
 	if (IsCapitalProvince(iProv)) return;
 	if (iType != 1) return; // only the exterminate mission exists
 
-	size_t iBase = (size_t)iProv * 8;
-	if (iBase + 8 > m_aiProvinceMission.size())
+	const int iCount = GetProvinceMissionCount(iProv);
+
+	// Do not queue the same target twice.
+	for (int s = 0; s < iCount; s++)
+	{
+		if (GetProvinceMissionFieldAt(iProv, s, 0) == iType
+			&& GetProvinceMissionFieldAt(iProv, s, 1) == iX
+			&& GetProvinceMissionFieldAt(iProv, s, 2) == iY)
+			return;
+	}
+	if (iCount >= PROVINCE_MISSION_SLOTS) return;
+
+	size_t iBase = (size_t)iProv * PROVINCE_MISSION_BLOCK;
+	if (iBase + PROVINCE_MISSION_BLOCK > m_aiProvinceMission.size())
 	{
 		std::vector<int> v = m_aiProvinceMission;
-		v.resize(iBase + 8, 0);
+		v.resize(iBase + PROVINCE_MISSION_BLOCK, 0);
 		m_aiProvinceMission = v;
 	}
-	m_aiProvinceMission.setAt(iBase + 0, iType);
-	m_aiProvinceMission.setAt(iBase + 1, iX);
-	m_aiProvinceMission.setAt(iBase + 2, iY);
-	m_aiProvinceMission.setAt(iBase + 3, iDeadline);
-	m_aiProvinceMission.setAt(iBase + 4, 0);
-	m_aiProvinceMission.setAt(iBase + 5, bCrossBorder ? 1 : 0);
-	m_aiProvinceMission.setAt(iBase + 6, 0);
-	m_aiProvinceMission.setAt(iBase + 7, 0);
+
+	size_t iPos = iBase + (size_t)iCount * PROVINCE_MISSION_FIELDS;
+	m_aiProvinceMission.setAt(iPos + 0, iType);
+	m_aiProvinceMission.setAt(iPos + 1, iX);
+	m_aiProvinceMission.setAt(iPos + 2, iY);
+	m_aiProvinceMission.setAt(iPos + 3, iDeadline);
+	m_aiProvinceMission.setAt(iPos + 4, 0);
+	m_aiProvinceMission.setAt(iPos + 5, bCrossBorder ? 1 : 0);
+	m_aiProvinceMission.setAt(iPos + 6, 0);
+	m_aiProvinceMission.setAt(iPos + 7, 0);
 }
 
-void CvPlayer::SetProvinceMissionState(int iProv, int iState)
+void CvPlayer::SetProvinceMissionStateAt(int iProv, int iIndex, int iState)
 {
 	if (!MOD_GLOBAL_SUZERAIN) return;
 	if (iProv < 0 || iProv >= GetProvinceCount()) return;
+	if (iIndex < 0 || iIndex >= PROVINCE_MISSION_SLOTS) return;
 
-	size_t iBase = (size_t)iProv * 8;
-	if (iBase + 4 >= m_aiProvinceMission.size()) return;
-	m_aiProvinceMission.setAt(iBase + 4, iState);
+	size_t iPos = (size_t)iProv * PROVINCE_MISSION_BLOCK
+		+ (size_t)iIndex * PROVINCE_MISSION_FIELDS + 4;
+	if (iPos >= m_aiProvinceMission.size()) return;
+	m_aiProvinceMission.setAt(iPos, iState);
+}
+
+// Used by the dispatcher, which knows the province but not the slot: mark every
+// mission that is still running.
+void CvPlayer::SetProvinceMissionState(int iProv, int iState)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return;
+	const int iCount = GetProvinceMissionCount(iProv);
+	for (int s = 0; s < iCount; s++)
+	{
+		if (GetProvinceMissionFieldAt(iProv, s, 0) == 0) continue;
+		const int iOld = GetProvinceMissionFieldAt(iProv, s, 4);
+		if (iOld == 2 || iOld == 3) continue;
+		SetProvinceMissionStateAt(iProv, s, iState);
+	}
+}
+
+bool CvPlayer::RemoveProvinceMissionAt(int iProv, int iIndex)
+{
+	if (!MOD_GLOBAL_SUZERAIN) return false;
+	if (iProv < 0 || iProv >= GetProvinceCount()) return false;
+
+	const int iCount = GetProvinceMissionCount(iProv);
+	if (iIndex < 0 || iIndex >= iCount) return false;
+
+	size_t iBase = (size_t)iProv * PROVINCE_MISSION_BLOCK;
+	for (int s = iIndex; s < iCount - 1; s++)
+	{
+		for (int f = 0; f < PROVINCE_MISSION_FIELDS; f++)
+		{
+			m_aiProvinceMission.setAt(
+				iBase + (size_t)s * PROVINCE_MISSION_FIELDS + f,
+				m_aiProvinceMission[iBase + (size_t)(s + 1) * PROVINCE_MISSION_FIELDS + f]);
+		}
+	}
+	for (int f = 0; f < PROVINCE_MISSION_FIELDS; f++)
+		m_aiProvinceMission.setAt(iBase + (size_t)(iCount - 1) * PROVINCE_MISSION_FIELDS + f, 0);
+	return true;
 }
 
 void CvPlayer::ClearProvinceMission(int iProv)
@@ -38366,10 +38456,101 @@ void CvPlayer::ClearProvinceMission(int iProv)
 	if (!MOD_GLOBAL_SUZERAIN) return;
 	if (iProv < 0 || iProv >= GetProvinceCount()) return;
 
-	size_t iBase = (size_t)iProv * 8;
+	size_t iBase = (size_t)iProv * PROVINCE_MISSION_BLOCK;
 	if (iBase >= m_aiProvinceMission.size()) return;
-	for (int i = 0; i < 8; i++)
+	for (int i = 0; i < PROVINCE_MISSION_BLOCK && iBase + (size_t)i < m_aiProvinceMission.size(); i++)
 		m_aiProvinceMission.setAt(iBase + i, 0);
+}
+
+//--------------------------------------------------------------------------------
+// One-click raid: raise a mission in every province that has a barbarian unit
+// or camp within the raid radius, up to each province's mission cap.
+int CvPlayer::LaunchGlobalRaidMissions()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+
+	int iRadius = SuzerainDefineInt("SUZERAIN_PROVINCE_RAID_RADIUS");
+	int iDeadlineTurns = SuzerainDefineInt("SUZERAIN_AI_RAID_DEADLINE_TURNS");
+	if (iRadius <= 0 || iDeadlineTurns <= 0) return 0;
+
+	const int iTurn = GC.getGame().getGameTurn();
+	int iAdded = 0;
+
+	for (int p = 0; p < GetProvinceCount(); p++)
+	{
+		if (IsCapitalProvince(p)) continue;
+		if (GetProvinceMissionCount(p) >= PROVINCE_MISSION_SLOTS) continue;
+
+		// Province centre: the most populous city of the province.
+		CvCity* pCentre = NULL;
+		int iBestPop = -1;
+		int iCityLoop = 0;
+		for (CvCity* pCity = firstCity(&iCityLoop); pCity != NULL; pCity = nextCity(&iCityLoop))
+		{
+			if (GetCityProvince(pCity->GetID()) != p) continue;
+			if (pCity->getPopulation() > iBestPop)
+			{
+				iBestPop = pCity->getPopulation();
+				pCentre = pCity;
+			}
+		}
+		if (pCentre == NULL) continue;
+
+		CvPlot* pTarget = NULL;
+		int iBestDistance = INT_MAX;
+
+		CvPlayer& kBarb = GET_PLAYER(BARBARIAN_PLAYER);
+		int iBarbLoop = 0;
+		for (CvUnit* pBarb = kBarb.firstUnit(&iBarbLoop); pBarb != NULL; pBarb = kBarb.nextUnit(&iBarbLoop))
+		{
+			if (pBarb->IsDead()) continue;
+			int iDistance = plotDistance(pCentre->getX(), pCentre->getY(), pBarb->getX(), pBarb->getY());
+			if (iDistance <= iRadius && iDistance < iBestDistance)
+			{
+				iBestDistance = iDistance;
+				pTarget = pBarb->plot();
+			}
+		}
+
+		if (pTarget == NULL)
+		{
+			for (int dx = -iRadius; dx <= iRadius && pTarget == NULL; dx++)
+			{
+				for (int dy = -iRadius; dy <= iRadius; dy++)
+				{
+					CvPlot* pPlot = GC.getMap().plot(pCentre->getX() + dx, pCentre->getY() + dy);
+					if (pPlot == NULL) continue;
+					if (!pPlot->HasBarbarianCamp()) continue;
+					pTarget = pPlot;
+					break;
+				}
+			}
+		}
+		if (pTarget == NULL) continue;
+
+		const int iBefore = GetProvinceMissionCount(p);
+		SetProvinceMission(p, 1, pTarget->getX(), pTarget->getY(),
+			iTurn + iDeadlineTurns, pTarget->getOwner() != GetID());
+		if (GetProvinceMissionCount(p) > iBefore) iAdded++;
+	}
+	return iAdded;
+}
+
+//--------------------------------------------------------------------------------
+// One-click aid: send the default reinforcement batch to every province at war.
+int CvPlayer::ReinforceAllWarProvinces()
+{
+	if (!MOD_GLOBAL_SUZERAIN) return 0;
+
+	int iTotal = 0;
+	for (int p = 0; p < GetProvinceCount(); p++)
+	{
+		if (IsCapitalProvince(p)) continue;
+		if (GetProvinceWar(p) == 0) continue;
+		if (GetProvinceCityCount(p) <= 0) continue;
+		iTotal += DispatchSupportToProvince(p, -1, -1);
+	}
+	return iTotal;
 }
 
 // AI provinces raise their own extermination missions when barbarians or camps
@@ -38392,11 +38573,19 @@ void CvPlayer::DoAIProvinceMissionTurn()
 	{
 		if (IsCapitalProvince(p)) continue;
 		if (GetProvinceAutonomy(p) < 1) continue;
-		// Replace a finished (2) or expired (3) mission with a fresh one; keep
-		// pending, marching and waiting-for-troops missions untouched.
-		const int iOldType = GetProvinceMissionField(p, 0);
-		const int iOldState = GetProvinceMissionField(p, 4);
-		if (iOldType != 0 && iOldState != 2 && iOldState != 3) continue;
+
+		// Leave the province alone while any of its missions is still running.
+		bool bActive = false;
+		for (int s = 0; s < GetProvinceMissionCount(p); s++)
+		{
+			const int iState = GetProvinceMissionFieldAt(p, s, 4);
+			if (iState != 2 && iState != 3)
+			{
+				bActive = true;
+				break;
+			}
+		}
+		if (bActive) continue;
 
 		// Province centre: the most populous city of the province.
 		CvCity* pCentre = NULL;
@@ -38470,127 +38659,130 @@ void CvPlayer::DoProvinceMissionTurn()
 	{
 		if (IsCapitalProvince(p)) continue;
 
-		const int iMissionType = GetProvinceMissionField(p, 0);
-		if (iMissionType != 1) continue;
-
-		// State 4 = waiting for enough troops; it keeps the mission alive and
-		// is retried every turn.
-		const int iState = GetProvinceMissionField(p, 4);
-		if (iState == 2 || iState == 3) continue;
-
-		const int iDeadline = GetProvinceMissionField(p, 3);
-		if (iDeadline > 0 && iTurn > iDeadline)
+		const int iMissionCount = GetProvinceMissionCount(p);
+		for (int s = 0; s < iMissionCount; s++)
 		{
-			m_aiProvinceMission.setAt((size_t)p * 8 + 4, 3);
-			AddProvinceReport(p, SuzerainReportType("SUZERAIN_REPORT_RAID_TIMEOUT", 6), 0, 0);
-			continue;
-		}
+			if (GetProvinceMissionFieldAt(p, s, 0) != 1) continue;
 
-		const int iX = GetProvinceMissionField(p, 1);
-		const int iY = GetProvinceMissionField(p, 2);
+			// State 4 = waiting for enough troops; it keeps the mission alive
+			// and is retried every turn.
+			const int iState = GetProvinceMissionFieldAt(p, s, 4);
+			if (iState == 2 || iState == 3) continue;
 
-
-		// Nearest barbarian unit first, then a camp, within the raid radius.
-		CvPlot* pTarget = NULL;
-		int iBestDistance = INT_MAX;
-
-		CvPlayer& kBarb = GET_PLAYER(BARBARIAN_PLAYER);
-		int iBarbLoop = 0;
-		for (CvUnit* pBarb = kBarb.firstUnit(&iBarbLoop); pBarb != NULL; pBarb = kBarb.nextUnit(&iBarbLoop))
-		{
-			if (pBarb->IsDead()) continue;
-			int iDistance = plotDistance(iX, iY, pBarb->getX(), pBarb->getY());
-			if (iDistance <= iRadius && iDistance < iBestDistance)
+			const int iDeadline = GetProvinceMissionFieldAt(p, s, 3);
+			if (iDeadline > 0 && iTurn > iDeadline)
 			{
-				iBestDistance = iDistance;
-				pTarget = pBarb->plot();
+				SetProvinceMissionStateAt(p, s, 3);
+				AddProvinceReport(p, SuzerainReportType("SUZERAIN_REPORT_RAID_TIMEOUT", 6), 0, 0);
+				continue;
 			}
-		}
 
-		if (pTarget == NULL)
-		{
-			for (int dx = -iRadius; dx <= iRadius && pTarget == NULL; dx++)
+			const int iX = GetProvinceMissionFieldAt(p, s, 1);
+			const int iY = GetProvinceMissionFieldAt(p, s, 2);
+
+
+			// Nearest barbarian unit first, then a camp, within the raid radius.
+			CvPlot* pTarget = NULL;
+			int iBestDistance = INT_MAX;
+
+			CvPlayer& kBarb = GET_PLAYER(BARBARIAN_PLAYER);
+			int iBarbLoop = 0;
+			for (CvUnit* pBarb = kBarb.firstUnit(&iBarbLoop); pBarb != NULL; pBarb = kBarb.nextUnit(&iBarbLoop))
 			{
-				for (int dy = -iRadius; dy <= iRadius; dy++)
+				if (pBarb->IsDead()) continue;
+				int iDistance = plotDistance(iX, iY, pBarb->getX(), pBarb->getY());
+				if (iDistance <= iRadius && iDistance < iBestDistance)
 				{
-					CvPlot* pPlot = GC.getMap().plot(iX + dx, iY + dy);
-					if (pPlot == NULL) continue;
-					if (!pPlot->HasBarbarianCamp()) continue;
-					pTarget = pPlot;
-					break;
+					iBestDistance = iDistance;
+					pTarget = pBarb->plot();
 				}
 			}
-		}
 
-		if (pTarget == NULL)
-		{
-			// Nothing left to hunt: the mission is complete.
-			m_aiProvinceMission.setAt((size_t)p * 8 + 4, 2);
-			AddProvinceReport(p, SuzerainReportType("SUZERAIN_REPORT_RAID_DONE", 5), 0, 0);
-			continue;
-		}
-
-		// Crossing the border requires the player's permission.
-		if (pTarget->getOwner() != GetID() && GetProvinceMissionField(p, 5) == 0)
-		{
-			// Target outside borders, but cross-border not allowed: fail silently
-			// so the mission hangs until the player checks the cross-border box or
-			// the deadline expires.
-			continue;
-		}
-
-		// Keep a minimum garrison at home; the rest march out.
-		const int iKeep = GetProvinceCityCount(p) * iMinDefend;
-		const int iSend = GetProvinceGarrisonCount(p) - iKeep;
-		if (iSend < iMinUnits)
-		{
-			// Not enough troops. State 4 marks "waiting for troops" so the
-			// report is logged only when the mission first runs dry, not every
-			// turn while the province trains replacements.
-			if (iState != 4)
+			if (pTarget == NULL)
 			{
-				m_aiProvinceMission.setAt((size_t)p * 8 + 4, 4);
-				AddProvinceReport(p, SuzerainReportType("SUZERAIN_REPORT_RAID_NO_TROOPS", 17),
-					iSend + iKeep, iMinUnits + iKeep);
-			}
-			continue;
-		}
-
-		int iSent = 0;
-		int iUnitLoop = 0;
-		for (CvUnit* pUnit = firstUnit(&iUnitLoop); pUnit != NULL; pUnit = nextUnit(&iUnitLoop))
-		{
-			if (iSent >= iSend) break;
-			if (pUnit->IsDead()) continue;
-			if (!pUnit->IsCombatUnit()) continue;
-			if (pUnit->GetProvinceLevy() >= 0) continue;
-			if (pUnit->getDomainType() != DOMAIN_LAND) continue;
-			if (pUnit->IsAutomated()) continue;
-			if (pUnit->GetActivityType() == ACTIVITY_MISSION) continue;
-			if (pUnit->GetLengthMissionQueue() > 0) continue;
-			if (!pUnit->canMove()) continue;
-
-			// Only units whose nearest city belongs to this province.
-			CvCity* pNearest = NULL;
-			int iBest = INT_MAX;
-			int iCityLoop = 0;
-			for (CvCity* pCity = firstCity(&iCityLoop); pCity != NULL; pCity = nextCity(&iCityLoop))
-			{
-				int iDistance = plotDistance(pUnit->getX(), pUnit->getY(), pCity->getX(), pCity->getY());
-				if (iDistance < iBest)
+				for (int dx = -iRadius; dx <= iRadius && pTarget == NULL; dx++)
 				{
-					iBest = iDistance;
-					pNearest = pCity;
+					for (int dy = -iRadius; dy <= iRadius; dy++)
+					{
+						CvPlot* pPlot = GC.getMap().plot(iX + dx, iY + dy);
+						if (pPlot == NULL) continue;
+						if (!pPlot->HasBarbarianCamp()) continue;
+						pTarget = pPlot;
+						break;
+					}
 				}
 			}
-			if (pNearest == NULL || GetCityProvince(pNearest->GetID()) != p) continue;
 
-			pUnit->PushMission(CvTypes::getMISSION_MOVE_TO(), pTarget->getX(), pTarget->getY());
-			iSent++;
+			if (pTarget == NULL)
+			{
+				// Nothing left to hunt: the mission is complete.
+				SetProvinceMissionStateAt(p, s, 2);
+				AddProvinceReport(p, SuzerainReportType("SUZERAIN_REPORT_RAID_DONE", 5), 0, 0);
+				continue;
+			}
+
+			// Crossing the border requires the player's permission.
+			if (pTarget->getOwner() != GetID() && GetProvinceMissionFieldAt(p, s, 5) == 0)
+			{
+				// Target outside borders, but cross-border not allowed: fail silently
+				// so the mission hangs until the player checks the cross-border box or
+				// the deadline expires.
+				continue;
+			}
+
+			// Keep a minimum garrison at home; the rest march out.
+			const int iKeep = GetProvinceCityCount(p) * iMinDefend;
+			const int iSend = GetProvinceGarrisonCount(p) - iKeep;
+			if (iSend < iMinUnits)
+			{
+				// Not enough troops. State 4 marks "waiting for troops" so the
+				// report is logged only when the mission first runs dry, not every
+				// turn while the province trains replacements.
+				if (iState != 4)
+				{
+					SetProvinceMissionStateAt(p, s, 4);
+					AddProvinceReport(p, SuzerainReportType("SUZERAIN_REPORT_RAID_NO_TROOPS", 17),
+						iSend + iKeep, iMinUnits + iKeep);
+				}
+				continue;
+			}
+
+			int iSent = 0;
+			int iUnitLoop = 0;
+			for (CvUnit* pUnit = firstUnit(&iUnitLoop); pUnit != NULL; pUnit = nextUnit(&iUnitLoop))
+			{
+				if (iSent >= iSend) break;
+				if (pUnit->IsDead()) continue;
+				if (!pUnit->IsCombatUnit()) continue;
+				if (pUnit->GetProvinceLevy() >= 0) continue;
+				if (pUnit->getDomainType() != DOMAIN_LAND) continue;
+				if (pUnit->IsAutomated()) continue;
+				if (pUnit->GetActivityType() == ACTIVITY_MISSION) continue;
+				if (pUnit->GetLengthMissionQueue() > 0) continue;
+				if (!pUnit->canMove()) continue;
+
+				// Only units whose nearest city belongs to this province.
+				CvCity* pNearest = NULL;
+				int iBest = INT_MAX;
+				int iCityLoop = 0;
+				for (CvCity* pCity = firstCity(&iCityLoop); pCity != NULL; pCity = nextCity(&iCityLoop))
+				{
+					int iDistance = plotDistance(pUnit->getX(), pUnit->getY(), pCity->getX(), pCity->getY());
+					if (iDistance < iBest)
+					{
+						iBest = iDistance;
+						pNearest = pCity;
+					}
+				}
+				if (pNearest == NULL || GetCityProvince(pNearest->GetID()) != p) continue;
+
+				pUnit->PushMission(CvTypes::getMISSION_MOVE_TO(), pTarget->getX(), pTarget->getY());
+				iSent++;
+			}
+
+			if (iSent > 0)
+				SetProvinceMissionStateAt(p, s, 1);
 		}
-
-		if (iSent > 0)
-			m_aiProvinceMission.setAt((size_t)p * 8 + 4, 1);
 	}
 }
 

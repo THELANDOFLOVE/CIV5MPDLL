@@ -208,8 +208,13 @@ void CvLuaPlayer::RegistStaticFunctions() {
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceGarrisonCount);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceGarrisonTarget);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceMissionField);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceMissionFieldAt);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceMissionCount);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lSetProvinceMission);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lRemoveProvinceMissionAt);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lClearProvinceMission);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lLaunchGlobalRaidMissions);
+	REGIST_STATIC_FUNCTION(CvLuaPlayer::lReinforceAllWarProvinces);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lLevyProvinceGarrison);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lReturnProvinceGarrison);
 	REGIST_STATIC_FUNCTION(CvLuaPlayer::lGetProvinceLevyCount);
@@ -1723,8 +1728,13 @@ void CvLuaPlayer::PushMethods(lua_State* L, int t)
 	Method(GetProvinceGarrisonCount);
 	Method(GetProvinceGarrisonTarget);
 	Method(GetProvinceMissionField);
+	Method(GetProvinceMissionFieldAt);
+	Method(GetProvinceMissionCount);
 	Method(SetProvinceMission);
+	Method(RemoveProvinceMissionAt);
 	Method(ClearProvinceMission);
+	Method(LaunchGlobalRaidMissions);
+	Method(ReinforceAllWarProvinces);
 	Method(LevyProvinceGarrison);
 	Method(ReturnProvinceGarrison);
 	Method(GetProvinceLevyCount);
@@ -16253,6 +16263,47 @@ int CvLuaPlayer::lGetProvinceMissionField(lua_State* L)
 	lua_pushinteger(L, pkPlayer->GetProvinceMissionField(iProv, iField));
 	return 1;
 }
+//int GetProvinceMissionFieldAt(int iProv, int iIndex, int iField);
+int CvLuaPlayer::lGetProvinceMissionFieldAt(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iProv = lua_tointeger(L, 2);
+	int iIndex = lua_tointeger(L, 3);
+	int iField = lua_tointeger(L, 4);
+	lua_pushinteger(L, pkPlayer->GetProvinceMissionFieldAt(iProv, iIndex, iField));
+	return 1;
+}
+//int GetProvinceMissionCount(int iProv);
+int CvLuaPlayer::lGetProvinceMissionCount(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iProv = lua_tointeger(L, 2);
+	lua_pushinteger(L, pkPlayer->GetProvinceMissionCount(iProv));
+	return 1;
+}
+//bool RemoveProvinceMissionAt(int iProv, int iIndex);
+int CvLuaPlayer::lRemoveProvinceMissionAt(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	int iProv = lua_tointeger(L, 2);
+	int iIndex = lua_tointeger(L, 3);
+	lua_pushboolean(L, pkPlayer->RemoveProvinceMissionAt(iProv, iIndex));
+	return 1;
+}
+//int LaunchGlobalRaidMissions();
+int CvLuaPlayer::lLaunchGlobalRaidMissions(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->LaunchGlobalRaidMissions());
+	return 1;
+}
+//int ReinforceAllWarProvinces();
+int CvLuaPlayer::lReinforceAllWarProvinces(lua_State* L)
+{
+	CvPlayer* pkPlayer = GetInstance(L);
+	lua_pushinteger(L, pkPlayer->ReinforceAllWarProvinces());
+	return 1;
+}
 //void SetProvinceMission(int iProv, int iType, int iX, int iY, int iDeadline, bool bCrossBorder);
 int CvLuaPlayer::lSetProvinceMission(lua_State* L)
 {
@@ -16373,12 +16424,14 @@ int CvLuaPlayer::lOrderLevyRally(lua_State* L)
 	pkPlayer->OrderLevyRally(iX, iY);
 	return 0;
 }
-//int DispatchSupportToProvince(int iProv);
+//int DispatchSupportToProvince(int iProv, int iSourceProv, int iCount);
 int CvLuaPlayer::lDispatchSupportToProvince(lua_State* L)
 {
 	CvPlayer* pkPlayer = GetInstance(L);
 	int iProv = lua_tointeger(L, 2);
-	lua_pushinteger(L, pkPlayer->DispatchSupportToProvince(iProv));
+	int iSourceProv = luaL_optint(L, 3, -1);
+	int iCount = luaL_optint(L, 4, -1);
+	lua_pushinteger(L, pkPlayer->DispatchSupportToProvince(iProv, iSourceProv, iCount));
 	return 1;
 }
 //int GetProvinceReportCount(int iProv);

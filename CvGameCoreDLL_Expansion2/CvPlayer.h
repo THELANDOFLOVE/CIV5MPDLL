@@ -2394,18 +2394,29 @@ public:
 	int GetProvinceGarrisonCount(int iProv) const;
 	int GetProvinceGarrisonTarget(int iProv) const;
 	// Province military mission: 1 = exterminate barbarians near a target plot.
+	// A province can hold several missions at once; slot 0 is exposed through
+	// the legacy two-argument getter used by the province overview.
 	int GetProvinceMissionField(int iProv, int iField) const;
+	int GetProvinceMissionFieldAt(int iProv, int iIndex, int iField) const;
+	int GetProvinceMissionCount(int iProv) const;
 	void SetProvinceMissionState(int iProv, int iState);
+	void SetProvinceMissionStateAt(int iProv, int iIndex, int iState);
 	void SetProvinceMission(int iProv, int iType, int iX, int iY, int iDeadline, bool bCrossBorder);
+	bool RemoveProvinceMissionAt(int iProv, int iIndex);
 	void ClearProvinceMission(int iProv);
 	void DoProvinceMissionTurn();
 	void DoAIProvinceMissionTurn();
+	// One-click orders: raise raid missions in every province, or rush aid to
+	// every province currently at war.
+	int LaunchGlobalRaidMissions();
+	int ReinforceAllWarProvinces();
 	// Levy: hand the province's garrison to the centre, or give it back.
 	int LevyProvinceGarrison(int iProv);
 	int LevyProvinceGarrisonUpTo(int iProv, int iCount, bool bMarchToBorder = false);
 	// Manual support order: rush idle garrisons from the rest of the realm to
-	// the given province and fortify them there.
-	int DispatchSupportToProvince(int iProv);
+	// the given province and fortify them there. iSourceProv -1 means any
+	// province; iCount <= 0 uses SUZERAIN_SUPPORT_DISPATCH_MAX_UNITS.
+	int DispatchSupportToProvince(int iProv, int iSourceProv = -1, int iCount = -1);
 	void ReturnProvinceGarrison(int iProv);
 	int GetProvinceLevyCount(int iProv) const;
 	// Wartime: a province near an active front levies its surplus garrison

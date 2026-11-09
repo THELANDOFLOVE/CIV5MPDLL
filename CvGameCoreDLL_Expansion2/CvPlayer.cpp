@@ -37247,11 +37247,11 @@ void CvPlayer::DoProvinceTurn()
 	// dispatcher so they override any stale AI orders.
 	DoProvinceMissionTurn();
 
-	// Patrol and levy defence are folded into the dispatcher; keep them off so
-	// two systems do not fight over the same unit.
+	// Levied units are excluded from the dispatcher, so their local defence is
+	// handled here. Patrol and province defence stay folded into the dispatcher.
+	DoLevyDefenseTurn();
 	// DoProvinceDefenseTurn();
 	// DoProvincePatrolTurn();
-	// DoLevyDefenseTurn();
 
 	DoAutoProductionTurn();
 	DoBackstabWarningTurn();
@@ -37264,7 +37264,8 @@ void CvPlayer::DoProvinceTurn()
 void CvPlayer::AutoFillProvinceProduction()
 {
 	if (!MOD_GLOBAL_SUZERAIN) return;
-	if (!isHuman()) return;
+	// One production path for every player: the province production AI owns
+	// autonomous province choices, so AI realms no longer diverge from humans.
 	if (SuzerainDefineInt("SUZERAIN_AUTO_FILL_PRODUCTION") <= 0) return;
 
 	int iLoop = 0;
@@ -37464,9 +37465,10 @@ void CvPlayer::DoBackstabWarningTurn()
 }
 
 //--------------------------------------------------------------------------------
-// Levied troops gathered at the capital defend it: enemies that come near the
-// capital are engaged by the central army. This is the defensive half of the
-// rally order; offensive campaigns stay in the player's hands.
+// Levied troops are the player's standing reserve: each one engages the nearest
+// enemy inside the levy defence radius of its own position. A reserve split
+// between several provinces therefore answers local attacks instead of only
+// guarding the capital. Offensive campaigns stay in the player's hands.
 void CvPlayer::DoLevyDefenseTurn()
 {
 	if (!MOD_GLOBAL_SUZERAIN) return;
@@ -37478,35 +37480,6 @@ void CvPlayer::DoLevyDefenseTurn()
 	int iRadius = SuzerainDefineInt("SUZERAIN_LEVY_DEFENSE_RADIUS");
 	if (iRadius <= 0) return;
 
-	const CvCity* pCapital = getCapitalCity();
-	if (pCapital == NULL) return;
-
-	// Nearest enemy unit near the capital.
-	CvPlot* pTarget = NULL;
-	int iBestDistance = INT_MAX;
-	for (int iPlayer = 0; iPlayer < MAX_CIV_PLAYERS; iPlayer++)
-	{
-		PlayerTypes eOther = (PlayerTypes)iPlayer;
-		if (eOther == GetID()) continue;
-
-		CvPlayer& kOther = GET_PLAYER(eOther);
-		if (!kOther.isAlive()) continue;
-		if (!GET_TEAM(getTeam()).isAtWar(kOther.getTeam())) continue;
-
-		int iEnemyLoop = 0;
-		for (CvUnit* pEnemy = kOther.firstUnit(&iEnemyLoop); pEnemy != NULL; pEnemy = kOther.nextUnit(&iEnemyLoop))
-		{
-			if (pEnemy->IsDead()) continue;
-			int iDistance = plotDistance(pEnemy->getX(), pEnemy->getY(), pCapital->getX(), pCapital->getY());
-			if (iDistance <= iRadius && iDistance < iBestDistance)
-			{
-				iBestDistance = iDistance;
-				pTarget = pEnemy->plot();
-			}
-		}
-	}
-	if (pTarget == NULL) return;
-
 	int iUnitLoop = 0;
 	for (CvUnit* pUnit = firstUnit(&iUnitLoop); pUnit != NULL; pUnit = nextUnit(&iUnitLoop))
 	{
@@ -37516,10 +37489,34 @@ void CvPlayer::DoLevyDefenseTurn()
 		if (pUnit->GetProvinceLevy() < 0) continue;
 		if (pUnit->IsAutomated()) continue;
 		if (pUnit->GetActivityType() == ACTIVITY_MISSION) continue;
+		if (pUnit->GetLengthMissionQueue() > 0) continue;
 		if (!pUnit->canMove()) continue;
 
-		// Only levied troops stationed near the capital answer.
-		if (plotDistance(pUnit->getX(), pUnit->getY(), pCapital->getX(), pCapital->getY()) > iRadius) continue;
+		CvPlot* pTarget = NULL;
+		int iBestDistance = INT_MAX;
+		for (int iPlayer = 0; iPlayer < MAX_CIV_PLAYERS; iPlayer++)
+		{
+			PlayerTypes eOther = (PlayerTypes)iPlayer;
+			if (eOther == GetID()) continue;
+
+			CvPlayer& kOther = GET_PLAYER(eOther);
+			if (!kOther.isAlive()) continue;
+			if (!GET_TEAM(getTeam()).isAtWar(kOther.getTeam())) continue;
+
+			int iEnemyLoop = 0;
+			for (CvUnit* pEnemy = kOther.firstUnit(&iEnemyLoop); pEnemy != NULL; pEnemy = kOther.nextUnit(&iEnemyLoop))
+			{
+				if (pEnemy->IsDead()) continue;
+				if (pEnemy->getDomainType() == DOMAIN_SEA) continue; // land reserve
+				int iDistance = plotDistance(pUnit->getX(), pUnit->getY(), pEnemy->getX(), pEnemy->getY());
+				if (iDistance <= iRadius && iDistance < iBestDistance)
+				{
+					iBestDistance = iDistance;
+					pTarget = pEnemy->plot();
+				}
+			}
+		}
+		if (pTarget == NULL) continue;
 
 		if (pUnit->isRanged()
 			&& plotDistance(pUnit->getX(), pUnit->getY(), pTarget->getX(), pTarget->getY()) <= pUnit->GetRange())
@@ -38326,18 +38323,31 @@ void CvPlayer::UpdateProvinceBorderFlags()
 // target plot. State 0 pending, 1 marching, 2 done, 3 expired, 4 waiting for
 // troops. A province can run several missions at once; slots are packed from 0
 // and a type of 0 marks the end of the list.
-static const int PROVINCE_MISSION_SLOTS = 3;
 static const int PROVINCE_MISSION_FIELDS = 8;
-static const int PROVINCE_MISSION_BLOCK = PROVINCE_MISSION_SLOTS * PROVINCE_MISSION_FIELDS;
+
+// Slots per province come from SUZERAIN_PROVINCE_RAID_SLOTS. They define the
+// save layout, so changing the define requires a DLL version bump.
+static int ProvinceMissionSlots()
+{
+	int iSlots = GC.getDefineINT("SUZERAIN_PROVINCE_RAID_SLOTS", false);
+	if (iSlots < 1) iSlots = 3;
+	if (iSlots > 8) iSlots = 8;
+	return iSlots;
+}
+
+static int ProvinceMissionBlock()
+{
+	return ProvinceMissionSlots() * PROVINCE_MISSION_FIELDS;
+}
 
 int CvPlayer::GetProvinceMissionFieldAt(int iProv, int iIndex, int iField) const
 {
 	if (!MOD_GLOBAL_SUZERAIN) return 0;
 	if (iProv < 0 || iProv >= GetProvinceCount()) return 0;
-	if (iIndex < 0 || iIndex >= PROVINCE_MISSION_SLOTS) return 0;
+	if (iIndex < 0 || iIndex >= ProvinceMissionSlots()) return 0;
 	if (iField < 0 || iField >= PROVINCE_MISSION_FIELDS) return 0;
 
-	size_t iPos = (size_t)iProv * PROVINCE_MISSION_BLOCK
+	size_t iPos = (size_t)iProv * ProvinceMissionBlock()
 		+ (size_t)iIndex * PROVINCE_MISSION_FIELDS + iField;
 	if (iPos >= m_aiProvinceMission.size()) return 0;
 	return m_aiProvinceMission[iPos];
@@ -38349,7 +38359,7 @@ int CvPlayer::GetProvinceMissionCount(int iProv) const
 	if (iProv < 0 || iProv >= GetProvinceCount()) return 0;
 
 	int iCount = 0;
-	for (int s = 0; s < PROVINCE_MISSION_SLOTS; s++)
+	for (int s = 0; s < ProvinceMissionSlots(); s++)
 	{
 		if (GetProvinceMissionFieldAt(iProv, s, 0) == 0) break;
 		iCount++;
@@ -38370,6 +38380,15 @@ void CvPlayer::SetProvinceMission(int iProv, int iType, int iX, int iY, int iDea
 	if (IsCapitalProvince(iProv)) return;
 	if (iType != 1) return; // only the exterminate mission exists
 
+	// Recycle slots held by finished or expired missions so they do not block
+	// new orders.
+	for (int s = GetProvinceMissionCount(iProv) - 1; s >= 0; s--)
+	{
+		const int iState = GetProvinceMissionFieldAt(iProv, s, 4);
+		if (iState == 2 || iState == 3)
+			RemoveProvinceMissionAt(iProv, s);
+	}
+
 	const int iCount = GetProvinceMissionCount(iProv);
 
 	// Do not queue the same target twice.
@@ -38380,13 +38399,13 @@ void CvPlayer::SetProvinceMission(int iProv, int iType, int iX, int iY, int iDea
 			&& GetProvinceMissionFieldAt(iProv, s, 2) == iY)
 			return;
 	}
-	if (iCount >= PROVINCE_MISSION_SLOTS) return;
+	if (iCount >= ProvinceMissionSlots()) return;
 
-	size_t iBase = (size_t)iProv * PROVINCE_MISSION_BLOCK;
-	if (iBase + PROVINCE_MISSION_BLOCK > m_aiProvinceMission.size())
+	size_t iBase = (size_t)iProv * ProvinceMissionBlock();
+	if (iBase + ProvinceMissionBlock() > m_aiProvinceMission.size())
 	{
 		std::vector<int> v = m_aiProvinceMission;
-		v.resize(iBase + PROVINCE_MISSION_BLOCK, 0);
+		v.resize(iBase + ProvinceMissionBlock(), 0);
 		m_aiProvinceMission = v;
 	}
 
@@ -38405,9 +38424,9 @@ void CvPlayer::SetProvinceMissionStateAt(int iProv, int iIndex, int iState)
 {
 	if (!MOD_GLOBAL_SUZERAIN) return;
 	if (iProv < 0 || iProv >= GetProvinceCount()) return;
-	if (iIndex < 0 || iIndex >= PROVINCE_MISSION_SLOTS) return;
+	if (iIndex < 0 || iIndex >= ProvinceMissionSlots()) return;
 
-	size_t iPos = (size_t)iProv * PROVINCE_MISSION_BLOCK
+	size_t iPos = (size_t)iProv * ProvinceMissionBlock()
 		+ (size_t)iIndex * PROVINCE_MISSION_FIELDS + 4;
 	if (iPos >= m_aiProvinceMission.size()) return;
 	m_aiProvinceMission.setAt(iPos, iState);
@@ -38436,7 +38455,7 @@ bool CvPlayer::RemoveProvinceMissionAt(int iProv, int iIndex)
 	const int iCount = GetProvinceMissionCount(iProv);
 	if (iIndex < 0 || iIndex >= iCount) return false;
 
-	size_t iBase = (size_t)iProv * PROVINCE_MISSION_BLOCK;
+	size_t iBase = (size_t)iProv * ProvinceMissionBlock();
 	for (int s = iIndex; s < iCount - 1; s++)
 	{
 		for (int f = 0; f < PROVINCE_MISSION_FIELDS; f++)
@@ -38456,9 +38475,9 @@ void CvPlayer::ClearProvinceMission(int iProv)
 	if (!MOD_GLOBAL_SUZERAIN) return;
 	if (iProv < 0 || iProv >= GetProvinceCount()) return;
 
-	size_t iBase = (size_t)iProv * PROVINCE_MISSION_BLOCK;
+	size_t iBase = (size_t)iProv * ProvinceMissionBlock();
 	if (iBase >= m_aiProvinceMission.size()) return;
-	for (int i = 0; i < PROVINCE_MISSION_BLOCK && iBase + (size_t)i < m_aiProvinceMission.size(); i++)
+	for (int i = 0; i < ProvinceMissionBlock() && iBase + (size_t)i < m_aiProvinceMission.size(); i++)
 		m_aiProvinceMission.setAt(iBase + i, 0);
 }
 
@@ -38479,7 +38498,7 @@ int CvPlayer::LaunchGlobalRaidMissions()
 	for (int p = 0; p < GetProvinceCount(); p++)
 	{
 		if (IsCapitalProvince(p)) continue;
-		if (GetProvinceMissionCount(p) >= PROVINCE_MISSION_SLOTS) continue;
+		if (GetProvinceMissionCount(p) >= ProvinceMissionSlots()) continue;
 
 		// Province centre: the most populous city of the province.
 		CvCity* pCentre = NULL;
@@ -39014,13 +39033,11 @@ void CvPlayer::DoProvinceQueueTurn()
 				if (iType == 0)
 				{
 					BuildingTypes eBuilding = (BuildingTypes)iTarget;
+					// This city already has it, but another city of the province
+					// may still need it: try the next city instead of dropping
+					// the whole order.
 					if (pCity->GetCityBuildings()->GetNumBuilding(eBuilding) > 0)
-					{
-						// The province already has it; drop the order.
-						RemoveProvinceQueueItem(p, 0);
-						bStarted = true;
-						break;
-					}
+						continue;
 					if (pCity->canConstruct(eBuilding, false, false, false, false))
 					{
 						pCity->pushOrder(ORDER_CONSTRUCT, eBuilding, -1, false, false, true);
@@ -39061,7 +39078,31 @@ void CvPlayer::DoProvinceQueueTurn()
 			}
 
 			if (!bStarted)
+			{
+				// A building that every city of the province already owns is a
+				// dead order: recycle it and try the next queue item. Anything
+				// else waits (tech, resources or an occupied queue may free up).
+				if (iType == 0)
+				{
+					bool bAllHave = true;
+					int iScanLoop = 0;
+					for (CvCity* pCity = firstCity(&iScanLoop); pCity != NULL; pCity = nextCity(&iScanLoop))
+					{
+						if (GetCityProvince(pCity->GetID()) != p) continue;
+						if (pCity->GetCityBuildings()->GetNumBuilding((BuildingTypes)iTarget) <= 0)
+						{
+							bAllHave = false;
+							break;
+						}
+					}
+					if (bAllHave)
+					{
+						RemoveProvinceQueueItem(p, 0);
+						continue;
+					}
+				}
 				break; // no city can take the head right now
+			}
 		}
 	}
 }
@@ -39248,6 +39289,15 @@ void CvPlayer::DoProvinceBuildTurn()
 			}
 
 			const bool bNeedGarrison = iMilitaryUnits < iGarrisonTarget;
+
+			// Unified path: the province production AI chooses for every
+			// autonomous city, human or AI. The legacy fallback below only runs
+			// when that AI is unavailable.
+			if (m_pProvinceProductionAI != NULL)
+			{
+				m_pProvinceProductionAI->ChooseProduction(p, pCity);
+				continue;
+			}
 
 			// AI cities run their own city AI, but the province still tops up
 			// their garrison: that is the one thing the city AI will not keep.

@@ -166,8 +166,9 @@ void CvNationalMilitaryDispatcher::EvaluateNationalThreats(void)
 		// Evaluate enemy naval threats near coastal cities
 		EvaluateNavalThreats(iProv);
 
-		// Evaluate barbarian threats (medium priority)
-		EvaluateBarbarianThreats(iProv);
+		// Barbarian raids belong to the province mission system
+		// (DoAIProvinceMissionTurn + DoProvinceMissionTurn). The dispatcher
+		// must not raise a second set of raid tasks for the same province.
 	}
 
 	// Sort tasks by priority (highest first)

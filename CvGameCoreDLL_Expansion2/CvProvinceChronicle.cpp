@@ -223,7 +223,7 @@ void CvProvinceChronicle::CompileChronicle(void)
 	// Only keep raw data from last m_iCompileInterval turns
 	std::vector<int> vReport = m_pPlayer->m_aiProvinceReport;
 	size_t iWrite = 0;
-	for (size_t i = 0; i < vReport.size(); i += 5)
+	for (size_t i = 0; i + 4 < vReport.size(); i += 5)
 	{
 		int iTurn = vReport[i];
 		if (iTurn > iStartTurn) // Keep recent raw data
@@ -247,7 +247,7 @@ void CvProvinceChronicle::CollectEventStatistics(int iStartTurn, int iEndTurn, i
 	std::vector<std::pair<std::string, std::string> > vStatMap;
 	SuzerainParsePairList("SUZERAIN_CHRONICLE_STAT_MAP", vStatMap);
 
-	for (size_t i = 0; i < vReport.size(); i += 5)
+	for (size_t i = 0; i + 4 < vReport.size(); i += 5)
 	{
 		int iTurn = vReport[i];
 		int iProv = vReport[i + 1];
@@ -279,7 +279,7 @@ void CvProvinceChronicle::FilterMajorEvents(int iStartTurn, int iEndTurn, int iP
 	// Collect all events and sort by importance
 	std::vector<std::vector<int>> vAllEvents;
 
-	for (size_t i = 0; i < vReport.size(); i += 5)
+	for (size_t i = 0; i + 4 < vReport.size(); i += 5)
 	{
 		int iTurn = vReport[i];
 		int iProv = vReport[i + 1];
@@ -319,8 +319,8 @@ void CvProvinceChronicle::FilterMajorEvents(int iStartTurn, int iEndTurn, int iP
 			return a[4] > b[4]; // Sort by importance descending
 		});
 
-	// Take top 5
-	for (size_t i = 0; i < vAllEvents.size() && i < 5; i++)
+	// Take the top entries the layout can hold.
+	for (size_t i = 0; i < vAllEvents.size() && i < (size_t)CHRONICLE_MAX_EVENTS; i++)
 	{
 		for (int j = 0; j < 5; j++)
 			entry.vMajorEvents.push_back(vAllEvents[i][j]);
@@ -342,7 +342,7 @@ std::vector<int> CvProvinceChronicle::GetRawReports(int iStartTurn, int iEndTurn
 
 	std::vector<int> vReport = m_pPlayer->m_aiProvinceReport;
 
-	for (size_t i = 0; i < vReport.size(); i += 5)
+	for (size_t i = 0; i + 4 < vReport.size(); i += 5)
 	{
 		int iTurn = vReport[i];
 		int iProv = vReport[i + 1];

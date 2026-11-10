@@ -41233,7 +41233,11 @@ void CvPlayer::AddChronicle(int iType, int iSubject, int iObject, int iValue)
 //--------------------------------------------------------------------------------
 int CvPlayer::GetChronicleCount() const
 {
-	return (int)m_aiChronicle.size() / 5;
+	// Guard against a corrupted vector: only count complete 5-int entries.
+	// If a save was written with a shifted stream, the size might not be a
+	// multiple of 5, and reporting the partial entry would let Lua read past
+	// the actual data.
+	return (int)(m_aiChronicle.size() / 5);
 }
 
 //--------------------------------------------------------------------------------
@@ -41241,6 +41245,9 @@ int CvPlayer::GetChronicleValue(int iIndex, int iField) const
 {
 	if (iIndex < 0 || iField < 0 || iField > 4) return 0;
 	size_t iBase = (size_t)(iIndex * 5);
+	// The check must be ">=" not ">" because we access [iBase + iField], and
+	// iField can be 4. If the vector was corrupted by a shifted stream, this
+	// guards against reading past the allocated memory.
 	if (iBase + 4 >= m_aiChronicle.size()) return 0;
 	return m_aiChronicle[iBase + iField];
 }

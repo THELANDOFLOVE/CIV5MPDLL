@@ -2700,6 +2700,9 @@ CvCity* CvPlayer::initCity(int iX, int iY, bool bBumpUnits, bool bInitialFoundin
 //	--------------------------------------------------------------------------------
 // Forward declaration: the helper is defined further down the file.
 static int SuzerainDefineInt(const char* szName);
+// Defined with the province mission storage; the save reader needs it early
+// to recognise the pre-multi-slot mission layout.
+static int ProvinceMissionBlock();
 
 //	--------------------------------------------------------------------------------
 // NOTE: bGift set to true if the city is given as a gift, as in the case for trades and Austria UA of annexing city-states
@@ -31705,8 +31708,26 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ_VECTOR(168, kStream, m_aiProvinceChronicle, 0, 0);
 		MOD_SERIALIZE_READ_VECTOR(168, kStream, m_aiProvinceQueue, 0, 0);
 		MOD_SERIALIZE_READ_VECTOR(168, kStream, m_aiProvinceMission, 0, 0);
+		// 168 stored one mission per province (8 ints); newer builds pack
+		// ProvinceMissionBlock() ints. Detect the old length and convert slot 0
+		// instead of reinterpreting the old data as a multi-slot block.
+		{
+			const size_t iProvCount = (size_t)GetProvinceCount();
+			const size_t iOldSize = iProvCount * 8;
+			const size_t iNewBlock = (size_t)ProvinceMissionBlock();
+			if (iNewBlock > 8 && iProvCount > 0 && m_aiProvinceMission.size() == iOldSize)
+			{
+				std::vector<int> vOld = m_aiProvinceMission;
+				std::vector<int> vNew(iProvCount * iNewBlock, 0);
+				for (size_t p = 0; p < iProvCount; p++)
+				{
+					for (int f = 0; f < 8; f++)
+						vNew[p * iNewBlock + f] = vOld[p * 8 + f];
+				}
+				m_aiProvinceMission = vNew;
+			}
+		}
 		MOD_SERIALIZE_READ(168, kStream, m_iProvinceUnhappinessMod, 0);
-		MOD_SERIALIZE_READ(168, kStream, m_iProvinceMobilization, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iFavourBonusTurn, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalBreachCount, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalPunishRight, MAX_MAJOR_CIVS, 0);
@@ -32359,6 +32380,11 @@ void CvPlayer::Read(FDataStream& kStream)
 	MOD_SERIALIZE_READ_ARRAY(164, kStream, m_abBoughtCityStateFriendUA, bool, MAX_CIV_PLAYERS, false);
 #endif
 
+	// Appended at the end of the stream so 168 saves that predate the field
+	// read past it (stream returns the default 0) without shifting any of the
+	// fields above, and older DLLs simply ignore the trailing int.
+	MOD_SERIALIZE_READ(168, kStream, m_iProvinceMobilization, 0);
+
 	// City-state gift unit free promotions are a derived cache rebuilt from the adopted policies
 	// (kept in sync by CvPlayer::processPolicies), so they are not serialized. Rebuilding on load
 	// also makes the effect work for saves written before the feature existed, instead of leaving
@@ -32729,7 +32755,6 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiProvinceQueue);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiProvinceMission);
 	MOD_SERIALIZE_WRITE(kStream, m_iProvinceUnhappinessMod);
-	MOD_SERIALIZE_WRITE(kStream, m_iProvinceMobilization);
 	MOD_SERIALIZE_WRITE(kStream, m_iFavourBonusTurn);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalBreachCount);
 	MOD_SERIALIZE_WRITE(kStream, m_aiVassalPunishRight);
@@ -33276,6 +33301,9 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE_CONSTARRAY(kStream, m_abBoughtCityStateAllyUA, bool, MAX_CIV_PLAYERS);
 	MOD_SERIALIZE_WRITE_CONSTARRAY(kStream, m_abBoughtCityStateFriendUA, bool, MAX_CIV_PLAYERS);
 #endif
+
+	// Must stay last: see the read side.
+	MOD_SERIALIZE_WRITE(kStream, m_iProvinceMobilization);
 }
 
 //	--------------------------------------------------------------------------------
@@ -37037,6 +37065,9 @@ CvProvinceChronicle* CvPlayer::GetProvinceChronicle() const
 //	--------------------------------------------------------------------------------
 int CvPlayer::GetProvinceChronicleCount() const
 {
+	// Guard against a partially written or corrupted vector: only count
+	// complete entries. A save file that ends mid-entry should not report
+	// the incomplete one as a valid chronicle item.
 	return (int)(m_aiProvinceChronicle.size() / CHRONICLE_STRIDE);
 }
 
@@ -37055,7 +37086,11 @@ int CvPlayer::GetProvinceChronicleEventCount(int iIndex) const
 	if (iIndex < 0) return 0;
 	size_t iBase = (size_t)iIndex * CHRONICLE_STRIDE;
 	if (iBase + CHRONICLE_STRIDE > m_aiProvinceChronicle.size()) return 0;
-	return m_aiProvinceChronicle[iBase + CHRONICLE_FIELD_EVENT_COUNT];
+	int iCount = m_aiProvinceChronicle[iBase + CHRONICLE_FIELD_EVENT_COUNT];
+	// Clamp the reported count to the maximum the layout can hold, so Lua
+	// loops never attempt to read beyond the allocated event area.
+	if (iCount > CHRONICLE_MAX_EVENTS) iCount = CHRONICLE_MAX_EVENTS;
+	return iCount;
 }
 
 //	--------------------------------------------------------------------------------
@@ -37066,6 +37101,9 @@ int CvPlayer::GetProvinceChronicleEventField(int iIndex, int iEvent, int iField)
 	if (iBase + CHRONICLE_STRIDE > m_aiProvinceChronicle.size()) return 0;
 	int iCount = m_aiProvinceChronicle[iBase + CHRONICLE_FIELD_EVENT_COUNT];
 	if (iEvent >= iCount) return 0;
+	// Guard against a corrupted event count in an old save: never read past
+	// the entry's own event area, even if EVENT_COUNT claims there are more.
+	if (iEvent >= CHRONICLE_MAX_EVENTS) return 0;
 	return m_aiProvinceChronicle[iBase + CHRONICLE_FIELD_EVENTS + iEvent * CHRONICLE_EVENT_STRIDE + iField];
 }
 

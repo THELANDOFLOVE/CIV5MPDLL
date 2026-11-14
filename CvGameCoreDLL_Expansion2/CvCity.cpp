@@ -16734,7 +16734,16 @@ bool CvCity::isRevealed(TeamTypes eIndex, bool bDebug) const
 		CvAssertMsg(eIndex >= 0, "eIndex expected to be >= 0");
 		CvAssertMsg(eIndex < MAX_TEAMS, "eIndex expected to be < MAX_TEAMS");
 
-		return m_abRevealed[eIndex];
+		if (m_abRevealed[eIndex]) return true;
+#if defined(MOD_GLOBAL_SUZERAIN)
+		if (MOD_GLOBAL_SUZERAIN)
+		{
+			const std::vector<int>& vSources = GET_TEAM(eIndex).GetVassalVisionSources();
+			for (size_t i = 0; i < vSources.size(); i++)
+				if (m_abRevealed[vSources[i]]) return true;
+		}
+#endif
+		return false;
 	}
 }
 
@@ -16746,7 +16755,7 @@ bool CvCity::setRevealed(TeamTypes eIndex, bool bNewValue)
 	CvAssertMsg(eIndex >= 0, "eIndex expected to be >= 0");
 	CvAssertMsg(eIndex < MAX_TEAMS, "eIndex expected to be < MAX_TEAMS");
 
-	if(isRevealed(eIndex, false) != bNewValue)
+	if(m_abRevealed[eIndex] != bNewValue)
 	{
 		m_abRevealed.setAt(eIndex, bNewValue);
 

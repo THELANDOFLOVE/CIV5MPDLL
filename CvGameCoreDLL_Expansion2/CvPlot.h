@@ -705,6 +705,8 @@ public:
 		return false;
 	}
 
+	TeamTypes getRevealedSourceTeam(TeamTypes eTeam) const;
+
 #if defined(MOD_API_EXTENSIONS)
 	bool setRevealed(TeamTypes eTeam, bool bNewValue, CvUnit* pUnit = NULL, bool bTerrainOnly = false, TeamTypes eFromTeam = NO_TEAM);
 #else

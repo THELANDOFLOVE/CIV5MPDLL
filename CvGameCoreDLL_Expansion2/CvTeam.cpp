@@ -271,6 +271,7 @@ void CvTeam::uninit()
 // Initializes data members that are serialized.
 void CvTeam::reset(TeamTypes eID, bool bConstructorCall)
 {
+	m_viVassalVisionSources.clear();
 	//--------------------------------
 	// Uninit class
 	uninit();
@@ -814,6 +815,7 @@ void CvTeam::processBuilding(BuildingTypes eBuilding, int iChange, bool bFirst)
 // Rebuilt every turn, so no serialization is needed.
 void CvTeam::UpdateVassalVisionSources()
 {
+	const std::vector<int> vPreviousSources = m_viVassalVisionSources;
 	m_viVassalVisionSources.clear();
 	if (!MOD_GLOBAL_SUZERAIN) return;
 
@@ -846,6 +848,14 @@ void CvTeam::UpdateVassalVisionSources()
 			if (!bFound)
 				m_viVassalVisionSources.push_back((int)eVassalTeam);
 		}
+	}
+	if (vPreviousSources != m_viVassalVisionSources && GetID() == GC.getGame().getActiveTeam() && GC.IsGraphicsInitialized())
+	{
+		for (int iPlot = 0; iPlot < GC.getMap().numPlots(); iPlot++)
+			GC.getMap().plotByIndexUnchecked(iPlot)->updateSymbols();
+		GC.getMap().updateFog();
+		GC.getMap().updateVisibility();
+		GC.getMap().updateCenterUnit();
 	}
 }
 

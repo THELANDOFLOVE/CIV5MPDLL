@@ -9000,6 +9000,8 @@ void CvGame::updateMoves()
 	// every source and add it back, which restores what was lost and leaves consistent plots unchanged.
 	if(m_firstActivationOfPlayersAfterLoad)
 	{
+		for(int iTeam = 0; iTeam < MAX_TEAMS; iTeam++)
+			GET_TEAM((TeamTypes)iTeam).UpdateVassalVisionSources();
 		GC.getMap().updateSight(false);
 		GC.getMap().updateSight(true);
 		GC.getMap().updateDeferredFog();

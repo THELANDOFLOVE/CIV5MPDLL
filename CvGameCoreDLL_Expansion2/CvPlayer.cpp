@@ -23205,6 +23205,7 @@ void CvPlayer::setAlive(bool bNewValue, bool bNotify)
 				GET_PLAYER(eVassal).SetOverlord(NO_PLAYER);
 			}
 			m_vecVassals.clear();
+			GET_TEAM(getTeam()).UpdateVassalVisionSources();
 #endif
 			if(CvPreGame::isNetworkMultiplayerGame() && m_eID == GC.getGame().getActivePlayer())
 				gDLL->netDisconnect();
@@ -43143,6 +43144,7 @@ void CvPlayer::AddVassal(PlayerTypes e, int iHow)
 	if (!IsOverlordOf(e))
 	{
 		m_vecVassals.push_back((int)e);
+		GET_TEAM(getTeam()).UpdateVassalVisionSources();
 		// Initialize this vassal's tax cache slot so it reads as zero before the first taxation pass
 		m_aScienceTimes100FromVassals[e] = 0;
 		m_aCultureFromVassals[e] = 0;
@@ -43160,6 +43162,7 @@ void CvPlayer::RemoveVassal(PlayerTypes e)
 		if (m_vecVassals[i] == (int)e)
 		{
 			m_vecVassals.erase(m_vecVassals.begin() + i);
+			GET_TEAM(getTeam()).UpdateVassalVisionSources();
 			break;
 		}
 	}

@@ -10050,7 +10050,7 @@ PlotVisibilityChangeResult CvPlot::changeVisibilityCount(TeamTypes eTeam, int iC
 	PlotVisibilityChangeResult eResult = VISIBILTY_CHANGE_NONE;
 	if(iChange != 0)
 	{
-		bOldVisible = isVisible(eTeam);
+		bOldVisible = getVisibilityCount(eTeam) > 0;
 
 		m_aiVisibilityCount[eTeam] += iChange;
 		CvAssertFmt(m_aiVisibilityCount[eTeam]>=0, "Changing plot X:%d, Y:%d to a negative visibility", getX(), getY());
@@ -10070,13 +10070,13 @@ PlotVisibilityChangeResult CvPlot::changeVisibilityCount(TeamTypes eTeam, int iC
 			}
 		}
 
-		if(bOldVisible != isVisible(eTeam))
+		if(bOldVisible != (getVisibilityCount(eTeam) > 0))
 		{
 			// We couldn't see the Plot before but we can now
-			if(isVisible(eTeam))
+			if(getVisibilityCount(eTeam) > 0)
 			{
 				eResult = VISIBILITY_CHANGE_TO_VISIBLE;
-				bool bOldRevealed = isRevealed(eTeam);
+				bool bOldRevealed = m_bfRevealed.GetBit(eTeam);
 #if defined(MOD_API_EXTENSIONS)
 				if (!setRevealed(eTeam, true, pUnit))	// Change to revealed, returns true if the visibility was changed
 #else
@@ -10160,12 +10160,44 @@ PlotVisibilityChangeResult CvPlot::changeVisibilityCount(TeamTypes eTeam, int iC
 				updateCenterUnit();
 			}
 		}
+#if defined(MOD_GLOBAL_SUZERAIN)
+		const TeamTypes eActiveTeam = GC.getGame().getActiveTeam();
+		if (MOD_GLOBAL_SUZERAIN && bOldVisible != (getVisibilityCount(eTeam) > 0) && eActiveTeam != NO_TEAM && eActiveTeam != eTeam)
+		{
+			const std::vector<int>& vSources = GET_TEAM(eActiveTeam).GetVassalVisionSources();
+			if (std::find(vSources.begin(), vSources.end(), (int)eTeam) != vSources.end())
+			{
+				updateSymbols();
+				updateFog(true);
+				updateVisibility();
+				updateCenterUnit();
+			}
+		}
+#endif
 	}
 
 	return eResult;
 }
 
 //	--------------------------------------------------------------------------------
+TeamTypes CvPlot::getRevealedSourceTeam(TeamTypes eTeam) const
+{
+#if defined(MOD_GLOBAL_SUZERAIN)
+	if (MOD_GLOBAL_SUZERAIN)
+	{
+		const std::vector<int>& vSources = GET_TEAM(eTeam).GetVassalVisionSources();
+		for (size_t i = 0; i < vSources.size(); i++)
+			if (getVisibilityCount((TeamTypes)vSources[i]) > 0)
+				return (TeamTypes)vSources[i];
+		if (!m_bfRevealed.GetBit(eTeam))
+			for (size_t i = 0; i < vSources.size(); i++)
+				if (m_bfRevealed.GetBit((TeamTypes)vSources[i]))
+					return (TeamTypes)vSources[i];
+	}
+#endif
+	return eTeam;
+}
+
 PlayerTypes CvPlot::getRevealedOwner(TeamTypes eTeam, bool bDebug) const
 {
 	if(bDebug && GC.getGame().isDebugMode())
@@ -10177,7 +10209,7 @@ PlayerTypes CvPlot::getRevealedOwner(TeamTypes eTeam, bool bDebug) const
 		CvAssertMsg(eTeam >= 0, "eTeam is expected to be non-negative (invalid Index)");
 		CvAssertMsg(eTeam < MAX_TEAMS, "eTeam is expected to be within maximum bounds (invalid Index)");
 
-		return (PlayerTypes)m_aiRevealedOwner[eTeam];
+		return getRevealedOwner(eTeam);
 	}
 }
 
@@ -10206,7 +10238,7 @@ PlayerTypes CvPlot::getRevealedOwner(TeamTypes eTeam) const
 	CvAssertMsg(eTeam >= 0, "eTeam is expected to be non-negative (invalid Index)");
 	CvAssertMsg(eTeam < MAX_TEAMS, "eTeam is expected to be within maximum bounds (invalid Index)");
 
-	return (PlayerTypes)m_aiRevealedOwner[eTeam];
+	return (PlayerTypes)m_aiRevealedOwner[getRevealedSourceTeam(eTeam)];
 }
 
 
@@ -10235,7 +10267,7 @@ bool CvPlot::setRevealedOwner(TeamTypes eTeam, PlayerTypes eNewValue)
 	CvAssertMsg(eTeam >= 0, "eTeam is expected to be non-negative (invalid Index)");
 	CvAssertMsg(eTeam < MAX_TEAMS, "eTeam is expected to be within maximum bounds (invalid Index)");
 
-	if(getRevealedOwner(eTeam, false) != eNewValue)
+	if(m_aiRevealedOwner[eTeam] != eNewValue)
 	{
 		m_aiRevealedOwner[eTeam] = eNewValue;
 
@@ -10494,7 +10526,7 @@ bool CvPlot::setRevealed(TeamTypes eTeam, bool bNewValue, bool bTerrainOnly, Tea
 #endif
 {
 	int iI;
-	if (bNewValue && !isRevealed(eTeam))  
+	if (bNewValue && !m_bfRevealed.GetBit(eTeam))
 {
 #if defined(MOD_API_EXTENSIONS)
     if (pUnit != NULL)  
@@ -10552,7 +10584,7 @@ bool CvPlot::setRevealed(TeamTypes eTeam, bool bNewValue, bool bTerrainOnly, Tea
 	ICvUserInterface2* pInterface =  GC.GetEngineUserInterface();
 
 	bool bVisbilityUpdated = false;
-	if(isRevealed(eTeam) != bNewValue)
+	if(m_bfRevealed.GetBit(eTeam) != bNewValue)
 	{
 
 		m_bfRevealed.ToggleBit(eTeam);
@@ -10922,7 +10954,7 @@ bool CvPlot::setRevealed(TeamTypes eTeam, bool bNewValue, bool bTerrainOnly, Tea
 	{
 		bool bVisibilityChanged = false;
 		bool bImprovementVisibilityChanged = false;
-		if(isRevealed(eTeam))
+		if(m_bfRevealed.GetBit(eTeam))
 		{
 			// If this plot is owned by someone, let the team know
 			if(getOwner() != NO_PLAYER)
@@ -11091,7 +11123,7 @@ ImprovementTypes CvPlot::getRevealedImprovementType(TeamTypes eTeam, bool bDebug
 		CvAssertMsg(eTeam >= 0, "eTeam is expected to be non-negative (invalid Index)");
 		CvAssertMsg(eTeam < MAX_TEAMS, "eTeam is expected to be within maximum bounds (invalid Index)");
 
-		return (ImprovementTypes)m_aeRevealedImprovementType[eTeam];
+		return getRevealedImprovementType(eTeam);
 	}
 }
 
@@ -11101,7 +11133,7 @@ ImprovementTypes CvPlot::getRevealedImprovementType(TeamTypes eTeam) const
 	CvAssertMsg(eTeam >= 0, "eTeam is expected to be non-negative (invalid Index)");
 	CvAssertMsg(eTeam < MAX_TEAMS, "eTeam is expected to be within maximum bounds (invalid Index)");
 
-	return (ImprovementTypes)m_aeRevealedImprovementType[eTeam];
+	return (ImprovementTypes)m_aeRevealedImprovementType[getRevealedSourceTeam(eTeam)];
 }
 
 //	--------------------------------------------------------------------------------
@@ -11115,7 +11147,7 @@ bool CvPlot::setRevealedImprovementType(TeamTypes eTeam, ImprovementTypes eNewVa
 	if (eNewValue > NO_IMPROVEMENT && GC.getImprovementInfo(eNewValue) == NULL) return false;
 #endif
 
-	ImprovementTypes eOldImprovementType = getRevealedImprovementType(eTeam);
+	ImprovementTypes eOldImprovementType = (ImprovementTypes)m_aeRevealedImprovementType[eTeam];
 	if(eOldImprovementType != eNewValue)
 	{
 		m_aeRevealedImprovementType[eTeam] = eNewValue;
@@ -11151,7 +11183,7 @@ RouteTypes CvPlot::getRevealedRouteType(TeamTypes eTeam, bool bDebug) const
 		CvAssertMsg(eTeam >= 0, "eTeam is expected to be non-negative (invalid Index)");
 		CvAssertMsg(eTeam < MAX_TEAMS, "eTeam is expected to be within maximum bounds (invalid Index)");
 
-		return (RouteTypes)m_aeRevealedRouteType[eTeam];
+		return getRevealedRouteType(eTeam);
 	}
 }
 
@@ -11161,7 +11193,7 @@ RouteTypes CvPlot::getRevealedRouteType(TeamTypes eTeam) const
 	CvAssertMsg(eTeam >= 0, "eTeam is expected to be non-negative (invalid Index)");
 	CvAssertMsg(eTeam < MAX_TEAMS, "eTeam is expected to be within maximum bounds (invalid Index)");
 
-	return (RouteTypes)m_aeRevealedRouteType[eTeam];
+	return (RouteTypes)m_aeRevealedRouteType[getRevealedSourceTeam(eTeam)];
 }
 
 //	--------------------------------------------------------------------------------
@@ -11175,7 +11207,7 @@ bool CvPlot::setRevealedRouteType(TeamTypes eTeam, RouteTypes eNewValue)
 	if (eNewValue > NO_ROUTE && GC.getRouteInfo(eNewValue) == NULL) return false;
 #endif
 
-	if(getRevealedRouteType(eTeam, false) != eNewValue)
+	if(m_aeRevealedRouteType[eTeam] != eNewValue)
 	{
 		if(eTeam == GC.getGame().getActiveTeam())
 		{
@@ -11657,7 +11689,17 @@ int CvPlot::getInvisibleVisibilityCount(TeamTypes eTeam, InvisibleTypes eInvisib
 //	--------------------------------------------------------------------------------
 bool CvPlot::isInvisibleVisible(TeamTypes eTeam, InvisibleTypes eInvisible)	const
 {
-	return (getInvisibleVisibilityCount(eTeam, eInvisible) > 0);
+	if (getInvisibleVisibilityCount(eTeam, eInvisible) > 0) return true;
+#if defined(MOD_GLOBAL_SUZERAIN)
+	if (MOD_GLOBAL_SUZERAIN && eTeam >= 0 && eTeam < MAX_TEAMS)
+	{
+		const std::vector<int>& vSources = GET_TEAM(eTeam).GetVassalVisionSources();
+		for (size_t i = 0; i < vSources.size(); i++)
+			if (getInvisibleVisibilityCount((TeamTypes)vSources[i], eInvisible) > 0)
+				return true;
+	}
+#endif
+	return false;
 }
 
 
@@ -11678,13 +11720,13 @@ void CvPlot::changeInvisibleVisibilityCount(TeamTypes eTeam, InvisibleTypes eInv
 
 	if(iChange != 0)
 	{
-		bOldInvisibleVisible = isInvisibleVisible(eTeam, eInvisible);
+		bOldInvisibleVisible = getInvisibleVisibilityCount(eTeam, eInvisible) > 0;
 
 		m_apaiInvisibleVisibilityCount[eTeam][eInvisible] = (m_apaiInvisibleVisibilityCount[eTeam][eInvisible] + iChange);
 
 		CvAssertFmt(m_apaiInvisibleVisibilityCount[eTeam][eInvisible] >= 0, "Invisible Visibility going negative for %d, %d", m_iX, m_iY);
 
-		bNewInvisibleVisible = isInvisibleVisible(eTeam, eInvisible);
+		bNewInvisibleVisible = getInvisibleVisibilityCount(eTeam, eInvisible) > 0;
 
 		if(bOldInvisibleVisible != bNewInvisibleVisible)
 		{
@@ -11704,13 +11746,24 @@ void CvPlot::changeInvisibleVisibilityCount(TeamTypes eTeam, InvisibleTypes eInv
 					if(NULL != pLoopUnit && pLoopUnit->getTeam() != activeTeam && pLoopUnit->getInvisibleType() == eInvisible)
 					{
 						auto_ptr<ICvUnit1> pDllUnit(new CvDllUnit(pLoopUnit));
-						gDLL->GameplayUnitVisibility(pDllUnit.get(), bNewInvisibleVisible, true);
+						gDLL->GameplayUnitVisibility(pDllUnit.get(), isInvisibleVisible(eTeam, eInvisible), true);
 					}
 				}
 
 				updateCenterUnit();
 
 			}
+#if defined(MOD_GLOBAL_SUZERAIN)
+			else if (MOD_GLOBAL_SUZERAIN && activeTeam != NO_TEAM)
+			{
+				const std::vector<int>& vSources = GET_TEAM(activeTeam).GetVassalVisionSources();
+				if (std::find(vSources.begin(), vSources.end(), (int)eTeam) != vSources.end())
+				{
+					updateVisibility();
+					updateCenterUnit();
+				}
+			}
+#endif
 		}
 	}
 }

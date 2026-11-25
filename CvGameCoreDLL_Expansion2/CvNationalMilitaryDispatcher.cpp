@@ -92,6 +92,7 @@ bool CvNationalMilitaryDispatcher::IsUnitAvailable(CvUnit* pUnit) const
 {
 	if (pUnit == NULL) return false;
 	if (pUnit->IsDead()) return false;
+	if (pUnit->HasProvinceOrder()) return false;
 	if (!pUnit->IsCombatUnit()) return false;
 	if (pUnit->getDomainType() != DOMAIN_LAND) return false;
 	if (!pUnit->canMove()) return false;
@@ -117,6 +118,7 @@ bool CvNationalMilitaryDispatcher::IsShipAvailable(CvUnit* pUnit) const
 {
 	if (pUnit == NULL) return false;
 	if (pUnit->IsDead()) return false;
+	if (pUnit->HasProvinceOrder()) return false;
 	if (!pUnit->IsCombatUnit()) return false;
 	if (pUnit->getDomainType() != DOMAIN_SEA) return false;
 	if (!pUnit->canMove()) return false;
@@ -743,6 +745,7 @@ void CvNationalMilitaryDispatcher::ReleaseFinishedTasks(void)
 	for (CvUnit* pUnit = m_pPlayer->firstUnit(&iLoop); pUnit != NULL; pUnit = m_pPlayer->nextUnit(&iLoop))
 	{
 		if (pUnit->IsDead()) continue;
+		if (pUnit->HasProvinceOrder()) continue;
 
 		int iTask = GetUnitCurrentTask(pUnit);
 		if (iTask == PROVINCE_TASK_NONE || iTask == PROVINCE_TASK_PLAYER) continue;
@@ -774,6 +777,7 @@ void CvNationalMilitaryDispatcher::ReturnIdleGarrison(void)
 	for (CvUnit* pUnit = m_pPlayer->firstUnit(&iLoop); pUnit != NULL; pUnit = m_pPlayer->nextUnit(&iLoop))
 	{
 		if (pUnit->IsDead()) continue;
+		if (pUnit->HasProvinceOrder()) continue;
 		if (!pUnit->IsCombatUnit()) continue;
 
 		int iDomain = pUnit->getDomainType();

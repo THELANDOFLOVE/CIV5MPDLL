@@ -379,8 +379,8 @@ public:
 	~CvActiveResolution(void);
 
 	void Init();
-	void DoEffects(PlayerTypes ePlayer);
-	void RemoveEffects(PlayerTypes ePlayer);
+	void DoEffects(PlayerTypes ePlayer, bool bEnacting = false);
+	void RemoveEffects(PlayerTypes ePlayer, bool bRepealing = false);
 	bool HasOngoingEffects();
 
 	int GetTurnEnacted() const;
@@ -544,6 +544,9 @@ public:
 	RepealProposalList GetRepealProposals() const;
 	RepealProposalList GetRepealProposalsOnHold() const;
 	CvActiveResolution* GetActiveResolution(int iResolutionID);
+#if defined(MOD_GLOBAL_SUZERAIN)
+	void EndVassalSubmission(PlayerTypes eOverlord, PlayerTypes eVassal);
+#endif
 	ActiveResolutionList GetActiveResolutions() const;
 	int GetNumResolutionsEverEnacted() const;
 	int GetNumProposersPerSession() const;

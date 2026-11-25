@@ -431,6 +431,9 @@ CvPlayer::CvPlayer() :
 	, m_aiVassalProtectHandled("CvPlayer::m_aiVassalProtectHandled", m_syncArchive)
 	, m_aiVassalMemorials("CvPlayer::m_aiVassalMemorials", m_syncArchive)
 	, m_iVassalCourtPolicy("CvPlayer::m_iVassalCourtPolicy", m_syncArchive)
+	, m_iCourtPolicyRewardTurn("CvPlayer::m_iCourtPolicyRewardTurn", m_syncArchive)
+	, m_iPrayerSubmissionTurn("CvPlayer::m_iPrayerSubmissionTurn", m_syncArchive)
+	, m_iPrayerSubmissions("CvPlayer::m_iPrayerSubmissions", m_syncArchive)
 	, m_iPendingInviteFrom("CvPlayer::m_iPendingInviteFrom", m_syncArchive)
 	, m_iPendingInviteTurn("CvPlayer::m_iPendingInviteTurn", m_syncArchive)
 	, m_iPendingWarOrderFrom("CvPlayer::m_iPendingWarOrderFrom", m_syncArchive)
@@ -1462,6 +1465,9 @@ void CvPlayer::uninit()
 	m_aiVassalBreachTurn.resize(MAX_MAJOR_CIVS, 0);
 	m_iFengshanEra = -1;
 	m_iChronicleEra = -1;
+	m_iCourtPolicyRewardTurn = -1;
+	m_iPrayerSubmissionTurn = -1;
+	m_iPrayerSubmissions = 0;
 	m_vPrayerRequests.clear();
 	m_aiPrayerDenyStreak.clear();
 	m_aiPrayerDenyStreak.resize(MAX_MAJOR_CIVS, 0);
@@ -2676,6 +2682,12 @@ CvCity* CvPlayer::initCity(int iX, int iY, bool bBumpUnits, bool bInitialFoundin
 #endif
 		pCity->SetUpdatingCorruptionGuard(false);
 		pCity->SetUpdatingReligionGuard(false);
+#if defined(MOD_GLOBAL_SUZERAIN)
+		// Newly founded and acquired cities participate until the current grace expires.
+		if (m_iPrayerBlessingEndTurn > 0)
+			for (size_t y = 0; y < m_aiPrayerBlessing.size() && y < NUM_YIELD_TYPES; ++y)
+				pCity->ChangeBaseYieldRateFromMisc((YieldTypes)y, m_aiPrayerBlessing[y]);
+#endif
 
 #ifdef MOD_GLOBAL_CORRUPTION
 		// The corruption guard above skipped UpdateCorruption() inside CvCity::init(),
@@ -2703,6 +2715,7 @@ static int SuzerainDefineInt(const char* szName);
 // Defined with the province mission storage; the save reader needs it early
 // to recognise the pre-multi-slot mission layout.
 static int ProvinceMissionBlock();
+static void QueueProvinceMove(CvUnit* pUnit, CvPlot* pTarget, int iProvince);
 
 //	--------------------------------------------------------------------------------
 // NOTE: bGift set to true if the city is given as a gift, as in the case for trades and Austria UA of annexing city-states
@@ -6327,6 +6340,10 @@ void CvPlayer::doTurnUnits()
 	GC.GetEngineUserInterface()->setDirty(UnitInfo_DIRTY_BIT, true);
 
 	AI_doTurnUnitsPost();
+#if defined(MOD_GLOBAL_SUZERAIN)
+	// Refresh provincial orders after unit wakeup/turn processing.
+	DoProvinceUnitOrders();
+#endif
 }
 
 //	--------------------------------------------------------------------------------
@@ -23205,6 +23222,7 @@ void CvPlayer::setAlive(bool bNewValue, bool bNotify)
 				GET_PLAYER(eVassal).SetOverlord(NO_PLAYER);
 			}
 			m_vecVassals.clear();
+			ClearUCFromVassals();
 			GET_TEAM(getTeam()).UpdateVassalVisionSources();
 #endif
 			if(CvPreGame::isNetworkMultiplayerGame() && m_eID == GC.getGame().getActivePlayer())
@@ -31678,6 +31696,9 @@ void CvPlayer::Read(FDataStream& kStream)
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalProtectHandled, MAX_MAJOR_CIVS, 0);
 		MOD_SERIALIZE_READ_VECTOR(165, kStream, m_aiVassalMemorials, 0, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iVassalCourtPolicy, 0);
+		MOD_SERIALIZE_READ(168, kStream, m_iCourtPolicyRewardTurn, -1);
+		MOD_SERIALIZE_READ(168, kStream, m_iPrayerSubmissionTurn, -1);
+		MOD_SERIALIZE_READ(168, kStream, m_iPrayerSubmissions, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iPendingInviteFrom, NO_PLAYER);
 		MOD_SERIALIZE_READ(165, kStream, m_iPendingInviteTurn, 0);
 		MOD_SERIALIZE_READ(165, kStream, m_iPendingWarOrderFrom, NO_PLAYER);
@@ -32724,6 +32745,9 @@ void CvPlayer::Write(FDataStream& kStream) const
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalProtectHandled);
 	MOD_SERIALIZE_WRITE_VECTOR(kStream, m_aiVassalMemorials);
 	MOD_SERIALIZE_WRITE(kStream, m_iVassalCourtPolicy);
+	MOD_SERIALIZE_WRITE(kStream, m_iCourtPolicyRewardTurn);
+	MOD_SERIALIZE_WRITE(kStream, m_iPrayerSubmissionTurn);
+	MOD_SERIALIZE_WRITE(kStream, m_iPrayerSubmissions);
 	MOD_SERIALIZE_WRITE(kStream, m_iPendingInviteFrom);
 	MOD_SERIALIZE_WRITE(kStream, m_iPendingInviteTurn);
 	MOD_SERIALIZE_WRITE(kStream, m_iPendingWarOrderFrom);
@@ -35215,7 +35239,7 @@ bool CvPlayer::DoVassalGiftOption(PlayerTypes eVassal, int iKind, int iIndex)
 		TechTypes eTech = (TechTypes)GetVassalGiftOptionField(eVassal, 2, iIndex, 0);
 		if (eTech == NO_TECH) return false;
 
-		GET_TEAM(GET_PLAYER(eVassal).getTeam()).GetTeamTechs()->SetHasTech(eTech, true);
+		GET_TEAM(GET_PLAYER(eVassal).getTeam()).setHasTech(eTech, true, eVassal, false, true);
 		ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_GIFT_TECH_LOYALTY"));
 		if ((size_t)eVassal >= m_aiVassalGiftCount.size())
 			m_aiVassalGiftCount.resize(MAX_MAJOR_CIVS, 0);
@@ -35254,7 +35278,7 @@ PlayerTypes CvPlayer::GetVassalAggressor(PlayerTypes eVassal) const
 	{
 		TeamTypes eTeam = (TeamTypes)i;
 		if (eTeam == eVassalTeam || eTeam == eOurTeam) continue;
-		if (!GET_TEAM(eVassalTeam).isAtWar(eTeam)) continue;
+		if (!GET_TEAM(eTeam).isAggressor(eVassalTeam)) continue;
 		PlayerTypes eLeader = GET_TEAM(eTeam).getLeaderID();
 		if (eLeader != NO_PLAYER)
 			return eLeader;
@@ -35481,17 +35505,8 @@ bool CvPlayer::SubmitPrayer(int iScience, int iCulture, int iFaith, int iGold, i
 
 	int iTurn = GC.getGame().getGameTurn();
 	int iMaxPerTurn = SuzerainDefineInt("SUZERAIN_PRAYER_REQUESTS_PER_TURN");
-	if (iMaxPerTurn > 0)
-	{
-		int iCount = 0;
-		for (size_t i = 0; i < kOverlord.m_vPrayerRequests.size(); i++)
-		{
-			if (kOverlord.m_vPrayerRequests[i].eVassal == GetID()
-				&& kOverlord.m_vPrayerRequests[i].iTurn == iTurn)
-				iCount++;
-		}
-		if (iCount >= iMaxPerTurn) return false;
-	}
+	const int iCount = m_iPrayerSubmissionTurn == iTurn ? (int)m_iPrayerSubmissions : 0;
+	if (iMaxPerTurn > 0 && iCount >= iMaxPerTurn) return false;
 
 	// The offering reaches the overlord immediately.
 	if (!kOverlord.TransferYieldToOverlord(GetID(), iScience, iCulture, iFaith, iGold))
@@ -35506,6 +35521,8 @@ bool CvPlayer::SubmitPrayer(int iScience, int iCulture, int iFaith, int iGold, i
 	req.iWish = iWish;
 	req.iTurn = iTurn;
 	kOverlord.m_vPrayerRequests.push_back(req);
+	m_iPrayerSubmissionTurn = iTurn;
+	m_iPrayerSubmissions = iCount + 1;
 
 	return true;
 }
@@ -36264,7 +36281,7 @@ void CvPlayer::DoVassalBreachTurn()
 		{
 			TeamTypes eEnemy = (TeamTypes)t;
 			if (eEnemy == eVassalTeam || eEnemy == getTeam()) continue;
-			if (!GET_TEAM(eVassalTeam).isAtWar(eEnemy)) continue;
+			if (!GET_TEAM(eVassalTeam).isAggressor(eEnemy)) continue;
 			// A war we share is authorized; only private wars count.
 			if (GET_TEAM(getTeam()).isAtWar(eEnemy)) continue;
 
@@ -37527,6 +37544,7 @@ void CvPlayer::DoLevyDefenseTurn()
 	for (CvUnit* pUnit = firstUnit(&iUnitLoop); pUnit != NULL; pUnit = nextUnit(&iUnitLoop))
 	{
 		if (pUnit->IsDead()) continue;
+		if (pUnit->HasProvinceOrder()) continue;
 		if (!pUnit->IsCombatUnit()) continue;
 		if (pUnit->getDomainType() != DOMAIN_LAND) continue;
 		if (pUnit->GetProvinceLevy() < 0) continue;
@@ -37649,6 +37667,7 @@ int CvPlayer::GetProvinceGarrisonCount(int iProv) const
 	for (const CvUnit* pUnit = firstUnit(&iUnitLoop); pUnit != NULL; pUnit = nextUnit(&iUnitLoop))
 	{
 		if (pUnit->IsDead()) continue;
+		if (pUnit->HasProvinceOrder()) continue;
 		if (!pUnit->IsCombatUnit()) continue;
 		const DomainTypes eDomain = pUnit->getDomainType();
 		if (eDomain != DOMAIN_LAND && eDomain != DOMAIN_SEA) continue;
@@ -37752,6 +37771,7 @@ int CvPlayer::LevyProvinceGarrison(int iProv)
 	for (CvUnit* pUnit = firstUnit(&iLoop); pUnit != NULL; pUnit = nextUnit(&iLoop))
 	{
 		if (pUnit->IsDead()) continue;
+		if (pUnit->HasProvinceOrder()) continue;
 		if (!pUnit->IsCombatUnit()) continue;
 		if (pUnit->GetProvinceLevy() >= 0) continue;
 		// A unit already executing a provincial order finishes it first.
@@ -37783,16 +37803,9 @@ int CvPlayer::LevyProvinceGarrison(int iProv)
 		if (eDomain != DOMAIN_LAND && eDomain != DOMAIN_SEA) pMuster = NULL;
 		if (pMuster == NULL) continue;
 
-		if (pUnit->getX() == pMuster->getX() && pUnit->getY() == pMuster->getY())
-		{
-			pUnit->PushMission(CvTypes::getMISSION_FORTIFY());
-		}
-		else
-		{
-			pUnit->PushMission(CvTypes::getMISSION_MOVE_TO(), pMuster->getX(), pMuster->getY());
-			pUnit->PushMission(CvTypes::getMISSION_FORTIFY(), -1, -1, 0, true);
-		}
+		QueueProvinceMove(pUnit, pMuster->plot(), iProv);
 	}
+	DoProvinceUnitOrders();
 	if (iCount > 0)
 		AddProvinceReport(iProv, SuzerainReportType("SUZERAIN_REPORT_LEVY", 3), iCount, 0);
 	return iCount;
@@ -37808,6 +37821,8 @@ void CvPlayer::ReturnProvinceGarrison(int iProv)
 		if (pUnit->IsDead()) continue;
 		if (pUnit->GetProvinceLevy() == iProv)
 		{
+			pUnit->CancelProvinceOrder(false);
+			pUnit->SetProvinceTask(PROVINCE_TASK_NONE);
 			pUnit->SetProvinceLevy(-1);
 			pUnit->SetLevyTarget(-1);
 		}
@@ -37843,6 +37858,7 @@ int CvPlayer::LevyProvinceGarrisonUpTo(int iProv, int iCount, bool bMarchToBorde
 	{
 		if (iTaken >= iCount) break;
 		if (pUnit->IsDead()) continue;
+		if (pUnit->HasProvinceOrder()) continue;
 		if (!pUnit->IsCombatUnit()) continue;
 		if (pUnit->GetProvinceLevy() >= 0) continue;
 		if (pUnit->GetActivityType() == ACTIVITY_MISSION) continue;
@@ -38046,6 +38062,7 @@ void CvPlayer::DoProvinceWarTurn()
 	for (CvUnit* pUnit = firstUnit(&iArriveLoop); pUnit != NULL; pUnit = nextUnit(&iArriveLoop))
 	{
 		if (pUnit->IsDead()) continue;
+		if (pUnit->HasProvinceOrder()) continue;
 		const int iTarget = pUnit->GetLevyTarget();
 		if (pUnit->GetProvinceLevy() < 0 || iTarget < 0) continue;
 
@@ -38094,9 +38111,10 @@ int CvPlayer::OrderLevyToProvince(int iProv)
 		// under the player's direct control.
 		if (pUnit->GetLevyTarget() < 0) continue;
 		pUnit->SetLevyTarget(iProv);
-		pUnit->PushMission(CvTypes::getMISSION_MOVE_TO(), pTarget->getX(), pTarget->getY());
+		QueueProvinceMove(pUnit, pTarget->plot(), iProv);
 		iCount++;
 	}
+	DoProvinceUnitOrders();
 	if (iCount > 0)
 		AddProvinceReport(iProv, SuzerainReportType("SUZERAIN_REPORT_RECALL", 4), iCount, 0);
 	return iCount;
@@ -38171,14 +38189,17 @@ void CvPlayer::OrderLevyRally(int iX, int iY)
 	for (CvUnit* pUnit = firstUnit(&iLoop); pUnit != NULL; pUnit = nextUnit(&iLoop))
 	{
 		if (pUnit->IsDead()) continue;
+		if (pUnit->HasProvinceOrder()) continue;
 		if (pUnit->GetProvinceLevy() < 0) continue;
 
 		// Bug fix: don't interrupt units that are already on a mission
 		if (pUnit->GetLengthMissionQueue() > 0) continue;
 
 		pUnit->SetLevyTarget(-1);
-		pUnit->PushMission(CvTypes::getMISSION_MOVE_TO(), iX, iY);
+		CvCity* pNearest = findClosestCity(*GC.getMap().plot(iX, iY));
+		if (pNearest != NULL) QueueProvinceMove(pUnit, GC.getMap().plot(iX, iY), GetCityProvince(pNearest->GetID()));
 	}
+	DoProvinceUnitOrders();
 }
 
 bool CvPlayer::LevyProvinceUnitTo(int iSourceProv, int iTargetProv)
@@ -38192,6 +38213,7 @@ bool CvPlayer::LevyProvinceUnitTo(int iSourceProv, int iTargetProv)
 	for (CvUnit* pUnit = firstUnit(&iLoop); pUnit != NULL; pUnit = nextUnit(&iLoop))
 	{
 		if (pUnit->IsDead()) continue;
+		if (pUnit->HasProvinceOrder()) continue;
 		if (!pUnit->IsCombatUnit()) continue;
 		if (pUnit->GetProvinceLevy() >= 0) continue;
 		if (pUnit->GetActivityType() == ACTIVITY_MISSION) continue;
@@ -38228,7 +38250,8 @@ bool CvPlayer::LevyProvinceUnitTo(int iSourceProv, int iTargetProv)
 
 		pUnit->SetProvinceLevy(iSourceProv);
 		pUnit->SetLevyTarget(iTargetProv);
-		pUnit->PushMission(CvTypes::getMISSION_MOVE_TO(), pMarchTarget->getX(), pMarchTarget->getY());
+		QueueProvinceMove(pUnit, pMarchTarget->plot(), iTargetProv);
+		DoProvinceUnitOrders();
 		return true;
 	}
 	return false;
@@ -38239,6 +38262,172 @@ bool CvPlayer::LevyProvinceUnitTo(int iSourceProv, int iTargetProv)
 // realm into a province under attack. They are re-tagged as levied by the
 // target province so the national dispatcher leaves them under player control,
 // and they fortify on arrival.
+// Persistent provincial orders use existing synchronized unit task fields.
+// TaskProvince identifies the province; TaskPriority stores the anchor plot.
+static void QueueProvinceMove(CvUnit* pUnit, CvPlot* pTarget, int iProvince)
+{
+	if (pUnit == NULL || pTarget == NULL) return;
+	pUnit->ClearMissionQueue();
+	pUnit->SetProvinceTask(PROVINCE_TASK_ORDER_MOVE);
+	pUnit->SetTaskProvince(iProvince);
+	pUnit->SetTaskPriority(pTarget->GetPlotIndex());
+}
+
+// Pick a reachable staging tile instead of sending every soldier into one city.
+static CvPlot* FindProvinceOrderDestination(CvUnit* pUnit, CvPlot* pTarget, bool bRaid)
+{
+	CvPlot* pBest = NULL;
+	int iBestScore = INT_MAX;
+	for (int dx = -2; dx <= 2; dx++)
+	{
+		for (int dy = -2; dy <= 2; dy++)
+		{
+			CvPlot* pPlot = GC.getMap().plot(pTarget->getX() + dx, pTarget->getY() + dy);
+			if (pPlot == NULL) continue;
+			int iTargetDistance = plotDistance(pPlot->getX(), pPlot->getY(), pTarget->getX(), pTarget->getY());
+			if (iTargetDistance > 2) continue;
+			// A melee raid must enter its target; ranged units take firing positions.
+			if (bRaid && !pUnit->isRanged() && pPlot != pTarget) continue;
+			if (pUnit->getDomainType() == DOMAIN_SEA && !pPlot->isWater() && !pPlot->isCity()) continue;
+			if (pUnit->getDomainType() == DOMAIN_LAND && pPlot->isWater()) continue;
+			int iFlags = CvUnit::MOVEFLAG_DESTINATION;
+			bool bCanEnter = (bRaid && pPlot == pTarget)
+				? pUnit->canMoveOrAttackInto(*pPlot, (byte)iFlags)
+				: pUnit->canMoveInto(*pPlot, (byte)iFlags);
+			if (pPlot != pUnit->plot() && (!bCanEnter
+				|| !pUnit->GeneratePath(pPlot, 0, false))) continue;
+			int iScore = iTargetDistance * 100 + plotDistance(pUnit->getX(), pUnit->getY(), pPlot->getX(), pPlot->getY());
+			if (iScore < iBestScore)
+			{
+				iBestScore = iScore;
+				pBest = pPlot;
+			}
+		}
+	}
+	return pBest;
+}
+
+void CvPlayer::DoProvinceUnitOrders()
+{
+	if (!MOD_GLOBAL_SUZERAIN || !isAlive() || !isTurnActive()) return;
+	// Mission execution can kill or transfer a unit. Keep IDs, never stale pointers.
+	std::vector<int> vUnits;
+	int iLoop = 0;
+	for (CvUnit* pUnit = firstUnit(&iLoop); pUnit != NULL; pUnit = nextUnit(&iLoop))
+		if (pUnit->HasProvinceOrder()) vUnits.push_back(pUnit->GetID());
+
+	const bool bWasDispatching = CvUnit::dispatchingNetMessage();
+	CvUnit::dispatchingNetMessage(true);
+	for (size_t i = 0; i < vUnits.size(); i++)
+	{
+		CvUnit* pUnit = getUnit(vUnits[i]);
+		if (pUnit == NULL || pUnit->IsDead() || !pUnit->HasProvinceOrder()) continue;
+		int iProv = pUnit->GetTaskProvince();
+		CvPlot* pAnchor = GC.getMap().plotByIndex(pUnit->GetTaskPriority());
+		if (iProv < 0 || iProv >= GetProvinceCount() || GetProvinceCityCount(iProv) <= 0 || pAnchor == NULL)
+		{
+			pUnit->CancelProvinceOrder(false);
+			continue;
+		}
+		bool bRaid = pUnit->GetProvinceTask() == PROVINCE_TASK_ORDER_RAID;
+		CvPlot* pTarget = pAnchor;
+		if (bRaid)
+		{
+			int iSlot = -1;
+			for (int s = 0; s < GetProvinceMissionCount(iProv); s++)
+			{
+				int iState = GetProvinceMissionFieldAt(iProv, s, 4);
+				int iDeadline = GetProvinceMissionFieldAt(iProv, s, 3);
+				if (GetProvinceMissionFieldAt(iProv, s, 0) == 1 && iState != 2 && iState != 3
+					&& (iDeadline <= 0 || GC.getGame().getGameTurn() <= iDeadline)
+					&& GetProvinceMissionFieldAt(iProv, s, 1) == pAnchor->getX()
+					&& GetProvinceMissionFieldAt(iProv, s, 2) == pAnchor->getY())
+				{ iSlot = s; break; }
+			}
+			if (iSlot < 0)
+			{
+				pUnit->CancelProvinceOrder(false);
+				pUnit->PushMission(CvTypes::getMISSION_SLEEP());
+				continue;
+			}
+			if (SuzerainDefineInt("SUZERAIN_RAID_PAUSE_AT_WAR") > 0
+				&& (GetProvinceWar(iProv) > 0 || GetProvinceMobilization() > 0))
+			{
+				pUnit->ClearMissionQueue();
+				pUnit->SetActivityType(ACTIVITY_HOLD);
+				continue;
+			}
+			int iRadius = SuzerainDefineInt("SUZERAIN_PROVINCE_RAID_RADIUS");
+			int iBest = INT_MAX;
+			pTarget = NULL;
+			int iBarbLoop = 0;
+			CvPlayer& kBarb = GET_PLAYER(BARBARIAN_PLAYER);
+			for (CvUnit* pBarb = kBarb.firstUnit(&iBarbLoop); pBarb != NULL; pBarb = kBarb.nextUnit(&iBarbLoop))
+			{
+				if (pBarb->IsDead()) continue;
+				int iDistance = plotDistance(pAnchor->getX(), pAnchor->getY(), pBarb->getX(), pBarb->getY());
+				if (iDistance <= iRadius && iDistance < iBest)
+				{ iBest = iDistance; pTarget = pBarb->plot(); }
+			}
+			for (int dx = -iRadius; dx <= iRadius && pTarget == NULL; dx++)
+				for (int dy = -iRadius; dy <= iRadius && pTarget == NULL; dy++)
+				{
+					CvPlot* pPlot = GC.getMap().plot(pAnchor->getX() + dx, pAnchor->getY() + dy);
+					if (pPlot != NULL && pPlot->HasBarbarianCamp()) pTarget = pPlot;
+				}
+			if (pTarget == NULL)
+			{
+				SetProvinceMissionStateAt(iProv, iSlot, 2);
+				AddProvinceReport(iProv, SuzerainReportType("SUZERAIN_REPORT_RAID_DONE", 5), 0, 0);
+				pUnit->CancelProvinceOrder(false);
+				pUnit->PushMission(CvTypes::getMISSION_SLEEP());
+				continue;
+			}
+			if (pTarget->getOwner() != GetID() && GetProvinceMissionFieldAt(iProv, iSlot, 5) == 0)
+			{
+				pUnit->ClearMissionQueue();
+				pUnit->SetActivityType(ACTIVITY_HOLD);
+				continue;
+			}
+		}
+		else if (pAnchor->getOwner() != GetID() && pAnchor->isCity())
+		{
+			// Losing the destination city must not silently turn support into an assault.
+			pUnit->CancelProvinceOrder(false);
+			continue;
+		}
+
+		if (pUnit->IsBusy() || !pUnit->canMove()) continue;
+		if (bRaid && pUnit->isRanged() && pUnit->canRangeStrikeAt(pTarget->getX(), pTarget->getY()))
+		{
+			pUnit->ClearMissionQueue();
+			pUnit->PushMission(CvTypes::getMISSION_RANGE_ATTACK(), pTarget->getX(), pTarget->getY());
+			continue;
+		}
+		// Keep an ongoing movement order; retarget a raid if the enemy moved.
+		const MissionData* pMission = pUnit->GetHeadMissionData();
+		if (pMission != NULL)
+		{
+			if (!bRaid || (pMission->iData1 == pTarget->getX() && pMission->iData2 == pTarget->getY())) continue;
+			pUnit->ClearMissionQueue();
+		}
+		if (!bRaid && plotDistance(pUnit->getX(), pUnit->getY(), pTarget->getX(), pTarget->getY()) <= 2)
+		{
+			pUnit->CancelProvinceOrder(false);
+			pUnit->PushMission(CvTypes::getMISSION_SLEEP());
+			continue;
+		}
+		CvPlot* pMove = FindProvinceOrderDestination(pUnit, pTarget, bRaid);
+		if (pMove != NULL && pMove != pUnit->plot())
+			pUnit->PushMission(CvTypes::getMISSION_MOVE_TO(), pMove->getX(), pMove->getY());
+		pUnit = getUnit(vUnits[i]);
+		if (pUnit != NULL && !pUnit->IsDead() && pUnit->HasProvinceOrder()
+			&& pUnit->GetLengthMissionQueue() == 0 && !pUnit->IsBusy())
+			pUnit->SetActivityType(ACTIVITY_HOLD);
+	}
+	CvUnit::dispatchingNetMessage(bWasDispatching);
+}
+
 int CvPlayer::DispatchSupportToProvince(int iTargetProv, int iSourceProv, int iCount)
 {
 	if (!MOD_GLOBAL_SUZERAIN) return 0;
@@ -38262,7 +38451,7 @@ int CvPlayer::DispatchSupportToProvince(int iTargetProv, int iSourceProv, int iC
 	if (pTarget == NULL) return 0;
 
 	int iMaxUnits = (iCount > 0) ? iCount : SuzerainDefineInt("SUZERAIN_SUPPORT_DISPATCH_MAX_UNITS");
-	if (iMaxUnits <= 0) iMaxUnits = 4;
+	if (iMaxUnits <= 0) return 0;
 
 	struct SupportCandidate
 	{
@@ -38275,6 +38464,7 @@ int CvPlayer::DispatchSupportToProvince(int iTargetProv, int iSourceProv, int iC
 	for (CvUnit* pUnit = firstUnit(&iLoop); pUnit != NULL; pUnit = nextUnit(&iLoop))
 	{
 		if (pUnit->IsDead()) continue;
+		if (pUnit->HasProvinceOrder()) continue;
 		if (!pUnit->IsCombatUnit()) continue;
 		if (pUnit->IsAutomated()) continue;
 		if (!pUnit->canMove()) continue;
@@ -38314,11 +38504,11 @@ int CvPlayer::DispatchSupportToProvince(int iTargetProv, int iSourceProv, int iC
 
 		pUnit->SetProvinceLevy(iTargetProv);
 		pUnit->SetLevyTarget(-1);
-		pUnit->PushMission(CvTypes::getMISSION_MOVE_TO(), pTarget->getX(), pTarget->getY());
-		pUnit->PushMission(CvTypes::getMISSION_FORTIFY(), -1, -1, 0, true);
+		QueueProvinceMove(pUnit, pTarget->plot(), iTargetProv);
 		iSent++;
 	}
 
+	DoProvinceUnitOrders();
 	if (iSent > 0)
 		AddProvinceReport(iTargetProv, SuzerainReportType("SUZERAIN_REPORT_DISPATCH_DEFEND", 10),
 			GetProvinceWar(iTargetProv), iSent);
@@ -38493,6 +38683,7 @@ void CvPlayer::SetProvinceMission(int iProv, int iType, int iX, int iY, int iDea
 	m_aiProvinceMission.setAt(iPos + 5, bCrossBorder ? 1 : 0);
 	m_aiProvinceMission.setAt(iPos + 6, 0);
 	m_aiProvinceMission.setAt(iPos + 7, 0);
+	if (isHuman() && isTurnActive()) DoProvinceMissionTurn();
 }
 
 void CvPlayer::SetProvinceMissionStateAt(int iProv, int iIndex, int iState)
@@ -38530,6 +38721,12 @@ bool CvPlayer::RemoveProvinceMissionAt(int iProv, int iIndex)
 	const int iCount = GetProvinceMissionCount(iProv);
 	if (iIndex < 0 || iIndex >= iCount) return false;
 
+	CvPlot* pAnchor = GC.getMap().plot(GetProvinceMissionFieldAt(iProv, iIndex, 1), GetProvinceMissionFieldAt(iProv, iIndex, 2));
+	int iLoop = 0;
+	for (CvUnit* pUnit = firstUnit(&iLoop); pUnit != NULL; pUnit = nextUnit(&iLoop))
+		if (pAnchor != NULL && pUnit->GetProvinceTask() == PROVINCE_TASK_ORDER_RAID
+			&& pUnit->GetTaskProvince() == iProv && pUnit->GetTaskPriority() == pAnchor->GetPlotIndex())
+			pUnit->CancelProvinceOrder(false);
 	size_t iBase = (size_t)iProv * ProvinceMissionBlock();
 	for (int s = iIndex; s < iCount - 1; s++)
 	{
@@ -38550,6 +38747,10 @@ void CvPlayer::ClearProvinceMission(int iProv)
 	if (!MOD_GLOBAL_SUZERAIN) return;
 	if (iProv < 0 || iProv >= GetProvinceCount()) return;
 
+	int iLoop = 0;
+	for (CvUnit* pUnit = firstUnit(&iLoop); pUnit != NULL; pUnit = nextUnit(&iLoop))
+		if (pUnit->GetProvinceTask() == PROVINCE_TASK_ORDER_RAID && pUnit->GetTaskProvince() == iProv)
+			pUnit->CancelProvinceOrder(false);
 	size_t iBase = (size_t)iProv * ProvinceMissionBlock();
 	if (iBase >= m_aiProvinceMission.size()) return;
 	for (int i = 0; i < ProvinceMissionBlock() && iBase + (size_t)i < m_aiProvinceMission.size(); i++)
@@ -38832,6 +39033,21 @@ void CvPlayer::DoProvinceMissionTurn()
 				continue;
 			}
 
+			int iAssigned = 0;
+			int iAssignedLoop = 0;
+			CvPlot* pAnchor = GC.getMap().plot(iX, iY);
+			if (pAnchor == NULL) continue;
+			for (CvUnit* pAssigned = firstUnit(&iAssignedLoop); pAssigned != NULL; pAssigned = nextUnit(&iAssignedLoop))
+			{
+				if (!pAssigned->IsDead() && pAssigned->GetProvinceTask() == PROVINCE_TASK_ORDER_RAID
+					&& pAssigned->GetTaskProvince() == p && pAssigned->GetTaskPriority() == pAnchor->GetPlotIndex()) iAssigned++;
+			}
+			if (iAssigned > 0)
+			{
+				SetProvinceMissionStateAt(p, s, 1);
+				continue;
+			}
+
 			// Keep a minimum garrison at home; the rest march out.
 			const int iKeep = GetProvinceCityCount(p) * iMinDefend;
 			const int iSend = GetProvinceGarrisonCount(p) - iKeep;
@@ -38855,6 +39071,7 @@ void CvPlayer::DoProvinceMissionTurn()
 			{
 				if (iSent >= iSend) break;
 				if (pUnit->IsDead()) continue;
+				if (pUnit->HasProvinceOrder() || pUnit->GetProvinceTask() == PROVINCE_TASK_PLAYER) continue;
 				if (!pUnit->IsCombatUnit()) continue;
 				if (pUnit->GetProvinceLevy() >= 0) continue;
 				if (pUnit->getDomainType() != DOMAIN_LAND) continue;
@@ -38878,7 +39095,9 @@ void CvPlayer::DoProvinceMissionTurn()
 				}
 				if (pNearest == NULL || GetCityProvince(pNearest->GetID()) != p) continue;
 
-				pUnit->PushMission(CvTypes::getMISSION_MOVE_TO(), pTarget->getX(), pTarget->getY());
+				pUnit->SetProvinceTask(PROVINCE_TASK_ORDER_RAID);
+				pUnit->SetTaskProvince(p);
+				pUnit->SetTaskPriority(pAnchor->GetPlotIndex());
 				iSent++;
 			}
 
@@ -38886,6 +39105,7 @@ void CvPlayer::DoProvinceMissionTurn()
 				SetProvinceMissionStateAt(p, s, 1);
 		}
 	}
+	DoProvinceUnitOrders();
 }
 
 //--------------------------------------------------------------------------------
@@ -38943,7 +39163,8 @@ bool CvPlayer::DepositProvinceTreasury(int iProv, int iGold)
 {
 	if (!MOD_GLOBAL_SUZERAIN || iGold <= 0) return false;
 	if (iProv < 0 || iProv >= GetProvinceCount()) return false;
-	if (GetTreasury()->GetGold() < iGold) return false;
+	iGold = std::min(iGold, GetProvinceTreasuryCap(iProv) - GetProvinceTreasury(iProv));
+	if (iGold <= 0 || GetTreasury()->GetGold() < iGold) return false;
 	ChangeProvinceTreasury(iProv, iGold);
 	GetTreasury()->ChangeGold(-iGold);
 	return true;
@@ -40393,10 +40614,11 @@ bool CvPlayer::ResolveVassalMemorial(int iIndex, bool bApprove)
 	{
 		PlayerTypes eTargetPlayer = (PlayerTypes)GetVassalMemorialField(iIndex, SUZERAIN_MEMORIAL_TARGET);
 		TechTypes eTech = (TechTypes)(int)eTargetPlayer;
-		if (bApprove && eTech != NO_TECH
-			&& GET_TEAM(getTeam()).GetTeamTechs()->HasTech(eTech))
+		if (bApprove && eTech >= 0 && eTech < GC.getNumTechInfos()
+			&& GET_TEAM(getTeam()).GetTeamTechs()->HasTech(eTech)
+			&& !GET_TEAM(GET_PLAYER(eVassal).getTeam()).GetTeamTechs()->HasTech(eTech))
 		{
-			GET_TEAM(GET_PLAYER(eVassal).getTeam()).GetTeamTechs()->SetHasTech(eTech, true);
+			GET_TEAM(GET_PLAYER(eVassal).getTeam()).setHasTech(eTech, true, eVassal, false, true);
 			int iGain = SuzerainDefineInt("SUZERAIN_MEMORIAL_AID_LOYALTY");
 			if (iGain != 0) ChangeVassalLoyalty(eVassal, iGain);
 		}
@@ -41141,6 +41363,9 @@ bool CvPlayer::SetVassalCourtPolicy(int iPolicy)
 	if (iPolicy == m_iVassalCourtPolicy) return false;
 
 	m_iVassalCourtPolicy = iPolicy;
+	const int iTurn = GC.getGame().getGameTurn();
+	if (m_iCourtPolicyRewardTurn == iTurn) return true;
+	m_iCourtPolicyRewardTurn = iTurn;
 
 	int iMinLoyalty = SuzerainDefineInt("SUZERAIN_COURT_POLICY_MIN_LOYALTY");
 	int iGain = SuzerainDefineInt("SUZERAIN_COURT_POLICY_LOYALTY");
@@ -41190,7 +41415,8 @@ bool CvPlayer::IsVassalIncompetent(PlayerTypes eVassal) const
 //--------------------------------------------------------------------------------
 bool CvPlayer::CanPunishVassal(PlayerTypes eVassal) const
 {
-	return IsVassalIncompetent(eVassal);
+	return IsLiveVassal(eVassal) && IsVassalIncompetent(eVassal)
+		&& GET_TEAM(getTeam()).canDeclareWar(GET_PLAYER(eVassal).getTeam(), GetID(), true);
 }
 
 //--------------------------------------------------------------------------------
@@ -41843,6 +42069,8 @@ void CvPlayer::DoMandatePunishmentTurn()
 //--------------------------------------------------------------------------------
 bool CvPlayer::CanMandateVictory() const
 {
+	const VictoryTypes eVictory = (VictoryTypes)GC.getInfoTypeForString("VICTORY_DIPLOMATIC", true);
+	if (eVictory == NO_VICTORY || !GC.getGame().isVictoryValid(eVictory) || GC.getGame().getWinner() != NO_TEAM) return false;
 	if (!MOD_GLOBAL_SUZERAIN) return false;
 	if (!IsMandateFull()) return false;
 
@@ -41887,6 +42115,8 @@ bool CvPlayer::DoMandateVictory()
 //--------------------------------------------------------------------------------
 bool CvPlayer::CanVassalOverlordVictory() const
 {
+	const VictoryTypes eVictory = (VictoryTypes)GC.getInfoTypeForString("VICTORY_DOMINATION", true);
+	if (eVictory == NO_VICTORY || !GC.getGame().isVictoryValid(eVictory) || GC.getGame().getWinner() != NO_TEAM) return false;
 	if (!MOD_GLOBAL_SUZERAIN) return false;
 	if (!isAlive() || !isMajorCiv()) return false;
 
@@ -42163,27 +42393,28 @@ bool CvPlayer::RequestVassalWonder(BuildingTypes eBuilding)
 	if (eOverlord == NO_PLAYER) return false;
 
 	CvPlayer& kOverlord = GET_PLAYER(eOverlord);
-	bool bInPool = false;
-	for (int i = 0; i < kOverlord.GetVassalWonderPoolCount(); i++)
+	if (!kOverlord.IsVassalWonderAvailable(eBuilding)) return false;
+	if (m_iWonderRequest != (int)eBuilding)
 	{
-		if (kOverlord.GetVassalWonderPoolEntry(i) == (int)eBuilding)
-		{
-			bInPool = true;
-			break;
-		}
+		m_iWonderConditionType = 0;
+		m_iWonderConditionDeadline = 0;
 	}
-	if (!bInPool) return false;
-
-	CvBuildingEntry* pBuilding = GC.getBuildingInfo(eBuilding);
-	if (pBuilding == NULL) return false;
-	BuildingClassTypes eClass = (BuildingClassTypes)pBuilding->GetBuildingClassType();
-	if (GC.getGame().isBuildingClassMaxedOut(eClass)) return false;
 
 	m_iWonderRequest = (int)eBuilding;
 	return true;
 }
 
 //--------------------------------------------------------------------------------
+bool CvPlayer::IsVassalWonderAvailable(BuildingTypes eBuilding) const
+{
+	if (eBuilding < 0 || eBuilding >= GC.getNumBuildingInfos()) return false;
+	CvBuildingEntry* pBuilding = GC.getBuildingInfo(eBuilding);
+	if (!pBuilding || GC.getGame().isBuildingClassMaxedOut((BuildingClassTypes)pBuilding->GetBuildingClassType())) return false;
+	for (int i = 0; i < GetVassalWonderPoolCount(); ++i)
+		if (GetVassalWonderPoolEntry(i) == (int)eBuilding) return true;
+	return false;
+}
+
 int CvPlayer::GetWonderRequest() const
 {
 	if (!MOD_GLOBAL_SUZERAIN) return NO_BUILDING;
@@ -42202,36 +42433,17 @@ bool CvPlayer::ApproveVassalWonderRequest(PlayerTypes eVassal, bool bApprove)
 
 	bool bApproved = false;
 
-	if (bApprove)
+	if (bApprove && IsVassalWonderAvailable(eBuilding))
 	{
-		bool bInPool = false;
-		for (int i = 0; i < GetVassalWonderPoolCount(); i++)
-		{
-			if (GetVassalWonderPoolEntry(i) == (int)eBuilding)
-			{
-				bInPool = true;
-				break;
-			}
-		}
-
-		CvBuildingEntry* pBuilding = GC.getBuildingInfo(eBuilding);
-		bool bAvailable = bInPool && pBuilding != NULL;
-		if (bAvailable)
-		{
-			BuildingClassTypes eClass = (BuildingClassTypes)pBuilding->GetBuildingClassType();
-			bAvailable = !GC.getGame().isBuildingClassMaxedOut(eClass);
-		}
-
-		if (bAvailable)
-		{
-			if ((size_t)eVassal >= m_aiVassalWonderApproval.size())
-				m_aiVassalWonderApproval.resize(MAX_MAJOR_CIVS, NO_BUILDING);
-			m_aiVassalWonderApproval.setAt((size_t)eVassal, (int)eBuilding);
-			RemoveVassalWonderFromPool(eBuilding);
-			bApproved = true;
-		}
+		if ((size_t)eVassal >= m_aiVassalWonderApproval.size())
+			m_aiVassalWonderApproval.resize(MAX_MAJOR_CIVS, NO_BUILDING);
+		m_aiVassalWonderApproval.setAt((size_t)eVassal, (int)eBuilding);
+		RemoveVassalWonderFromPool(eBuilding);
+		bApproved = true;
 	}
 
+	kVassal.m_iWonderConditionType = 0;
+	kVassal.m_iWonderConditionDeadline = 0;
 	kVassal.m_iWonderRequest = NO_BUILDING;
 	AddChronicle(CHRONICLE_WONDER, eVassal, (int)eBuilding, bApproved ? 1 : 0);
 	return bApproved;
@@ -42266,6 +42478,11 @@ bool CvPlayer::CheckWonderRequestCondition(PlayerTypes eVassal)
 	CvPlayer& kVassal = GET_PLAYER(eVassal);
 	if (kVassal.GetWonderRequest() == NO_BUILDING) return false;
 	if (kVassal.m_iWonderConditionType <= 0) return false;
+	if (!IsVassalWonderAvailable((BuildingTypes)kVassal.GetWonderRequest()))
+	{
+		ApproveVassalWonderRequest(eVassal, false);
+		return false;
+	}
 
 	int iTurn = GC.getGame().getGameTurn();
 	if (kVassal.m_iWonderConditionDeadline > 0 && iTurn >= kVassal.m_iWonderConditionDeadline)
@@ -42300,7 +42517,7 @@ bool CvPlayer::CheckWonderRequestCondition(PlayerTypes eVassal)
 	case 5: // declare war
 	{
 		PlayerTypes eTarget = (PlayerTypes)kVassal.m_iWonderConditionTarget;
-		if (eTarget != NO_PLAYER && GET_PLAYER(eTarget).isAlive()
+		if (eTarget >= 0 && eTarget < MAX_MAJOR_CIVS && GET_PLAYER(eTarget).isAlive()
 			&& GET_TEAM(kVassal.getTeam()).isAtWar(GET_PLAYER(eTarget).getTeam()))
 			bMet = true;
 		break;
@@ -42459,14 +42676,15 @@ bool CvPlayer::CanInviteVassal(PlayerTypes eTarget) const
 {
 	if (!IsSuzerainCiv()) return false;
 	if (!MOD_GLOBAL_SUZERAIN) return false;
-	if (eTarget == NO_PLAYER || eTarget == GetID()) return false;
-	if (eTarget < 0 || eTarget >= MAX_MAJOR_CIVS) return false;
+	if (!isAlive() || !isMajorCiv() || GetOverlord() != NO_PLAYER) return false;
+	if (eTarget == GetID() || eTarget < 0 || eTarget >= MAX_MAJOR_CIVS) return false;
 
 	CvPlayer& kTarget = GET_PLAYER(eTarget);
 	if (!kTarget.isAlive() || !kTarget.isMajorCiv()) return false;
 	if (kTarget.GetOverlord() != NO_PLAYER) return false;
 	// A civ that already rules vassals of its own cannot also be one.
 	if (kTarget.HasAnyVassal()) return false;
+	if (!GET_TEAM(getTeam()).isHasMet(kTarget.getTeam())) return false;
 	if (GET_TEAM(getTeam()).isAtWar(kTarget.getTeam())) return false;
 
 	int iPercent = SuzerainDefineInt("SUZERAIN_JOIN_SUZERAIN_INVITE_MILITARY_PERCENT");
@@ -42561,10 +42779,12 @@ int CvPlayer::CanRequestSubmission(PlayerTypes eProtector) const
 	if (eProtector == NO_PLAYER || eProtector == GetID()) return 5;
 	if (GetOverlord() != NO_PLAYER) return 1;
 	if (HasAnyVassal()) return 1;
+	if (eProtector < 0 || eProtector >= MAX_MAJOR_CIVS) return 5;
 
 	CvPlayer& kProtector = GET_PLAYER(eProtector);
 	if (!kProtector.isAlive() || !kProtector.isMajorCiv()) return 5;
-	if (!kProtector.IsSuzerainCiv()) return 2;
+	if (!GET_TEAM(getTeam()).isHasMet(kProtector.getTeam())) return 5;
+	if (!kProtector.IsSuzerainCiv() || kProtector.GetOverlord() != NO_PLAYER) return 2;
 	// Another human decides for itself through its own client; not supported yet.
 	if (kProtector.isHuman()) return 5;
 	if (GET_TEAM(getTeam()).isAtWar(kProtector.getTeam())) return 3;
@@ -42713,7 +42933,8 @@ void CvPlayer::DoSeekProtectionTurn()
 
 		CvPlayer& kOther = GET_PLAYER(eOther);
 		if (!kOther.isAlive() || !kOther.isMajorCiv()) continue;
-		if (!kOther.IsSuzerainCiv()) continue;
+		if (!kOther.IsSuzerainCiv() || kOther.GetOverlord() != NO_PLAYER) continue;
+		if (!GET_TEAM(getTeam()).isHasMet(kOther.getTeam())) continue;
 		if (GET_TEAM(getTeam()).isAtWar(kOther.getTeam())) continue;
 
 		long long iMight = kOther.GetMilitaryMight();
@@ -42745,8 +42966,8 @@ bool CvPlayer::CanSubjugate(PlayerTypes eTarget) const
 {
 	if (!IsSuzerainCiv()) return false;
 	if (!MOD_GLOBAL_SUZERAIN) return false;
-	if (eTarget == NO_PLAYER || eTarget == GetID()) return false;
-	if (!isAlive() || !isMajorCiv()) return false;
+	if (eTarget == GetID() || eTarget < 0 || eTarget >= MAX_MAJOR_CIVS) return false;
+	if (!isAlive() || !isMajorCiv() || GetOverlord() != NO_PLAYER) return false;
 
 	CvPlayer& kTarget = GET_PLAYER(eTarget);
 	if (!kTarget.isAlive() || !kTarget.isMajorCiv()) return false;
@@ -42841,7 +43062,8 @@ void CvPlayer::DoSeekAllegianceTurn()
 
 		CvPlayer& kOther = GET_PLAYER(eOther);
 		if (!kOther.isAlive() || !kOther.isMajorCiv()) continue;
-		if (!kOther.IsSuzerainCiv()) continue;
+		if (!kOther.IsSuzerainCiv() || kOther.GetOverlord() != NO_PLAYER) continue;
+		if (!GET_TEAM(getTeam()).isHasMet(kOther.getTeam())) continue;
 		if (GET_TEAM(getTeam()).isAtWar(kOther.getTeam())) continue;
 		if (kOther.GetMandate() < iMandateReq) continue;
 		if ((int)kOther.GetVassals().size() < iVassalsReq) continue;
@@ -43091,6 +43313,11 @@ PlayerTypes CvPlayer::GetOverlord() const
 //--------------------------------------------------------------------------------
 void CvPlayer::SetOverlord(PlayerTypes e)
 {
+	if (m_eOverlord != NO_PLAYER && m_eOverlord != e)
+	{
+		CvLeague* pLeague = GC.getGame().GetGameLeagues()->GetActiveLeague();
+		if (pLeague) pLeague->EndVassalSubmission(m_eOverlord, GetID());
+	}
 	m_eOverlord = e;
 	// When released from overlordship, clear any residual tax owed to the former
 	// overlord so the vassal's output is not permanently reduced with nobody collecting it
@@ -43141,6 +43368,7 @@ const std::vector<int>& CvPlayer::GetVassals() const
 //--------------------------------------------------------------------------------
 void CvPlayer::AddVassal(PlayerTypes e, int iHow)
 {
+	if (e < 0 || e >= MAX_MAJOR_CIVS || e == GetID()) return;
 	if (!IsOverlordOf(e))
 	{
 		m_vecVassals.push_back((int)e);
@@ -43157,6 +43385,7 @@ void CvPlayer::AddVassal(PlayerTypes e, int iHow)
 //--------------------------------------------------------------------------------
 void CvPlayer::RemoveVassal(PlayerTypes e)
 {
+	if (e < 0 || e >= MAX_MAJOR_CIVS) return;
 	for (size_t i = 0; i < m_vecVassals.size(); i++)
 	{
 		if (m_vecVassals[i] == (int)e)
@@ -43183,6 +43412,7 @@ void CvPlayer::RemoveVassal(PlayerTypes e)
 		m_aiVassalGiftCount.setAt((size_t)e, 0);
 	if ((size_t)e < m_aiVassalProtectHandled.size())
 		m_aiVassalProtectHandled.setAt((size_t)e, 0);
+	RefreshUCFromVassals();
 }
 
 //--------------------------------------------------------------------------------
@@ -43442,7 +43672,7 @@ void CvPlayer::UpdateVassalTaxation()
 		if (!pRes->GetEffects()->bSubmitSuzerain) continue;
 		if (pRes->GetProposerDecision()->GetProposer() != GetID()) continue;
 		PlayerTypes e = (PlayerTypes)pRes->GetProposerDecision()->GetDecision();
-		if (e == NO_PLAYER) continue;
+		if (!IsLiveVassal(e) || GET_PLAYER(e).GetOverlord() != GetID()) continue;
 		CvPlayer& v = GET_PLAYER(e);
 		if (!v.isAlive()) continue;
 		int iTaxPercent = pRes->GetEffects()->iVassalTaxPercent;
@@ -43534,6 +43764,7 @@ void CvPlayer::UpdateVassalTaxation()
 	for (size_t iV = 0; iV < m_vecVassals.size(); iV++)
 	{
 		PlayerTypes e = (PlayerTypes)m_vecVassals[iV];
+		if (!IsLiveVassal(e) || GET_PLAYER(e).GetOverlord() != GetID()) continue;
 		bool bHasResolution = false;
 		for (uint iRes = 0; iRes < vActiveResolutions.size(); iRes++)
 		{
@@ -43563,17 +43794,17 @@ void CvPlayer::UpdateVassalTaxation()
 		v.m_iScienceTimes100ToOverlord = iScienceTax;
 
 		int iCultureGross = v.GetTotalJONSCulturePerTurn() + v.GetCultureToOverlord();
-		int iCultureTax = iCultureGross * iBaseline / 100;
+		int iCultureTax = iCultureGross * iRate / 100;
 		m_aCultureFromVassals[e] = iCultureTax;
 		v.m_iCultureToOverlord = iCultureTax;
 
 		int iFaithGross = v.GetTotalFaithPerTurn() + v.GetFaithToOverlord();
-		int iFaithTax = iFaithGross * iBaseline / 100;
+		int iFaithTax = iFaithGross * iRate / 100;
 		m_aFaithFromVassals[e] = iFaithTax;
 		v.m_iFaithToOverlord = iFaithTax;
 
 		int iGoldBase = v.calculateGoldRate() + v.GetGoldFromVassals() + v.GetGoldFromVassalDeals();
-		int iGoldTax = iGoldBase * iBaseline / 100;
+		int iGoldTax = iGoldBase * iRate / 100;
 		if (iGoldTax > 0)
 		{
 			v.GetTreasury()->ChangeGold(-iGoldTax);
@@ -48622,27 +48853,28 @@ void CvPlayer::OrderPermanentAllyCityStatesWar(PlayerTypes eTarget)
 bool CvPlayer::OrderVassalJoinWar(PlayerTypes eVassal, PlayerTypes eTarget)
 {
 	if (!MOD_GLOBAL_SUZERAIN || !IsSuzerainCiv()) return false;
-	if (eTarget == NO_PLAYER || !GET_PLAYER(eTarget).isAlive()) return false;
+	if (eTarget < 0 || eTarget >= MAX_MAJOR_CIVS || !GET_PLAYER(eTarget).isAlive()) return false;
 	if (!IsOverlordOf(eVassal) || !IsLiveVassal(eVassal)) return false;
 
 	TeamTypes eVassalTeam = GET_PLAYER(eVassal).getTeam();
 	TeamTypes eTargetTeam = GET_PLAYER(eTarget).getTeam();
 	if (eVassalTeam == eTargetTeam) return false;
 	if (GET_TEAM(eVassalTeam).isAtWar(eTargetTeam)) return true;
+	if (!GET_TEAM(eVassalTeam).canDeclareWar(eTargetTeam, eVassal)) return false;
 
 	// A human vassal answers for itself: leave the order pending instead of
 	// declaring war behind its back.
 	CvPlayer& kVassal = GET_PLAYER(eVassal);
 	if (kVassal.isHuman())
 	{
+		if (kVassal.GetPendingWarOrder(0) != NO_PLAYER) return false;
 		kVassal.m_iPendingWarOrderFrom = GetID();
 		kVassal.m_iPendingWarOrderTarget = eTarget;
 		kVassal.m_iPendingWarOrderTurn = GC.getGame().getGameTurn() + 5;
 		return false;
 	}
 
-	if (GetVassalLoyalty(eVassal) >= SuzerainDefineInt("SUZERAIN_LOYALTY_OBEY")
-		&& GET_TEAM(eVassalTeam).canDeclareWar(eTargetTeam, eVassal))
+	if (GetVassalLoyalty(eVassal) >= SuzerainDefineInt("SUZERAIN_LOYALTY_OBEY"))
 	{
 		GET_TEAM(eVassalTeam).declareWar(eTargetTeam, false, eVassal);
 		ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_LOYALTY_OBEY_WAR"));
@@ -48745,20 +48977,21 @@ int CvPlayer::GetPendingWarOrder(int iField) const
 	int iFrom = m_iPendingWarOrderFrom;
 	int iTarget = m_iPendingWarOrderTarget;
 
-	if (iField == 2)
-		return m_iPendingWarOrderTurn - GC.getGame().getGameTurn();
-
-	int iValue = (iField == 1) ? iTarget : iFrom;
-	if (iValue < 0 || iValue >= MAX_MAJOR_CIVS) return NO_PLAYER;
-
-	// The order dies if the overlord no longer rules us or the target is gone.
-	if (iFrom < 0 || iFrom >= MAX_MAJOR_CIVS) return NO_PLAYER;
+	const int iNone = (iField == 2) ? 0 : NO_PLAYER;
+	if (iFrom < 0 || iFrom >= MAX_MAJOR_CIVS) return iNone;
+	if (iTarget < 0 || iTarget >= MAX_MAJOR_CIVS) return iNone;
 	CvPlayer& kOverlord = GET_PLAYER((PlayerTypes)iFrom);
-	if (!kOverlord.isAlive() || !kOverlord.IsOverlordOf(GetID())) return NO_PLAYER;
-	if (iTarget < 0 || iTarget >= MAX_MAJOR_CIVS) return NO_PLAYER;
-	if (!GET_PLAYER((PlayerTypes)iTarget).isAlive()) return NO_PLAYER;
+	if (GetOverlord() != (PlayerTypes)iFrom || !kOverlord.isAlive()
+		|| !kOverlord.IsOverlordOf(GetID())) return iNone;
+	CvPlayer& kTarget = GET_PLAYER((PlayerTypes)iTarget);
+	if (!kTarget.isAlive()) return iNone;
+	TeamTypes eTargetTeam = kTarget.getTeam();
+	if (getTeam() == eTargetTeam || eTargetTeam == kOverlord.getTeam()) return iNone;
+	if (!GET_TEAM(getTeam()).isAtWar(eTargetTeam)
+		&& !GET_TEAM(getTeam()).canDeclareWar(eTargetTeam, GetID())) return iNone;
 
-	return iValue;
+	if (iField == 2) return m_iPendingWarOrderTurn - GC.getGame().getGameTurn();
+	return (iField == 1) ? iTarget : iFrom;
 }
 
 //--------------------------------------------------------------------------------
@@ -48781,7 +49014,6 @@ bool CvPlayer::ResolveWarOrder(bool bObey)
 	if (!bObey)
 	{
 		int iPenalty = SuzerainDefineInt("SUZERAIN_LOYALTY_DEFY_PENALTY");
-		if (iPenalty == 0) iPenalty = -5;
 		kOverlord.ChangeVassalLoyalty(GetID(), iPenalty);
 		return true;
 	}
@@ -48847,6 +49079,9 @@ void CvPlayer::CleanExpiredDecrees()
 	{
 		int iBase = i * 4;
 		if (m_aiPendingDecrees[iBase + 2] < iTurn) continue;
+		int iFrom = m_aiPendingDecrees[iBase + 3];
+		if (iFrom < 0 || iFrom >= MAX_MAJOR_CIVS || GetOverlord() != (PlayerTypes)iFrom) continue;
+		if (!GET_PLAYER((PlayerTypes)iFrom).isAlive() || !GET_PLAYER((PlayerTypes)iFrom).IsOverlordOf(GetID())) continue;
 		vKeep.push_back(m_aiPendingDecrees[iBase]);
 		vKeep.push_back(m_aiPendingDecrees[iBase + 1]);
 		vKeep.push_back(m_aiPendingDecrees[iBase + 2]);
@@ -48861,7 +49096,6 @@ void CvPlayer::CleanExpiredDecrees()
 bool CvPlayer::ResolveDecree(int iIndex, bool bAccept)
 {
 	if (!MOD_GLOBAL_SUZERAIN) return false;
-	CleanExpiredDecrees();
 
 	int iCount = GetPendingDecreeCount();
 	if (iIndex < 0 || iIndex >= iCount) return false;
@@ -48870,6 +49104,7 @@ bool CvPlayer::ResolveDecree(int iIndex, bool bAccept)
 	int iType = m_aiPendingDecrees[iBase];
 	int iTarget = m_aiPendingDecrees[iBase + 1];
 	int iFrom = m_aiPendingDecrees[iBase + 3];
+	bool bExpired = m_aiPendingDecrees[iBase + 2] < GC.getGame().getGameTurn();
 
 	// Drop the decree first so an effect cannot re-enter it.
 	std::vector<int> vKeep;
@@ -48884,7 +49119,8 @@ bool CvPlayer::ResolveDecree(int iIndex, bool bAccept)
 	}
 	m_aiPendingDecrees = vKeep;
 
-	if (iFrom < 0 || iFrom >= MAX_MAJOR_CIVS) return false;
+	if (bExpired || iFrom < 0 || iFrom >= MAX_MAJOR_CIVS) return false;
+	if (GetOverlord() != (PlayerTypes)iFrom) return false;
 	CvPlayer& kOverlord = GET_PLAYER((PlayerTypes)iFrom);
 	if (!kOverlord.isAlive() || !kOverlord.IsOverlordOf(GetID())) return false;
 	kOverlord.AddChronicle(bAccept ? CHRONICLE_DECREE_OBEYED : CHRONICLE_DECREE_REFUSED,
@@ -49182,7 +49418,8 @@ bool CvPlayer::CanIssueDecree(int iType, PlayerTypes eVassal, int iTarget) const
 	for (int i = 0; i < kVassal.GetPendingDecreeCount(); i++)
 	{
 		if (kVassal.GetPendingDecreeField(i, 0) == iType
-			&& kVassal.GetPendingDecreeField(i, 2) > 0)
+			&& kVassal.GetPendingDecreeField(i, 2) >= 0
+			&& kVassal.GetPendingDecreeField(i, 3) == GetID())
 			return false;
 	}
 
@@ -50010,7 +50247,6 @@ void CvPlayer::DoConcubineTurn()
 	if (iNeglectEvery <= 0 || (iTurn % iNeglectEvery) != 0) return;
 
 	int iLoss = SuzerainDefineInt("SUZERAIN_CONCUBINE_NEGLECT_LOYALTY");
-	if (iLoss == 0) iLoss = -5;
 
 	for (int i = 0; i < iCount; i++)
 	{
@@ -50315,6 +50551,7 @@ bool CvPlayer::CanRestoreConcubineHomeland(int iIndex)
 
 	int iFavorMin = SuzerainDefineInt("SUZERAIN_CONCUBINE_RESTORE_FAVOR");
 	if (GetConcubineFavor(iIndex) < iFavorMin) return false;
+	if (GetMandate() < SuzerainDefineInt("SUZERAIN_CONCUBINE_RESTORE_MANDATE")) return false;
 
 	if (!CanLiberatePlayer(eVassal)) return false;
 
@@ -50357,6 +50594,7 @@ bool CvPlayer::RestoreConcubineHomeland(int iIndex)
 
 	AddVassal(eVassal, 6);
 	GET_PLAYER(eVassal).SetOverlord(GetID());
+	RefreshUCFromVassals();
 	ChangeVassalLoyalty(eVassal, SuzerainDefineInt("SUZERAIN_CONCUBINE_RESTORE_LOYALTY"));
 	ChangeConcubineFavor(iIndex, SuzerainDefineInt("SUZERAIN_CONCUBINE_RESTORE_FAVOR_GAIN"));
 	AddChronicle(CHRONICLE_VASSAL_RESTORE, eVassal, iIndex, iCityID);
@@ -51347,12 +51585,14 @@ bool CvPlayer::PunishVassal(PlayerTypes eVassal)
 	if (!HasVassalPunishRight(eVassal)) return false;
 
 	TeamTypes eVassalTeam = GET_PLAYER(eVassal).getTeam();
+	if (!GET_TEAM(getTeam()).canDeclareWar(eVassalTeam, GetID(), true)) return false;
 	RemoveVassal(eVassal);
 	GET_PLAYER(eVassal).SetOverlord(NO_PLAYER);
-	ClearVassalPunishRight(eVassal);
 
-	if (GET_TEAM(getTeam()).canDeclareWar(eVassalTeam, GetID()))
-		GET_TEAM(getTeam()).declareWar(eVassalTeam, false, GetID());
+	// Keep the right until declaration callbacks have assessed this target.
+	GET_TEAM(getTeam()).declareWar(eVassalTeam, false, GetID());
+	ClearVassalPunishRight(eVassal);
+	AddChronicle(CHRONICLE_VASSAL_PUNISH, eVassal, 0, 0);
 	return true;
 }
 
@@ -51376,7 +51616,7 @@ void CvPlayer::DoVassalAutoJoinWarTurn()
 			if (eOther == GetID() || eOther == eVassal) continue;
 			CvPlayer& kOther = GET_PLAYER(eOther);
 			if (!kOther.isAlive() || !kOther.isMajorCiv()) continue;
-			if (!GET_TEAM(eVassalTeam).isAtWar(kOther.getTeam())) continue;
+			if (!GET_TEAM(kOther.getTeam()).isAggressor(eVassalTeam)) continue;
 			if (GET_TEAM(getTeam()).isAtWar(kOther.getTeam())) continue;
 
 			long long iOurs = GetMilitaryMight();
@@ -51414,9 +51654,11 @@ int CvPlayer::GetPendingVassalInvite() const
 
 	// The offer dies if the player already has an overlord or the offerer can no
 	// longer take vassals (dead, dethroned, or now at war with us).
-	if (GetOverlord() != NO_PLAYER) return NO_PLAYER;
+	if (!isAlive() || !isMajorCiv() || HasAnyVassal()) return NO_PLAYER;
+	if (GetOverlord() != NO_PLAYER || iFrom == GetID()) return NO_PLAYER;
 	CvPlayer& kOverlord = GET_PLAYER((PlayerTypes)iFrom);
 	if (!kOverlord.isAlive() || !kOverlord.isMajorCiv() || !kOverlord.IsSuzerainCiv()) return NO_PLAYER;
+	if (kOverlord.GetOverlord() != NO_PLAYER) return NO_PLAYER;
 	if (GET_TEAM(getTeam()).isAtWar(kOverlord.getTeam())) return NO_PLAYER;
 
 	return (PlayerTypes)iFrom;

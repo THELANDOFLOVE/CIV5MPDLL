@@ -2496,50 +2496,47 @@ bool CvDeal::AreAllTradeItemsValid()
 
 #if defined(MOD_GLOBAL_SUZERAIN)
 //--------------------------------------------------------------------------------
-void CvGameDeals::ApplyVassalDealTax(PlayerTypes eRecipient, PlayerTypes eCounterparty, int iAmount, bool bPerTurn)
+// A positive tariff is received by the item giver, a negative one by the recipient.
+static int GetDealTariff(PlayerTypes eFrom, PlayerTypes eTo, int iAmount)
 {
-	// The tariff applies when one side is an overlord and the other is not its
-	// vassal. A vassal trades tariff-free with its overlord and with other
-	// vassals.
-	PlayerTypes eOverlord = NO_PLAYER;
-	PlayerTypes ePayer = NO_PLAYER;
+	if (!MOD_GLOBAL_SUZERAIN || iAmount <= 0) return 0;
+	if (GET_PLAYER(eFrom).HasAnyVassal() && !GET_PLAYER(eTo).IsVassalOf(eFrom))
+		return (int)std::min((long long)INT_MAX, (long long)iAmount * std::max(0, GET_PLAYER(eFrom).GetTariffPercentFor(eTo)) / 100);
+	if (GET_PLAYER(eTo).HasAnyVassal() && !GET_PLAYER(eFrom).IsVassalOf(eTo))
+		return -(int)std::min((long long)INT_MAX, (long long)iAmount * std::max(0, GET_PLAYER(eTo).GetTariffPercentFor(eFrom)) / 100);
+	return 0;
+}
 
-	if (GET_PLAYER(eCounterparty).HasAnyVassal() && !GET_PLAYER(eRecipient).IsVassalOf(eCounterparty))
-	{
-		eOverlord = eCounterparty;
-		ePayer = eRecipient;
-	}
-	else if (GET_PLAYER(eRecipient).HasAnyVassal() && !GET_PLAYER(eCounterparty).IsVassalOf(eRecipient))
-	{
-		eOverlord = eRecipient;
-		ePayer = eCounterparty;
-	}
-	else
-	{
-		return;
-	}
+// GPT items already serialize Data3 and Flag1. The flag distinguishes a known zero
+// from a deal written before per-item tariffs were recorded.
+static int GetBookedTariff(const CvTradedItem& item, PlayerTypes eTo)
+{
+	if (item.m_bFlag1) return item.m_iData3;
+	return GetDealTariff(item.m_eFromPlayer, eTo, item.m_iData1);
+}
 
-	int iTariffPercent = GET_PLAYER(eOverlord).GetTariffPercentFor(ePayer);
-	if (iTariffPercent <= 0) return;
-
-	int iTariff = iAmount * iTariffPercent / 100;
-	if (iTariff <= 0) return;
-
-	PlayerTypes eOtherSide = (eOverlord == eCounterparty) ? eRecipient : eCounterparty;
-
+static void BookDealTariff(PlayerTypes eFrom, PlayerTypes eTo, int iTariff, bool bPerTurn, bool bEnding = false)
+{
+	if (iTariff == 0) return;
+	CvPlayer& kOverlord = GET_PLAYER(iTariff > 0 ? eFrom : eTo);
+	CvPlayer& kPayer = GET_PLAYER(iTariff > 0 ? eTo : eFrom);
+	const int iTax = abs(iTariff);
 	if (bPerTurn)
 	{
-		GET_PLAYER(ePayer).GetTreasury()->ChangeGoldPerTurnFromDiplomacy(-iTariff);
-		GET_PLAYER(eOverlord).GetTreasury()->ChangeGoldPerTurnFromDiplomacy(iTariff);
-		GET_PLAYER(eOverlord).RecordVassalDealGPT(ePayer, eOtherSide, iTariff);
+		const int iChange = bEnding ? -iTax : iTax;
+		kPayer.GetTreasury()->ChangeGoldPerTurnFromDiplomacy(-iChange);
+		kOverlord.GetTreasury()->ChangeGoldPerTurnFromDiplomacy(iChange);
+		if (bEnding) kOverlord.RecordVassalDealGPTEnd(kPayer.GetID(), iTax);
+		else kOverlord.RecordVassalDealGPT(kPayer.GetID(), kPayer.GetID(), iTax);
 	}
 	else
 	{
-		GET_PLAYER(ePayer).GetTreasury()->ChangeGold(-iTariff);
-		GET_PLAYER(eOverlord).GetTreasury()->ChangeGold(iTariff);
-		GET_PLAYER(eOverlord).RecordVassalDealGold(ePayer, eOtherSide, iTariff);
+		kPayer.GetTreasury()->ChangeGold(-iTax);
+		kOverlord.GetTreasury()->ChangeGold(iTax);
+		kOverlord.RecordVassalDealGold(kPayer.GetID(), kPayer.GetID(), iTax);
 	}
 }
+
 #endif
 
 #if defined(MOD_AI_MP_DIPLOMACY)
@@ -2670,6 +2667,13 @@ void CvGameDeals::FinalizeDealValidAndAccepted(PlayerTypes eFromPlayer, PlayerTy
 	{
 		CvAssertMsg(it->m_eFromPlayer == kDeal.m_eFromPlayer || it->m_eFromPlayer == kDeal.m_eToPlayer, "DEAL: Adding deal that has an item for a player that's not actually in this deal!  Please send Jon this with your last 5 autosaves and what changelist # you're playing.");
 
+#if defined(MOD_GLOBAL_SUZERAIN)
+		if (it->m_eItemType == TRADE_ITEM_GOLD_PER_TURN && !it->m_bToRenewed)
+		{
+			it->m_iData3 = GetDealTariff(it->m_eFromPlayer, kDeal.GetOtherPlayer(it->m_eFromPlayer), it->m_iData1);
+			it->m_bFlag1 = true;
+		}
+#endif
 		// Calculate duration
 		if(it->m_iDuration > 0)
 		{
@@ -2730,7 +2734,7 @@ void CvGameDeals::FinalizeDealValidAndAccepted(PlayerTypes eFromPlayer, PlayerTy
 			GET_PLAYER(eAcceptedFromPlayer).GetTreasury()->ChangeGold(-iGoldAmount);
 			GET_PLAYER(eAcceptedToPlayer).GetTreasury()->ChangeGold(iGoldAmount);
 #if defined(MOD_GLOBAL_SUZERAIN)
-			ApplyVassalDealTax(eAcceptedToPlayer, eAcceptedFromPlayer, iGoldAmount, false);
+			BookDealTariff(eAcceptedFromPlayer, eAcceptedToPlayer, GetDealTariff(eAcceptedFromPlayer, eAcceptedToPlayer, iGoldAmount), false);
 #endif
 		}
 		// Gold Per Turn
@@ -2740,7 +2744,7 @@ void CvGameDeals::FinalizeDealValidAndAccepted(PlayerTypes eFromPlayer, PlayerTy
 			GET_PLAYER(eAcceptedFromPlayer).GetTreasury()->ChangeGoldPerTurnFromDiplomacy(-iGoldPerTurn);
 			GET_PLAYER(eAcceptedToPlayer).GetTreasury()->ChangeGoldPerTurnFromDiplomacy(iGoldPerTurn);
 #if defined(MOD_GLOBAL_SUZERAIN)
-			ApplyVassalDealTax(eAcceptedToPlayer, eAcceptedFromPlayer, iGoldPerTurn, true);
+			BookDealTariff(eAcceptedFromPlayer, eAcceptedToPlayer, it->m_iData3, true);
 #endif
 		}
 		// Resource
@@ -3100,6 +3104,13 @@ bool CvGameDeals::FinalizeDeal(PlayerTypes eFromPlayer, PlayerTypes eToPlayer, b
 			{
 				CvAssertMsg(it->m_eFromPlayer == kDeal.m_eFromPlayer || it->m_eFromPlayer == kDeal.m_eToPlayer, "DEAL: Adding deal that has an item for a player that's not actually in this deal!  Please send Jon this with your last 5 autosaves and what changelist # you're playing.");
 
+#if defined(MOD_GLOBAL_SUZERAIN)
+				if (it->m_eItemType == TRADE_ITEM_GOLD_PER_TURN && !it->m_bToRenewed)
+				{
+					it->m_iData3 = GetDealTariff(it->m_eFromPlayer, kDeal.GetOtherPlayer(it->m_eFromPlayer), it->m_iData1);
+					it->m_bFlag1 = true;
+				}
+#endif
 				// Calculate duration
 				if(it->m_iDuration > 0)
 				{
@@ -3157,7 +3168,7 @@ bool CvGameDeals::FinalizeDeal(PlayerTypes eFromPlayer, PlayerTypes eToPlayer, b
 					GET_PLAYER(eAcceptedFromPlayer).GetTreasury()->ChangeGold(-iGoldAmount);
 					GET_PLAYER(eAcceptedToPlayer).GetTreasury()->ChangeGold(iGoldAmount);
 #if defined(MOD_GLOBAL_SUZERAIN)
-					ApplyVassalDealTax(eAcceptedToPlayer, eAcceptedFromPlayer, iGoldAmount, false);
+					BookDealTariff(eAcceptedFromPlayer, eAcceptedToPlayer, GetDealTariff(eAcceptedFromPlayer, eAcceptedToPlayer, iGoldAmount), false);
 #endif
 				}
 				// Gold Per Turn
@@ -3167,7 +3178,7 @@ bool CvGameDeals::FinalizeDeal(PlayerTypes eFromPlayer, PlayerTypes eToPlayer, b
 					GET_PLAYER(eAcceptedFromPlayer).GetTreasury()->ChangeGoldPerTurnFromDiplomacy(-iGoldPerTurn);
 					GET_PLAYER(eAcceptedToPlayer).GetTreasury()->ChangeGoldPerTurnFromDiplomacy(iGoldPerTurn);
 #if defined(MOD_GLOBAL_SUZERAIN)
-					ApplyVassalDealTax(eAcceptedToPlayer, eAcceptedFromPlayer, iGoldPerTurn, true);
+					BookDealTariff(eAcceptedFromPlayer, eAcceptedToPlayer, it->m_iData3, true);
 #endif
 				}
 				// Resource
@@ -3895,37 +3906,9 @@ void CvGameDeals::DoEndTradedItem(CvTradedItem* pItem, PlayerTypes eToPlayer, bo
 		fromPlayer.GetTreasury()->ChangeGoldPerTurnFromDiplomacy(iGoldPerTurn);
 		toPlayer.GetTreasury()->ChangeGoldPerTurnFromDiplomacy(-iGoldPerTurn);
 #if defined(MOD_GLOBAL_SUZERAIN)
-		// Reverse the tariff collected when this GPT deal was made.
-		{
-			PlayerTypes eTariffOverlord = NO_PLAYER;
-			PlayerTypes eTariffPayer = NO_PLAYER;
-
-			if (GET_PLAYER(eFromPlayer).HasAnyVassal() && !GET_PLAYER(eToPlayer).IsVassalOf(eFromPlayer))
-			{
-				eTariffOverlord = eFromPlayer;
-				eTariffPayer = eToPlayer;
-			}
-			else if (GET_PLAYER(eToPlayer).HasAnyVassal() && !GET_PLAYER(eFromPlayer).IsVassalOf(eToPlayer))
-			{
-				eTariffOverlord = eToPlayer;
-				eTariffPayer = eFromPlayer;
-			}
-
-			if (eTariffOverlord != NO_PLAYER)
-			{
-				int iTariffPercent = GET_PLAYER(eTariffOverlord).GetTariffPercentFor(eTariffPayer);
-				if (iTariffPercent > 0)
-				{
-					int iTariff = iGoldPerTurn * iTariffPercent / 100;
-					if (iTariff > 0)
-					{
-						GET_PLAYER(eTariffPayer).GetTreasury()->ChangeGoldPerTurnFromDiplomacy(iTariff);
-						GET_PLAYER(eTariffOverlord).GetTreasury()->ChangeGoldPerTurnFromDiplomacy(-iTariff);
-						GET_PLAYER(eTariffOverlord).RecordVassalDealGPTEnd(eTariffPayer, iTariff);
-					}
-				}
-			}
-		}
+		BookDealTariff(eFromPlayer, eToPlayer, GetBookedTariff(*pItem, eToPlayer), true, true);
+		pItem->m_iData3 = 0;
+		pItem->m_bFlag1 = true;
 #endif
 
 		pNotifications = GET_PLAYER(eFromPlayer).GetNotifications();
@@ -4394,6 +4377,19 @@ void CvGameDeals::PrepareRenewDeal(CvDeal* pOldDeal, const CvDeal* pNewDeal)
 
 			if(oldDealItemIter->m_eItemType == TRADE_ITEM_GOLD_PER_TURN)
 			{
+#if defined(MOD_GLOBAL_SUZERAIN)
+				const PlayerTypes eFrom = oldDealItemIter->m_eFromPlayer;
+				const PlayerTypes eTo = pOldDeal->GetOtherPlayer(eFrom);
+				const int iOldTariff = GetBookedTariff(*oldDealItemIter, eTo);
+				const int iNewTariff = GetDealTariff(eFrom, eTo, newDealItemIter->m_iData1);
+				if (iOldTariff != iNewTariff)
+				{
+					BookDealTariff(eFrom, eTo, iOldTariff, true, true);
+					BookDealTariff(eFrom, eTo, iNewTariff, true);
+				}
+				newDealItemIter->m_iData3 = iNewTariff;
+				newDealItemIter->m_bFlag1 = true;
+#endif
 				int iOldGPTAmount = oldDealItemIter->m_iData1;
 				int iNewGPTAmount = newDealItemIter->m_iData1;
 
@@ -4405,93 +4401,11 @@ void CvGameDeals::PrepareRenewDeal(CvDeal* pOldDeal, const CvDeal* pNewDeal)
 					{
 						fromPlayer.GetTreasury()->ChangeGoldPerTurnFromDiplomacy(-iGoldPerTurnDelta);
 						toPlayer.GetTreasury()->ChangeGoldPerTurnFromDiplomacy(iGoldPerTurnDelta);
-#if defined(MOD_GLOBAL_SUZERAIN)
-						// Adjust tariff by the GPT delta (toPlayer is the recipient here).
-						{
-							PlayerTypes eOverlord = NO_PLAYER;
-							PlayerTypes ePayer = NO_PLAYER;
-							PlayerTypes eFrom = fromPlayer.GetID();
-							PlayerTypes eTo = toPlayer.GetID();
-
-							if (GET_PLAYER(eFrom).HasAnyVassal() && !GET_PLAYER(eTo).IsVassalOf(eFrom))
-							{
-								eOverlord = eFrom;
-								ePayer = eTo;
-							}
-							else if (GET_PLAYER(eTo).HasAnyVassal() && !GET_PLAYER(eFrom).IsVassalOf(eTo))
-							{
-								eOverlord = eTo;
-								ePayer = eFrom;
-							}
-
-							if (eOverlord != NO_PLAYER)
-							{
-								int iPercent = GET_PLAYER(eOverlord).GetTariffPercentFor(ePayer);
-								if (iPercent > 0)
-								{
-									int iTariff = iGoldPerTurnDelta * iPercent / 100;
-									if (iTariff > 0)
-									{
-										GET_PLAYER(ePayer).GetTreasury()->ChangeGoldPerTurnFromDiplomacy(-iTariff);
-										GET_PLAYER(eOverlord).GetTreasury()->ChangeGoldPerTurnFromDiplomacy(iTariff);
-										GET_PLAYER(eOverlord).RecordVassalDealGPT(ePayer, ePayer == eTo ? eFrom : eTo, iTariff);
-									}
-									else if (iTariff < 0)
-									{
-										GET_PLAYER(ePayer).GetTreasury()->ChangeGoldPerTurnFromDiplomacy(-iTariff);
-										GET_PLAYER(eOverlord).GetTreasury()->ChangeGoldPerTurnFromDiplomacy(iTariff);
-										GET_PLAYER(eOverlord).RecordVassalDealGPTEnd(ePayer, -iTariff);
-									}
-								}
-							}
-						}
-#endif
 					}
 					else
 					{
 						toPlayer.GetTreasury()->ChangeGoldPerTurnFromDiplomacy(-iGoldPerTurnDelta);
 						fromPlayer.GetTreasury()->ChangeGoldPerTurnFromDiplomacy(iGoldPerTurnDelta);
-#if defined(MOD_GLOBAL_SUZERAIN)
-						// Adjust tariff by the GPT delta (fromPlayer is the recipient here).
-						{
-							PlayerTypes eOverlord = NO_PLAYER;
-							PlayerTypes ePayer = NO_PLAYER;
-							PlayerTypes eFrom = fromPlayer.GetID();
-							PlayerTypes eTo = toPlayer.GetID();
-
-							if (GET_PLAYER(eFrom).HasAnyVassal() && !GET_PLAYER(eTo).IsVassalOf(eFrom))
-							{
-								eOverlord = eFrom;
-								ePayer = eTo;
-							}
-							else if (GET_PLAYER(eTo).HasAnyVassal() && !GET_PLAYER(eFrom).IsVassalOf(eTo))
-							{
-								eOverlord = eTo;
-								ePayer = eFrom;
-							}
-
-							if (eOverlord != NO_PLAYER)
-							{
-								int iPercent = GET_PLAYER(eOverlord).GetTariffPercentFor(ePayer);
-								if (iPercent > 0)
-								{
-									int iTariff = iGoldPerTurnDelta * iPercent / 100;
-									if (iTariff > 0)
-									{
-										GET_PLAYER(ePayer).GetTreasury()->ChangeGoldPerTurnFromDiplomacy(-iTariff);
-										GET_PLAYER(eOverlord).GetTreasury()->ChangeGoldPerTurnFromDiplomacy(iTariff);
-										GET_PLAYER(eOverlord).RecordVassalDealGPT(ePayer, ePayer == eFrom ? eTo : eFrom, iTariff);
-									}
-									else if (iTariff < 0)
-									{
-										GET_PLAYER(ePayer).GetTreasury()->ChangeGoldPerTurnFromDiplomacy(-iTariff);
-										GET_PLAYER(eOverlord).GetTreasury()->ChangeGoldPerTurnFromDiplomacy(iTariff);
-										GET_PLAYER(eOverlord).RecordVassalDealGPTEnd(ePayer, -iTariff);
-									}
-								}
-							}
-						}
-#endif
 					}
 				}
 			}

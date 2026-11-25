@@ -26,7 +26,9 @@ enum ProvinceTaskType
 	PROVINCE_TASK_RAID = 2,        // Raiding barbarians (medium priority)
 	PROVINCE_TASK_PATROL = 3,      // Routine patrol (low priority)
 	PROVINCE_TASK_PLAYER = 4,      // Player direct control (never auto-assigned)
-	PROVINCE_TASK_DEFEND_SEA = 5   // Naval interception of enemy ships
+	PROVINCE_TASK_DEFEND_SEA = 5,  // Naval interception of enemy ships
+	PROVINCE_TASK_ORDER_RAID = 6, // Persistent player-ordered raid
+	PROVINCE_TASK_ORDER_MOVE = 7  // Persistent support, recall or rally
 };
 
 // Military task descriptor

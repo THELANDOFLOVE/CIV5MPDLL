@@ -1106,9 +1106,9 @@ bool CvTeam::canChangeWarPeace(TeamTypes eTeam) const
 
 //	--------------------------------------------------------------------------------
 #if defined(MOD_EVENTS_WAR_AND_PEACE)
-bool CvTeam::canDeclareWar(TeamTypes eTeam, PlayerTypes eOriginatingPlayer) const
+bool CvTeam::canDeclareWar(TeamTypes eTeam, PlayerTypes eOriginatingPlayer, bool bIgnoreVassalRelation) const
 #else
-bool CvTeam::canDeclareWar(TeamTypes eTeam) const
+bool CvTeam::canDeclareWar(TeamTypes eTeam, bool bIgnoreVassalRelation) const
 #endif
 {
 	if(eTeam == GetID())
@@ -1218,7 +1218,7 @@ bool CvTeam::canDeclareWar(TeamTypes eTeam) const
 		{
 			PlayerTypes eTheirPlayer = (PlayerTypes)j;
 			if (!GET_PLAYER(eTheirPlayer).isAlive() || GET_PLAYER(eTheirPlayer).getTeam() != eTeam) continue;
-			if (kMyPlayer.IsVassalOf(eTheirPlayer) || kMyPlayer.IsOverlordOf(eTheirPlayer))
+			if (!bIgnoreVassalRelation && (kMyPlayer.IsVassalOf(eTheirPlayer) || kMyPlayer.IsOverlordOf(eTheirPlayer)))
 				return false;
 		}
 	}

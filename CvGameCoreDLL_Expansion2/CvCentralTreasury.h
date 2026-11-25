@@ -31,17 +31,11 @@ public:
 private:
 	CvPlayer* m_pPlayer;
 
-	// Collect revenue from all provinces
-	void CollectProvincialRevenue(void);
-
 	// Allocate budgets to each province based on needs
 	void AllocateBudgets(void);
 
 	// Handle emergency transfers between provinces
 	void HandleEmergencyTransfers(void);
-
-	// Calculate base budget for a province
-	int CalculateBaseBudget(int iProv, int iTotalRevenue, int iTotalCities);
 
 	// Get province priority modifier in percent (war, border, etc.)
 	int GetProvincePriorityModifier(int iProv) const;

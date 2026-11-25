@@ -281,9 +281,6 @@ public:
 	void FinalizeDealNotify(PlayerTypes eFromPlayer, PlayerTypes eToPlayer, CvWeightedVector<TeamTypes, MAX_CIV_TEAMS, true>& veNowAtPeacePairs);
 #endif
 	bool FinalizeDeal(PlayerTypes eFromPlayer, PlayerTypes eToPlayer, bool bAccepted);
-#if defined(MOD_GLOBAL_SUZERAIN)
-	void ApplyVassalDealTax(PlayerTypes eRecipient, PlayerTypes eCounterparty, int iAmount, bool bPerTurn);
-#endif
 	void DoTurn();
 
 	void DoUpdateCurrentDealsList();

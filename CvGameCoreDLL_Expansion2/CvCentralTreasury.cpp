@@ -64,47 +64,28 @@ void CvCentralTreasury::AllocateBudgets(void)
 	int iProvinceCount = m_pPlayer->GetProvinceCount();
 	if (iProvinceCount <= 0) return;
 
-	// Calculate total cities (excluding capital province)
-	int iTotalCities = 0;
-	for (int iProv = 0; iProv < iProvinceCount; iProv++)
+	const int iShare = std::min(100, SuzerainTreasuryDefine("SUZERAIN_TREASURY_DISTRIBUTE_PERCENT"));
+	if (iShare <= 0) return;
+	const int iPool = (int)((long long)m_pPlayer->GetTreasury()->GetGold() * iShare / 100);
+	if (iPool <= 0) return;
+
+	std::vector<long long> weights(iProvinceCount, 0);
+	long long iTotalWeight = 0;
+	for (int iProv = 0; iProv < iProvinceCount; ++iProv)
 	{
 		if (m_pPlayer->IsCapitalProvince(iProv)) continue;
-		iTotalCities += m_pPlayer->GetProvinceCityCount(iProv);
+		int iCities = m_pPlayer->GetProvinceCityCount(iProv);
+		if (iCities <= 0 || m_pPlayer->GetProvinceTreasury(iProv) >= m_pPlayer->GetProvinceTreasuryCap(iProv)) continue;
+		weights[iProv] = (long long)iCities * GetProvincePriorityModifier(iProv);
+		iTotalWeight += weights[iProv];
 	}
-
-	if (iTotalCities <= 0) return;
-
-	// Total national treasury (player's gold)
-	int iTotalRevenue = m_pPlayer->GetTreasury()->GetGold();
-
-	// Each province gets budget proportional to its needs
-	for (int iProv = 0; iProv < iProvinceCount; iProv++)
+	if (iTotalWeight <= 0) return;
+	for (int iProv = 0; iProv < iProvinceCount; ++iProv)
 	{
-		if (m_pPlayer->IsCapitalProvince(iProv)) continue;
-
-		int iBaseBudget = CalculateBaseBudget(iProv, iTotalRevenue, iTotalCities);
-		int iModifierPercent = GetProvincePriorityModifier(iProv);
-		int iFinalBudget = iBaseBudget * iModifierPercent / 100;
-
-		// Budget is informational - provinces accumulate their own treasury
-		// This system ensures rich provinces help poor ones through emergency transfers
+		if (weights[iProv] <= 0) continue;
+		int iBudget = (int)(iPool * weights[iProv] / iTotalWeight);
+		if (iBudget > 0) m_pPlayer->DepositProvinceTreasury(iProv, iBudget);
 	}
-}
-
-// Calculate base budget for a province
-int CvCentralTreasury::CalculateBaseBudget(int iProv, int iTotalRevenue, int iTotalCities)
-{
-	if (m_pPlayer == NULL) return 0;
-
-	int iCities = m_pPlayer->GetProvinceCityCount(iProv);
-	if (iCities <= 0 || iTotalCities <= 0) return 0;
-
-	// Base budget: proportional to city count. The share of the national
-	// treasury available for distribution comes from SQL.
-	int iDistributePercent = SuzerainTreasuryDefine("SUZERAIN_TREASURY_DISTRIBUTE_PERCENT");
-	if (iDistributePercent <= 0) return 0; // distribution not configured
-	int iDistributable = iTotalRevenue * iDistributePercent / 100;
-	return (iDistributable * iCities) / iTotalCities;
 }
 
 // Get province priority modifier in percent (war, border, etc.)
@@ -169,7 +150,7 @@ void CvCentralTreasury::HandleEmergencyTransfers(void)
 	if (iProvinceCount <= 1) return;
 
 	int iRichPercent = SuzerainTreasuryDefine("SUZERAIN_TREASURY_RICH_PERCENT");
-	int iPoorPercent = SuzerainTreasuryDefine("SUZERAIN_TREASURY_POOR_PERCENT");
+	int iPoorPercent = std::min(100, SuzerainTreasuryDefine("SUZERAIN_TREASURY_POOR_PERCENT"));
 	if (iRichPercent <= 0 || iPoorPercent <= 0)
 		return; // transfer thresholds not configured
 
@@ -184,12 +165,14 @@ void CvCentralTreasury::HandleEmergencyTransfers(void)
 		int iTreasury = m_pPlayer->GetProvinceTreasury(iProv);
 		int iCap = m_pPlayer->GetProvinceTreasuryCap(iProv);
 
-		// Rich: above the rich threshold; poor: below the poor threshold
-		if (iTreasury > (iCap * iRichPercent / 100))
+		// Richness is relative to the minimum reserve (the poor threshold).
+		const int iReserve = (int)((long long)iCap * iPoorPercent / 100);
+		if (iCap <= 0 || m_pPlayer->GetProvinceCityCount(iProv) <= 0) continue;
+		if (iTreasury > (long long)iReserve * iRichPercent / 100 && iTreasury > iReserve)
 		{
 			vRichProvinces.push_back(iProv);
 		}
-		else if (iTreasury < (iCap * iPoorPercent / 100))
+		else if (iTreasury < iReserve)
 		{
 			vPoorProvinces.push_back(iProv);
 		}
@@ -201,7 +184,7 @@ void CvCentralTreasury::HandleEmergencyTransfers(void)
 		int iFrom = vRichProvinces[i];
 		int iFromTreasury = m_pPlayer->GetProvinceTreasury(iFrom);
 		int iFromCap = m_pPlayer->GetProvinceTreasuryCap(iFrom);
-		int iSurplus = iFromTreasury - iFromCap;
+		int iSurplus = iFromTreasury - (int)((long long)iFromCap * iPoorPercent / 100);
 
 		if (iSurplus <= 0) continue;
 
@@ -213,7 +196,7 @@ void CvCentralTreasury::HandleEmergencyTransfers(void)
 			int iTo = vPoorProvinces[j];
 			int iToTreasury = m_pPlayer->GetProvinceTreasury(iTo);
 			int iToCap = m_pPlayer->GetProvinceTreasuryCap(iTo);
-			int iDeficit = iToCap - iToTreasury;
+			int iDeficit = (int)((long long)iToCap * iPoorPercent / 100) - iToTreasury;
 
 			if (iDeficit > iBestDeficit)
 			{
@@ -228,7 +211,7 @@ void CvCentralTreasury::HandleEmergencyTransfers(void)
 		if (iBestTo >= 0 && iBestDeficit > 0)
 		{
 			// Transfer amount: a configured share of the surplus, capped by the deficit
-			int iTransfer = std::min(iSurplus * iTransferPercent / 100, iBestDeficit);
+			int iTransfer = std::min((int)((long long)iSurplus * std::min(100, iTransferPercent) / 100), iBestDeficit);
 
 			if (iTransfer > 0)
 			{
@@ -245,7 +228,7 @@ void CvCentralTreasury::HandleEmergencyTransfers(void)
 				// Remove from poor list if now satisfied
 				int iNewBalance = m_pPlayer->GetProvinceTreasury(iBestTo);
 				int iNewCap = m_pPlayer->GetProvinceTreasuryCap(iBestTo);
-				if (iNewBalance >= (iNewCap * iPoorPercent / 100))
+				if (iNewBalance >= (long long)iNewCap * iPoorPercent / 100)
 				{
 					vPoorProvinces.erase(std::remove(vPoorProvinces.begin(), vPoorProvinces.end(), iBestTo), vPoorProvinces.end());
 				}

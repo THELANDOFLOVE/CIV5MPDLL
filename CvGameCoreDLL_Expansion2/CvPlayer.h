@@ -2285,6 +2285,7 @@ public:
 	int GetVassalWonderPoolCount() const;
 	int GetVassalWonderPoolEntry(int iIndex) const;
 	bool CanAddVassalWonderToPool(BuildingTypes eBuilding) const;
+	bool IsVassalWonderAvailable(BuildingTypes eBuilding) const;
 	bool AddVassalWonderToPool(BuildingTypes eBuilding);
 	bool RemoveVassalWonderFromPool(BuildingTypes eBuilding);
 	bool RequestVassalWonder(BuildingTypes eBuilding);
@@ -2405,6 +2406,7 @@ public:
 	bool RemoveProvinceMissionAt(int iProv, int iIndex);
 	void ClearProvinceMission(int iProv);
 	void DoProvinceMissionTurn();
+	void DoProvinceUnitOrders();
 	void DoAIProvinceMissionTurn();
 	// One-click orders: raise raid missions in every province, or rush aid to
 	// every province currently at war.
@@ -3638,6 +3640,9 @@ protected:
 	FAutoVariable<std::vector<int>, CvPlayer> m_aiVassalMemorials;
 	// Court policy: 0 none, 1 military, 2 science, 3 culture, 4 economy
 	FAutoVariable<int, CvPlayer> m_iVassalCourtPolicy;
+	FAutoVariable<int, CvPlayer> m_iCourtPolicyRewardTurn;
+	FAutoVariable<int, CvPlayer> m_iPrayerSubmissionTurn;
+	FAutoVariable<int, CvPlayer> m_iPrayerSubmissions;
 	FAutoVariable<int, CvPlayer> m_iPendingInviteFrom;
 	FAutoVariable<int, CvPlayer> m_iPendingInviteTurn;
 	// Call to arms from the overlord: who ordered it, whom to attack, deadline

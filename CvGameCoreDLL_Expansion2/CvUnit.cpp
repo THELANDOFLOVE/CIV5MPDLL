@@ -32,6 +32,7 @@
 #include <set>
 #include "FStlContainerSerialization.h"
 #include "CvUnitMission.h"
+#include "CvNationalMilitaryDispatcher.h"
 #include "CvUnitCombat.h"
 #include "CvEconomicAI.h"
 #include "CvAchievementUnlocker.h"
@@ -3388,7 +3389,7 @@ bool CvUnit::canDoCommand(CommandTypes eCommand, int iData1, int iData2, bool bT
 		break;
 
 	case COMMAND_STOP_AUTOMATION:
-		if(IsAutomated())
+		if(IsAutomated() || HasProvinceOrder())
 		{
 			return true;
 		}
@@ -3435,6 +3436,13 @@ void CvUnit::doCommand(CommandTypes eCommand, int iData1, int iData2)
 
 	if(canDoCommand(eCommand, iData1, iData2))
 	{
+		if (HasProvinceOrder() && (eCommand == COMMAND_WAKE || eCommand == COMMAND_CANCEL || eCommand == COMMAND_CANCEL_ALL
+			|| eCommand == COMMAND_STOP_AUTOMATION || eCommand == COMMAND_AUTOMATE))
+		{
+			CancelProvinceOrder(true);
+			// Cancellation already cleared the queue; never pop an empty queue.
+			if (eCommand == COMMAND_CANCEL || eCommand == COMMAND_CANCEL_ALL) return;
+		}
 		switch(eCommand)
 		{
 		case COMMAND_PROMOTION:
@@ -29741,6 +29749,22 @@ void CvUnit::SetLevyTarget(int iProvince)
 
 
 //	--------------------------------------------------------------------------------
+bool CvUnit::HasProvinceOrder() const
+{
+	return MOD_GLOBAL_SUZERAIN && (GetProvinceTask() == PROVINCE_TASK_ORDER_RAID
+		|| GetProvinceTask() == PROVINCE_TASK_ORDER_MOVE);
+}
+
+void CvUnit::CancelProvinceOrder(bool bManual)
+{
+	if (!HasProvinceOrder()) return;
+	SetProvinceTask(bManual ? PROVINCE_TASK_PLAYER : PROVINCE_TASK_NONE);
+	SetTaskProvince(-1);
+	SetTaskPriority(0);
+	ClearMissionQueue();
+	SetActivityType(ACTIVITY_AWAKE);
+}
+
 int CvUnit::GetProvinceTask() const
 {
 	VALIDATE_OBJECT
@@ -29855,6 +29879,7 @@ bool CvUnit::ReadyToSelect() const
 bool CvUnit::ReadyToMove() const
 {
 	VALIDATE_OBJECT
+	if (HasProvinceOrder()) return false;
 	if(!canMove())
 	{
 		return false;
@@ -30874,6 +30899,7 @@ void CvUnit::PushMission(MissionTypes eMission, int iData1, int iData2, int iFla
 			if(pPlot != NULL) BatchMove(*pPlot, 1);
 		}
 	}
+	if (bManual) CancelProvinceOrder(true);
 	CvUnitMission::PushMission(this, eMission, iData1, iData2, iFlags, bAppend, bManual, eMissionAI, pMissionAIPlot, pMissionAIUnit);
 }
 

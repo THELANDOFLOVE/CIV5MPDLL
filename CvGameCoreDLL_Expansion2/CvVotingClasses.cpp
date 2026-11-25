@@ -1469,7 +1469,7 @@ void CvActiveResolution::Init()
 {
 }
 
-void CvActiveResolution::DoEffects(PlayerTypes ePlayer)
+void CvActiveResolution::DoEffects(PlayerTypes ePlayer, bool bEnacting)
 {
 	CvPlayer* pPlayer = &GET_PLAYER(ePlayer);
 	CvAssertMsg(pPlayer != NULL, "Player is null when doing effects of an active resolution. Please send Anton your save file and version.");
@@ -1758,17 +1758,20 @@ void CvActiveResolution::DoEffects(PlayerTypes ePlayer)
 
 
 #if defined(MOD_GLOBAL_SUZERAIN)
-	if (GetEffects()->bSubmitSuzerain)
+	if (GetEffects()->bSubmitSuzerain && ePlayer == GetProposerDecision()->GetDecision())
 	{
 		PlayerTypes eOverlord = GetProposerDecision()->GetProposer();
 		PlayerTypes eVassal = (PlayerTypes)GetProposerDecision()->GetDecision();
 		// Guard against invalid decision targets (e.g. a dead or missing player)
-		if (eOverlord != NO_PLAYER && eVassal != NO_PLAYER)
+		if (eOverlord >= 0 && eOverlord < MAX_MAJOR_CIVS && eVassal >= 0 && eVassal < MAX_MAJOR_CIVS)
 		{
 			CvPlayer& kOverlord = GET_PLAYER(eOverlord);
 			CvPlayer& kVassal = GET_PLAYER(eVassal);
-			// If the target is already someone's vassal, skip (first resolution wins)
-			if (kVassal.GetOverlord() == NO_PLAYER)
+			// Rejoining the league only reapplies member effects.
+			if (bEnacting && (!kOverlord.isAlive() || !kVassal.isAlive() || kOverlord.getTeam() == kVassal.getTeam()
+				|| kOverlord.GetOverlord() != NO_PLAYER || kVassal.GetOverlord() != NO_PLAYER || kVassal.HasAnyVassal()))
+				GetEffects()->bSubmitSuzerain = false;
+			if (bEnacting && GetEffects()->bSubmitSuzerain)
 			{
 				// Establish vassal relationship
 				kOverlord.AddVassal(eVassal, 5);
@@ -1781,8 +1784,9 @@ void CvActiveResolution::DoEffects(PlayerTypes ePlayer)
 				{
 					TeamTypes eTeamA = kOverlord.getTeam();
 					TeamTypes eTeamB = kVassal.getTeam();
-					GET_TEAM(eTeamA).setForcePeace(eTeamB, true);
-					GET_TEAM(eTeamB).setForcePeace(eTeamA, true);
+					// The relationship itself bars declarations; treaty flags belong to deals.
+					if (GET_TEAM(eTeamA).isAtWar(eTeamB))
+						GET_TEAM(eTeamA).makePeace(eTeamB, true, false, eOverlord);
 				}
 				// Clear denouncements between overlord and vassal
 				if (GetEffects()->bVassalNoDenounce)
@@ -1832,10 +1836,10 @@ void CvActiveResolution::DoEffects(PlayerTypes ePlayer)
 		}
 	}
 #endif
-	m_iTurnEnacted = GC.getGame().getGameTurn();
+	if (bEnacting) m_iTurnEnacted = GC.getGame().getGameTurn();
 }
 
-void CvActiveResolution::RemoveEffects(PlayerTypes ePlayer)
+void CvActiveResolution::RemoveEffects(PlayerTypes ePlayer, bool bRepealing)
 {
 	CvPlayer* pPlayer = &GET_PLAYER(ePlayer);
 	CvAssertMsg(pPlayer != NULL, "Player is null when doing effects of an active resolution. Please send Anton your save file and version.");
@@ -2013,34 +2017,21 @@ void CvActiveResolution::RemoveEffects(PlayerTypes ePlayer)
 	
 
 #if defined(MOD_GLOBAL_SUZERAIN)
-	if (GetEffects()->bSubmitSuzerain)
+	if (GetEffects()->bSubmitSuzerain && ePlayer == GetProposerDecision()->GetDecision())
 	{
 		PlayerTypes eOverlord = GetProposerDecision()->GetProposer();
 		PlayerTypes eVassal = (PlayerTypes)GetProposerDecision()->GetDecision();
 		// Guard against invalid decision targets (e.g. a dead or missing player)
-		if (eOverlord != NO_PLAYER && eVassal != NO_PLAYER)
+		if (eOverlord >= 0 && eOverlord < MAX_MAJOR_CIVS && eVassal >= 0 && eVassal < MAX_MAJOR_CIVS)
 		{
 			CvPlayer& kOverlord = GET_PLAYER(eOverlord);
 			CvPlayer& kVassal = GET_PLAYER(eVassal);
 			// Only remove if this resolution actually established the relationship
-			if (kVassal.GetOverlord() == eOverlord)
+			if (bRepealing && kVassal.GetOverlord() == eOverlord)
 			{
 				// Remove vassal relationship
 				kOverlord.RemoveVassal(eVassal);
 				kVassal.SetOverlord(NO_PLAYER);
-				// Remove force peace
-				if (GetEffects()->bVassalForcePeace)
-				{
-					TeamTypes eTeamA = kOverlord.getTeam();
-					TeamTypes eTeamB = kVassal.getTeam();
-					GET_TEAM(eTeamA).setForcePeace(eTeamB, false);
-					GET_TEAM(eTeamB).setForcePeace(eTeamA, false);
-				}
-				// Remove UC access acquired from vassals
-				if (GetEffects()->bVassalGetUC)
-				{
-					kOverlord.RefreshUCFromVassals();
-				}
 				// Notify overlord and vassal that the relationship has ended
 				if (kOverlord.isHuman())
 				{
@@ -2078,7 +2069,7 @@ void CvActiveResolution::RemoveEffects(PlayerTypes ePlayer)
 		}
 	}
 #endif
-	m_iTurnEnacted = -1;
+	if (bRepealing) m_iTurnEnacted = -1;
 }
 
 bool CvActiveResolution::HasOngoingEffects()
@@ -3073,12 +3064,10 @@ bool CvLeague::CanProposeEnact(ResolutionTypes eResolution, PlayerTypes ePropose
 
 #if defined(MOD_GLOBAL_SUZERAIN)
 	// Check vassal suzerain resolution conditions
-	if (pInfo->GetVassalTaxPercent() > 0 || pInfo->IsVassalGetUC()
-		|| pInfo->IsVassalTaxScience() || pInfo->IsVassalTaxCulture()
-		|| pInfo->IsVassalTaxFaith() || pInfo->IsVassalTaxGold())
+	if (CvResolutionEffects(eResolution).bSubmitSuzerain)
 	{
 		PlayerTypes eTarget = (PlayerTypes)iChoice;
-		if (eTarget != NO_PLAYER && eTarget != eProposer && eProposer != NO_PLAYER)
+		if (eTarget >= 0 && eTarget < MAX_MAJOR_CIVS && eProposer >= 0 && eProposer < MAX_MAJOR_CIVS && eTarget != eProposer)
 		{
 			CvPlayer& kProposer = GET_PLAYER(eProposer);
 			CvPlayer& kTarget = GET_PLAYER(eTarget);
@@ -3142,8 +3131,13 @@ bool CvLeague::CanProposeEnact(ResolutionTypes eResolution, PlayerTypes ePropose
 				bValid = false;
 			if (iProposerMilitaryMight < (long long)kTarget.GetMilitaryMight() * 2)
 				bValid = false;
-			// Target must not already have an overlord
-			if (kTarget.GetOverlord() != NO_PLAYER)
+			for (uint j = 0; j < m_vEnactProposals.size(); ++j)
+				if (m_vEnactProposals[j].GetEffects()->bSubmitSuzerain && m_vEnactProposals[j].GetProposerDecision()->GetDecision() == iChoice)
+					bValid = false;
+			for (uint j = 0; j < m_vActiveResolutions.size(); ++j)
+				if (m_vActiveResolutions[j].GetEffects()->bSubmitSuzerain && m_vActiveResolutions[j].GetProposerDecision()->GetDecision() == iChoice)
+					bValid = false;
+			if (kTarget.GetOverlord() != NO_PLAYER || kTarget.HasAnyVassal() || kTarget.getTeam() == kProposer.getTeam())
 				bValid = false;
 			// Proposer must not already be a vassal
 			if (kProposer.GetOverlord() != NO_PLAYER)
@@ -3548,52 +3542,7 @@ std::vector<int> CvLeague::GetChoicesForDecision(ResolutionDecisionTypes eDecisi
 		{
 			if (m_vMembers[i].ePlayer != eDecider && !GET_PLAYER(m_vMembers[i].ePlayer).isMinorCiv())
 			{
-#if defined(MOD_GLOBAL_SUZERAIN)
-				PlayerTypes eMember = m_vMembers[i].ePlayer;
-				bool bSkip = false;
-				// Skip players already vassalized or already targeted by a vassalization resolution
-				if (GET_PLAYER(eMember).GetOverlord() != NO_PLAYER)
-				{
-					bSkip = true;
-				}
-				if (!bSkip)
-				{
-					for (uint j = 0; j < m_vEnactProposals.size(); j++)
-					{
-						if (m_vEnactProposals[j].GetEffects()->bSubmitSuzerain &&
-							m_vEnactProposals[j].GetProposerDecision()->GetDecision() == (int)eMember)
-						{
-							bSkip = true;
-							break;
-						}
-					}
-				}
-				if (!bSkip)
-				{
-					CvGameLeagues* pLeagues = GC.getGame().GetGameLeagues();
-					if (pLeagues)
-					{
-						CvLeague* pLeague = pLeagues->GetActiveLeague();
-						if (pLeague)
-						{
-							ActiveResolutionList vRes = pLeague->GetActiveResolutions();
-							for (size_t j = 0; j < vRes.size(); j++)
-							{
-								if (vRes[j].GetEffects()->bSubmitSuzerain &&
-									vRes[j].GetProposerDecision()->GetDecision() == (int)eMember)
-								{
-									bSkip = true;
-									break;
-								}
-							}
-						}
-					}
-				}
-				if (!bSkip)
-#endif
-				{
-					vChoices.push_back(m_vMembers[i].ePlayer);
-				}
+				vChoices.push_back(m_vMembers[i].ePlayer);
 			}
 		}
 		break;
@@ -3742,6 +3691,17 @@ RepealProposalList CvLeague::GetRepealProposalsOnHold() const
 	return m_vRepealProposalsOnHold;
 }
 
+#if defined(MOD_GLOBAL_SUZERAIN)
+void CvLeague::EndVassalSubmission(PlayerTypes eOverlord, PlayerTypes eVassal)
+{
+	for (ActiveResolutionList::iterator it = m_vActiveResolutions.begin(); it != m_vActiveResolutions.end(); ++it)
+	{
+		if (it->GetProposerDecision()->GetProposer() == eOverlord && it->GetProposerDecision()->GetDecision() == eVassal)
+			it->GetEffects()->bSubmitSuzerain = false;
+	}
+}
+#endif
+
 CvActiveResolution* CvLeague::GetActiveResolution(int iResolutionID)
 {
 	for (ActiveResolutionList::iterator it = m_vActiveResolutions.begin(); it != m_vActiveResolutions.end(); ++it)
@@ -3838,7 +3798,7 @@ void CvLeague::RemoveMember(PlayerTypes ePlayer)
 		if (it->ePlayer == ePlayer)
 		{
 			m_vMembers.erase(it);
-			it--;
+			break;
 		}
 	}
 
@@ -6554,7 +6514,7 @@ void CvLeague::CheckResolutionsValid()
 		{
 			for (uint i = 0; i < m_vMembers.size(); i++)
 			{
-				it->RemoveEffects(m_vMembers[i].ePlayer);
+				it->RemoveEffects(m_vMembers[i].ePlayer, true);
 			}
 			m_vActiveResolutions.erase(it);
 			//antonjs: todo: relocate these league-level effects:
@@ -6594,7 +6554,7 @@ void CvLeague::DoEnactResolution(CvEnactProposal* pProposal)
 	CvActiveResolution resolution(pProposal);
 	for (uint i = 0; i < m_vMembers.size(); i++)
 	{
-		resolution.DoEffects(m_vMembers[i].ePlayer);
+		resolution.DoEffects(m_vMembers[i].ePlayer, true);
 	}
 
 	int iGAttackModifier = resolution.GetEffects()->iGlobalAttackModifier;
@@ -6658,7 +6618,7 @@ void CvLeague::DoRepealResolution(CvRepealProposal* pProposal)
 		{
 			for (uint i = 0; i < m_vMembers.size(); i++)
 			{
-				it->RemoveEffects(m_vMembers[i].ePlayer);
+				it->RemoveEffects(m_vMembers[i].ePlayer, true);
 			}
 #if defined(MOD_VOTING_NEW_EFFECT_FOR_SP)
 			int iGAttackModifier = it->GetEffects()->iGlobalAttackModifier;

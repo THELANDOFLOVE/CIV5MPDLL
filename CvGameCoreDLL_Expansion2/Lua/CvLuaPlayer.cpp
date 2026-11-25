@@ -15781,6 +15781,19 @@ int CvLuaPlayer::lResolveDecree(lua_State* L)
 	CvPlayer* pkPlayer = GetInstance(L);
 	const int iIndex = lua_tointeger(L, 2);
 	const bool bAccept = lua_toboolean(L, 3);
+	// Optional snapshot prevents a delayed UI/network reply from answering a different decree.
+	if (lua_gettop(L) >= 7)
+	{
+		if (iIndex < 0 || iIndex >= pkPlayer->GetPendingDecreeCount()
+			|| pkPlayer->GetPendingDecreeField(iIndex, 0) != lua_tointeger(L, 4)
+			|| pkPlayer->GetPendingDecreeField(iIndex, 1) != lua_tointeger(L, 5)
+			|| pkPlayer->GetPendingDecreeField(iIndex, 2) + GC.getGame().getGameTurn() != lua_tointeger(L, 6)
+			|| pkPlayer->GetPendingDecreeField(iIndex, 3) != lua_tointeger(L, 7))
+		{
+			lua_pushboolean(L, false);
+			return 1;
+		}
+	}
 	lua_pushboolean(L, pkPlayer->ResolveDecree(iIndex, bAccept));
 	return 1;
 }

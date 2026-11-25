@@ -185,6 +185,8 @@ public:
 	int GetLevyTarget() const;
 	void SetLevyTarget(int iProvince);
 	// New task system accessors
+	bool HasProvinceOrder() const;
+	void CancelProvinceOrder(bool bManual);
 	int GetProvinceTask() const;
 	void SetProvinceTask(int iTask);
 	int GetTaskProvince() const;

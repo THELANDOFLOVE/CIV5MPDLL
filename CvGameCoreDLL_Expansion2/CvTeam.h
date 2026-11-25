@@ -64,11 +64,11 @@ public:
 
 	bool canChangeWarPeace(TeamTypes eTeam) const;
 #if defined(MOD_EVENTS_WAR_AND_PEACE)
-	bool canDeclareWar(TeamTypes eTeam, PlayerTypes eOriginatingPlayer) const;
+	bool canDeclareWar(TeamTypes eTeam, PlayerTypes eOriginatingPlayer, bool bIgnoreVassalRelation = false) const;
 	void declareWar(TeamTypes eTeam, bool bDefensivePact, PlayerTypes eOriginatingPlayer);
 	void makePeace(TeamTypes eTeam, bool bBumpUnits, bool bSuppressNotification, PlayerTypes eOriginatingPlayer);
 #else
-	bool canDeclareWar(TeamTypes eTeam) const;
+	bool canDeclareWar(TeamTypes eTeam, bool bIgnoreVassalRelation = false) const;
 	void declareWar(TeamTypes eTeam, bool bDefensivePact = false);
 	void makePeace(TeamTypes eTeam, bool bBumpUnits = true, bool bSuppressNotification = false);
 #endif
